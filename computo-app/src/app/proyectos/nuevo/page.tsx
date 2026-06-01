@@ -546,20 +546,22 @@ export default function NuevoProyectoPage() {
                 <p className="text-sm text-slate-400">Revisá los datos antes de crear el proyecto</p>
               </div>
 
+              {/* Resumen de datos */}
               <div className="bg-white rounded-[16px] border border-slate-300 overflow-hidden shadow-sm">
                 <div className="p-5 border-b border-slate-200">
-                  <h3 className="font-bold text-[#1A3A5C]">{form.nombre || "Sin nombre"}</h3>
-                  <p className="text-sm text-slate-400 mt-0.5">
-                    {form.cliente || "Sin cliente"} · {TIPOS_OBRA.find((t) => t.id === form.tipo)?.label}
-                  </p>
+                  <h3 className="font-bold text-[#1A3A5C] text-base">{form.nombre || "Sin nombre"}</h3>
                 </div>
 
                 <div className="grid grid-cols-2 divide-x divide-y divide-slate-100">
                   {[
-                    { label: "Moneda",    value: form.moneda },
-                    { label: "Área",      value: form.area ? `${form.area} m²` : "—" },
-                    { label: "Dirección", value: form.direccion || "—" },
-                    { label: "Inicio",    value: form.fechaInicio ? new Date(form.fechaInicio).toLocaleDateString("es-UY") : "—" },
+                    { label: "Proyecto",      value: form.nombre || "—" },
+                    { label: "Tipo de obra",  value: TIPOS_OBRA.find((t) => t.id === form.tipo)?.label ?? "—" },
+                    { label: "Moneda",        value: form.moneda },
+                    { label: "Área",          value: form.area ? `${form.area} m²` : "—" },
+                    { label: "Dirección",     value: form.direccion || "—" },
+                    { label: "Inicio",        value: form.fechaInicio ? new Date(form.fechaInicio).toLocaleDateString("es-UY") : "—" },
+                    { label: "Plazo",         value: form.plazoMeses ? `${form.plazoMeses} meses` : "—" },
+                    { label: "Cliente",       value: form.cliente || "—" },
                   ].map(({ label, value }) => (
                     <div key={label} className="px-5 py-3.5">
                       <p className="text-xs text-slate-400 mb-0.5">{label}</p>
@@ -567,31 +569,23 @@ export default function NuevoProyectoPage() {
                     </div>
                   ))}
                 </div>
+              </div>
 
-                <div className="p-5 border-t border-slate-100">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-3">
-                    {capitularActivos.length} Capítulos
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {capitularActivos.map((c) => (
-                      <span
-                        key={c.id}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border"
-                        style={{ color: c.color, borderColor: c.color + "40", background: c.color + "12" }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.color }} />
-                        {c.nombre}
+              {/* Capítulos como lista numerada */}
+              <div className="bg-white rounded-[16px] border border-slate-300 p-5 shadow-sm">
+                <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-4">
+                  {capitularActivos.length} capítulos
+                </p>
+                <div className="space-y-2">
+                  {capitularActivos.map((c, i) => (
+                    <div key={c.id} className="flex items-center gap-3">
+                      <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: "#2563EB" }}>
+                        {String(i + 1).padStart(2, "0")}
                       </span>
-                    ))}
-                  </div>
+                      <span className="text-sm text-[#1E293B]">{c.nombre}</span>
+                    </div>
+                  ))}
                 </div>
-
-                {form.descripcion && (
-                  <div className="px-5 pb-5 border-t border-slate-100 pt-4">
-                    <p className="text-xs text-slate-400 mb-1">Descripción</p>
-                    <p className="text-sm text-slate-600">{form.descripcion}</p>
-                  </div>
-                )}
               </div>
 
               {modoCompleto && (
@@ -668,10 +662,7 @@ export default function NuevoProyectoPage() {
                 Creando...
               </>
             ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                Crear proyecto
-              </>
+              "Crear proyecto"
             )}
           </button>
         )}
