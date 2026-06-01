@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Empresa {
+  id        String    @id @default(cuid())
+  nombre    String
+  rut       String    @unique
+  logo      String?
+  matricula String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  proyectos Proyecto[]
+}
+
+model Proyecto {
+  id          String        @id @default(cuid())
+  nombre      String
+  cliente     String?
+  moneda      String        @default("UYU")
+  tipo        String        @default("VIVIENDA")
+  estado      String        @default("BORRADOR")
+  descripcion String?
+  fechaInicio DateTime?
+  empresaId   String?
+  empresa     Empresa?      @relation(fields: [empresaId], references: [id])
+  capitulos   Capitulo[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Capitulo {
+  id         String    @id @default(cuid())
+  nombre     String
+  codigo     String
+  color      String    @default("#2563EB")
+  orden      Int       @default(0)
+  proyectoId String
+  proyecto   Proyecto  @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  rubros     Rubro[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Rubro {
+  id              String     @id @default(cuid())
+  codigo          String
+  descripcion     String
+  unidad          String
+  cantidad        Float      @default(0)
+  precioUnitario  Float      @default(0)
+  tipo            String     @default("GLOBAL")
+  capituloId      String
+  capitulo        Capitulo   @relation(fields: [capituloId], references: [id], onDelete: Cascade)
+  recetaId        String?
+  receta          Receta?    @relation(fields: [recetaId], references: [id])
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model Receta {
+  id          String              @id @default(cuid())
+  nombre      String
+  descripcion String?
+  unidad      String
+  componentes RecetaComponente[]
+  rubros      Rubro[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model RecetaComponente {
+  id        String   @id @default(cuid())
+  material  String
+  unidad    String
+  cantidad  Float
+  precio    Float
+  recetaId  String
+  receta    Receta   @relation(fields: [recetaId], references: [id], onDelete: Cascade)
+}
+
+model CategoriaLaboral {
+  id         String   @id @default(cuid())
+  nombre     String
+  categoria  String
+  jornal     Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Configuracion {
+  id           String   @id @default(cuid())
+  jornalBase   Float    @default(0)
+  aportesBPS   Float    @default(0.785)
+  margenEmpresa Float   @default(0.20)
+  margenImprevistos Float @default(0.05)
+  iva          Float    @default(0.22)
+  monedaDefault String  @default("UYU")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
