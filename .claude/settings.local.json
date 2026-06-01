@@ -16,7 +16,11 @@
       "Bash(where python *)",
       "Bash(where python3 *)",
       "Bash(where pandoc *)",
-      "Bash(ping -n 4 127.0.0.1)"
+      "Bash(ping -n 4 127.0.0.1)",
+      "Bash(node -e ' *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }
