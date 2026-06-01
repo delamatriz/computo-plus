@@ -32,7 +32,7 @@ const navItems = [
     section: "Presupuestación",
     items: [
       { href: "/rubros", icon: Layers, label: "Rubros" },
-      { href: "/recetas", icon: BookOpen, label: "Recetas y APU" },
+      { href: "/recetas", icon: BookOpen, label: "Descompuestos" },
       { href: "/categorias", icon: HardHat, label: "Mano de Obra" },
     ],
   },

@@ -48,7 +48,7 @@ export function Header() {
           {[
             { href: "/dashboard", label: "Proyectos" },
             { href: "/rubros", label: "Rubros" },
-            { href: "/recetas", label: "Recetas" },
+            { href: "/recetas", label: "Descompuestos" },
             { href: "/configuracion", label: "Configuración" },
           ].map((item) => (
             <Link

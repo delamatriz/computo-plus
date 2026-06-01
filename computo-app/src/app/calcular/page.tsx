@@ -1,16 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap,
-  ArrowRight,
   Calculator,
   Download,
   FolderPlus,
   ChevronDown,
-  Info,
   RotateCcw,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
@@ -18,17 +15,18 @@ import { cn } from "@/lib/utils";
 
 /* ─── Datos de referencia ─────────────────────────────────── */
 const TIPOS_OBRA = [
-  { id: "vivienda",   label: "Vivienda unifamiliar",   emoji: "🏠" },
-  { id: "apartamento",label: "Apartamento",             emoji: "🏢" },
-  { id: "comercial",  label: "Local comercial",         emoji: "🏪" },
-  { id: "industrial", label: "Galpón / Industrial",     emoji: "🏭" },
-  { id: "reforma",    label: "Reforma / Ampliación",    emoji: "🔨" },
+  { id: "reparaciones", label: "Reparaciones" },
+  { id: "reforma",      label: "Reforma / Ampliación" },
+  { id: "vivienda",     label: "Vivienda unifamiliar" },
+  { id: "ph",           label: "Propiedad Horizontal" },
+  { id: "comercial",    label: "Local comercial" },
+  { id: "industrial",   label: "Industrial" },
 ];
 
 const CALIDADES = [
-  { id: "basica",    label: "Básica",   desc: "Terminaciones sencillas, materiales económicos" },
-  { id: "estandar",  label: "Estándar", desc: "Buen nivel, materiales de media gama" },
-  { id: "premium",   label: "Premium",  desc: "Alta terminación, materiales de primera línea" },
+  { id: "basica",   label: "Económica" },
+  { id: "estandar", label: "Media" },
+  { id: "premium",  label: "Alta" },
 ];
 
 const ZONAS = [
@@ -37,43 +35,42 @@ const ZONAS = [
   { id: "costa",      label: "Costa / Punta del Este" },
 ];
 
-/* Precio base en USD/m² según tipo y calidad */
 const PRECIOS_BASE: Record<string, Record<string, number>> = {
-  vivienda:    { basica: 480,  estandar: 750,  premium: 1150 },
-  apartamento: { basica: 520,  estandar: 800,  premium: 1250 },
-  comercial:   { basica: 420,  estandar: 650,  premium: 980  },
-  industrial:  { basica: 280,  estandar: 420,  premium: 620  },
-  reforma:     { basica: 220,  estandar: 370,  premium: 580  },
+  reparaciones: { basica: 200,  estandar: 350,  premium: 500  },
+  reforma:      { basica: 350,  estandar: 550,  premium: 800  },
+  vivienda:     { basica: 550,  estandar: 750,  premium: 1100 },
+  ph:           { basica: 600,  estandar: 800,  premium: 1200 },
+  comercial:    { basica: 500,  estandar: 700,  premium: 1000 },
+  industrial:   { basica: 300,  estandar: 450,  premium: 650  },
 };
 
-/* Multiplicador por zona */
 const ZONA_MULT: Record<string, number> = {
   montevideo: 1.0,
   interior:   0.88,
   costa:      1.18,
 };
 
-/* Distribución por capítulo (% del total) */
 const CAPITULOS = [
-  { nombre: "Trabajos preliminares", pct: 0.03, color: "#94A3B8" },
-  { nombre: "Estructura y fundaciones", pct: 0.22, color: "#2563EB" },
-  { nombre: "Mampostería y muros", pct: 0.14, color: "#3B82F6" },
-  { nombre: "Cubierta y azotea", pct: 0.09, color: "#1D4ED8" },
-  { nombre: "Inst. hidrosanitarias", pct: 0.09, color: "#10B981" },
-  { nombre: "Inst. eléctricas", pct: 0.08, color: "#F59E0B" },
-  { nombre: "Revestimientos y pisos", pct: 0.13, color: "#8B5CF6" },
-  { nombre: "Carpintería", pct: 0.09, color: "#EC4899" },
-  { nombre: "Pintura y terminaciones", pct: 0.06, color: "#06B6D4" },
-  { nombre: "Imprevistos y varios", pct: 0.07, color: "#64748B" },
+  { nombre: "Trabajos preliminares",    pct: 0.03, color: "#BFDBFE" },
+  { nombre: "Estructura y fundaciones", pct: 0.22, color: "#1A3A5C" },
+  { nombre: "Mampostería y muros",      pct: 0.14, color: "#2563EB" },
+  { nombre: "Cubierta y azotea",        pct: 0.09, color: "#1D4ED8" },
+  { nombre: "Inst. hidrosanitarias",    pct: 0.09, color: "#3B82F6" },
+  { nombre: "Inst. eléctricas",         pct: 0.08, color: "#60A5FA" },
+  { nombre: "Revestimientos y pisos",   pct: 0.13, color: "#93C5FD" },
+  { nombre: "Carpintería",              pct: 0.09, color: "#DBEAFE" },
+  { nombre: "Pintura y terminaciones",  pct: 0.06, color: "#EFF6FF" },
+  { nombre: "Imprevistos y varios",     pct: 0.07, color: "#CBD5E1" },
 ];
 
-const TCU = 42.5; // Tipo de cambio orientativo UYU/USD
+const TCU = 42.5;
 
 export default function CalcularPage() {
   const [tipo, setTipo]       = useState("vivienda");
   const [calidad, setCalidad] = useState("estandar");
+  const areaRef = useRef<HTMLInputElement>(null);
   const [zona, setZona]       = useState("montevideo");
-  const [area, setArea]       = useState<string>("120");
+  const [area, setArea]       = useState<string>("");
   const [moneda, setMoneda]   = useState<"USD" | "UYU">("USD");
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
 
@@ -95,7 +92,7 @@ export default function CalcularPage() {
       : `$ ${Math.round(v).toLocaleString("es-UY")}`;
 
   return (
-    <div className="min-h-full bg-bg-base flex flex-col">
+    <div className="min-h-full flex flex-col" style={{ background: "#F0F4F8" }}>
       <Header />
 
       <div className="max-w-6xl mx-auto w-full px-6 py-10 flex-1">
@@ -106,23 +103,12 @@ export default function CalcularPage() {
           transition={{ duration: 0.3 }}
           className="mb-8"
         >
-          <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-9 h-9 rounded-[10px] bg-amber-50 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-amber-500" strokeWidth={2} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-text-primary leading-tight">
-                Cálculo Rápido
-              </h1>
-              <p className="text-sm text-text-muted">
-                Estimación orientativa · sin registro
-              </p>
-            </div>
-          </div>
-          <div className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
-            <Info className="w-3 h-3" />
-            Los valores son orientativos basados en promedios del mercado uruguayo (2025)
-          </div>
+          <h1 className="text-xl font-bold text-[#1A3A5C] mb-1">
+            Cálculo Rápido
+          </h1>
+          <p className="text-sm text-slate-400">
+            Valores orientativos basados en promedios del mercado uruguayo (2025)
+          </p>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6">
@@ -135,24 +121,25 @@ export default function CalcularPage() {
             className="space-y-5"
           >
             {/* Tipo de obra */}
-            <div className="bg-bg-card rounded-[14px] border border-border p-5"
-              style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06)" }}>
+            <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
               <label className="block text-sm font-semibold text-text-primary mb-3">
                 Tipo de obra
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {TIPOS_OBRA.map((t) => (
                   <button
                     key={t.id}
-                    onClick={() => setTipo(t.id)}
+                    onClick={() => {
+                      setTipo(t.id);
+                      setTimeout(() => areaRef.current?.focus(), 50);
+                    }}
                     className={cn(
-                      "flex items-center gap-2.5 px-3.5 py-2.5 rounded-[10px] border text-sm font-medium transition-all text-left",
+                      "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium transition-all text-center",
                       tipo === t.id
-                        ? "border-brand-accent bg-brand-pale text-brand-accent"
-                        : "border-border text-text-secondary hover:border-brand-muted hover:bg-brand-pale/40"
+                        ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                        : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
                     )}
                   >
-                    <span className="text-base">{t.emoji}</span>
                     {t.label}
                   </button>
                 ))}
@@ -160,48 +147,42 @@ export default function CalcularPage() {
             </div>
 
             {/* Área */}
-            <div className="bg-bg-card rounded-[14px] border border-border p-5"
-              style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06)" }}>
+            <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
               <label className="block text-sm font-semibold text-text-primary mb-3">
                 Área a construir
               </label>
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1 max-w-[200px]">
+              <div className="flex items-center gap-4">
+                <div className="relative w-[180px] flex-shrink-0">
                   <input
+                    ref={areaRef}
                     type="number"
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
                     min={1}
-                    max={9999}
-                    placeholder="120"
-                    className="w-full px-4 py-3 rounded-[10px] border border-border bg-bg-base text-lg font-bold text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20 transition-all text-center pr-12"
+                    step={0.5}
+                    max={99999}
+                    placeholder="ej: 120"
+                    className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-lg font-bold text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all text-center pr-12"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-text-muted font-medium">
                     m²
                   </span>
                 </div>
-                <div className="flex gap-1.5">
-                  {[50, 100, 200, 500].map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => setArea(String(v))}
-                      className={cn(
-                        "px-3 py-2 rounded-[8px] text-sm font-medium border transition-all",
-                        area === String(v)
-                          ? "border-brand-accent bg-brand-pale text-brand-accent"
-                          : "border-border text-text-muted hover:border-brand-muted hover:text-text-secondary"
-                      )}
-                    >
-                      {v}
-                    </button>
-                  ))}
+                <div>
+                  <p className="text-xs text-slate-400">
+                    Superficie total a construir o intervenir
+                  </p>
+                  {tipo && (
+                    <p className="text-xs mt-0.5 font-medium" style={{ color: "#2563EB" }}>
+                      Referencia: ~U$S {(PRECIOS_BASE[tipo]?.[calidad] ?? 0).toLocaleString("es-UY")}/m²
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Calidad */}
-            <div className="bg-bg-card rounded-[14px] border border-border p-5"
-              style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06)" }}>
+            <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
               <label className="block text-sm font-semibold text-text-primary mb-3">
                 Nivel de terminación
               </label>
@@ -211,79 +192,73 @@ export default function CalcularPage() {
                     key={c.id}
                     onClick={() => setCalidad(c.id)}
                     className={cn(
-                      "p-3.5 rounded-[10px] border text-left transition-all",
+                      "py-3 rounded-[10px] border text-sm font-semibold transition-all text-center",
                       calidad === c.id
-                        ? "border-brand-accent bg-brand-pale"
-                        : "border-border hover:border-brand-muted"
+                        ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                        : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
                     )}
                   >
-                    <p className={cn(
-                      "text-sm font-semibold mb-0.5",
-                      calidad === c.id ? "text-brand-accent" : "text-text-primary"
-                    )}>
-                      {c.label}
-                    </p>
-                    <p className="text-xs text-text-muted leading-snug">{c.desc}</p>
+                    {c.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Zona y moneda */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-bg-card rounded-[14px] border border-border p-5"
-                style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06)" }}>
-                <label className="block text-sm font-semibold text-text-primary mb-3">
-                  Zona
-                </label>
-                <div className="space-y-1.5">
-                  {ZONAS.map((z) => (
-                    <button
-                      key={z.id}
-                      onClick={() => setZona(z.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 rounded-[8px] text-sm transition-all text-left",
-                        zona === z.id
-                          ? "bg-brand-pale text-brand-accent font-semibold"
-                          : "text-text-secondary hover:bg-bg-base"
-                      )}
-                    >
-                      <span className={cn(
-                        "w-2 h-2 rounded-full flex-shrink-0",
-                        zona === z.id ? "bg-brand-accent" : "bg-border"
-                      )} />
-                      {z.label}
-                    </button>
-                  ))}
+            {/* Zona y moneda — una sola tarjeta */}
+            <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-text-primary mb-3">
+                    Zona
+                  </label>
+                  <div className="space-y-1.5">
+                    {ZONAS.map((z) => (
+                      <button
+                        key={z.id}
+                        onClick={() => setZona(z.id)}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-3 py-2 rounded-[8px] text-sm transition-all text-left",
+                          zona === z.id
+                            ? "bg-blue-50 text-[#2563EB] font-semibold"
+                            : "text-slate-500 hover:bg-slate-50"
+                        )}
+                      >
+                        <span className={cn(
+                          "w-2 h-2 rounded-full flex-shrink-0",
+                          zona === z.id ? "bg-[#2563EB]" : "bg-slate-300"
+                        )} />
+                        {z.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div className="bg-bg-card rounded-[14px] border border-border p-5"
-                style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06)" }}>
-                <label className="block text-sm font-semibold text-text-primary mb-3">
-                  Moneda
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["USD", "UYU"] as const).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setMoneda(m)}
-                      className={cn(
-                        "py-3 rounded-[10px] border text-sm font-bold transition-all",
-                        moneda === m
-                          ? "border-brand-accent bg-brand-pale text-brand-accent"
-                          : "border-border text-text-muted hover:border-brand-muted"
-                      )}
-                    >
-                      {m === "USD" ? "U$S" : "$ UYU"}
-                    </button>
-                  ))}
+                <div>
+                  <label className="block text-sm font-semibold text-text-primary mb-3">
+                    Moneda
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["USD", "UYU"] as const).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setMoneda(m)}
+                        className={cn(
+                          "py-3 rounded-[10px] border text-sm font-bold transition-all",
+                          moneda === m
+                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                            : "border-slate-300 text-slate-600 hover:border-slate-400"
+                        )}
+                      >
+                        {m === "USD" ? "U$S" : "$ UYU"}
+                      </button>
+                    ))}
+                  </div>
+                  {moneda === "UYU" && (
+                    <p className="text-xs text-text-muted mt-2">
+                      TC ref.: $ {TCU}/dólar
+                    </p>
+                  )}
                 </div>
-                {moneda === "UYU" && (
-                  <p className="text-xs text-text-muted mt-2">
-                    TC ref.: $ {TCU}/dólar
-                  </p>
-                )}
               </div>
             </div>
           </motion.div>
@@ -297,10 +272,9 @@ export default function CalcularPage() {
           >
             {/* Card total */}
             <div
-              className="bg-brand-deep rounded-[16px] p-6 relative overflow-hidden"
+              className="bg-[#1A3A5C] rounded-[16px] p-6 relative overflow-hidden"
               style={{ boxShadow: "0 8px 32px 0 rgb(26 58 92 / 0.25)" }}
             >
-              {/* Decoración de fondo */}
               <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/5" />
               <div className="absolute -right-4 top-12 w-16 h-16 rounded-full bg-white/5" />
 
@@ -419,7 +393,7 @@ export default function CalcularPage() {
                               <div className="flex items-center gap-2 min-w-0">
                                 <span
                                   className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                                  style={{ background: c.color }}
+                                  style={{ background: c.color, border: "1px solid #e2e8f0" }}
                                 />
                                 <span className="text-sm text-text-secondary truncate">
                                   {c.nombre}
@@ -460,15 +434,15 @@ export default function CalcularPage() {
               >
                 <Link
                   href={`/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&calidad=${calidad}`}
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] bg-brand-accent hover:bg-brand-light text-white font-semibold text-sm transition-colors"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm transition-colors"
                   style={{ boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.3)" }}
                 >
-                  <FolderPlus className="w-4.5 h-4.5" />
+                  <FolderPlus className="w-4 h-4" />
                   Convertir en proyecto real
                 </Link>
 
-                <button className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-border text-text-secondary hover:text-text-primary hover:border-brand-muted font-medium text-sm transition-colors bg-bg-card">
-                  <Download className="w-4.5 h-4.5" />
+                <button className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-border text-text-secondary hover:text-text-primary hover:border-slate-300 font-medium text-sm transition-colors bg-bg-card">
+                  <Download className="w-4 h-4" />
                   Exportar estimación en PDF
                 </button>
 
@@ -477,7 +451,7 @@ export default function CalcularPage() {
                     setTipo("vivienda");
                     setCalidad("estandar");
                     setZona("montevideo");
-                    setArea("120");
+                    setArea("");
                     setMoneda("USD");
                   }}
                   className="flex items-center justify-center gap-2 w-full py-2 text-text-muted hover:text-text-secondary text-sm transition-colors"
@@ -488,13 +462,6 @@ export default function CalcularPage() {
               </motion.div>
             )}
 
-            {/* Aviso profesional */}
-            <div className="text-xs text-text-muted leading-relaxed p-4 bg-bg-base rounded-[10px] border border-border">
-              <strong className="text-text-secondary">Importante:</strong> Esta estimación
-              es orientativa. Los valores reales dependen de especificaciones técnicas,
-              proveedores, y condiciones del terreno. Para un presupuesto preciso, creá
-              un proyecto completo con rubros detallados.
-            </div>
           </motion.div>
         </div>
       </div>

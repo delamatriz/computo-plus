@@ -167,7 +167,7 @@ const ACCESOS_RAPIDOS = [
   },
   {
     icon: Building2,
-    label: "Recetas APU",
+    label: "Descompuestos",
     desc: "Análisis de precios unitarios",
     href: "/recetas",
     color: "#8B5CF6",

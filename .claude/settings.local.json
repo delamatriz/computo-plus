@@ -20,7 +20,10 @@
       "Bash(node -e ' *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git submodule *)",
+      "Bash(rm -rf \"C:\\\\Users\\\\Pc\\\\Documents\\\\MIS DOCUMENTOS\\\\COMPUTO+\\\\computo-app\\\\.git\")",
+      "Bash(git rm *)"
     ]
   }
 }
