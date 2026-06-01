@@ -23,9 +23,11 @@ interface FormData {
   telefono: string;
   correo: string;
   direccion: string;
+  trabajos: string;
   moneda: "UYU" | "USD";
   area: string;
   fechaInicio: string;
+  plazoMeses: string;
   descripcion: string;
   capitulos: Capitulo[];
 }
@@ -54,12 +56,19 @@ const CAPITULOS_SUGERIDOS: Record<string, Array<{ nombre: string; color: string 
     { nombre: "Estructura",                      color: "#2563EB" },
     { nombre: "Mampostería y muros",             color: "#3B82F6" },
     { nombre: "Cubierta",                        color: "#1D4ED8" },
-    { nombre: "Instalación sanitaria",           color: "#10B981" },
-    { nombre: "Instalación eléctrica",           color: "#F59E0B" },
+    { nombre: "Revoques y enlucidos",            color: "#60A5FA" },
     { nombre: "Revestimientos y pisos",          color: "#8B5CF6" },
     { nombre: "Carpintería",                     color: "#EC4899" },
-    { nombre: "Pintura y terminaciones",         color: "#06B6D4" },
-    { nombre: "Paisajismo y exteriores",         color: "#22C55E" },
+    { nombre: "Instalación sanitaria",           color: "#10B981" },
+    { nombre: "Instalación eléctrica",           color: "#F59E0B" },
+    { nombre: "Instalación de gas",              color: "#F97316" },
+    { nombre: "Instalaciones embutidas",         color: "#A78BFA" },
+    { nombre: "Calefacción",                     color: "#EF4444" },
+    { nombre: "Pintura",                         color: "#06B6D4" },
+    { nombre: "Vidriería",                       color: "#22D3EE" },
+    { nombre: "Herrería y metálica",             color: "#6B7280" },
+    { nombre: "Obras exteriores y paisajismo",   color: "#22C55E" },
+    { nombre: "Honorarios profesionales",        color: "#1A3A5C" },
     { nombre: "Imprevistos",                     color: "#64748B" },
   ],
   REFORMA: [
@@ -116,9 +125,11 @@ export default function NuevoProyectoPage() {
     telefono: "",
     correo: "",
     direccion: "",
+    trabajos: "",
     moneda: "USD",
     area: searchParams.get("area") ?? "",
     fechaInicio: "",
+    plazoMeses: "",
     descripcion: "",
     capitulos: [],
   });
@@ -324,6 +335,16 @@ export default function NuevoProyectoPage() {
                   />
                 </Field>
 
+                <Field label="Descripción / Trabajos a realizar">
+                  <textarea
+                    value={form.trabajos}
+                    onChange={(e) => set("trabajos", e.target.value)}
+                    placeholder="Describí brevemente los trabajos a realizar: construcción, reforma, instalaciones, terminaciones..."
+                    rows={4}
+                    className={cn(inputCls, "resize-none")}
+                  />
+                </Field>
+
                 <Field label="Otros datos">
                   <textarea
                     value={form.descripcion}
@@ -393,6 +414,22 @@ export default function NuevoProyectoPage() {
                   </Field>
                 </div>
 
+                <Field label="Plazo de obra (meses)">
+                  <div className="relative max-w-[160px]">
+                    <input
+                      type="number"
+                      value={form.plazoMeses}
+                      onChange={(e) => set("plazoMeses", e.target.value)}
+                      placeholder="ej: 8"
+                      min={1}
+                      className={inputCls}
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">
+                      meses
+                    </span>
+                  </div>
+                </Field>
+
                 {modoCompleto && (
                   <div className="p-3.5 rounded-[10px] bg-blue-50 border border-blue-200 flex items-start gap-2.5">
                     <Sparkles className="w-4 h-4 text-[#2563EB] mt-0.5 flex-shrink-0" />
@@ -456,7 +493,9 @@ export default function NuevoProyectoPage() {
                             cap.activo ? "border-slate-200 bg-slate-50" : "border-slate-100 bg-slate-50/50 opacity-50"
                           )}
                         >
-                          <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: cap.color }} />
+                          <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: cap.activo ? "#2563EB" : "#94A3B8" }}>
+                            {String(idx + 1).padStart(2, "0")}
+                          </span>
                           <input
                             type="text"
                             value={cap.nombre}
