@@ -8,99 +8,229 @@ datasource db {
 }
 
 model Empresa {
-  id        String    @id @default(cuid())
+  id        String     @id @default(cuid())
   nombre    String
-  rut       String    @unique
+  rut       String     @unique
   logo      String?
   matricula String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   proyectos Proyecto[]
 }
 
 model Proyecto {
-  id          String        @id @default(cuid())
+  id          String     @id @default(cuid())
   nombre      String
   cliente     String?
-  moneda      String        @default("UYU")
-  tipo        String        @default("VIVIENDA")
-  estado      String        @default("BORRADOR")
+  moneda      String     @default("UYU")
+  tipo        String     @default("VIVIENDA")
+  estado      String     @default("BORRADOR")
   descripcion String?
   fechaInicio DateTime?
+  area        Float?
+  direccion   String?
   empresaId   String?
-  empresa     Empresa?      @relation(fields: [empresaId], references: [id])
+  empresa     Empresa?   @relation(fields: [empresaId], references: [id])
   capitulos   Capitulo[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  leyesSociales LeyesSociales?
+  certificaciones Certificacion[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model LeyesSociales {
+  id         String   @id @default(cuid())
+  proyectoId String   @unique
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  // Configuración del tipo de obra
+  tipoContratante String @default("empresa") // "empresa" | "propietario_directo"
+
+  // Monto imponible base (calculado desde APUs, editable)
+  montoImponibleMO Float @default(0)
+
+  // Porcentajes — con valores default Uruguay 2025
+  // AUC (propietario)
+  aucPct Float @default(0.714) // 71.4% — Código 2
+
+  // Empresa — aportes patronales
+  focerPatronalPct Float @default(0.075) // 7.5% — Código 145
+  fscFocapPct      Float @default(0.010) // 1.0% — Código 34
+  fosvocPct        Float @default(0.005) // 0.5% — Código 43
+  frlPct           Float @default(0.002) // 0.2% — Código 47
+  fondoGarantiaPct Float @default(0.005) // 0.5% — Código 49
+  snisAdicionalPct Float @default(0.005) // 0.5% — Código 108
+
+  // Empresa — aporte personal (descuento al obrero, la empresa lo retiene)
+  focerPersonalPct Float @default(0.030) // 3.0% — Código 146
+
+  updatedAt DateTime @updatedAt
 }
 
 model Capitulo {
-  id         String    @id @default(cuid())
-  nombre     String
-  codigo     String
-  color      String    @default("#2563EB")
-  orden      Int       @default(0)
-  proyectoId String
-  proyecto   Proyecto  @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-  rubros     Rubro[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-}
-
-model Rubro {
-  id              String     @id @default(cuid())
-  codigo          String
-  descripcion     String
-  unidad          String
-  cantidad        Float      @default(0)
-  precioUnitario  Float      @default(0)
-  tipo            String     @default("GLOBAL")
-  capituloId      String
-  capitulo        Capitulo   @relation(fields: [capituloId], references: [id], onDelete: Cascade)
-  recetaId        String?
-  receta          Receta?    @relation(fields: [recetaId], references: [id])
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-}
-
-model Receta {
-  id          String              @id @default(cuid())
-  nombre      String
-  descripcion String?
-  unidad      String
-  componentes RecetaComponente[]
-  rubros      Rubro[]
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-}
-
-model RecetaComponente {
-  id        String   @id @default(cuid())
-  material  String
-  unidad    String
-  cantidad  Float
-  precio    Float
-  recetaId  String
-  receta    Receta   @relation(fields: [recetaId], references: [id], onDelete: Cascade)
-}
-
-model CategoriaLaboral {
   id         String   @id @default(cuid())
   nombre     String
-  categoria  String
-  jornal     Float
+  codigo     String
+  color      String   @default("#2563EB")
+  orden      Int      @default(0)
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  rubros     Rubro[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
 
+model Rubro {
+  id          String   @id @default(cuid())
+  codigo      String
+  descripcion String
+  unidad      String
+  cantidad    Float    @default(0)
+  precioUnit  Float    @default(0)
+  tipo        String   @default("GLOBAL")
+  capituloId  String
+  capitulo    Capitulo @relation(fields: [capituloId], references: [id], onDelete: Cascade)
+  apu         APU?
+  certificacionItems CertificacionItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model APU {
+  id                 String        @id @default(cuid())
+  gastosGeneralesPct Float         @default(15)
+  utilidadPct        Float         @default(10)
+  rubroId            String        @unique
+  rubro              Rubro         @relation(fields: [rubroId], references: [id], onDelete: Cascade)
+  materiales         MaterialAPU[]
+  manoObra           ManoObraAPU[]
+  equipos            EquipoAPU[]
+  creadoEn           DateTime      @default(now())
+  actualizadoEn      DateTime      @updatedAt
+}
+
+model MaterialAPU {
+  id           String          @id @default(cuid())
+  descripcion  String
+  unidad       String
+  rendimiento  Float
+  precioUnit   Float           @default(0)
+  dosificacion String?
+  orden        Int             @default(0)
+  apuId        String
+  apu          APU             @relation(fields: [apuId], references: [id], onDelete: Cascade)
+  componentes  ComponenteAPU[]
+}
+
+model ComponenteAPU {
+  id                   String      @id @default(cuid())
+  descripcion          String
+  unidad               String
+  rendimientoPorUnidad Float
+  precioUnit           Float       @default(0)
+  orden                Int         @default(0)
+  materialId           String
+  material             MaterialAPU @relation(fields: [materialId], references: [id], onDelete: Cascade)
+}
+
+model ManoObraAPU {
+  id          String @id @default(cuid())
+  categoria   String
+  jornadaHs   Float  @default(8)
+  rendimiento Float
+  jornalRef   Float
+  orden       Int    @default(0)
+  apuId       String
+  apu         APU    @relation(fields: [apuId], references: [id], onDelete: Cascade)
+}
+
+model EquipoAPU {
+  id          String @id @default(cuid())
+  descripcion String
+  unidad      String
+  rendimiento Float
+  costoUnit   Float
+  orden       Int    @default(0)
+  apuId       String
+  apu         APU    @relation(fields: [apuId], references: [id], onDelete: Cascade)
+}
+
+model Receta {
+  id          String             @id @default(cuid())
+  nombre      String
+  descripcion String?
+  unidad      String
+  componentes RecetaComponente[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model RecetaComponente {
+  id       String @id @default(cuid())
+  material String
+  unidad   String
+  cantidad Float
+  precio   Float
+  recetaId String
+  receta   Receta @relation(fields: [recetaId], references: [id], onDelete: Cascade)
+}
+
+model CategoriaLaboral {
+  id        String   @id @default(cuid())
+  nombre    String
+  categoria String
+  jornal    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Configuracion {
-  id           String   @id @default(cuid())
-  jornalBase   Float    @default(0)
-  aportesBPS   Float    @default(0.785)
-  margenEmpresa Float   @default(0.20)
-  margenImprevistos Float @default(0.05)
-  iva          Float    @default(0.22)
-  monedaDefault String  @default("UYU")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  jornalBase          Float    @default(0)
+  aportesBPS          Float    @default(0.785)
+  margenEmpresa       Float    @default(0.20)
+  margenImprevistos   Float    @default(0.05)
+  iva                 Float    @default(0.22)
+  monedaDefault       String   @default("UYU")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Certificacion {
+  id          String   @id @default(cuid())
+  proyectoId  String
+  proyecto    Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  numero      Int
+  nombre      String   @default("")  // ej: "Certificado Nº1 — Octubre 2025"
+  fecha       DateTime @default(now())
+  observaciones String @default("")
+  items       CertificacionItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CertificacionItem {
+  id               String        @id @default(cuid())
+  certificacionId  String
+  certificacion    Certificacion @relation(fields: [certificacionId], references: [id], onDelete: Cascade)
+  rubroId          String
+  rubro            Rubro         @relation(fields: [rubroId], references: [id], onDelete: Cascade)
+  porcentajeAvance Float         @default(0)   // 0-100
+  cantidadEjecutada Float?                      // opcional
+  @@unique([certificacionId, rubroId])
+}
+
+model PrecioMTOP {
+  id             String   @id @default(cuid())
+  codigo         String   @unique
+  descripcion    String
+  cantidadUnidad String
+  unidad         String
+  cantidad       Float
+  precioConIva   Float
+  precioUnitario Float
+  numeroLista    Int      @default(599)
+  fechaLista     String   @default("2025-11")
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
 }
