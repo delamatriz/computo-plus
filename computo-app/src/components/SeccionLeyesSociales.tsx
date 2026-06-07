@@ -236,7 +236,7 @@ export default function SeccionLeyesSociales({
               </div>
 
               {/* Bloque medio — tabla de aportes */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
 
                 {/* Propietario paga */}
                 <div className="rounded-[10px] border border-slate-200 bg-white overflow-hidden">

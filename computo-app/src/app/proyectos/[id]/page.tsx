@@ -593,7 +593,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
           {/* 1 — MATERIALES */}
           <SeccionAPU titulo="Materiales">
             <div className="pb-2">
-              <table className="w-full text-xs border-collapse">
+              <div className="overflow-x-auto -mx-4 px-4">
+              <table className="w-full text-xs border-collapse min-w-[480px]">
                 <colgroup>
                   <col style={{ width: "auto" }} />
                   <col style={{ width: "60px" }} />
@@ -707,6 +708,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
                   })}
                 </tbody>
               </table>
+              </div>
               {/* Buscador MTOP inline */}
               {mostrarBuscador && (
                 <BuscadorMTOP
@@ -731,7 +733,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
           {/* 2 — MANO DE OBRA */}
           <SeccionAPU titulo="Mano de obra">
             <div className="pb-2">
-              <table className="w-full text-xs border-collapse">
+              <div className="overflow-x-auto -mx-4 px-4">
+              <table className="w-full text-xs border-collapse min-w-[480px]">
                 <colgroup>
                   <col style={{ width: "auto" }} />
                   <col style={{ width: "64px" }} />
@@ -789,6 +792,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
                   })}
                 </tbody>
               </table>
+              </div>
               {mostrarSelectorMO ? (
                 <SelectorCategoriaMO
                   categorias={categoriasLaborales}
@@ -1214,7 +1218,7 @@ export default function ProyectoPage() {
     <div className="min-h-full flex flex-col" style={{ background: "#F0F4F8" }}>
 
       {/* ── Header del proyecto ─────────────────────────── */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4">
+      <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-4">
         <div className="max-w-6xl mx-auto">
           <Link
             href="/dashboard"
@@ -1225,17 +1229,17 @@ export default function ProyectoPage() {
           </Link>
 
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1">
-                <h1 className="text-xl font-bold text-[#1A3A5C]">{proyectoActivo.nombre}</h1>
+            <div className="min-w-0">
+              <div className="flex items-center flex-wrap gap-2 mb-1">
+                <h1 className="text-lg md:text-xl font-bold text-[#1A3A5C] break-words">{proyectoActivo.nombre}</h1>
                 <span
-                  className="text-xs font-medium px-2 py-0.5 rounded-full"
+                  className="text-[11px] md:text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
                   style={{ background: estado.bg, color: estado.color }}
                 >
                   {estado.label}
                 </span>
               </div>
-              <p className="text-sm text-slate-400">
+              <p className="text-xs md:text-sm text-slate-400 break-words">
                 {proyectoActivo.cliente}
                 {proyectoActivo.tipo && ` · ${proyectoActivo.tipo}`}
                 {proyectoActivo.area && ` · ${proyectoActivo.area} m²`}
@@ -1243,19 +1247,19 @@ export default function ProyectoPage() {
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-                <Pencil className="w-3.5 h-3.5" /> Editar
+              <button className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                <Pencil className="w-3.5 h-3.5" /> <span className="hidden md:inline">Editar</span>
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-                <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+              <button className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                <FileSpreadsheet className="w-3.5 h-3.5" /> <span className="hidden md:inline">Excel</span>
               </button>
               <a
                 href={`/api/proyectos/${proyectoActivo.id}/pdf`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors"
               >
-                <Download className="w-3.5 h-3.5" /> PDF
+                <Download className="w-3.5 h-3.5" /> <span className="hidden md:inline">PDF</span>
               </a>
             </div>
           </div>
@@ -1263,7 +1267,7 @@ export default function ProyectoPage() {
       </div>
 
       {/* ── Tabla de capítulos ──────────────────────────── */}
-      <div className="max-w-6xl mx-auto w-full px-6 py-6 flex-1">
+      <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 
           {/* Cabecera de la tabla */}
@@ -1316,7 +1320,8 @@ export default function ProyectoPage() {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="border-t border-slate-100">
+                      <div className="border-t border-slate-100 overflow-x-auto">
+                        <div className="min-w-[640px]">
 
                         {/* Header de columnas */}
                         <div className="flex items-center bg-slate-50 border-b border-slate-200" style={{ height: 28 }}>
@@ -1441,6 +1446,7 @@ export default function ProyectoPage() {
                           >
                             <Plus className="w-3 h-3" /> Agregar rubro
                           </button>
+                        </div>
                         </div>
                       </div>
                     </motion.div>

@@ -72,7 +72,7 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto" style={{ background: "#F0F4F8", minHeight: "100%" }}>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto" style={{ background: "#F0F4F8", minHeight: "100%" }}>
 
       {/* ── Header ───────────────────────────────────── */}
       <motion.div
@@ -179,8 +179,8 @@ export default function DashboardPage() {
 
         {/* Vista lista */}
         {vista === "lista" && (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <table className="w-full min-w-[480px]">
               <thead>
                 <tr className="border-b border-slate-200">
                   {["Proyecto", "Estado", "Fecha", "Total", "Avance", ""].map((h) => (

@@ -53,17 +53,37 @@ const navItems = [
 interface SidebarProps {
   collapsed?: boolean;
   onToggle?: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed = false, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <motion.aside
+    <>
+      {/* Overlay — solo mobile, cuando el drawer está abierto */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+      <motion.aside
       initial={false}
       animate={{ width: collapsed ? 64 : 240 }}
       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-      className="h-full flex flex-col bg-bg-sidebar flex-shrink-0 overflow-hidden relative"
+      className={cn(
+        "flex flex-col bg-bg-sidebar overflow-hidden",
+        "fixed inset-y-0 left-0 z-50 transform transition-transform duration-200",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
+        "md:relative md:inset-auto md:z-auto md:translate-x-0 md:h-full md:flex-shrink-0"
+      )}
+      onClick={(e) => {
+        // Cerrar el drawer mobile al tocar un ítem del menú
+        const target = e.target as HTMLElement;
+        if (target.closest("a") && onMobileClose) onMobileClose();
+      }}
       style={{ boxShadow: "4px 0 24px 0 rgb(0 0 0 / 0.12)" }}
     >
       {/* Header del sidebar */}
@@ -169,5 +189,6 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         </div>
       )}
     </motion.aside>
+    </>
   );
 }

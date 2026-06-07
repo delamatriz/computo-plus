@@ -3,11 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, HelpCircle, ChevronDown } from "lucide-react";
+import { Bell, HelpCircle, ChevronDown, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface HeaderProps {
+  onMenuClick?: () => void;
+  showMenuButton?: boolean;
+}
 
-export function Header() {
+export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -16,19 +20,30 @@ export function Header() {
   return (
     <header
       className={cn(
-        "h-16 flex items-center justify-between px-6 border-b border-border bg-bg-card",
+        "h-16 flex items-center justify-between px-3 md:px-6 border-b border-border bg-bg-card gap-2",
         "sticky top-0 z-40",
         isHome && "bg-transparent border-transparent"
       )}
       style={{ boxShadow: isHome ? "none" : "0 1px 0 #E2E8F0" }}
     >
+      {/* Botón hamburguesa — solo mobile, solo si hay sidebar */}
+      {showMenuButton && (
+        <button
+          onClick={onMenuClick}
+          className="md:hidden p-2 -ml-1 rounded-[8px] text-text-secondary hover:text-text-primary hover:bg-bg-base transition-colors flex-shrink-0"
+          aria-label="Abrir menú"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
+
       {/* Logo */}
-      <Link href="/" className="flex items-center gap-2.5 select-none group">
+      <Link href="/" className="flex items-center gap-2.5 select-none group min-w-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icon-delamatriz.png" alt="De La Matriz" height={36} style={{ height: 36, width: "auto" }} />
-        <div className="flex items-baseline gap-0.5">
+        <img src="/icon-delamatriz.png" alt="De La Matriz" height={36} style={{ height: 36, width: "auto" }} className="flex-shrink-0" />
+        <div className="hidden sm:flex items-baseline gap-0.5 min-w-0">
           <span
-            className="text-[18px] font-bold tracking-tight text-brand-deep leading-none"
+            className="text-[18px] font-bold tracking-tight text-brand-deep leading-none truncate"
             style={{ fontFamily: "DM Sans, sans-serif" }}
           >
             CÓMPUTO
