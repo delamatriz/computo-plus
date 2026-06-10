@@ -30,7 +30,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
       {showMenuButton && (
         <button
           onClick={onMenuClick}
-          className="md:hidden p-2 -ml-1 rounded-[8px] text-text-secondary hover:text-text-primary hover:bg-bg-base transition-colors flex-shrink-0"
+          className="lg:hidden p-2 -ml-1 rounded-[8px] text-text-secondary hover:text-text-primary hover:bg-bg-base transition-colors flex-shrink-0"
           aria-label="Abrir menú"
         >
           <Menu className="w-5 h-5" />

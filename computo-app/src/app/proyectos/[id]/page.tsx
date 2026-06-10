@@ -936,6 +936,7 @@ export default function ProyectoPage() {
   const [apuData, setApuData] = useState<Record<string, APU>>({});
   const [drawerRubroId, setDrawerRubroId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [leyesSociales, setLeyesSociales] = useState<LeyesSocialesData | null>(null);
   const [recalculandoMO, setRecalculandoMO] = useState(false);
   const [guardandoLeyes, setGuardandoLeyes] = useState(false);
@@ -947,8 +948,15 @@ export default function ProyectoPage() {
   useEffect(() => {
     async function cargar() {
       try {
-        const res = await fetch(`/api/proyectos/${proyectoId}`);
-        if (!res.ok) throw new Error("No se pudo cargar el proyecto");
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 10_000);
+        let res: Response;
+        try {
+          res = await fetch(`/api/proyectos/${proyectoId}`, { signal: ctrl.signal });
+        } finally {
+          clearTimeout(timer);
+        }
+        if (!res.ok) throw new Error(`Error ${res.status} al cargar el proyecto`);
         const data = await res.json();
 
         // Mapear proyecto
@@ -1006,11 +1014,7 @@ export default function ProyectoPage() {
         setApuData(apus);
       } catch (err) {
         console.error("[cargar proyecto]", err);
-        // Fallback a datos de prueba
-        setProyecto(PROYECTO);
-        setCapitulos(CAPITULOS_INICIALES);
-        setExpandidos(new Set(["c01", "c02", "c03"]));
-        setApuData(APU_INICIALES);
+        setErrorCarga(err instanceof Error ? err.message : "Error al cargar el proyecto");
       } finally {
         setCargando(false);
       }
@@ -1214,6 +1218,20 @@ export default function ProyectoPage() {
     );
   }
 
+  if (errorCarga || !proyecto) {
+    return (
+      <div className="min-h-full flex items-center justify-center" style={{ background: "#F0F4F8" }}>
+        <div className="text-center space-y-3">
+          <p className="text-sm text-red-500 font-medium">No se pudo cargar el proyecto</p>
+          <p className="text-xs text-slate-400">{errorCarga ?? "Proyecto no encontrado"}</p>
+          <a href="/proyectos" className="inline-block text-xs text-blue-600 hover:underline">
+            ← Volver a Mis proyectos
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full flex flex-col" style={{ background: "#F0F4F8" }}>
 
@@ -1221,7 +1239,7 @@ export default function ProyectoPage() {
       <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-4">
         <div className="max-w-6xl mx-auto">
           <Link
-            href="/dashboard"
+            href="/proyectos"
             className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors mb-3"
           >
             <ArrowLeft className="w-3 h-3" />

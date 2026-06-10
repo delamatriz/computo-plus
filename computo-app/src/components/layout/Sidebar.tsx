@@ -65,7 +65,7 @@ export function Sidebar({ collapsed = false, onToggle, mobileOpen = false, onMob
       {/* Overlay — solo mobile, cuando el drawer está abierto */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
           onClick={onMobileClose}
         />
       )}
@@ -77,7 +77,7 @@ export function Sidebar({ collapsed = false, onToggle, mobileOpen = false, onMob
         "flex flex-col bg-bg-sidebar overflow-hidden",
         "fixed inset-y-0 left-0 z-50 transform transition-transform duration-200",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
-        "md:relative md:inset-auto md:z-auto md:translate-x-0 md:h-full md:flex-shrink-0"
+        "lg:relative lg:inset-auto lg:z-auto lg:translate-x-0 lg:h-full lg:flex-shrink-0"
       )}
       onClick={(e) => {
         // Cerrar el drawer mobile al tocar un ítem del menú

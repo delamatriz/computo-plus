@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model Empresa {
@@ -27,6 +27,7 @@ model Proyecto {
   estado      String     @default("BORRADOR")
   descripcion String?
   fechaInicio DateTime?
+  plazoObra   Int?
   area        Float?
   direccion   String?
   empresaId   String?

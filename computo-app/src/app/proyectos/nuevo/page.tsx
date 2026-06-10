@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -95,6 +95,28 @@ const CAPITULOS_SUGERIDOS: Record<string, Array<{ nombre: string; color: string 
 
 const CAPITULOS_DEFAULT = CAPITULOS_SUGERIDOS.VIVIENDA;
 
+const COLORES_CAPITULOS: Record<string, string> = {
+  "Trabajos preliminares":              "#94A3B8",
+  "Movimiento de tierra y fundaciones": "#78716C",
+  "Estructura":                         "#2563EB",
+  "Mampostería y muros":                "#3B82F6",
+  "Cubierta":                           "#1D4ED8",
+  "Revoques y enlucidos":               "#60A5FA",
+  "Revestimientos y pisos":             "#8B5CF6",
+  "Carpintería":                        "#EC4899",
+  "Instalación sanitaria":              "#10B981",
+  "Instalación eléctrica":              "#F59E0B",
+  "Instalación de gas":                 "#F97316",
+  "Instalaciones embutidas":            "#A78BFA",
+  "Calefacción":                        "#EF4444",
+  "Pintura":                            "#06B6D4",
+  "Vidriería":                          "#22D3EE",
+  "Herrería y metálica":                "#6B7280",
+  "Obras exteriores y paisajismo":      "#22C55E",
+  "Honorarios profesionales":           "#1A3A5C",
+  "Imprevistos":                        "#64748B",
+};
+
 const COLORS = [
   "#2563EB", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6",
   "#EC4899", "#06B6D4", "#22C55E", "#78716C", "#64748B",
@@ -108,13 +130,16 @@ const STEPS = [
 ];
 
 /* ─── Componente principal ───────────────────────────── */
-export default function NuevoProyectoPage() {
+function NuevoProyectoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const modoCompleto = searchParams.get("modo") === "completo";
 
   const [paso, setPaso] = useState(1);
   const [guardando, setGuardando] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  const [cargandoIA, setCargandoIA] = useState(false);
+  const [errorIA, setErrorIA] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormData>({
     nombre: "",
@@ -153,6 +178,38 @@ export default function NuevoProyectoPage() {
     })));
   };
 
+  const cargarSugeridosIA = async () => {
+    if (!form.trabajos.trim()) {
+      setErrorIA("Completá la descripción de trabajos en el paso 1 para usar esta función");
+      return;
+    }
+    setErrorIA(null);
+    setCargandoIA(true);
+    try {
+      const res = await fetch("/api/sugerir-capitulos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo: form.tipo, descripcion: form.trabajos }),
+      });
+      const data = await res.json();
+      if (data.error === "sin_descripcion") {
+        setErrorIA("Completá la descripción de trabajos en el paso 1 para usar esta función");
+        return;
+      }
+      if (!data.capitulos?.length) throw new Error("Sin capítulos");
+      set("capitulos", data.capitulos.map((nombre: string, i: number) => ({
+        id: String(Date.now() + i),
+        nombre,
+        color: COLORES_CAPITULOS[nombre] ?? COLORS[i % COLORS.length],
+        activo: true,
+      })));
+    } catch {
+      setErrorIA("No se pudo conectar con la IA. Intentá de nuevo.");
+    } finally {
+      setCargandoIA(false);
+    }
+  };
+
   const toggleCapitulo = (id: string) => {
     set("capitulos", form.capitulos.map((c) => c.id === id ? { ...c, activo: !c.activo } : c));
   };
@@ -179,8 +236,36 @@ export default function NuevoProyectoPage() {
 
   const handleGuardar = async () => {
     setGuardando(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    router.push("/dashboard");
+    setErrorGuardar(null);
+    try {
+      const res = await fetch("/api/proyectos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: form.nombre,
+          cliente: form.cliente,
+          tipo: form.tipo,
+          moneda: form.moneda,
+          area: form.area,
+          descripcion: form.descripcion,
+          direccion: form.direccion,
+          fechaInicio: form.fechaInicio,
+          plazoObra: form.plazoMeses,
+          capitulos: capitularActivos.map((c, i) => ({
+            nombre: c.nombre,
+            color: c.color,
+            codigo: String(i + 1).padStart(2, "0"),
+            orden: i + 1,
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error("No se pudo crear el proyecto");
+      const proyecto = await res.json();
+      router.push(`/proyectos/${proyecto.id}`);
+    } catch {
+      setErrorGuardar("No se pudo crear el proyecto. Intentá de nuevo.");
+      setGuardando(false);
+    }
   };
 
   const capitularActivos = form.capitulos.filter((c) => c.activo && c.nombre.trim());
@@ -414,18 +499,18 @@ export default function NuevoProyectoPage() {
                   </Field>
                 </div>
 
-                <Field label="Plazo de obra (meses)">
+                <Field label="Plazo de obra (días)">
                   <div className="relative max-w-[160px]">
                     <input
                       type="number"
                       value={form.plazoMeses}
                       onChange={(e) => set("plazoMeses", e.target.value)}
-                      placeholder="ej: 8"
+                      placeholder="ej: 240"
                       min={1}
                       className={inputCls}
                     />
                     <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">
-                      meses
+                      días
                     </span>
                   </div>
                 </Field>
@@ -455,31 +540,53 @@ export default function NuevoProyectoPage() {
               </div>
 
               <div className="bg-white rounded-[16px] border border-slate-300 p-5 shadow-sm">
-                {form.capitulos.length === 0 ? (
-                  <div className="text-center py-10">
-                    <p className="text-sm font-medium text-slate-500 mb-4">No hay capítulos todavía</p>
+                {/* Botones de carga + error IA */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    {cargandoIA ? (
+                      <span className="flex items-center gap-1.5 text-xs text-[#2563EB]">
+                        <span className="w-3 h-3 border-2 border-[#2563EB]/30 border-t-[#2563EB] rounded-full animate-spin" />
+                        Analizando trabajos...
+                      </span>
+                    ) : (
+                      <button
+                        onClick={cargarSugeridosIA}
+                        className="flex items-center gap-1.5 text-xs text-[#2563EB] font-medium hover:text-[#1D4ED8] transition-colors"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        Sugerir con IA
+                      </button>
+                    )}
+                    <span className="text-slate-300 text-xs">·</span>
                     <button
                       onClick={cargarSugeridos}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-blue-50 text-[#2563EB] text-sm font-semibold hover:bg-blue-100 transition-colors"
+                      className="text-xs text-slate-400 font-medium hover:text-slate-600 transition-colors"
                     >
-                      <Sparkles className="w-4 h-4" />
-                      Cargar sugeridos para {TIPOS_OBRA.find((t) => t.id === form.tipo)?.label}
+                      Lista estándar
                     </button>
+                  </div>
+                  {form.capitulos.length > 0 && (
+                    <p className="text-xs text-slate-400">
+                      {capitularActivos.length} activo{capitularActivos.length !== 1 ? "s" : ""}
+                    </p>
+                  )}
+                </div>
+
+                {errorIA && (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2 mb-3">
+                    {errorIA}
+                  </p>
+                )}
+
+                {form.capitulos.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-slate-400">
+                      Usá "Sugerir con IA" para generar capítulos según los trabajos descritos,<br />
+                      o "Lista estándar" para cargar los capítulos típicos.
+                    </p>
                   </div>
                 ) : (
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm text-slate-400">
-                        {capitularActivos.length} capítulo{capitularActivos.length !== 1 ? "s" : ""} activo{capitularActivos.length !== 1 ? "s" : ""}
-                      </p>
-                      <button
-                        onClick={cargarSugeridos}
-                        className="text-xs text-[#2563EB] font-medium hover:text-[#1D4ED8] transition-colors flex items-center gap-1"
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        Recargar sugeridos
-                      </button>
-                    </div>
 
                     <div className="space-y-1.5 mb-4 max-h-80 overflow-y-auto pr-1">
                       {form.capitulos.map((cap, idx) => (
@@ -560,7 +667,7 @@ export default function NuevoProyectoPage() {
                     { label: "Área",          value: form.area ? `${form.area} m²` : "—" },
                     { label: "Dirección",     value: form.direccion || "—" },
                     { label: "Inicio",        value: form.fechaInicio ? new Date(form.fechaInicio).toLocaleDateString("es-UY") : "—" },
-                    { label: "Plazo",         value: form.plazoMeses ? `${form.plazoMeses} meses` : "—" },
+                    { label: "Plazo",         value: form.plazoMeses ? `${form.plazoMeses} días` : "—" },
                     { label: "Cliente",       value: form.cliente || "—" },
                   ].map(({ label, value }) => (
                     <div key={label} className="px-5 py-3.5">
@@ -596,6 +703,12 @@ export default function NuevoProyectoPage() {
                     y análisis de precios unitarios.
                   </p>
                 </div>
+              )}
+
+              {errorGuardar && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-[8px] px-3 py-2">
+                  {errorGuardar}
+                </p>
               )}
             </div>
           )}
@@ -668,6 +781,18 @@ export default function NuevoProyectoPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function NuevoProyectoPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#F8FAFC" }}>
+        <div className="text-sm text-slate-400">Cargando…</div>
+      </div>
+    }>
+      <NuevoProyectoContent />
+    </Suspense>
   );
 }
 

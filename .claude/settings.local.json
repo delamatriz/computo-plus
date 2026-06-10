@@ -23,7 +23,12 @@
       "Bash(git push *)",
       "Bash(git submodule *)",
       "Bash(rm -rf \"C:\\\\Users\\\\Pc\\\\Documents\\\\MIS DOCUMENTOS\\\\COMPUTO+\\\\computo-app\\\\.git\")",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(node -e \"require\\('@anthropic-ai/sdk'\\); console.log\\('ok'\\)\")",
+      "Bash(Test-Path \"C:\\\\Users\\\\Pc\\\\Documents\\\\MIS DOCUMENTOS\\\\COMPUTO+\\\\computo-app\\\\.env.local\")",
+      "Bash(mkdir -p \"C:\\\\Users\\\\Pc\\\\Documents\\\\MIS DOCUMENTOS\\\\COMPUTO+\\\\computo-app\\\\src\\\\app\\\\proyectos\\\\[id]\")"
     ]
   }
 }
