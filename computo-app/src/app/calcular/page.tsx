@@ -69,22 +69,31 @@ export default function CalcularPage() {
   const [tipo, setTipo]       = useState("vivienda");
   const [calidad, setCalidad] = useState("estandar");
   const areaRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
   const [zona, setZona]       = useState("montevideo");
   const [area, setArea]       = useState<string>("");
+  const [unidades, setUnidades] = useState<string>("1");
+  const [descripcion, setDescripcion] = useState<string>("");
   const [moneda, setMoneda]   = useState<"USD" | "UYU">("USD");
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
 
-  const areaNum = parseFloat(area) || 0;
+  const esDescriptivo = tipo === "reparaciones" || tipo === "reforma";
+  const esPH          = tipo === "ph";
+
+  const areaNum     = parseFloat(area) || 0;
+  const unidadesNum = parseFloat(unidades) || 0;
+  const areaTotal   = esPH ? areaNum * unidadesNum : areaNum;
 
   const resultado = useMemo(() => {
-    if (areaNum <= 0) return null;
+    if (esDescriptivo) return null;
+    if (areaTotal <= 0) return null;
     const precioBase = PRECIOS_BASE[tipo]?.[calidad] ?? 600;
     const mult       = ZONA_MULT[zona] ?? 1;
-    const totalUSD   = areaNum * precioBase * mult;
+    const totalUSD   = areaTotal * precioBase * mult;
     const totalUYU   = totalUSD * TCU;
     const total      = moneda === "USD" ? totalUSD : totalUYU;
     return { totalUSD, totalUYU, total, precioM2: precioBase * mult };
-  }, [areaNum, tipo, calidad, zona, moneda]);
+  }, [esDescriptivo, areaTotal, tipo, calidad, zona, moneda]);
 
   const fmt = (v: number) =>
     moneda === "USD"
@@ -131,7 +140,13 @@ export default function CalcularPage() {
                     key={t.id}
                     onClick={() => {
                       setTipo(t.id);
-                      setTimeout(() => areaRef.current?.focus(), 50);
+                      setTimeout(() => {
+                        if (t.id === "reparaciones" || t.id === "reforma") {
+                          descRef.current?.focus();
+                        } else {
+                          areaRef.current?.focus();
+                        }
+                      }, 50);
                     }}
                     className={cn(
                       "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium transition-all text-center",
@@ -146,40 +161,115 @@ export default function CalcularPage() {
               </div>
             </div>
 
-            {/* Área */}
-            <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
-              <label className="block text-sm font-semibold text-text-primary mb-3">
-                Área a construir
-              </label>
-              <div className="flex items-center gap-4">
-                <div className="relative w-[180px] flex-shrink-0">
-                  <input
-                    ref={areaRef}
-                    type="number"
-                    value={area}
-                    onChange={(e) => setArea(e.target.value)}
-                    min={1}
-                    step={0.5}
-                    max={99999}
-                    placeholder="ej: 120"
-                    className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-lg font-bold text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all text-center pr-12"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-text-muted font-medium">
-                    m²
-                  </span>
+            {/* Área / Descripción */}
+            {esDescriptivo ? (
+              <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
+                <label className="block text-sm font-semibold text-text-primary mb-3">
+                  Descripción de los trabajos
+                </label>
+                <textarea
+                  ref={descRef}
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                  rows={4}
+                  placeholder="ej: sustitución de 3 aberturas de aluminio, pintura interior de 2 ambientes, reparación de cañería sanitaria..."
+                  className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-none"
+                />
+                <p className="text-xs text-slate-400 mt-2">
+                  Describí los trabajos a realizar. La IA estimará los costos en base a tu descripción.
+                </p>
+              </div>
+            ) : esPH ? (
+              <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-text-primary mb-3">
+                    Área por unidad (m²)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-[180px] flex-shrink-0">
+                      <input
+                        ref={areaRef}
+                        type="number"
+                        value={area}
+                        onChange={(e) => setArea(e.target.value)}
+                        min={1}
+                        step={0.5}
+                        max={99999}
+                        placeholder="ej: 65"
+                        className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-lg font-bold text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all text-center pr-12"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-text-muted font-medium">
+                        m²
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">
+                        Superficie de cada unidad
+                      </p>
+                      <p className="text-xs mt-0.5 font-medium" style={{ color: "#2563EB" }}>
+                        Referencia: ~U$S {(PRECIOS_BASE[tipo]?.[calidad] ?? 0).toLocaleString("es-UY")}/m²
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">
-                    Superficie total a construir o intervenir
-                  </p>
-                  {tipo && (
-                    <p className="text-xs mt-0.5 font-medium" style={{ color: "#2563EB" }}>
-                      Referencia: ~U$S {(PRECIOS_BASE[tipo]?.[calidad] ?? 0).toLocaleString("es-UY")}/m²
+                  <label className="block text-sm font-semibold text-text-primary mb-3">
+                    Cantidad de unidades
+                  </label>
+                  <div className="relative w-[180px]">
+                    <input
+                      type="number"
+                      value={unidades}
+                      onChange={(e) => setUnidades(e.target.value)}
+                      min={1}
+                      step={1}
+                      max={999}
+                      placeholder="ej: 8"
+                      className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-lg font-bold text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all text-center"
+                    />
+                  </div>
+                  {areaTotal > 0 && (
+                    <p className="text-xs text-slate-400 mt-2">
+                      Área total: {areaTotal.toLocaleString("es-UY")} m²
                     </p>
                   )}
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
+                <label className="block text-sm font-semibold text-text-primary mb-3">
+                  Área a construir
+                </label>
+                <div className="flex items-center gap-4">
+                  <div className="relative w-[180px] flex-shrink-0">
+                    <input
+                      ref={areaRef}
+                      type="number"
+                      value={area}
+                      onChange={(e) => setArea(e.target.value)}
+                      min={1}
+                      step={0.5}
+                      max={99999}
+                      placeholder="ej: 120"
+                      className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-lg font-bold text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all text-center pr-12"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-text-muted font-medium">
+                      m²
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400">
+                      Superficie total a construir o intervenir
+                    </p>
+                    {tipo && (
+                      <p className="text-xs mt-0.5 font-medium" style={{ color: "#2563EB" }}>
+                        Referencia: ~U$S {(PRECIOS_BASE[tipo]?.[calidad] ?? 0).toLocaleString("es-UY")}/m²
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Calidad */}
             <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
@@ -299,7 +389,7 @@ export default function CalcularPage() {
                         {fmt(resultado.total)}
                       </div>
                       <p className="text-sm text-white/50">
-                        {areaNum} m² · ~{moneda === "USD"
+                        {areaTotal.toLocaleString("es-UY")} m² · ~{moneda === "USD"
                           ? `U$S ${Math.round(resultado.precioM2).toLocaleString("es-UY")}`
                           : `$ ${Math.round(resultado.precioM2 * TCU).toLocaleString("es-UY")}`}/m²
                       </p>
@@ -308,6 +398,24 @@ export default function CalcularPage() {
                           ≈ $ {Math.round(resultado.totalUYU).toLocaleString("es-UY")} UYU
                         </p>
                       )}
+                      <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
+                        * Sin IVA incluido
+                        <br />
+                        * Sin aportes BPS / Leyes Sociales
+                      </p>
+                    </motion.div>
+                  ) : esDescriptivo ? (
+                    <motion.div
+                      key="descriptivo"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                    >
+                      <div className="text-xl font-bold text-white/70 mb-1">
+                        Estimación con IA
+                      </div>
+                      <p className="text-sm text-white/40">
+                        Convertí esto en un proyecto y la IA va a estimar los costos en base a tu descripción.
+                      </p>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -425,7 +533,7 @@ export default function CalcularPage() {
             )}
 
             {/* Acciones */}
-            {resultado && (
+            {(resultado || (esDescriptivo && descripcion.trim().length > 0)) && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -433,7 +541,13 @@ export default function CalcularPage() {
                 className="space-y-2.5"
               >
                 <Link
-                  href={`/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&calidad=${calidad}`}
+                  href={
+                    esDescriptivo
+                      ? `/proyectos/nuevo?tipo=${tipo}&descripcion=${encodeURIComponent(descripcion)}&calidad=${calidad}`
+                      : esPH
+                      ? `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&unidades=${unidadesNum}&calidad=${calidad}`
+                      : `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&calidad=${calidad}`
+                  }
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm transition-colors"
                   style={{ boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.3)" }}
                 >
@@ -452,6 +566,8 @@ export default function CalcularPage() {
                     setCalidad("estandar");
                     setZona("montevideo");
                     setArea("");
+                    setUnidades("1");
+                    setDescripcion("");
                     setMoneda("USD");
                   }}
                   className="flex items-center justify-center gap-2 w-full py-2 text-text-muted hover:text-text-secondary text-sm transition-colors"
