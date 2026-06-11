@@ -106,6 +106,7 @@ export default function CalcularPage() {
   const [calculandoIA, setCalculandoIA] = useState(false);
   const [resultadoIA, setResultadoIA]   = useState<ResultadoIA | null>(null);
   const [errorIA, setErrorIA]           = useState<string | null>(null);
+  const [mostrarCalculadora, setMostrarCalculadora] = useState(false);
 
   const esDescriptivo = tipo === "reparaciones" || tipo === "reforma";
   const esPH          = tipo === "ph";
@@ -698,13 +699,6 @@ export default function CalcularPage() {
                         </p>
                       </div>
 
-                      {/* Calculadora rápida */}
-                      <div className="mt-4 pt-4 border-t border-slate-200">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
-                          Calculadora rápida
-                        </p>
-                        <CalculadoraInline />
-                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -719,6 +713,36 @@ export default function CalcularPage() {
                 transition={{ duration: 0.3, delay: 0.1 }}
                 className="space-y-2.5"
               >
+                <button
+                  type="button"
+                  onClick={() => setMostrarCalculadora((v) => !v)}
+                  className="relative flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-border text-text-secondary hover:text-text-primary hover:border-slate-300 font-medium text-sm transition-colors bg-bg-card"
+                >
+                  <Calculator className="w-4 h-4" />
+                  Calculadora rápida
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 absolute right-4 transition-transform",
+                      mostrarCalculadora && "rotate-180"
+                    )}
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {mostrarCalculadora && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="rounded-[12px] border border-border bg-bg-card p-3">
+                        <CalculadoraInline />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <Link
                   href={
                     esDescriptivo
