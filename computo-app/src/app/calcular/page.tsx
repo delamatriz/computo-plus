@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,6 +9,7 @@ import {
   FolderPlus,
   ChevronDown,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { cn } from "@/lib/utils";
@@ -51,19 +52,44 @@ const ZONA_MULT: Record<string, number> = {
 };
 
 const CAPITULOS = [
-  { nombre: "Trabajos preliminares",    pct: 0.03, color: "#BFDBFE" },
-  { nombre: "Estructura y fundaciones", pct: 0.22, color: "#1A3A5C" },
-  { nombre: "Mampostería y muros",      pct: 0.14, color: "#2563EB" },
-  { nombre: "Cubierta y azotea",        pct: 0.09, color: "#1D4ED8" },
-  { nombre: "Inst. hidrosanitarias",    pct: 0.09, color: "#3B82F6" },
-  { nombre: "Inst. eléctricas",         pct: 0.08, color: "#60A5FA" },
-  { nombre: "Revestimientos y pisos",   pct: 0.13, color: "#93C5FD" },
-  { nombre: "Carpintería",              pct: 0.09, color: "#DBEAFE" },
-  { nombre: "Pintura y terminaciones",  pct: 0.06, color: "#EFF6FF" },
-  { nombre: "Imprevistos y varios",     pct: 0.07, color: "#CBD5E1" },
+  { nombre: "Trabajos preliminares",         pct: 0.03, matPct: 0.40, moPct: 0.60, color: "#E0E7FF" },
+  { nombre: "Movimiento de tierra",          pct: 0.04, matPct: 0.30, moPct: 0.70, color: "#C7D2FE" },
+  { nombre: "Estructura",                    pct: 0.18, matPct: 0.65, moPct: 0.35, color: "#1A3A5C" },
+  { nombre: "Mampostería y muros",           pct: 0.08, matPct: 0.60, moPct: 0.40, color: "#2563EB" },
+  { nombre: "Cubierta",                      pct: 0.07, matPct: 0.70, moPct: 0.30, color: "#1D4ED8" },
+  { nombre: "Instalación sanitaria",         pct: 0.07, matPct: 0.65, moPct: 0.35, color: "#3B82F6" },
+  { nombre: "Instalación eléctrica",         pct: 0.06, matPct: 0.60, moPct: 0.40, color: "#60A5FA" },
+  { nombre: "Revoques y enlucidos",          pct: 0.06, matPct: 0.35, moPct: 0.65, color: "#93C5FD" },
+  { nombre: "Revestimientos y pisos",        pct: 0.08, matPct: 0.65, moPct: 0.35, color: "#BFDBFE" },
+  { nombre: "Carpintería",                   pct: 0.07, matPct: 0.75, moPct: 0.25, color: "#DBEAFE" },
+  { nombre: "Pintura",                       pct: 0.04, matPct: 0.40, moPct: 0.60, color: "#EFF6FF" },
+  { nombre: "Instalaciones especiales",      pct: 0.03, matPct: 0.60, moPct: 0.40, color: "#A5B4FC" },
+  { nombre: "Imprevistos y gastos generales",pct: 0.05, matPct: 0.50, moPct: 0.50, color: "#CBD5E1" },
+  { nombre: "Honorarios profesionales",      pct: 0.08, matPct: 0.00, moPct: 1.00, color: "#94A3B8" },
 ];
 
+const MAT_FACTOR = CAPITULOS.reduce((acc, c) => acc + c.pct * c.matPct, 0);
+const MO_FACTOR  = CAPITULOS.reduce((acc, c) => acc + c.pct * c.moPct, 0);
+const MAX_PCT    = Math.max(...CAPITULOS.map((c) => c.pct));
+const PALETA_COLORES = CAPITULOS.map((c) => c.color);
+
 const TCU = 42.5;
+
+/* ─── Tipos para la estimación detallada ─────────────────── */
+interface CapituloIA {
+  nombre: string;
+  monto: number;
+  materiales: number;
+  manoObra: number;
+}
+
+interface ResultadoIA {
+  totalGeneral: number;
+  totalMateriales: number;
+  totalManoObra: number;
+  capitulos: CapituloIA[];
+  advertencia: string;
+}
 
 export default function CalcularPage() {
   const [tipo, setTipo]       = useState("vivienda");
@@ -77,12 +103,22 @@ export default function CalcularPage() {
   const [moneda, setMoneda]   = useState<"USD" | "UYU">("USD");
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
 
+  const [calculandoIA, setCalculandoIA] = useState(false);
+  const [resultadoIA, setResultadoIA]   = useState<ResultadoIA | null>(null);
+  const [errorIA, setErrorIA]           = useState<string | null>(null);
+
   const esDescriptivo = tipo === "reparaciones" || tipo === "reforma";
   const esPH          = tipo === "ph";
 
   const areaNum     = parseFloat(area) || 0;
   const unidadesNum = parseFloat(unidades) || 0;
   const areaTotal   = esPH ? areaNum * unidadesNum : areaNum;
+
+  // Limpiar la estimación detallada si cambian los datos de entrada
+  useEffect(() => {
+    setResultadoIA(null);
+    setErrorIA(null);
+  }, [descripcion, tipo, zona, calidad, moneda]);
 
   const resultado = useMemo(() => {
     if (esDescriptivo) return null;
@@ -92,13 +128,69 @@ export default function CalcularPage() {
     const totalUSD   = areaTotal * precioBase * mult;
     const totalUYU   = totalUSD * TCU;
     const total      = moneda === "USD" ? totalUSD : totalUYU;
-    return { totalUSD, totalUYU, total, precioM2: precioBase * mult };
+    const totalMateriales = total * MAT_FACTOR;
+    const totalManoObra   = total * MO_FACTOR;
+    return { totalUSD, totalUYU, total, precioM2: precioBase * mult, totalMateriales, totalManoObra };
   }, [esDescriptivo, areaTotal, tipo, calidad, zona, moneda]);
 
   const fmt = (v: number) =>
     moneda === "USD"
       ? `U$S ${Math.round(v).toLocaleString("es-UY")}`
       : `$ ${Math.round(v).toLocaleString("es-UY")}`;
+
+  // Datos unificados de desglose, ya sea del cálculo estándar o de la estimación detallada
+  const desglose = useMemo(() => {
+    if (resultado) {
+      return {
+        total: resultado.total,
+        totalMateriales: resultado.totalMateriales,
+        totalManoObra: resultado.totalManoObra,
+        capitulos: CAPITULOS.map((c) => ({
+          nombre: c.nombre,
+          monto: resultado.total * c.pct,
+          materiales: resultado.total * c.pct * c.matPct,
+          manoObra: resultado.total * c.pct * c.moPct,
+          color: c.color,
+        })),
+      };
+    }
+    if (resultadoIA) {
+      return {
+        total: resultadoIA.totalGeneral,
+        totalMateriales: resultadoIA.totalMateriales,
+        totalManoObra: resultadoIA.totalManoObra,
+        capitulos: resultadoIA.capitulos.map((c, i) => ({
+          nombre: c.nombre,
+          monto: c.monto,
+          materiales: c.materiales,
+          manoObra: c.manoObra,
+          color: PALETA_COLORES[i % PALETA_COLORES.length],
+        })),
+      };
+    }
+    return null;
+  }, [resultado, resultadoIA]);
+
+  const calcularEstimacion = async () => {
+    if (!descripcion.trim() || calculandoIA) return;
+    setCalculandoIA(true);
+    setErrorIA(null);
+    try {
+      const res = await fetch("/api/calcular-rapido", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descripcion, tipo, zona, calidad, moneda }),
+      });
+      if (!res.ok) throw new Error("error");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setResultadoIA(data);
+    } catch {
+      setErrorIA("No pudimos calcular la estimación. Probá de nuevo.");
+    } finally {
+      setCalculandoIA(false);
+    }
+  };
 
   return (
     <div className="min-h-full flex flex-col" style={{ background: "#F0F4F8" }}>
@@ -176,8 +268,40 @@ export default function CalcularPage() {
                   className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-none"
                 />
                 <p className="text-xs text-slate-400 mt-2">
-                  Describí los trabajos a realizar. La IA estimará los costos en base a tu descripción.
+                  Describí los trabajos con el mayor detalle posible. Cuanto más precisa sea la descripción, más exacta será la estimación.
                 </p>
+
+                <button
+                  onClick={calcularEstimacion}
+                  disabled={!descripcion.trim() || calculandoIA}
+                  className={cn(
+                    "mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-[12px] font-semibold text-sm transition-colors",
+                    !descripcion.trim() || calculandoIA
+                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                      : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                  )}
+                  style={
+                    descripcion.trim() && !calculandoIA
+                      ? { boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.3)" }
+                      : undefined
+                  }
+                >
+                  {calculandoIA ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Analizando...
+                    </>
+                  ) : (
+                    <>
+                      <Calculator className="w-4 h-4" />
+                      Calcular estimación
+                    </>
+                  )}
+                </button>
+
+                {errorIA && (
+                  <p className="text-xs text-red-500 mt-2">{errorIA}</p>
+                )}
               </div>
             ) : esPH ? (
               <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm space-y-4">
@@ -404,6 +528,24 @@ export default function CalcularPage() {
                         * Sin aportes BPS / Leyes Sociales
                       </p>
                     </motion.div>
+                  ) : resultadoIA ? (
+                    <motion.div
+                      key="resultado-ia"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="text-3xl font-bold text-white mb-1">
+                        {fmt(resultadoIA.totalGeneral)}
+                      </div>
+                      <p className="text-sm text-white/50">
+                        Estimación detallada según descripción
+                      </p>
+                      <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
+                        {resultadoIA.advertencia}
+                      </p>
+                    </motion.div>
                   ) : esDescriptivo ? (
                     <motion.div
                       key="descriptivo"
@@ -411,10 +553,12 @@ export default function CalcularPage() {
                       animate={{ opacity: 1 }}
                     >
                       <div className="text-xl font-bold text-white/70 mb-1">
-                        Estimación con IA
+                        {calculandoIA ? "Analizando..." : "Estimación detallada"}
                       </div>
                       <p className="text-sm text-white/40">
-                        Convertí esto en un proyecto y la IA va a estimar los costos en base a tu descripción.
+                        {calculandoIA
+                          ? "Estamos preparando tu estimación, esto puede tardar unos segundos."
+                          : "Describí los trabajos con el mayor detalle posible. Cuanto más precisa sea la descripción, más exacta será la estimación."}
                       </p>
                     </motion.div>
                   ) : (
@@ -450,7 +594,7 @@ export default function CalcularPage() {
             </div>
 
             {/* Desglose por capítulo */}
-            {resultado && (
+            {desglose && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -475,10 +619,10 @@ export default function CalcularPage() {
 
                 {/* Barra acumulada */}
                 <div className="h-2.5 rounded-full overflow-hidden flex mb-3">
-                  {CAPITULOS.map((c) => (
+                  {desglose.capitulos.map((c) => (
                     <div
                       key={c.nombre}
-                      style={{ width: `${c.pct * 100}%`, background: c.color }}
+                      style={{ width: `${(c.monto / desglose.total) * 100}%`, background: c.color }}
                       title={c.nombre}
                     />
                   ))}
@@ -494,8 +638,8 @@ export default function CalcularPage() {
                       className="overflow-hidden"
                     >
                       <div className="space-y-2.5 pt-1">
-                        {CAPITULOS.map((c) => {
-                          const val = resultado.total * c.pct;
+                        {desglose.capitulos.map((c) => {
+                          const fraccion = c.monto / desglose.total;
                           return (
                             <div key={c.nombre} className="flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2 min-w-0">
@@ -512,19 +656,46 @@ export default function CalcularPage() {
                                   <div
                                     className="h-full rounded-full"
                                     style={{
-                                      width: `${c.pct * 100 / 0.22 * 100}%`,
+                                      width: `${(fraccion / MAX_PCT) * 100}%`,
                                       background: c.color,
                                       maxWidth: "100%",
                                     }}
                                   />
                                 </div>
                                 <span className="text-sm font-semibold text-text-primary tabular-nums w-24 text-right">
-                                  {fmt(val)}
+                                  {fmt(c.monto)}
                                 </span>
                               </div>
                             </div>
                           );
                         })}
+                      </div>
+
+                      {/* Totales materiales / mano de obra */}
+                      <div className="mt-4 pt-4 border-t border-border space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-text-secondary">Total materiales</span>
+                          <span className="text-sm font-semibold text-text-primary tabular-nums">
+                            {fmt(desglose.totalMateriales)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-text-secondary">Total mano de obra</span>
+                          <span className="text-sm font-semibold text-text-primary tabular-nums">
+                            {fmt(desglose.totalManoObra)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-border">
+                          <span className="text-sm font-bold text-text-primary">Total general</span>
+                          <span className="text-sm font-bold text-text-primary tabular-nums">
+                            {fmt(desglose.total)}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-text-muted leading-relaxed pt-1">
+                          * Valores estimativos sin IVA ni aportes sociales (BPS).
+                          <br />
+                          * Para mayor exactitud desarrollá un proyecto completo.
+                        </p>
                       </div>
                     </motion.div>
                   )}
@@ -533,7 +704,7 @@ export default function CalcularPage() {
             )}
 
             {/* Acciones */}
-            {(resultado || (esDescriptivo && descripcion.trim().length > 0)) && (
+            {(resultado || resultadoIA || (esDescriptivo && descripcion.trim().length > 0)) && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -569,6 +740,8 @@ export default function CalcularPage() {
                     setUnidades("1");
                     setDescripcion("");
                     setMoneda("USD");
+                    setResultadoIA(null);
+                    setErrorIA(null);
                   }}
                   className="flex items-center justify-center gap-2 w-full py-2 text-text-muted hover:text-text-secondary text-sm transition-colors"
                 >

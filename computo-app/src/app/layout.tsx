@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
+import { CalculadoraFlotante } from "@/components/CalculadoraFlotante";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -26,6 +27,7 @@ export default function RootLayout({
     <html lang="es" className={`${dmSans.variable} h-full`}>
       <body className="h-full font-sans antialiased bg-bg-base text-text-primary">
         {children}
+        <CalculadoraFlotante />
       </body>
     </html>
   );
