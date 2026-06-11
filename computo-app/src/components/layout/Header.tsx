@@ -41,7 +41,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
       <Link href="/" className="flex items-center gap-2.5 select-none group min-w-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/icon-delamatriz.png" alt="De La Matriz" height={36} style={{ height: 36, width: "auto" }} className="flex-shrink-0" />
-        <div className="hidden sm:flex items-baseline gap-0.5 min-w-0">
+        <div className="flex items-baseline gap-0.5 min-w-0">
           <span
             className="text-[18px] font-bold tracking-tight text-brand-deep leading-none truncate"
             style={{ fontFamily: "DM Sans, sans-serif" }}

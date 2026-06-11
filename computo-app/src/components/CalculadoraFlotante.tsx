@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Calculator, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,8 +31,11 @@ function fmtNum(v: number, decimals = 2) {
 }
 
 export function CalculadoraFlotante() {
+  const pathname = usePathname();
   const [abierta, setAbierta] = useState(false);
   const [modo, setModo] = useState<Modo>("basica");
+
+  if (!pathname.startsWith("/proyectos")) return null;
 
   return (
     <>
