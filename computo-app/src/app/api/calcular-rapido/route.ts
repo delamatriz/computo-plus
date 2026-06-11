@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { db } from "@/lib/db";
 
 const client = new Anthropic();
 
@@ -17,18 +18,42 @@ export async function POST(request: NextRequest) {
     }
 
     const tipoLabel = TIPOS_LABEL[tipo] ?? tipo;
-    const monedaLabel = moneda === "UYU" ? "pesos uruguayos" : "dólares americanos";
+    const monedaLabel = moneda === "UYU" ? "pesos uruguayos" : "dólares americanos (usar TC 42.5)";
 
-    const prompt = `Sos un presupuestador experto en construcción uruguaya.
-El usuario necesita un presupuesto estimativo para la siguiente tarea:
+    const [categorias, preciosMTOP] = await Promise.all([
+      db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),
+      db.precioMTOP.findMany({ take: 50, orderBy: { descripcion: "asc" } }),
+    ]);
 
+    const tablaJornales = categorias
+      .map((c) => `${c.nombre}: $${c.jornal} UYU/jornada (8hs)`)
+      .join("\n");
+
+    const tablaMateriales = preciosMTOP
+      .slice(0, 30)
+      .map((p) => `${p.descripcion}: ${p.precioUnitario} UYU/${p.unidad}`)
+      .join("\n");
+
+    const prompt = `Sos un presupuestador experto en construcción uruguaya con 20 años de experiencia.
+
+JORNALES SUNCA VIGENTES (Uruguay 2025):
+${tablaJornales}
+
+PRECIOS DE REFERENCIA MTOP (Lista Nº599, Nov 2025, en UYU):
+${tablaMateriales}
+
+TAREA A PRESUPUESTAR:
 Tipo: ${tipoLabel}
 Descripción: ${descripcion}
-Zona: ${zona}
+Zona: ${zona} (Interior del país tiene ~10% menos costo de MO)
 Calidad: ${calidad}
-Moneda: ${moneda}
+Moneda solicitada: ${moneda}
 
-Analizá la descripción y devolvé un JSON con esta estructura exacta:
+Calculá el presupuesto usando los jornales y precios de referencia provistos.
+Para mano de obra: usá rendimientos reales uruguayos (ej: colocación de aberturas = 2-3hs/unidad oficial carpintero).
+Para materiales: usá los precios MTOP como referencia base.
+
+Devolvé un JSON con esta estructura exacta:
 {
   "totalGeneral": number,
   "totalMateriales": number,
@@ -41,16 +66,14 @@ Analizá la descripción y devolvé un JSON con esta estructura exacta:
       "manoObra": number
     }
   ],
-  "advertencia": string
+  "advertencia": "Valores estimativos sin IVA, sin gastos generales ni beneficio del contratista. Para mayor exactitud desarrollá un proyecto completo."
 }
 
 Reglas:
-- Solo incluí los capítulos relevantes para la tarea descripta (no pongas todos)
+- Solo incluí los capítulos relevantes para la tarea descripta
 - Los montos en ${monedaLabel}
-- Usá precios de referencia del mercado uruguayo 2025
-- totalMateriales + totalManoObra = totalGeneral
-- La advertencia debe decir: "Valores estimativos sin IVA ni aportes BPS. Para mayor exactitud, desarrollá un proyecto completo."
-- Respondé SOLO con JSON válido, sin texto adicional`;
+- totalMateriales + totalManoObra debe ser igual a totalGeneral
+- Respondé SOLO con JSON válido, sin texto adicional ni markdown`;
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",

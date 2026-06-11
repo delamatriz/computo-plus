@@ -697,6 +697,14 @@ export default function CalcularPage() {
                           * Para mayor exactitud desarrollá un proyecto completo.
                         </p>
                       </div>
+
+                      {/* Calculadora rápida */}
+                      <div className="mt-4 pt-4 border-t border-slate-200">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                          Calculadora rápida
+                        </p>
+                        <CalculadoraInline />
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -753,6 +761,82 @@ export default function CalcularPage() {
 
           </motion.div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Calculadora rápida inline ──────────────────────────── */
+function CalculadoraInline() {
+  const [display, setDisplay] = useState("0");
+  const [operacion, setOperacion] = useState("");
+  const [valorPrevio, setValorPrevio] = useState("");
+  const [esperandoOperando, setEsperandoOperando] = useState(false);
+
+  const presionarNumero = (num: string) => {
+    if (esperandoOperando) {
+      setDisplay(num);
+      setEsperandoOperando(false);
+    } else {
+      setDisplay(display === "0" ? num : display + num);
+    }
+  };
+
+  const presionarOperacion = (op: string) => {
+    setValorPrevio(display);
+    setOperacion(op);
+    setEsperandoOperando(true);
+  };
+
+  const calcular = () => {
+    const prev = parseFloat(valorPrevio);
+    const curr = parseFloat(display);
+    let resultado = 0;
+    if (operacion === "+") resultado = prev + curr;
+    if (operacion === "-") resultado = prev - curr;
+    if (operacion === "×") resultado = prev * curr;
+    if (operacion === "÷") resultado = curr !== 0 ? prev / curr : 0;
+    setDisplay(resultado % 1 === 0 ? resultado.toString() : resultado.toFixed(2));
+    setOperacion("");
+    setEsperandoOperando(true);
+  };
+
+  const limpiar = () => {
+    setDisplay("0");
+    setOperacion("");
+    setValorPrevio("");
+    setEsperandoOperando(false);
+  };
+
+  const btnCls = "h-9 rounded-lg text-sm font-medium transition-colors";
+
+  return (
+    <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+      <div className="bg-white rounded-lg px-3 py-2 text-right text-lg font-mono font-semibold text-[#1A3A5C] mb-2 border border-slate-200 min-h-[40px]">
+        {parseFloat(display).toLocaleString("es-UY")}
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        <button onClick={limpiar} className={`${btnCls} col-span-2 bg-red-50 text-red-600 hover:bg-red-100`}>C</button>
+        <button onClick={() => presionarOperacion("÷")} className={`${btnCls} bg-blue-50 text-[#2563EB] hover:bg-blue-100`}>÷</button>
+        <button onClick={() => presionarOperacion("×")} className={`${btnCls} bg-blue-50 text-[#2563EB] hover:bg-blue-100`}>×</button>
+
+        {["7", "8", "9"].map((n) => (
+          <button key={n} onClick={() => presionarNumero(n)} className={`${btnCls} bg-white border border-slate-200 text-[#1E293B] hover:bg-slate-100`}>{n}</button>
+        ))}
+        <button onClick={() => presionarOperacion("-")} className={`${btnCls} bg-blue-50 text-[#2563EB] hover:bg-blue-100`}>−</button>
+
+        {["4", "5", "6"].map((n) => (
+          <button key={n} onClick={() => presionarNumero(n)} className={`${btnCls} bg-white border border-slate-200 text-[#1E293B] hover:bg-slate-100`}>{n}</button>
+        ))}
+        <button onClick={() => presionarOperacion("+")} className={`${btnCls} bg-blue-50 text-[#2563EB] hover:bg-blue-100`}>+</button>
+
+        {["1", "2", "3"].map((n) => (
+          <button key={n} onClick={() => presionarNumero(n)} className={`${btnCls} bg-white border border-slate-200 text-[#1E293B] hover:bg-slate-100`}>{n}</button>
+        ))}
+        <button onClick={calcular} className={`${btnCls} row-span-2 bg-[#2563EB] text-white hover:bg-blue-700`}>=</button>
+
+        <button onClick={() => presionarNumero("0")} className={`${btnCls} col-span-2 bg-white border border-slate-200 text-[#1E293B] hover:bg-slate-100`}>0</button>
+        <button onClick={() => presionarNumero(".")} className={`${btnCls} bg-white border border-slate-200 text-[#1E293B] hover:bg-slate-100`}>.</button>
       </div>
     </div>
   );
