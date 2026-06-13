@@ -2,30 +2,25 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Building2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 
 const MODES = [
   {
     id: "rapido",
     title: "Cálculo Rápido",
-    description: "Ingresá área y tipo de obra. Presupuesto orientativo en segundos, sin cuenta.",
+    description:
+      "Detallá las tareas a realizar de forma precisa y el tipo de obra. Tendrás un presupuesto orientativo en segundos.",
     cta: "Calcular ahora",
     href: "/calcular",
   },
   {
     id: "obra",
-    title: "Proyecto Estándar",
-    description: "Creá tu proyecto con capítulos y rubros. Presupuesto completo, listo para imprimir.",
+    title: "Nuevo Proyecto",
+    description:
+      "Creá tu presupuesto con capítulos y rubros. Presupuesto completo con descomposición de precios, mano de obra y metrajes.",
     cta: "Crear proyecto",
     href: "/proyectos/nuevo",
-  },
-  {
-    id: "completo",
-    title: "Proyecto Completo",
-    description: "Ficha BPS, descomposición de precios, APU, subcontratos y mano de obra categorizada.",
-    cta: "Empezar",
-    href: "/proyectos/nuevo?modo=completo",
   },
 ];
 
@@ -55,8 +50,8 @@ export default function HomePage() {
       </section>
 
       {/* Tarjetas */}
-      <section className="max-w-4xl mx-auto w-full px-6 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="max-w-3xl mx-auto w-full px-6 pt-6 pb-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {MODES.map((mode, i) => (
             <motion.div
               key={mode.id}
@@ -65,16 +60,16 @@ export default function HomePage() {
               transition={{ duration: 0.35, delay: 0.12 + i * 0.07 }}
             >
               <Link href={mode.href} className="block h-full group">
-                <div className="h-full rounded-xl border border-slate-200 bg-white p-6 flex flex-col transition-colors hover:border-[#2563EB]/40">
-                  <h3 className="text-base font-semibold text-[#1A3A5C] mb-2">
+                <div className="h-full rounded-xl border border-slate-200 bg-white p-6 flex flex-col shadow-sm transition-all hover:shadow-lg hover:border-[#2563EB]/40">
+                  <h3 className="text-lg font-bold text-[#1A3A5C] mb-2">
                     {mode.title}
                   </h3>
-                  <p className="text-sm text-slate-500 leading-relaxed flex-1">
+                  <p className="text-sm text-slate-600 leading-relaxed flex-1">
                     {mode.description}
                   </p>
-                  <div className="mt-5 flex items-center gap-1 text-sm font-medium text-[#2563EB]">
+                  <div className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[#2563EB]">
                     {mode.cta}
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                   </div>
                 </div>
               </Link>
@@ -85,13 +80,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-100 mt-auto">
-        <div className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-[#2563EB]" />
-            <span className="font-bold text-[#1A3A5C] text-sm">
-              CÓMPUTO<span className="text-[#2563EB]">+</span>
-            </span>
-          </div>
+        <div className="max-w-4xl mx-auto px-6 py-6 text-center">
           <p className="text-slate-400 text-xs">Presupuestación de Obra Premium · Uruguay</p>
         </div>
       </footer>

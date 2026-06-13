@@ -10,6 +10,8 @@ import {
   ChevronDown,
   RotateCcw,
   Loader2,
+  Camera,
+  X,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { cn } from "@/lib/utils";
@@ -74,6 +76,7 @@ const MAX_PCT    = Math.max(...CAPITULOS.map((c) => c.pct));
 const PALETA_COLORES = CAPITULOS.map((c) => c.color);
 
 const TCU = 42.5;
+const MAX_FOTOS = 5;
 
 /* ─── Tipos para la estimación detallada ─────────────────── */
 interface CapituloIA {
@@ -89,6 +92,24 @@ interface ResultadoIA {
   totalManoObra: number;
   capitulos: CapituloIA[];
   advertencia: string;
+}
+
+interface FotoSeleccionada {
+  file: File;
+  preview: string;
+}
+
+/* ─── Convierte un File a base64 (sin el prefijo data:...) ── */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1] ?? "");
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function CalcularPage() {
@@ -107,6 +128,9 @@ export default function CalcularPage() {
   const [resultadoIA, setResultadoIA]   = useState<ResultadoIA | null>(null);
   const [errorIA, setErrorIA]           = useState<string | null>(null);
   const [mostrarCalculadora, setMostrarCalculadora] = useState(false);
+
+  const [fotos, setFotos] = useState<FotoSeleccionada[]>([]);
+  const fotosInputRef = useRef<HTMLInputElement>(null);
 
   const esDescriptivo = tipo === "reparaciones" || tipo === "reforma";
   const esPH          = tipo === "ph";
@@ -172,15 +196,39 @@ export default function CalcularPage() {
     return null;
   }, [resultado, resultadoIA]);
 
+  const agregarFotos = (files: FileList | null) => {
+    if (!files) return;
+    const nuevas = Array.from(files)
+      .filter((f) => f.type.startsWith("image/"))
+      .slice(0, MAX_FOTOS - fotos.length)
+      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
+    if (nuevas.length > 0) setFotos((prev) => [...prev, ...nuevas]);
+  };
+
+  const quitarFoto = (index: number) => {
+    setFotos((prev) => {
+      const copia = [...prev];
+      URL.revokeObjectURL(copia[index].preview);
+      copia.splice(index, 1);
+      return copia;
+    });
+  };
+
   const calcularEstimacion = async () => {
     if (!descripcion.trim() || calculandoIA) return;
     setCalculandoIA(true);
     setErrorIA(null);
     try {
+      const fotosBase64 = await Promise.all(
+        fotos.map(async (f) => ({
+          mediaType: f.file.type,
+          data: await fileToBase64(f.file),
+        }))
+      );
       const res = await fetch("/api/calcular-rapido", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ descripcion, tipo, zona, calidad, moneda }),
+        body: JSON.stringify({ descripcion, tipo, zona, calidad, moneda, fotos: fotosBase64 }),
       });
       if (!res.ok) throw new Error("error");
       const data = await res.json();
@@ -271,6 +319,55 @@ export default function CalcularPage() {
                 <p className="text-xs text-slate-400 mt-2">
                   Describí los trabajos con el mayor detalle posible. Cuanto más precisa sea la descripción, más exacta será la estimación.
                 </p>
+
+                {/* Fotos */}
+                <input
+                  ref={fotosInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    agregarFotos(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fotosInputRef.current?.click()}
+                  disabled={fotos.length >= MAX_FOTOS}
+                  className={cn(
+                    "mt-3 flex items-center gap-1.5 text-xs font-medium transition-colors",
+                    fotos.length >= MAX_FOTOS
+                      ? "text-slate-300 cursor-not-allowed"
+                      : "text-slate-400 hover:text-[#2563EB]"
+                  )}
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  Agregar fotos
+                  {fotos.length > 0 && (
+                    <span className="text-slate-300">({fotos.length}/{MAX_FOTOS})</span>
+                  )}
+                </button>
+
+                {fotos.length > 0 && (
+                  <div className="mt-3 grid grid-cols-5 gap-2">
+                    {fotos.map((foto, i) => (
+                      <div key={foto.preview} className="relative aspect-square rounded-[8px] overflow-hidden border border-slate-200 group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={foto.preview} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => quitarFoto(i)}
+                          className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                          aria-label="Quitar foto"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <button
                   onClick={calcularEstimacion}
@@ -774,6 +871,8 @@ export default function CalcularPage() {
                     setMoneda("USD");
                     setResultadoIA(null);
                     setErrorIA(null);
+                    fotos.forEach((f) => URL.revokeObjectURL(f.preview));
+                    setFotos([]);
                   }}
                   className="flex items-center justify-center gap-2 w-full py-2 text-text-muted hover:text-text-secondary text-sm transition-colors"
                 >
