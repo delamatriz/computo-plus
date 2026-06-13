@@ -852,7 +852,7 @@ export default function CalcularPage() {
                   style={{ boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.3)" }}
                 >
                   <FolderPlus className="w-4 h-4" />
-                  Convertir en proyecto real
+                  Iniciar proyecto completo
                 </Link>
 
                 <button className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-border text-text-secondary hover:text-text-primary hover:border-slate-300 font-medium text-sm transition-colors bg-bg-card">
