@@ -63,6 +63,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
           {[
             { href: "/dashboard", label: "Proyectos" },
             { href: "/rubros", label: "Rubros" },
+            { href: "/metrajes", label: "Metrajes" },
             { href: "/recetas", label: "Descompuestos" },
             { href: "/configuracion", label: "Configuración" },
           ].map((item) => (
