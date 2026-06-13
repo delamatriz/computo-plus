@@ -16,6 +16,7 @@ import {
   HardHat,
   BarChart3,
   Wrench,
+  Ruler,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -32,6 +33,7 @@ const navItems = [
     section: "Presupuestación",
     items: [
       { href: "/rubros", icon: Layers, label: "Rubros" },
+      { href: "/metrajes", icon: Ruler, label: "Metrajes" },
       { href: "/recetas", icon: BookOpen, label: "Descompuestos" },
       { href: "/categorias", icon: HardHat, label: "Mano de Obra" },
     ],
