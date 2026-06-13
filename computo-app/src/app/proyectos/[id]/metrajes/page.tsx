@@ -210,21 +210,33 @@ export default function MetrajesPage() {
 
   const eliminarFila = (id: string) => setFilas((prev) => prev.filter((f) => f.id !== id));
 
-  /* Fila generada a partir de descripción en lenguaje natural (placeholder local) */
+  /* Fila generada a partir de descripción en lenguaje natural vía IA */
   const agregarFilaIA = async () => {
     if (!iaTexto.trim() || iaCargando) return;
     setIaCargando(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
+      const res = await fetch("/api/metrajes/sugerir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descripcion: iaTexto.trim() }),
+      });
+      if (!res.ok) throw new Error("Error al generar la fila");
+      const data = await res.json();
+
       setFilas((prev) => [
         ...prev,
         {
           ...nuevaFila(),
-          descripcion: iaTexto.trim(),
-          cantidad: 1,
+          descripcion: data.nota ? `${data.descripcion} (${data.nota})` : data.descripcion,
+          largo: data.largo ?? null,
+          ancho: data.ancho ?? null,
+          alto: data.alto ?? null,
+          cantidad: data.cantidad ?? 1,
         },
       ]);
       setIaTexto("");
+    } catch (err) {
+      console.error("[metrajes] agregarFilaIA", err);
     } finally {
       setIaCargando(false);
     }
