@@ -61,9 +61,10 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
       {!isHome && (
         <nav className="hidden md:flex items-center gap-1">
           {[
-            { href: "/dashboard", label: "Proyectos" },
-            { href: "/rubros", label: "Rubros" },
+            { href: "/calcular", label: "Cálculo rápido" },
+            { href: "/proyectos", label: "Proyectos" },
             { href: "/metrajes", label: "Metrajes" },
+            { href: "/rubros", label: "Rubros" },
             { href: "/recetas", label: "Descompuestos" },
             { href: "/configuracion", label: "Configuración" },
           ].map((item) => (
@@ -71,7 +72,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "px-3.5 py-2 rounded-[8px] text-sm font-medium transition-colors",
+                "px-3.5 py-2 rounded-[8px] text-sm font-medium transition-colors whitespace-nowrap",
                 pathname.startsWith(item.href)
                   ? "bg-brand-pale text-brand-accent"
                   : "text-text-secondary hover:text-text-primary hover:bg-bg-base"

@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
   FolderOpen,
+  Calculator,
   Layers,
   BookOpen,
   Users,
@@ -25,15 +25,15 @@ const navItems = [
   {
     section: "Principal",
     items: [
-      { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
       { href: "/proyectos", icon: FolderOpen, label: "Proyectos" },
+      { href: "/calcular", icon: Calculator, label: "Cálculo rápido" },
     ],
   },
   {
     section: "Presupuestación",
     items: [
-      { href: "/rubros", icon: Layers, label: "Rubros" },
       { href: "/metrajes", icon: Ruler, label: "Metrajes" },
+      { href: "/rubros", icon: Layers, label: "Rubros" },
       { href: "/recetas", icon: BookOpen, label: "Descompuestos" },
       { href: "/categorias", icon: HardHat, label: "Mano de Obra" },
     ],
