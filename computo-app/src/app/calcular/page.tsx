@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calculator,
@@ -113,6 +113,7 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export default function CalcularPage() {
+  const router = useRouter();
   const [tipo, setTipo]       = useState("vivienda");
   const [calidad, setCalidad] = useState("estandar");
   const areaRef = useRef<HTMLInputElement>(null);
@@ -131,6 +132,7 @@ export default function CalcularPage() {
 
   const [fotos, setFotos] = useState<FotoSeleccionada[]>([]);
   const fotosInputRef = useRef<HTMLInputElement>(null);
+  const [iniciandoProyecto, setIniciandoProyecto] = useState(false);
 
   const esDescriptivo = tipo === "reparaciones" || tipo === "reforma";
   const esPH          = tipo === "ph";
@@ -840,20 +842,45 @@ export default function CalcularPage() {
                   )}
                 </AnimatePresence>
 
-                <Link
-                  href={
-                    esDescriptivo
-                      ? `/proyectos/nuevo?tipo=${tipo}&descripcion=${encodeURIComponent(descripcion)}&calidad=${calidad}`
-                      : esPH
-                      ? `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&unidades=${unidadesNum}&calidad=${calidad}`
-                      : `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&calidad=${calidad}`
-                  }
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm transition-colors"
+                <button
+                  type="button"
+                  disabled={iniciandoProyecto}
+                  onClick={async () => {
+                    if (iniciandoProyecto) return;
+                    setIniciandoProyecto(true);
+                    try {
+                      const href = esDescriptivo
+                        ? `/proyectos/nuevo?tipo=${tipo}&descripcion=${encodeURIComponent(descripcion)}&calidad=${calidad}`
+                        : esPH
+                        ? `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&unidades=${unidadesNum}&calidad=${calidad}`
+                        : `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&calidad=${calidad}`;
+
+                      sessionStorage.setItem("calculoRapido_descripcion", descripcion);
+
+                      const fotosBase64 = await Promise.all(
+                        fotos.map(async (f) => ({
+                          mediaType: f.file.type,
+                          data: await fileToBase64(f.file),
+                        }))
+                      );
+                      sessionStorage.setItem("calculoRapido_fotos", JSON.stringify(fotosBase64));
+
+                      router.push(href);
+                    } catch (err) {
+                      console.error("[calcular] iniciar proyecto completo", err);
+                      setIniciandoProyecto(false);
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white font-semibold text-sm transition-colors"
                   style={{ boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.3)" }}
                 >
-                  <FolderPlus className="w-4 h-4" />
+                  {iniciandoProyecto ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FolderPlus className="w-4 h-4" />
+                  )}
                   Iniciar proyecto completo
-                </Link>
+                </button>
 
                 <button className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-border text-text-secondary hover:text-text-primary hover:border-slate-300 font-medium text-sm transition-colors bg-bg-card">
                   <Download className="w-4 h-4" />

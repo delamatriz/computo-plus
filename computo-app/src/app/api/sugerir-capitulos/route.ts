@@ -12,9 +12,12 @@ const TIPOS_LABEL: Record<string, string> = {
   INDUSTRIAL: "Industrial",
 };
 
+const MEDIA_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
+type ImageMediaType = (typeof MEDIA_TYPES)[number];
+
 export async function POST(request: NextRequest) {
   try {
-    const { tipo, descripcion } = await request.json();
+    const { tipo, descripcion, fotos } = await request.json();
 
     if (!descripcion?.trim()) {
       return NextResponse.json({ error: "sin_descripcion" }, { status: 400 });
@@ -22,8 +25,33 @@ export async function POST(request: NextRequest) {
 
     const tipoLabel = TIPOS_LABEL[tipo] ?? tipo;
 
+    const fotosTexto = Array.isArray(fotos) && fotos.length
+      ? "\nSe adjuntan fotos del lugar/obra. Analizalas junto con la descripción de texto para sugerir capítulos más precisos (estado actual, alcance de los trabajos, complejidad)."
+      : "";
+
+    const content: Anthropic.Messages.ContentBlockParam[] = [
+      {
+        type: "text",
+        text: `Tipo de obra: ${tipoLabel}. Trabajos: ${descripcion}${fotosTexto}`,
+      },
+    ];
+
+    if (Array.isArray(fotos)) {
+      for (const foto of fotos.slice(0, 5)) {
+        if (!foto?.data || !MEDIA_TYPES.includes(foto?.mediaType)) continue;
+        content.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: foto.mediaType as ImageMediaType,
+            data: foto.data,
+          },
+        });
+      }
+    }
+
     const response = await client.messages.create({
-      model: "claude-opus-4-8",
+      model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: `Sos un experto en construcción uruguaya. El usuario te da el tipo de obra y una descripción de los trabajos a realizar. Devolvés SOLO un JSON con la lista de capítulos recomendados en orden lógico de ejecución, seleccionados de esta lista disponible:
 Trabajos preliminares, Movimiento de tierra y fundaciones, Estructura, Mampostería y muros, Cubierta, Revoques y enlucidos, Revestimientos y pisos, Carpintería, Instalación sanitaria, Instalación eléctrica, Instalación de gas, Instalaciones embutidas, Calefacción, Pintura, Vidriería, Herrería y metálica, Obras exteriores y paisajismo, Honorarios profesionales, Imprevistos.
@@ -31,7 +59,7 @@ Responde SOLO con JSON válido, sin texto adicional: { "capitulos": ["nombre1", 
       messages: [
         {
           role: "user",
-          content: `Tipo de obra: ${tipoLabel}. Trabajos: ${descripcion}`,
+          content,
         },
       ],
     });

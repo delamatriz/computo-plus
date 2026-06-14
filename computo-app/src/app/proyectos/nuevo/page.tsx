@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, Suspense } from "react";
+import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -10,6 +10,8 @@ import {
   X,
   Sparkles,
   CheckCircle2,
+  Camera,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,8 @@ interface FormData {
   plazoMeses: string;
   descripcion: string;
   capitulos: Capitulo[];
+  fotos: FotoProyecto[];
+  documentos: File[];
 }
 
 interface Capitulo {
@@ -37,6 +41,29 @@ interface Capitulo {
   nombre: string;
   color: string;
   activo: boolean;
+}
+
+interface FotoProyecto {
+  preview: string;
+  file?: File;
+  base64?: string;
+  mediaType: string;
+}
+
+const MAX_FOTOS = 10;
+const MAX_DOCS = 5;
+
+/* ─── Convierte un File a base64 (sin el prefijo data:...) ── */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1] ?? "");
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 /* ─── Datos de referencia ─────────────────────────────── */
@@ -157,11 +184,71 @@ function NuevoProyectoContent() {
     plazoMeses: "",
     descripcion: "",
     capitulos: [],
+    fotos: [],
+    documentos: [],
   });
+
+  const fotosInputRef = useRef<HTMLInputElement>(null);
+  const docsInputRef = useRef<HTMLInputElement>(null);
 
   const set = useCallback(<K extends keyof FormData>(key: K, val: FormData[K]) => {
     setForm((prev) => ({ ...prev, [key]: val }));
   }, []);
+
+  /* Traspaso desde Cálculo rápido (sessionStorage) */
+  useEffect(() => {
+    const descripcion = sessionStorage.getItem("calculoRapido_descripcion");
+    if (descripcion) {
+      set("trabajos", descripcion);
+      sessionStorage.removeItem("calculoRapido_descripcion");
+    }
+
+    const fotosRaw = sessionStorage.getItem("calculoRapido_fotos");
+    if (fotosRaw) {
+      try {
+        const fotosGuardadas: { mediaType: string; data: string }[] = JSON.parse(fotosRaw);
+        const fotos: FotoProyecto[] = fotosGuardadas
+          .filter((f) => f.data)
+          .map((f) => ({
+            preview: `data:${f.mediaType};base64,${f.data}`,
+            base64: f.data,
+            mediaType: f.mediaType,
+          }));
+        if (fotos.length > 0) set("fotos", fotos);
+      } catch (err) {
+        console.error("[proyectos/nuevo] traspaso fotos", err);
+      }
+      sessionStorage.removeItem("calculoRapido_fotos");
+    }
+  }, [set]);
+
+  /* Fotos de relevamiento */
+  const agregarFotos = (files: FileList | null) => {
+    if (!files) return;
+    const nuevas = Array.from(files)
+      .filter((f) => f.type.startsWith("image/"))
+      .slice(0, MAX_FOTOS - form.fotos.length)
+      .map((file) => ({ file, preview: URL.createObjectURL(file), mediaType: file.type }));
+    if (nuevas.length > 0) set("fotos", [...form.fotos, ...nuevas]);
+  };
+
+  const quitarFoto = (index: number) => {
+    const copia = [...form.fotos];
+    const [eliminada] = copia.splice(index, 1);
+    if (eliminada?.file) URL.revokeObjectURL(eliminada.preview);
+    set("fotos", copia);
+  };
+
+  /* Documentos PDF/DWG */
+  const agregarDocumentos = (files: FileList | null) => {
+    if (!files) return;
+    const nuevos = Array.from(files).slice(0, MAX_DOCS - form.documentos.length);
+    if (nuevos.length > 0) set("documentos", [...form.documentos, ...nuevos]);
+  };
+
+  const quitarDocumento = (index: number) => {
+    set("documentos", form.documentos.filter((_, i) => i !== index));
+  };
 
   const handleTipoChange = (tipo: string) => {
     set("tipo", tipo);
@@ -186,10 +273,21 @@ function NuevoProyectoContent() {
     setErrorIA(null);
     setCargandoIA(true);
     try {
+      const fotosBase64 = await Promise.all(
+        form.fotos.map(async (f) => ({
+          mediaType: f.mediaType,
+          data: f.base64 ?? (f.file ? await fileToBase64(f.file) : ""),
+        }))
+      );
+
       const res = await fetch("/api/sugerir-capitulos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipo: form.tipo, descripcion: form.trabajos }),
+        body: JSON.stringify({
+          tipo: form.tipo,
+          descripcion: form.trabajos,
+          fotos: fotosBase64.filter((f) => f.data),
+        }),
       });
       const data = await res.json();
       if (data.error === "sin_descripcion") {
@@ -428,6 +526,111 @@ function NuevoProyectoContent() {
                     rows={4}
                     className={cn(inputCls, "resize-none")}
                   />
+                </Field>
+
+                <Field label="Fotos de relevamiento">
+                  <input
+                    ref={fotosInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      agregarFotos(e.target.files);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fotosInputRef.current?.click()}
+                    disabled={form.fotos.length >= MAX_FOTOS}
+                    className={cn(
+                      "flex items-center gap-1.5 text-xs font-medium transition-colors",
+                      form.fotos.length >= MAX_FOTOS
+                        ? "text-slate-300 cursor-not-allowed"
+                        : "text-slate-400 hover:text-[#2563EB]"
+                    )}
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    Agregar fotos
+                    {form.fotos.length > 0 && (
+                      <span className="text-slate-300">({form.fotos.length}/{MAX_FOTOS})</span>
+                    )}
+                  </button>
+
+                  {form.fotos.length > 0 && (
+                    <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 md:grid-cols-10 gap-2">
+                      {form.fotos.map((foto, i) => (
+                        <div key={foto.preview} className="relative aspect-square rounded-[8px] overflow-hidden border border-slate-200 group">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={foto.preview} alt={`Relevamiento ${i + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => quitarFoto(i)}
+                            className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                            aria-label="Quitar foto"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Field>
+
+                <Field label="Documentos (PDF / DWG)">
+                  <input
+                    ref={docsInputRef}
+                    type="file"
+                    accept=".pdf,.dwg,application/pdf"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      agregarDocumentos(e.target.files);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => docsInputRef.current?.click()}
+                    disabled={form.documentos.length >= MAX_DOCS}
+                    className={cn(
+                      "flex items-center gap-1.5 text-xs font-medium transition-colors",
+                      form.documentos.length >= MAX_DOCS
+                        ? "text-slate-300 cursor-not-allowed"
+                        : "text-slate-400 hover:text-[#2563EB]"
+                    )}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Agregar documentos
+                    {form.documentos.length > 0 && (
+                      <span className="text-slate-300">({form.documentos.length}/{MAX_DOCS})</span>
+                    )}
+                  </button>
+
+                  {form.documentos.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {form.documentos.map((doc, i) => (
+                        <li
+                          key={`${doc.name}-${i}`}
+                          className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-[8px] border border-slate-200 bg-slate-50 text-sm text-slate-600"
+                        >
+                          <span className="flex items-center gap-2 min-w-0">
+                            <FileText className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <span className="truncate">{doc.name}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => quitarDocumento(i)}
+                            className="text-slate-400 hover:text-red-500 transition-colors flex-shrink-0"
+                            aria-label="Quitar documento"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </Field>
 
                 <Field label="Otros datos">
