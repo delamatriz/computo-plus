@@ -561,7 +561,7 @@ function NuevoProyectoContent() {
                   {form.fotos.length > 0 && (
                     <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 md:grid-cols-10 gap-2">
                       {form.fotos.map((foto, i) => (
-                        <div key={foto.preview} className="relative aspect-square rounded-[8px] overflow-hidden border border-slate-200 group">
+                        <div key={`foto-${i}`} className="relative aspect-square rounded-[8px] overflow-hidden border border-slate-200 group">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={foto.preview} alt={`Relevamiento ${i + 1}`} className="w-full h-full object-cover" />
                           <button
