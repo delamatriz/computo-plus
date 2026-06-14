@@ -23,6 +23,7 @@ import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
+import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
 
 /* ─── Tipo Proyecto ───────────────────────────────────────── */
 interface ProyectoData {
@@ -34,6 +35,7 @@ interface ProyectoData {
   moneda: string;
   area: number;
   direccion: string;
+  memoriaDescriptiva?: string | null;
 }
 
 /* ─── Tipos base ──────────────────────────────────────────── */
@@ -127,6 +129,7 @@ const PROYECTO = {
   moneda: "USD",
   area: 120,
   direccion: "Bulevar España 2345, Montevideo",
+  memoriaDescriptiva: null as string | null,
 };
 
 const ESTADOS = {
@@ -979,6 +982,7 @@ export default function ProyectoPage() {
           moneda:    data.moneda     ?? "UYU",
           area:      data.area       ?? 0,
           direccion: data.direccion  ?? "",
+          memoriaDescriptiva: data.memoriaDescriptiva ?? null,
         });
 
         // Mapear capítulos y rubros
@@ -1549,6 +1553,13 @@ export default function ProyectoPage() {
             fechaFin: c.fechaFin,
             rubros: c.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
           }))}
+        />
+
+        {/* ── Memoria descriptiva ──────────────────────────── */}
+        <SeccionMemoriaDescriptiva
+          proyectoId={proyectoActivo.id}
+          proyectoNombre={proyectoActivo.nombre}
+          memoriaInicial={proyectoActivo.memoriaDescriptiva ?? null}
         />
 
         {/* ── Cómputo global de materiales ────────────────── */}
