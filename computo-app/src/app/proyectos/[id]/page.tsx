@@ -48,6 +48,7 @@ interface Capitulo {
   id: string;
   nombre: string;
   codigo?: string;
+  color?: string;
   fechaInicio?: string | null;
   fechaFin?: string | null;
   rubros: Rubro[];
@@ -981,7 +982,7 @@ export default function ProyectoPage() {
 
         // Mapear capítulos y rubros
         const caps: Capitulo[] = (data.capitulos ?? []).map((cap: {
-          id: string; nombre: string; codigo?: string;
+          id: string; nombre: string; codigo?: string; color?: string;
           fechaInicio?: string | null; fechaFin?: string | null;
           rubros: {
             id: string; descripcion: string; unidad: string;
@@ -991,6 +992,7 @@ export default function ProyectoPage() {
           id:          cap.id,
           nombre:      cap.nombre,
           codigo:      cap.codigo,
+          color:       cap.color,
           fechaInicio: cap.fechaInicio,
           fechaFin:    cap.fechaFin,
           rubros: (cap.rubros ?? []).map((r) => ({
@@ -1528,7 +1530,7 @@ export default function ProyectoPage() {
 
         {/* ── Cronograma ─────────────────────────────────────── */}
         <SeccionCronograma
-          capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre, codigo: c.codigo, fechaInicio: c.fechaInicio, fechaFin: c.fechaFin }))}
+          capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre, codigo: c.codigo, color: c.color, fechaInicio: c.fechaInicio, fechaFin: c.fechaFin }))}
         />
 
         {/* ── Cómputo global de materiales ────────────────── */}
