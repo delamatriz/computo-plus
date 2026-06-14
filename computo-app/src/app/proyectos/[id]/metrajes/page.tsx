@@ -16,6 +16,7 @@ import {
   Sparkles,
   Calculator,
   Loader2,
+  FileSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -71,13 +72,20 @@ function nuevaFila(): MetrajeFila {
 function CardColapsable({
   titulo,
   defaultAbierta = true,
+  colapsarCuando,
   children,
 }: {
   titulo: string;
   defaultAbierta?: boolean;
+  colapsarCuando?: boolean;
   children: React.ReactNode;
 }) {
   const [abierta, setAbierta] = useState(defaultAbierta);
+
+  useEffect(() => {
+    if (colapsarCuando) setAbierta(false);
+  }, [colapsarCuando]);
+
   return (
     <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
       <button
@@ -129,6 +137,10 @@ export default function MetrajesPage() {
 
   // Calculadora rápida
   const [mostrarCalculadora, setMostrarCalculadora] = useState(false);
+
+  // Split view — visor de documentación
+  const [visorAbierto, setVisorAbierto] = useState(false);
+  const [tabVisor, setTabVisor] = useState(0);
 
   /* Cargar proyecto y rubros disponibles */
   useEffect(() => {
@@ -186,6 +198,37 @@ export default function MetrajesPage() {
   const quitarDocumento = (index: number) => {
     setDocumentos((prev) => prev.filter((_, i) => i !== index));
   };
+
+  /* URLs de objeto para previsualizar documentos (PDF/DWG) en el visor */
+  const documentoUrls = useMemo(
+    () => documentos.map((doc) => URL.createObjectURL(doc)),
+    [documentos]
+  );
+  useEffect(() => {
+    return () => {
+      documentoUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [documentoUrls]);
+
+  /* Items combinados (fotos + documentos) para el visor en split view */
+  const itemsVisor = useMemo(() => {
+    const items: { tipo: "foto" | "pdf"; label: string; url: string }[] = [];
+    fotos.forEach((foto, i) => items.push({ tipo: "foto", label: `Foto ${i + 1}`, url: foto.preview }));
+    documentos.forEach((doc, i) => items.push({ tipo: "pdf", label: doc.name, url: documentoUrls[i] }));
+    return items;
+  }, [fotos, documentos, documentoUrls]);
+
+  const hayDocumentacion = itemsVisor.length > 0;
+
+  useEffect(() => {
+    if (tabVisor >= itemsVisor.length) setTabVisor(0);
+  }, [itemsVisor.length, tabVisor]);
+
+  useEffect(() => {
+    if (!hayDocumentacion) setVisorAbierto(false);
+  }, [hayDocumentacion]);
+
+  const itemVisorActual = itemsVisor[tabVisor];
 
   /* Filas de la planilla */
   const actualizarFila = (id: string, field: keyof MetrajeFila, value: string) => {
@@ -304,19 +347,40 @@ export default function MetrajesPage() {
                 <span className="text-slate-400 font-normal"> — {proyectoNombre}</span>
               )}
             </h1>
-            <button
-              onClick={exportarExcel}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors flex-shrink-0"
-            >
-              <Download className="w-3.5 h-3.5" /> Exportar Excel
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {hayDocumentacion && (
+                <button
+                  onClick={() => setVisorAbierto(true)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 rounded-[8px] border text-sm font-medium transition-colors",
+                    visorAbierto
+                      ? "border-[#2563EB] text-[#2563EB] bg-blue-50"
+                      : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  <FileSearch className="w-3.5 h-3.5" /> Ver documentación
+                </button>
+              )}
+              <button
+                onClick={exportarExcel}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" /> Exportar Excel
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1 space-y-4">
+      <div className="w-full flex-1 flex flex-col lg:flex-row min-h-0">
+      <div
+        className={cn(
+          "w-full px-3 md:px-6 py-6 space-y-4",
+          visorAbierto ? "lg:w-[60%]" : "max-w-6xl mx-auto"
+        )}
+      >
         {/* ── Documentación ────────────────────────────────── */}
-        <CardColapsable titulo="Documentación">
+        <CardColapsable titulo="Documentación" colapsarCuando={visorAbierto}>
           <div className="space-y-5">
             {/* Fotos de relevamiento */}
             <div>
@@ -650,6 +714,72 @@ export default function MetrajesPage() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* ── Visor de documentación (split view) ───────────── */}
+      <AnimatePresence>
+        {visorAbierto && itemVisorActual && (
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 40 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="fixed inset-0 z-50 bg-white flex flex-col lg:static lg:inset-auto lg:z-auto lg:w-[40%] lg:flex-shrink-0 lg:border-l lg:border-slate-200"
+          >
+            {/* Header del visor */}
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200 flex-shrink-0">
+              <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
+                Documentación
+              </span>
+              <button
+                onClick={() => setVisorAbierto(false)}
+                aria-label="Cerrar visor de documentación"
+                className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            {itemsVisor.length > 1 && (
+              <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-slate-200 overflow-x-auto flex-shrink-0">
+                {itemsVisor.map((item, i) => (
+                  <button
+                    key={`${item.tipo}-${i}`}
+                    onClick={() => setTabVisor(i)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-[8px] text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0",
+                      tabVisor === i
+                        ? "bg-[#2563EB] text-white"
+                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Contenido */}
+            <div className="flex-1 overflow-auto p-4">
+              {itemVisorActual.tipo === "foto" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={itemVisorActual.url}
+                  alt={itemVisorActual.label}
+                  className="w-full h-auto rounded-[8px] border border-slate-200"
+                />
+              ) : (
+                <iframe
+                  src={itemVisorActual.url}
+                  title={itemVisorActual.label}
+                  className="w-full h-full min-h-[70vh] rounded-[8px] border border-slate-200"
+                />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
     </div>
   );
 }
