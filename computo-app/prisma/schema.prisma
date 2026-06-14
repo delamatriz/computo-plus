@@ -36,6 +36,9 @@ model Proyecto {
   leyesSociales LeyesSociales?
   certificaciones Certificacion[]
   memoriaDescriptiva String? @db.Text
+  fechaBaseIndice    DateTime?
+  indiceBaseValor    Float?
+  ultimaActualizacionIndice DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }

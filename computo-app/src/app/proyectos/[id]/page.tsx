@@ -24,6 +24,7 @@ import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
 import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
+import SeccionActualizacionPrecios from "@/components/SeccionActualizacionPrecios";
 
 /* ─── Tipo Proyecto ───────────────────────────────────────── */
 interface ProyectoData {
@@ -36,6 +37,9 @@ interface ProyectoData {
   area: number;
   direccion: string;
   memoriaDescriptiva?: string | null;
+  createdAt?: string | null;
+  fechaBaseIndice?: string | null;
+  ultimaActualizacionIndice?: string | null;
 }
 
 /* ─── Tipos base ──────────────────────────────────────────── */
@@ -130,6 +134,9 @@ const PROYECTO = {
   area: 120,
   direccion: "Bulevar España 2345, Montevideo",
   memoriaDescriptiva: null as string | null,
+  createdAt: null as string | null,
+  fechaBaseIndice: null as string | null,
+  ultimaActualizacionIndice: null as string | null,
 };
 
 const ESTADOS = {
@@ -983,6 +990,9 @@ export default function ProyectoPage() {
           area:      data.area       ?? 0,
           direccion: data.direccion  ?? "",
           memoriaDescriptiva: data.memoriaDescriptiva ?? null,
+          createdAt: data.createdAt ?? null,
+          fechaBaseIndice: data.fechaBaseIndice ?? null,
+          ultimaActualizacionIndice: data.ultimaActualizacionIndice ?? null,
         });
 
         // Mapear capítulos y rubros
@@ -1560,6 +1570,21 @@ export default function ProyectoPage() {
           proyectoId={proyectoActivo.id}
           proyectoNombre={proyectoActivo.nombre}
           memoriaInicial={proyectoActivo.memoriaDescriptiva ?? null}
+        />
+
+        {/* ── Actualización de precios por índice ICCV ────────── */}
+        <SeccionActualizacionPrecios
+          proyectoId={proyectoActivo.id}
+          moneda={moneda}
+          totalActual={totalGeneral}
+          fechaBaseDefault={
+            proyectoActivo.fechaBaseIndice
+              ? proyectoActivo.fechaBaseIndice.slice(0, 7)
+              : proyectoActivo.createdAt
+              ? proyectoActivo.createdAt.slice(0, 7)
+              : null
+          }
+          ultimaActualizacionIndice={proyectoActivo.ultimaActualizacionIndice ?? null}
         />
 
         {/* ── Cómputo global de materiales ────────────────── */}
