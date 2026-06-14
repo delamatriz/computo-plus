@@ -22,6 +22,7 @@ import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLey
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
+import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
 
 /* ─── Tipo Proyecto ───────────────────────────────────────── */
 interface ProyectoData {
@@ -1527,6 +1528,14 @@ export default function ProyectoPage() {
 
         {/* ── Comparativo de ofertas ────────────────────────── */}
         <SeccionComparativoOfertas proyectoId={proyectoActivo.id} moneda={moneda} />
+
+        {/* ── Detección de partidas faltantes ─────────────────── */}
+        <SeccionPartidasFaltantes
+          proyectoId={proyectoActivo.id}
+          moneda={moneda}
+          capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre }))}
+          onAgregado={() => window.location.reload()}
+        />
 
         {/* ── Cronograma ─────────────────────────────────────── */}
         <SeccionCronograma
