@@ -202,6 +202,17 @@ model CategoriaLaboral {
   updatedAt DateTime @updatedAt
 }
 
+model CapituloEstandar {
+  id         String   @id @default(cuid())
+  nombre     String
+  orden      Int
+  origen     String   @default("estandar") // "estandar" | "manual"
+  vecesUsado Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  @@unique([nombre])
+}
+
 model Configuracion {
   id                  String   @id @default(cuid())
   jornalBase          Float    @default(0)

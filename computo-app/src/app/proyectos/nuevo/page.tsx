@@ -76,53 +76,38 @@ const TIPOS_OBRA = [
   { id: "INDUSTRIAL",   label: "Industrial" },
 ];
 
-const CAPITULOS_SUGERIDOS: Record<string, Array<{ nombre: string; color: string }>> = {
-  VIVIENDA: [
-    { nombre: "Trabajos preliminares",           color: "#94A3B8" },
-    { nombre: "Movimiento de tierra y fundaciones", color: "#78716C" },
-    { nombre: "Estructura",                      color: "#2563EB" },
-    { nombre: "Mampostería y muros",             color: "#3B82F6" },
-    { nombre: "Cubierta",                        color: "#1D4ED8" },
-    { nombre: "Revoques y enlucidos",            color: "#60A5FA" },
-    { nombre: "Revestimientos y pisos",          color: "#8B5CF6" },
-    { nombre: "Carpintería",                     color: "#EC4899" },
-    { nombre: "Instalación sanitaria",           color: "#10B981" },
-    { nombre: "Instalación eléctrica",           color: "#F59E0B" },
-    { nombre: "Instalación de gas",              color: "#F97316" },
-    { nombre: "Instalaciones embutidas",         color: "#A78BFA" },
-    { nombre: "Calefacción",                     color: "#EF4444" },
-    { nombre: "Pintura",                         color: "#06B6D4" },
-    { nombre: "Vidriería",                       color: "#22D3EE" },
-    { nombre: "Herrería y metálica",             color: "#6B7280" },
-    { nombre: "Obras exteriores y paisajismo",   color: "#22C55E" },
-    { nombre: "Honorarios profesionales",        color: "#1A3A5C" },
-    { nombre: "Imprevistos",                     color: "#64748B" },
-  ],
-  REFORMA: [
-    { nombre: "Demoliciones",        color: "#EF4444" },
-    { nombre: "Estructura y refuerzos", color: "#2563EB" },
-    { nombre: "Mampostería",         color: "#3B82F6" },
-    { nombre: "Instalaciones",       color: "#10B981" },
-    { nombre: "Revestimientos y pisos", color: "#8B5CF6" },
-    { nombre: "Carpintería",         color: "#EC4899" },
-    { nombre: "Pintura",             color: "#06B6D4" },
-    { nombre: "Imprevistos",         color: "#64748B" },
-  ],
-  COMERCIAL: [
-    { nombre: "Obra gruesa",              color: "#2563EB" },
-    { nombre: "Instalaciones técnicas",  color: "#10B981" },
-    { nombre: "Revestimientos y pisos",  color: "#8B5CF6" },
-    { nombre: "Carpintería y vidriería", color: "#EC4899" },
-    { nombre: "Aire acondicionado",      color: "#06B6D4" },
-    { nombre: "Mobiliario y equipamiento", color: "#F59E0B" },
-    { nombre: "Señalética y branding",   color: "#EF4444" },
-    { nombre: "Imprevistos",             color: "#64748B" },
-  ],
-};
+interface CapituloEstandarItem {
+  id: string;
+  nombre: string;
+  orden: number;
+  origen: string;
+  vecesUsado: number;
+}
 
-const CAPITULOS_DEFAULT = CAPITULOS_SUGERIDOS.VIVIENDA;
-
+// Colores de referencia para los 20 capítulos de la biblioteca estándar
+// + nombres históricos sugeridos por la IA (para mantener consistencia visual)
 const COLORES_CAPITULOS: Record<string, string> = {
+  "Implantación y Replanteo":                 "#94A3B8",
+  "Excavaciones y Movimiento de Tierra":       "#78716C",
+  "Demoliciones y Picados":                    "#DC2626",
+  "Cimentaciones":                             "#1D4ED8",
+  "Estructura de Hormigón Armado":             "#2563EB",
+  "Albañilería":                               "#3B82F6",
+  "Pisos, Zócalos y Revestimientos":           "#8B5CF6",
+  "Impermeabilizaciones y Aislaciones":        "#0EA5E9",
+  "Cubierta / Techos":                         "#0284C7",
+  "Instalación Sanitaria":                     "#10B981",
+  "Instalación Eléctrica":                     "#F59E0B",
+  "Instalación Térmica / Aire Acondicionado":  "#06B6D4",
+  "Carpintería":                               "#EC4899",
+  "Vidrios y Espejos":                         "#22D3EE",
+  "Yeso y Cielorrasos":                        "#A78BFA",
+  "Pinturas":                                  "#14B8A6",
+  "Equipamiento":                              "#F97316",
+  "Sistemas Constructivos No Tradicionales":   "#6366F1",
+  "Obra Exterior / Jardín":                    "#22C55E",
+  "Imprevistos":                               "#64748B",
+  // Nombres históricos (sugerencias de IA por tipo de obra)
   "Trabajos preliminares":              "#94A3B8",
   "Movimiento de tierra y fundaciones": "#78716C",
   "Estructura":                         "#2563EB",
@@ -130,7 +115,6 @@ const COLORES_CAPITULOS: Record<string, string> = {
   "Cubierta":                           "#1D4ED8",
   "Revoques y enlucidos":               "#60A5FA",
   "Revestimientos y pisos":             "#8B5CF6",
-  "Carpintería":                        "#EC4899",
   "Instalación sanitaria":              "#10B981",
   "Instalación eléctrica":              "#F59E0B",
   "Instalación de gas":                 "#F97316",
@@ -141,7 +125,6 @@ const COLORES_CAPITULOS: Record<string, string> = {
   "Herrería y metálica":                "#6B7280",
   "Obras exteriores y paisajismo":      "#22C55E",
   "Honorarios profesionales":           "#1A3A5C",
-  "Imprevistos":                        "#64748B",
 };
 
 const COLORS = [
@@ -167,6 +150,8 @@ function NuevoProyectoContent() {
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
   const [cargandoIA, setCargandoIA] = useState(false);
   const [errorIA, setErrorIA] = useState<string | null>(null);
+  const [capitulosEstandar, setCapitulosEstandar] = useState<CapituloEstandarItem[]>([]);
+  const [mostrarBiblioteca, setMostrarBiblioteca] = useState(false);
 
   const [form, setForm] = useState<FormData>({
     nombre: "",
@@ -222,6 +207,16 @@ function NuevoProyectoContent() {
     }
   }, [set]);
 
+  /* Biblioteca de capítulos estándar */
+  useEffect(() => {
+    fetch("/api/capitulos-estandar")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setCapitulosEstandar(data);
+      })
+      .catch(() => {});
+  }, []);
+
   /* Fotos de relevamiento */
   const agregarFotos = (files: FileList | null) => {
     if (!files) return;
@@ -252,17 +247,56 @@ function NuevoProyectoContent() {
 
   const handleTipoChange = (tipo: string) => {
     set("tipo", tipo);
-    const sugeridos = CAPITULOS_SUGERIDOS[tipo] ?? CAPITULOS_DEFAULT;
-    set("capitulos", sugeridos.map((c, i) => ({
-      id: String(i), nombre: c.nombre, color: c.color, activo: true,
+  };
+
+  // Reemplaza los capítulos por la lista estándar completa (20 capítulos base)
+  const cargarSugeridos = () => {
+    const base = capitulosEstandar.filter((c) => c.origen === "estandar");
+    set("capitulos", base.map((c, i) => ({
+      id: `est-${c.id}`,
+      nombre: c.nombre,
+      color: COLORES_CAPITULOS[c.nombre] ?? COLORS[i % COLORS.length],
+      activo: true,
     })));
   };
 
-  const cargarSugeridos = () => {
-    const sugeridos = CAPITULOS_SUGERIDOS[form.tipo] ?? CAPITULOS_DEFAULT;
-    set("capitulos", sugeridos.map((c, i) => ({
-      id: String(i), nombre: c.nombre, color: c.color, activo: true,
-    })));
+  // Agrega o quita un capítulo de la biblioteca a la selección actual
+  const toggleDesdeBiblioteca = (item: CapituloEstandarItem) => {
+    const existente = form.capitulos.find(
+      (c) => c.nombre.trim().toLowerCase() === item.nombre.toLowerCase()
+    );
+    if (existente) {
+      set("capitulos", form.capitulos.filter((c) => c.id !== existente.id));
+    } else {
+      const color = COLORES_CAPITULOS[item.nombre] ?? COLORS[form.capitulos.length % COLORS.length];
+      set("capitulos", [
+        ...form.capitulos,
+        { id: `bib-${item.id}-${Date.now()}`, nombre: item.nombre, color, activo: true },
+      ]);
+    }
+  };
+
+  // Si el usuario escribe un capítulo nuevo (no está en la biblioteca), lo registra
+  const registrarCapituloManual = async (nombre: string) => {
+    const limpio = nombre.trim();
+    if (!limpio) return;
+    const yaExiste = capitulosEstandar.some((c) => c.nombre.toLowerCase() === limpio.toLowerCase());
+    if (yaExiste) return;
+    try {
+      const res = await fetch("/api/capitulos-estandar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: limpio }),
+      });
+      if (!res.ok) return;
+      const nuevo = await res.json();
+      setCapitulosEstandar((prev) => [
+        ...prev.filter((c) => c.nombre.toLowerCase() !== limpio.toLowerCase()),
+        nuevo,
+      ]);
+    } catch {
+      // Silencioso: si falla el registro, no bloquea la creación del proyecto
+    }
   };
 
   const cargarSugeridosIA = async () => {
@@ -762,8 +796,11 @@ function NuevoProyectoContent() {
                     )}
                     <span className="text-slate-300 text-xs">·</span>
                     <button
-                      onClick={cargarSugeridos}
-                      className="text-xs text-slate-400 font-medium hover:text-slate-600 transition-colors"
+                      onClick={() => setMostrarBiblioteca((p) => !p)}
+                      className={cn(
+                        "text-xs font-medium transition-colors",
+                        mostrarBiblioteca ? "text-[#2563EB]" : "text-slate-400 hover:text-slate-600"
+                      )}
                     >
                       Lista estándar
                     </button>
@@ -781,11 +818,59 @@ function NuevoProyectoContent() {
                   </p>
                 )}
 
+                <AnimatePresence initial={false}>
+                  {mostrarBiblioteca && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="p-3 mb-3 rounded-[10px] bg-slate-50 border border-slate-200">
+                        {capitulosEstandar.length === 0 ? (
+                          <p className="text-xs text-slate-400">Cargando biblioteca de capítulos...</p>
+                        ) : (
+                          (() => {
+                            const disponibles = capitulosEstandar.filter(
+                              (item) =>
+                                !form.capitulos.some(
+                                  (c) => c.nombre.trim().toLowerCase() === item.nombre.toLowerCase()
+                                )
+                            );
+                            if (disponibles.length === 0) {
+                              return (
+                                <p className="text-xs text-slate-400">
+                                  Ya agregaste todos los capítulos de la biblioteca.
+                                </p>
+                              );
+                            }
+                            return (
+                              <div className="flex flex-wrap gap-1.5">
+                                {disponibles.map((item) => (
+                                  <button
+                                    key={item.id}
+                                    onClick={() => toggleDesdeBiblioteca(item)}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:border-[#2563EB]/40 hover:text-[#2563EB] transition-colors"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    {item.nombre}
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })()
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {form.capitulos.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-sm text-slate-400">
                       Usá "Sugerir con IA" para generar capítulos según los trabajos descritos,<br />
-                      o "Lista estándar" para cargar los capítulos típicos.
+                      o "Lista estándar" para elegir entre los capítulos típicos de obra.
                     </p>
                   </div>
                 ) : (
@@ -810,6 +895,7 @@ function NuevoProyectoContent() {
                             type="text"
                             value={cap.nombre}
                             onChange={(e) => renombrarCapitulo(cap.id, e.target.value)}
+                            onBlur={(e) => registrarCapituloManual(e.target.value)}
                             placeholder="Nombre del capítulo"
                             className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
                           />
@@ -950,7 +1036,7 @@ function NuevoProyectoContent() {
         {paso < 4 ? (
           <button
             onClick={() => {
-              if (paso === 1 && form.capitulos.length === 0) handleTipoChange(form.tipo);
+              if (paso === 1 && form.capitulos.length === 0) cargarSugeridos();
               setPaso((p) => p + 1);
             }}
             disabled={!puedeAvanzar()}

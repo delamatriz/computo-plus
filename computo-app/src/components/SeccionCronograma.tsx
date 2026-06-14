@@ -335,9 +335,9 @@ function VistaCurvaS({
             width={40}
           />
           <Tooltip
-            labelFormatter={(v: string) => fmtFecha(v)}
-            formatter={(value: number, name: string) => [
-              `${value.toFixed(1)}%`,
+            labelFormatter={(v) => (typeof v === "string" ? fmtFecha(v) : v)}
+            formatter={(value, name) => [
+              `${Number(value).toFixed(1)}%`,
               name === "planificado" ? "Planificado" : "Real",
             ]}
             contentStyle={{ borderRadius: 8, borderColor: "#E2E8F0", fontSize: 12 }}
