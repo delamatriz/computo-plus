@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { ClipboardList, ChevronDown, ChevronRight, Plus, Trash2, Pencil } from "lucide-react";
+import { Fragment, useEffect, useState, useCallback, useMemo } from "react";
+import { ClipboardList, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Camera, X, ImagePlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,11 @@ interface RubroResumen {
   cantidad: number;
   precioUnit: number;
   capituloId: string;
+}
+
+interface FotoCert {
+  id: string;
+  url: string;
 }
 
 interface ItemCert {
@@ -59,6 +64,15 @@ function fmtMoneda(v: number, moneda: string): string {
 
 function fmtNum(v: number, decimales = 2): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function fmtFecha(iso: string): string {
@@ -132,6 +146,9 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [editandoFecha, setEditandoFecha] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+  const [itemFotosAbierto, setItemFotosAbierto] = useState<string | null>(null);
+  const [fotosPorItem, setFotosPorItem] = useState<Record<string, FotoCert[]>>({});
+  const [subiendoFotos, setSubiendoFotos] = useState<Record<string, boolean>>({});
 
   const capPorId = useMemo(() => {
     const m = new Map<string, CapituloInfo>();
@@ -293,6 +310,60 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
     const max = Math.max(0, 100 - acumAnterior);
     const limitado = Math.min(Math.max(0, valor), max);
     setEdiciones((prev) => ({ ...prev, [rubroId]: limitado }));
+  };
+
+  /* ── Fotos de avance por item ──────────────────────────── */
+  const toggleFotos = useCallback(
+    async (itemId: string) => {
+      if (itemFotosAbierto === itemId) {
+        setItemFotosAbierto(null);
+        return;
+      }
+      setItemFotosAbierto(itemId);
+      if (!detalle || fotosPorItem[itemId]) return;
+      try {
+        const res = await fetch(`/api/proyectos/${proyectoId}/certificaciones/${detalle.id}/items/${itemId}/fotos`);
+        const data = await res.json();
+        setFotosPorItem((prev) => ({ ...prev, [itemId]: Array.isArray(data.fotos) ? data.fotos : [] }));
+      } catch (err) {
+        console.error("[certificaciones] error cargando fotos", err);
+      }
+    },
+    [itemFotosAbierto, detalle, fotosPorItem, proyectoId]
+  );
+
+  const subirFotos = async (itemId: string, files: FileList) => {
+    if (!detalle || files.length === 0) return;
+    setSubiendoFotos((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      const fotos = await Promise.all(Array.from(files).map(fileToBase64));
+      const res = await fetch(`/api/proyectos/${proyectoId}/certificaciones/${detalle.id}/items/${itemId}/fotos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fotos }),
+      });
+      if (!res.ok) throw new Error("No se pudo subir");
+      const data = await res.json();
+      setFotosPorItem((prev) => ({ ...prev, [itemId]: data.fotos }));
+    } catch (err) {
+      console.error("[certificaciones] error subiendo fotos", err);
+    } finally {
+      setSubiendoFotos((prev) => ({ ...prev, [itemId]: false }));
+    }
+  };
+
+  const eliminarFoto = async (itemId: string, fotoId: string) => {
+    if (!detalle) return;
+    setFotosPorItem((prev) => ({ ...prev, [itemId]: (prev[itemId] ?? []).filter((f) => f.id !== fotoId) }));
+    try {
+      await fetch(`/api/proyectos/${proyectoId}/certificaciones/${detalle.id}/items/${itemId}/fotos`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fotoId }),
+      });
+    } catch (err) {
+      console.error("[certificaciones] error eliminando foto", err);
+    }
   };
 
   /* ── Totales ───────────────────────────────────────────── */
@@ -499,6 +570,12 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                                 acumuladoAnterior={acumuladoAnterior}
                                 onCambiarPct={cambiarPct}
                                 moneda={moneda}
+                                itemFotosAbierto={itemFotosAbierto}
+                                fotosPorItem={fotosPorItem}
+                                subiendoFotos={subiendoFotos}
+                                onToggleFotos={toggleFotos}
+                                onSubirFotos={subirFotos}
+                                onEliminarFoto={eliminarFoto}
                               />
                             ))}
                           </tbody>
@@ -550,6 +627,12 @@ function FragmentoCapitulo({
   acumuladoAnterior,
   onCambiarPct,
   moneda,
+  itemFotosAbierto,
+  fotosPorItem,
+  subiendoFotos,
+  onToggleFotos,
+  onSubirFotos,
+  onEliminarFoto,
 }: {
   capitulo: CapituloInfo;
   items: ItemCert[];
@@ -557,6 +640,12 @@ function FragmentoCapitulo({
   acumuladoAnterior: Map<string, number>;
   onCambiarPct: (rubroId: string, valor: number) => void;
   moneda: string;
+  itemFotosAbierto: string | null;
+  fotosPorItem: Record<string, FotoCert[]>;
+  subiendoFotos: Record<string, boolean>;
+  onToggleFotos: (itemId: string) => void;
+  onSubirFotos: (itemId: string, files: FileList) => void;
+  onEliminarFoto: (itemId: string, fotoId: string) => void;
 }) {
   return (
     <>
@@ -575,38 +664,91 @@ function FragmentoCapitulo({
         const montoEstaCert = (pctEsta / 100) * montoTotal;
         const cantidadEquivalente = (r.cantidad * pctEsta) / 100;
 
+        const fotosAbierto = itemFotosAbierto === it.id;
+        const fotos = fotosPorItem[it.id] ?? [];
+        const subiendo = subiendoFotos[it.id] ?? false;
+
         return (
-          <tr key={it.id} className="border-b border-slate-50" style={{ height: 32 }}>
-            <td className="pl-4 pr-2 text-slate-700 truncate max-w-[220px]">{r.descripcion}</td>
-            <td className="text-center text-slate-500">{r.unidad}</td>
-            <td className="text-right pr-2 tabular-nums text-slate-600">{fmtNum(r.cantidad)}</td>
-            <td className="text-right pr-2 tabular-nums text-slate-500">{r.precioUnit ? fmtMoneda(r.precioUnit, moneda) : "—"}</td>
-            <td className="text-right pr-2 tabular-nums font-medium text-slate-700">{montoTotal ? fmtMoneda(montoTotal, moneda) : "—"}</td>
-            <td className="text-right pr-2 tabular-nums text-slate-400">{fmtNum(acumAnterior, 1)}%</td>
-            <td className="text-right pr-2">
-              <div className="flex items-center justify-end gap-1">
-                <input
-                  type="number"
-                  min={0}
-                  max={Math.max(0, 100 - acumAnterior)}
-                  step="0.5"
-                  value={pctEsta || ""}
-                  onChange={(e) => onCambiarPct(it.rubroId, parseFloat(e.target.value) || 0)}
-                  placeholder="0"
-                  className="w-14 text-right text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-[5px] px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-                <span className="text-[11px] text-slate-400">%</span>
-              </div>
-              {pctEsta > 0 && (
-                <div className="text-[9px] text-slate-400 leading-tight text-right pr-1 mt-0.5">
-                  {fmtNum(cantidadEquivalente)} {r.unidad}
+          <Fragment key={it.id}>
+            <tr className="border-b border-slate-50" style={{ height: 32 }}>
+              <td className="pl-4 pr-2 text-slate-700 truncate max-w-[220px]">{r.descripcion}</td>
+              <td className="text-center text-slate-500">{r.unidad}</td>
+              <td className="text-right pr-2 tabular-nums text-slate-600">{fmtNum(r.cantidad)}</td>
+              <td className="text-right pr-2 tabular-nums text-slate-500">{r.precioUnit ? fmtMoneda(r.precioUnit, moneda) : "—"}</td>
+              <td className="text-right pr-2 tabular-nums font-medium text-slate-700">{montoTotal ? fmtMoneda(montoTotal, moneda) : "—"}</td>
+              <td className="text-right pr-2 tabular-nums text-slate-400">{fmtNum(acumAnterior, 1)}%</td>
+              <td className="text-right pr-2">
+                <div className="flex items-center justify-end gap-1.5">
+                  <button
+                    onClick={() => onToggleFotos(it.id)}
+                    className={cn(
+                      "p-1 rounded-[5px] transition-colors flex-shrink-0",
+                      fotosAbierto || fotos.length > 0
+                        ? "text-[#2563EB] bg-[#EFF6FF]"
+                        : "text-slate-300 hover:text-[#2563EB] hover:bg-[#EFF6FF]"
+                    )}
+                    title="Fotos de avance"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                  <input
+                    type="number"
+                    min={0}
+                    max={Math.max(0, 100 - acumAnterior)}
+                    step="0.5"
+                    value={pctEsta || ""}
+                    onChange={(e) => onCambiarPct(it.rubroId, parseFloat(e.target.value) || 0)}
+                    placeholder="0"
+                    className="w-14 text-right text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-[5px] px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span className="text-[11px] text-slate-400">%</span>
                 </div>
-              )}
-            </td>
-            <td className="text-right pr-4 tabular-nums font-semibold text-[#2563EB]">
-              {montoEstaCert ? fmtMoneda(montoEstaCert, moneda) : "—"}
-            </td>
-          </tr>
+                {pctEsta > 0 && (
+                  <div className="text-[9px] text-slate-400 leading-tight text-right pr-1 mt-0.5">
+                    {fmtNum(cantidadEquivalente)} {r.unidad}
+                  </div>
+                )}
+              </td>
+              <td className="text-right pr-4 tabular-nums font-semibold text-[#2563EB]">
+                {montoEstaCert ? fmtMoneda(montoEstaCert, moneda) : "—"}
+              </td>
+            </tr>
+            {fotosAbierto && (
+              <tr className="border-b border-slate-50 bg-[#F8FAFC]">
+                <td colSpan={8} className="px-4 py-2.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {fotos.map((foto) => (
+                      <div key={foto.id} className="relative group w-14 h-14 rounded-[6px] overflow-hidden border border-slate-200 flex-shrink-0">
+                        <img src={foto.url} alt="Foto de avance" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => onEliminarFoto(it.id, foto.id)}
+                          className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Eliminar foto"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-[6px] border border-dashed border-slate-300 text-slate-400 hover:text-[#2563EB] hover:border-[#2563EB] transition-colors cursor-pointer flex-shrink-0">
+                      <ImagePlus className="w-4 h-4" />
+                      <span className="text-[9px] font-medium">{subiendo ? "…" : "Agregar"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        disabled={subiendo}
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) onSubirFotos(it.id, e.target.files);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                </td>
+              </tr>
+            )}
+          </Fragment>
         );
       })}
     </>

@@ -218,7 +218,16 @@ model CertificacionItem {
   rubro            Rubro         @relation(fields: [rubroId], references: [id], onDelete: Cascade)
   porcentajeAvance Float         @default(0)   // 0-100
   cantidadEjecutada Float?                      // opcional
+  fotos            FotoCertificacionItem[]
   @@unique([certificacionId, rubroId])
+}
+
+model FotoCertificacionItem {
+  id                  String            @id @default(cuid())
+  certificacionItemId String
+  certificacionItem   CertificacionItem @relation(fields: [certificacionItemId], references: [id], onDelete: Cascade)
+  url                 String            // base64 o ruta del archivo
+  createdAt           DateTime          @default(now())
 }
 
 model PrecioMTOP {
