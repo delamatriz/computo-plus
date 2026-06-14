@@ -69,16 +69,18 @@ model LeyesSociales {
 }
 
 model Capitulo {
-  id         String   @id @default(cuid())
-  nombre     String
-  codigo     String
-  color      String   @default("#2563EB")
-  orden      Int      @default(0)
-  proyectoId String
-  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
-  rubros     Rubro[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String    @id @default(cuid())
+  nombre      String
+  codigo      String
+  color       String    @default("#2563EB")
+  orden       Int       @default(0)
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  proyectoId  String
+  proyecto    Proyecto  @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  rubros      Rubro[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Rubro {

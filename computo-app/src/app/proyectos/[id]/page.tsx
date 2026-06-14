@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
+import SeccionCronograma from "@/components/SeccionCronograma";
 
 /* ─── Tipo Proyecto ───────────────────────────────────────── */
 interface ProyectoData {
@@ -46,6 +47,9 @@ interface Rubro {
 interface Capitulo {
   id: string;
   nombre: string;
+  codigo?: string;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
   rubros: Rubro[];
 }
 
@@ -977,13 +981,18 @@ export default function ProyectoPage() {
 
         // Mapear capítulos y rubros
         const caps: Capitulo[] = (data.capitulos ?? []).map((cap: {
-          id: string; nombre: string; rubros: {
+          id: string; nombre: string; codigo?: string;
+          fechaInicio?: string | null; fechaFin?: string | null;
+          rubros: {
             id: string; descripcion: string; unidad: string;
             cantidad: number; precioUnit: number; apu: unknown;
           }[];
         }) => ({
-          id:     cap.id,
-          nombre: cap.nombre,
+          id:          cap.id,
+          nombre:      cap.nombre,
+          codigo:      cap.codigo,
+          fechaInicio: cap.fechaInicio,
+          fechaFin:    cap.fechaFin,
           rubros: (cap.rubros ?? []).map((r) => ({
             id:          r.id,
             descripcion: r.descripcion,
@@ -1516,6 +1525,11 @@ export default function ProyectoPage() {
 
         {/* ── Comparativo de ofertas ────────────────────────── */}
         <SeccionComparativoOfertas proyectoId={proyectoActivo.id} moneda={moneda} />
+
+        {/* ── Cronograma ─────────────────────────────────────── */}
+        <SeccionCronograma
+          capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre, codigo: c.codigo, fechaInicio: c.fechaInicio, fechaFin: c.fechaFin }))}
+        />
 
         {/* ── Cómputo global de materiales ────────────────── */}
         {(() => {
