@@ -9,6 +9,7 @@ const PROYECTO_INCLUDE = {
       rubros: {
         orderBy: { createdAt: "asc" as const },
         include: {
+          _count: { select: { cotizaciones: true } },
           apu: {
             include: {
               materiales: {

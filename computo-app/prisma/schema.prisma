@@ -93,8 +93,23 @@ model Rubro {
   capitulo    Capitulo @relation(fields: [capituloId], references: [id], onDelete: Cascade)
   apu         APU?
   certificacionItems CertificacionItem[]
+  cotizaciones CotizacionProveedor[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model CotizacionProveedor {
+  id            String   @id @default(cuid())
+  rubroId       String
+  rubro         Rubro    @relation(fields: [rubroId], references: [id], onDelete: Cascade)
+  proveedor     String
+  montoNeto     Float
+  ivaPorcentaje Float    @default(22)
+  leyesSociales Float    @default(0)
+  financiacion  String   @default("")
+  observaciones String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model APU {

@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
+import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 
 /* ─── Tipo Proyecto ───────────────────────────────────────── */
 interface ProyectoData {
@@ -1511,6 +1512,9 @@ export default function ProyectoPage() {
           totalGeneral={totalGeneral}
           capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre }))}
         />
+
+        {/* ── Comparativo de ofertas ────────────────────────── */}
+        <SeccionComparativoOfertas proyectoId={proyectoActivo.id} moneda={moneda} />
 
         {/* ── Cómputo global de materiales ────────────────── */}
         {(() => {
