@@ -1,11 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { cn } from "@/lib/utils";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
+interface RubroCronograma {
+  id: string;
+  cantidad: number | null;
+  precioUnit: number | null;
+}
+
 interface CapituloCronograma {
   id: string;
   nombre: string;
@@ -13,13 +29,27 @@ interface CapituloCronograma {
   color?: string;
   fechaInicio?: string | null;
   fechaFin?: string | null;
+  rubros?: RubroCronograma[];
+}
+
+interface CertificacionItemCronograma {
+  rubroId: string;
+  porcentajeAvance: number;
+}
+
+interface CertificacionCronograma {
+  id: string;
+  numero: number;
+  fecha: string;
+  items: CertificacionItemCronograma[];
 }
 
 interface Props {
+  proyectoId: string;
   capitulos: CapituloCronograma[];
 }
 
-type Vista = "tabla" | "gantt";
+type Vista = "tabla" | "gantt" | "curva";
 
 /* ─── Helpers de fecha ────────────────────────────────────── */
 function toInputDate(v?: string | null): string {
@@ -47,6 +77,29 @@ function fmtFecha(v: string): string {
 
 function diffDias(a: string, b: string): number {
   return Math.round((parseLocalDate(b).getTime() - parseLocalDate(a).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function addDias(d: Date, n: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function formatDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+/* ─── Totales ─────────────────────────────────────────────── */
+function totalRubroC(r: RubroCronograma): number {
+  if (r.cantidad == null || r.precioUnit == null) return 0;
+  return r.cantidad * r.precioUnit;
+}
+
+function totalCapituloC(cap: CapituloCronograma): number {
+  return (cap.rubros ?? []).reduce((s, r) => s + totalRubroC(r), 0);
 }
 
 /* ─── Generación de la escala de meses para el Gantt ─────────── */
@@ -177,6 +230,143 @@ function VistaGantt({
   );
 }
 
+/* ─── Vista Curva S ───────────────────────────────────────── */
+function VistaCurvaS({
+  capitulos,
+  fechas,
+  certificaciones,
+}: {
+  capitulos: CapituloCronograma[];
+  fechas: Record<string, { inicio: string; fin: string }>;
+  certificaciones: CertificacionCronograma[];
+}) {
+  const capsConFechas = capitulos
+    .map((cap) => ({ cap, f: fechas[cap.id] ?? { inicio: "", fin: "" }, total: totalCapituloC(cap) }))
+    .filter(({ f }) => f.inicio && f.fin && f.fin >= f.inicio);
+
+  const totalGeneral = capitulos.reduce((s, c) => s + totalCapituloC(c), 0);
+
+  if (capsConFechas.length === 0 || certificaciones.length === 0 || totalGeneral <= 0) {
+    return (
+      <p className="text-xs text-slate-400 italic px-5 py-5">
+        Cargá fechas en el cronograma y certificaciones para ver la curva de avance.
+      </p>
+    );
+  }
+
+  // Mapa de rubros (para calcular el monto certificado de cada certificación)
+  const rubrosPorId = new Map<string, RubroCronograma>();
+  capitulos.forEach((cap) => (cap.rubros ?? []).forEach((r) => rubrosPorId.set(r.id, r)));
+
+  const montoCertificado = (cert: CertificacionCronograma): number =>
+    cert.items.reduce((s, it) => {
+      const r = rubrosPorId.get(it.rubroId);
+      if (!r) return s;
+      return s + (it.porcentajeAvance / 100) * totalRubroC(r);
+    }, 0);
+
+  // Curva real — acumulado de certificaciones ordenadas por fecha
+  const certsOrdenadas = [...certificaciones].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  let acumReal = 0;
+  const puntosReales = certsOrdenadas.map((c) => {
+    acumReal += montoCertificado(c);
+    return { fecha: toInputDate(c.fecha), pct: (acumReal / totalGeneral) * 100 };
+  });
+
+  // Rango de fechas — capítulos planificados + fechas de certificaciones
+  let rangeInicio = capsConFechas.reduce((min, { f }) => (f.inicio < min ? f.inicio : min), capsConFechas[0].f.inicio);
+  let rangeFin = capsConFechas.reduce((max, { f }) => (f.fin > max ? f.fin : max), capsConFechas[0].f.fin);
+  for (const p of puntosReales) {
+    if (p.fecha < rangeInicio) rangeInicio = p.fecha;
+    if (p.fecha > rangeFin) rangeFin = p.fecha;
+  }
+
+  // Curva planificada — avance acumulado lineal por capítulo
+  const planificadoEn = (fecha: string): number => {
+    let acum = 0;
+    for (const { f, total } of capsConFechas) {
+      const duracion = duracionDias(f.inicio, f.fin) ?? 1;
+      if (fecha < f.inicio) continue;
+      if (fecha >= f.fin) acum += total;
+      else acum += total * ((diffDias(f.inicio, fecha) + 1) / duracion);
+    }
+    return totalGeneral > 0 ? (acum / totalGeneral) * 100 : 0;
+  };
+
+  // Genera los puntos del eje X — diario si el rango es corto, semanal si es largo
+  const totalDias = diffDias(rangeInicio, rangeFin) + 1;
+  const paso = totalDias > 120 ? 7 : 1;
+
+  const fechasSet = new Set<string>();
+  const finDate = parseLocalDate(rangeFin);
+  let cursor = parseLocalDate(rangeInicio);
+  while (cursor <= finDate) {
+    fechasSet.add(formatDate(cursor));
+    cursor = addDias(cursor, paso);
+  }
+  fechasSet.add(rangeFin);
+  puntosReales.forEach((p) => fechasSet.add(p.fecha));
+
+  const realPorFecha = new Map(puntosReales.map((p) => [p.fecha, p.pct]));
+
+  const data = Array.from(fechasSet)
+    .sort()
+    .map((fecha) => ({
+      fecha,
+      planificado: Math.min(planificadoEn(fecha), 100),
+      real: realPorFecha.has(fecha) ? Math.min(realPorFecha.get(fecha)!, 100) : null,
+    }));
+
+  return (
+    <div className="px-5 py-5">
+      <ResponsiveContainer width="100%" height={320}>
+        <LineChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+          <XAxis
+            dataKey="fecha"
+            tickFormatter={fmtFecha}
+            tick={{ fontSize: 11, fill: "#94A3B8" }}
+            minTickGap={24}
+          />
+          <YAxis
+            domain={[0, 100]}
+            tickFormatter={(v: number) => `${v}%`}
+            tick={{ fontSize: 11, fill: "#94A3B8" }}
+            width={40}
+          />
+          <Tooltip
+            labelFormatter={(v: string) => fmtFecha(v)}
+            formatter={(value: number, name: string) => [
+              `${value.toFixed(1)}%`,
+              name === "planificado" ? "Planificado" : "Real",
+            ]}
+            contentStyle={{ borderRadius: 8, borderColor: "#E2E8F0", fontSize: 12 }}
+          />
+          <Legend
+            formatter={(value: string) => (value === "planificado" ? "Planificado" : "Real")}
+            wrapperStyle={{ fontSize: 12 }}
+          />
+          <Line
+            type="monotone"
+            dataKey="planificado"
+            stroke="#94A3B8"
+            strokeWidth={2}
+            dot={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="real"
+            stroke="#2563EB"
+            strokeWidth={2}
+            connectNulls
+            dot={{ r: 4, fill: "#2563EB" }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 /* ─── Vista Tabla ─────────────────────────────────────────── */
 function VistaTabla({
   capitulos,
@@ -269,12 +459,31 @@ function VistaTabla({
 }
 
 /* ─── Componente principal ────────────────────────────────── */
-export default function SeccionCronograma({ capitulos }: Props) {
+export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
   const [expandido, setExpandido] = useState(false);
   const [vista, setVista] = useState<Vista>("tabla");
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [fechas, setFechas] = useState<Record<string, { inicio: string; fin: string }>>({});
   const [errores, setErrores] = useState<Record<string, string>>({});
+  const [certificaciones, setCertificaciones] = useState<CertificacionCronograma[]>([]);
+  const [certsCargadas, setCertsCargadas] = useState(false);
+
+  // Carga las certificaciones (lazy) para la curva S
+  const cargarCertificaciones = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/certificaciones`);
+      const data = await res.json();
+      setCertificaciones(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("[cronograma] error cargando certificaciones", err);
+    } finally {
+      setCertsCargadas(true);
+    }
+  }, [proyectoId]);
+
+  useEffect(() => {
+    if (expandido && vista === "curva" && !certsCargadas) cargarCertificaciones();
+  }, [expandido, vista, certsCargadas, cargarCertificaciones]);
 
   // Incorpora capítulos nuevos (o recién cargados) sin pisar ediciones en curso
   useEffect(() => {
@@ -373,6 +582,9 @@ export default function SeccionCronograma({ capitulos }: Props) {
                     <button onClick={() => setVista("gantt")} className={tabBtnCls(vista === "gantt")}>
                       Gantt
                     </button>
+                    <button onClick={() => setVista("curva")} className={tabBtnCls(vista === "curva")}>
+                      Curva S
+                    </button>
                   </div>
                   <button
                     onClick={() => setPanelAbierto(true)}
@@ -393,8 +605,10 @@ export default function SeccionCronograma({ capitulos }: Props) {
                     finObra={finObra}
                     duracionTotal={duracionTotal}
                   />
-                ) : (
+                ) : vista === "gantt" ? (
                   <VistaGantt capitulos={capitulos} fechas={fechas} />
+                ) : (
+                  <VistaCurvaS capitulos={capitulos} fechas={fechas} certificaciones={certificaciones} />
                 )}
               </>
             )}

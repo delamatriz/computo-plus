@@ -1530,7 +1530,16 @@ export default function ProyectoPage() {
 
         {/* ── Cronograma ─────────────────────────────────────── */}
         <SeccionCronograma
-          capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre, codigo: c.codigo, color: c.color, fechaInicio: c.fechaInicio, fechaFin: c.fechaFin }))}
+          proyectoId={proyectoActivo.id}
+          capitulos={capitulos.map((c) => ({
+            id: c.id,
+            nombre: c.nombre,
+            codigo: c.codigo,
+            color: c.color,
+            fechaInicio: c.fechaInicio,
+            fechaFin: c.fechaFin,
+            rubros: c.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
+          }))}
         />
 
         {/* ── Cómputo global de materiales ────────────────── */}
