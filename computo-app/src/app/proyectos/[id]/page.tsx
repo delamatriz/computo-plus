@@ -1197,7 +1197,7 @@ export default function ProyectoPage() {
 
       // Si el usuario ya completó descripción y unidad, disparar APU directamente
       // sin pasar por sugerirAPU (que haría lookup en estado que aún no se renderizó)
-      if (desc && unidad) {
+      if (desc) {
         const rubroId = nuevoRubro.id;
         setApuGenerando((prev) => new Set(prev).add(rubroId));
         fetch(`/api/rubros/${rubroId}/sugerir-apu`, {
@@ -1310,7 +1310,7 @@ export default function ProyectoPage() {
     if (rubroId.startsWith("temp-")) return;
     const cap = capitulos.find((c) => c.id === capId);
     const rubro = cap?.rubros.find((r) => r.id === rubroId);
-    if (!rubro || !rubro.descripcion.trim() || !rubro.unidad.trim()) return;
+    if (!rubro || !rubro.descripcion.trim()) return;
     if (apuData[rubroId]) return; // ya tiene APU — no sobreescribir
 
     setApuGenerando((prev) => new Set(prev).add(rubroId));
@@ -1586,6 +1586,7 @@ export default function ProyectoPage() {
                                     type="text"
                                     value={rubro.descripcion}
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "descripcion", e.target.value)}
+                                    onBlur={() => sugerirAPU(cap.id, rubro.id)}
                                     placeholder="Descripción del rubro"
                                     className="flex-1 min-w-0 text-sm text-slate-700 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300"
                                   />
