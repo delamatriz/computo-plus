@@ -950,6 +950,8 @@ export default function ProyectoPage() {
   // ─── Estado ────────────────────────────────────────────────
   const [proyecto, setProyecto] = useState<ProyectoData | null>(null);
   const [capitulos, setCapitulos] = useState<Capitulo[]>([]);
+  // Ref para leer siempre el estado más reciente de capitulos desde callbacks async
+  const capitulosRef = useRef<Capitulo[]>([]);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const [apuData, setApuData] = useState<Record<string, APU>>({});
   const [drawerRubroId, setDrawerRubroId] = useState<string | null>(null);
@@ -1129,6 +1131,9 @@ export default function ProyectoPage() {
     });
   };
 
+  // Mantener ref sincronizado con el estado más reciente
+  capitulosRef.current = capitulos;
+
   // Ref para llamar a sugerirAPU desde agregarRubro sin problema de orden de hooks
   const sugerirAPURef = useRef<((capId: string, rubroId: string) => void) | null>(null);
 
@@ -1155,28 +1160,84 @@ export default function ProyectoPage() {
       const res = await fetch(`/api/capitulos/${capId}/rubros`, { method: "POST" });
       if (!res.ok) throw new Error("Error al crear rubro");
       const nuevoRubro = await res.json();
+
+      // Leer datos del rubro desde ref (estado más reciente) ANTES de actualizar el ID
+      // No usar setCapitulos updater para esto — el updater corre async (React 18 batching)
+      const capActual = capitulosRef.current.find((c) => c.id === capId);
+      const rubroActual = capActual?.rubros.find((r) => r.id === tempId);
+      const desc = rubroActual?.descripcion?.trim() ?? "";
+      const unidad = rubroActual?.unidad?.trim() ?? "";
+
       // Reemplazar el id temporal por el real de la DB
-      let rubroConDatos: Rubro | undefined;
-      setCapitulos((prev) => {
-        const siguiente = prev.map((c) =>
+      setCapitulos((prev) =>
+        prev.map((c) =>
           c.id !== capId ? c : {
             ...c,
-            rubros: c.rubros.map((r) => {
-              if (r.id === tempId) {
-                const actualizado = { ...r, id: nuevoRubro.id };
-                rubroConDatos = actualizado;
-                return actualizado;
-              }
-              return r;
-            }),
+            rubros: c.rubros.map((r) =>
+              r.id === tempId ? { ...r, id: nuevoRubro.id } : r
+            ),
           }
-        );
-        return siguiente;
-      });
-      // Si el usuario ya completó descripción y unidad antes de que volviera la DB,
-      // disparar APU ahora que tenemos el ID real
-      if (rubroConDatos?.descripcion.trim() && rubroConDatos?.unidad.trim()) {
-        sugerirAPURef.current?.(capId, nuevoRubro.id);
+        )
+      );
+
+      // Si el usuario ya completó descripción y unidad, disparar APU directamente
+      // sin pasar por sugerirAPU (que haría lookup en estado que aún no se renderizó)
+      if (desc && unidad) {
+        const rubroId = nuevoRubro.id;
+        setApuGenerando((prev) => new Set(prev).add(rubroId));
+        fetch(`/api/rubros/${rubroId}/sugerir-apu`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            descripcion: desc,
+            unidad,
+            capitulo: capActual?.nombre ?? "",
+            tipoObra: proyecto?.tipo ?? "",
+          }),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (!data) return;
+            const nuevoAPU: APU = {
+              gastosGeneralesPct: 15,
+              utilidadPct: 10,
+              materiales: data.materiales.map((m: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }, i: number) => ({
+                id: `ai-mat-${i}`,
+                descripcion: m.descripcion,
+                unidad: m.unidad,
+                rendimiento: m.rendimiento,
+                precioUnit: m.precioUnit,
+              })),
+              manoObra: data.manoObra.map((mo: { categoria: string; rendimiento: number; jornal: number }, i: number) => ({
+                id: `ai-mo-${i}`,
+                categoria: mo.categoria,
+                jornadaHs: 8,
+                rendimiento: mo.rendimiento,
+                jornalRef: mo.jornal,
+              })),
+              equipos: [],
+            };
+            setApuData((prev) => ({ ...prev, [rubroId]: nuevoAPU }));
+            const precio = Math.round(data.precioUnitarioEstimado * 100) / 100;
+            setCapitulos((prev) =>
+              prev.map((c) =>
+                c.id !== capId ? c : {
+                  ...c,
+                  rubros: c.rubros.map((r) =>
+                    r.id !== rubroId ? r : { ...r, precioUnit: precio }
+                  ),
+                }
+              )
+            );
+          })
+          .catch((err) => console.error("[agregarRubro sugerirAPU]", err))
+          .finally(() => {
+            setApuGenerando((prev) => {
+              const s = new Set(prev);
+              s.delete(rubroId);
+              return s;
+            });
+          });
       }
     } catch (err) {
       console.error("[agregarRubro]", err);
