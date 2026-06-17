@@ -1129,6 +1129,9 @@ export default function ProyectoPage() {
     });
   };
 
+  // Ref para llamar a sugerirAPU desde agregarRubro sin problema de orden de hooks
+  const sugerirAPURef = useRef<((capId: string, rubroId: string) => void) | null>(null);
+
   const agregarRubro = useCallback(async (capId: string) => {
     // Optimista: agrego un rubro temporal en UI
     const tempId = `temp-${Date.now()}`;
@@ -1153,18 +1156,28 @@ export default function ProyectoPage() {
       if (!res.ok) throw new Error("Error al crear rubro");
       const nuevoRubro = await res.json();
       // Reemplazar el id temporal por el real de la DB
-      setCapitulos((prev) =>
-        prev.map((c) =>
+      let rubroConDatos: Rubro | undefined;
+      setCapitulos((prev) => {
+        const siguiente = prev.map((c) =>
           c.id !== capId ? c : {
             ...c,
-            rubros: c.rubros.map((r) =>
-              r.id === tempId
-                ? { ...r, id: nuevoRubro.id }
-                : r
-            ),
+            rubros: c.rubros.map((r) => {
+              if (r.id === tempId) {
+                const actualizado = { ...r, id: nuevoRubro.id };
+                rubroConDatos = actualizado;
+                return actualizado;
+              }
+              return r;
+            }),
           }
-        )
-      );
+        );
+        return siguiente;
+      });
+      // Si el usuario ya completó descripción y unidad antes de que volviera la DB,
+      // disparar APU ahora que tenemos el ID real
+      if (rubroConDatos?.descripcion.trim() && rubroConDatos?.unidad.trim()) {
+        sugerirAPURef.current?.(capId, nuevoRubro.id);
+      }
     } catch (err) {
       console.error("[agregarRubro]", err);
       // Revertir si falla
@@ -1284,6 +1297,9 @@ export default function ProyectoPage() {
       setApuGenerando((prev) => { const s = new Set(prev); s.delete(rubroId); return s; });
     }
   }, [capitulos, apuData, proyecto]);
+
+  // Mantener el ref actualizado para que agregarRubro pueda llamarla sin dep circular
+  sugerirAPURef.current = sugerirAPU;
 
   const aplicarPrecioAPU = useCallback(async (rubroId: string, precio: number, apuActual: APU) => {
     const cap = capitulos.find((c) => c.rubros.some((r) => r.id === rubroId));
@@ -1494,7 +1510,6 @@ export default function ProyectoPage() {
                                     type="text"
                                     value={rubro.descripcion}
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "descripcion", e.target.value)}
-                                    onBlur={() => sugerirAPU(cap.id, rubro.id)}
                                     placeholder="Descripción del rubro"
                                     className="flex-1 min-w-0 text-sm text-slate-700 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300"
                                   />
@@ -1515,6 +1530,7 @@ export default function ProyectoPage() {
                                     type="text"
                                     value={rubro.unidad}
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "unidad", e.target.value)}
+                                    onBlur={() => sugerirAPU(cap.id, rubro.id)}
                                     placeholder="m²"
                                     className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center placeholder:text-slate-300"
                                   />
