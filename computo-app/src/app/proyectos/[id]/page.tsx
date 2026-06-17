@@ -958,6 +958,7 @@ export default function ProyectoPage() {
   const [leyesSociales, setLeyesSociales] = useState<LeyesSocialesData | null>(null);
   const [recalculandoMO, setRecalculandoMO] = useState(false);
   const [guardandoLeyes, setGuardandoLeyes] = useState(false);
+  const [apuGenerando, setApuGenerando] = useState<Set<string>>(new Set());
 
   // Refs para debounce de auto-save por rubro
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -1216,6 +1217,74 @@ export default function ProyectoPage() {
     }, 800);
   }, []);
 
+  const sugerirAPU = useCallback(async (capId: string, rubroId: string) => {
+    if (rubroId.startsWith("temp-")) return;
+    const cap = capitulos.find((c) => c.id === capId);
+    const rubro = cap?.rubros.find((r) => r.id === rubroId);
+    if (!rubro || !rubro.descripcion.trim() || !rubro.unidad.trim()) return;
+    if (apuData[rubroId]) return; // ya tiene APU — no sobreescribir
+
+    setApuGenerando((prev) => new Set(prev).add(rubroId));
+    try {
+      const res = await fetch(`/api/rubros/${rubroId}/sugerir-apu`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          descripcion: rubro.descripcion,
+          unidad: rubro.unidad,
+          capitulo: cap?.nombre ?? "",
+          tipoObra: proyecto?.tipo ?? "",
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json() as {
+        materiales: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }[];
+        manoObra: { categoria: string; rendimiento: number; jornal: number }[];
+        precioUnitarioEstimado: number;
+      };
+
+      // Construir objeto APU compatible con el estado local
+      const nuevoAPU: APU = {
+        gastosGeneralesPct: 15,
+        utilidadPct: 10,
+        materiales: data.materiales.map((m, i) => ({
+          id: `ai-mat-${i}`,
+          descripcion: m.descripcion,
+          unidad: m.unidad,
+          rendimiento: m.rendimiento,
+          precioUnit: m.precioUnit,
+        })),
+        manoObra: data.manoObra.map((mo, i) => ({
+          id: `ai-mo-${i}`,
+          categoria: mo.categoria,
+          jornadaHs: 8,
+          rendimiento: mo.rendimiento,
+          jornalRef: mo.jornal,
+        })),
+        equipos: [],
+      };
+
+      setApuData((prev) => ({ ...prev, [rubroId]: nuevoAPU }));
+
+      // Actualizar precio en UI
+      const precio = Math.round(data.precioUnitarioEstimado * 100) / 100;
+      setCapitulos((prev) =>
+        prev.map((c) =>
+          c.id !== capId ? c : {
+            ...c,
+            rubros: c.rubros.map((r) =>
+              r.id !== rubroId ? r : { ...r, precioUnit: precio }
+            ),
+          }
+        )
+      );
+    } catch (err) {
+      console.error("[sugerirAPU]", err);
+    } finally {
+      setApuGenerando((prev) => { const s = new Set(prev); s.delete(rubroId); return s; });
+    }
+  }, [capitulos, apuData, proyecto]);
+
   const aplicarPrecioAPU = useCallback(async (rubroId: string, precio: number, apuActual: APU) => {
     const cap = capitulos.find((c) => c.rubros.some((r) => r.id === rubroId));
     if (!cap) return;
@@ -1425,10 +1494,16 @@ export default function ProyectoPage() {
                                     type="text"
                                     value={rubro.descripcion}
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "descripcion", e.target.value)}
+                                    onBlur={() => sugerirAPU(cap.id, rubro.id)}
                                     placeholder="Descripción del rubro"
                                     className="flex-1 min-w-0 text-sm text-slate-700 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300"
                                   />
-                                  {tieneAPU && apuPrecio > 0 && (
+                                  {apuGenerando.has(rubro.id) && (
+                                    <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-[3px] bg-blue-50 text-blue-500 border border-blue-200 animate-pulse">
+                                      APU…
+                                    </span>
+                                  )}
+                                  {!apuGenerando.has(rubro.id) && tieneAPU && apuPrecio > 0 && (
                                     <span className="flex-shrink-0 text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide">
                                       APU
                                     </span>
