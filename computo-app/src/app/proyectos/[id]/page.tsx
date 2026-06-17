@@ -1167,6 +1167,7 @@ export default function ProyectoPage() {
       const rubroActual = capActual?.rubros.find((r) => r.id === tempId);
       const desc = rubroActual?.descripcion?.trim() ?? "";
       const unidad = rubroActual?.unidad?.trim() ?? "";
+      const cantidad = rubroActual?.cantidad ?? null;
 
       // Reemplazar el id temporal por el real de la DB
       setCapitulos((prev) =>
@@ -1179,6 +1180,20 @@ export default function ProyectoPage() {
           }
         )
       );
+
+      // Persistir campos que el usuario tipió mientras el rubro tenía tempId
+      // (actualizarRubro saltea el PATCH para IDs temporales)
+      if (desc || unidad || cantidad !== null) {
+        fetch(`/api/rubros/${nuevoRubro.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(desc && { descripcion: desc }),
+            ...(unidad && { unidad }),
+            ...(cantidad !== null && { cantidad }),
+          }),
+        }).catch((err) => console.error("[agregarRubro sync-patch]", err));
+      }
 
       // Si el usuario ya completó descripción y unidad, disparar APU directamente
       // sin pasar por sugerirAPU (que haría lookup en estado que aún no se renderizó)
@@ -1575,14 +1590,10 @@ export default function ProyectoPage() {
                                     className="flex-1 min-w-0 text-sm text-slate-700 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300"
                                   />
                                   {apuGenerando.has(rubro.id) && (
-                                    <span className="flex-shrink-0 text-[9px] font-medium px-1.5 py-0.5 rounded-[3px] bg-blue-50 text-blue-500 border border-blue-200 animate-pulse">
-                                      APU…
-                                    </span>
+                                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Generando APU…" />
                                   )}
                                   {!apuGenerando.has(rubro.id) && tieneAPU && apuPrecio > 0 && (
-                                    <span className="flex-shrink-0 text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide">
-                                      APU
-                                    </span>
+                                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" title="Precio estimado por IA" />
                                   )}
                                 </div>
 
