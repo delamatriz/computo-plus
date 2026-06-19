@@ -264,6 +264,11 @@ function totalCapitulo(cap: Capitulo): number {
   return cap.rubros.reduce((s, r) => s + totalRubro(r), 0);
 }
 
+/** Un capítulo se considera "vacío" si no tiene rubros o todos están sin descripción */
+function capituloVacio(cap: Capitulo): boolean {
+  return cap.rubros.every((r) => !r.descripcion?.trim());
+}
+
 /** Tipo de cambio de referencia U$S → $UY, igual al usado en /calcular */
 const TCU = 42.5;
 
@@ -673,7 +678,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
         className="pointer-events-auto w-full flex flex-col bg-white rounded-2xl shadow-2xl"
-        style={{ maxWidth: 860, minWidth: 740, maxHeight: "85vh" }}
+        style={{ maxWidth: 860, minWidth: "min(740px, calc(100vw - 2rem))", maxHeight: "85vh" }}
         drag
         dragControls={dragControls}
         dragListener={false}
@@ -1407,11 +1412,11 @@ export default function ProyectoPage() {
     abrirSubrubrosPanel(cap);
   }, [panelSubrubrosCapId, abrirSubrubrosPanel]);
 
-  // Al expandir un capítulo sin rubros, mostrar automáticamente la biblioteca de subrubros típicos
+  // Al expandir un capítulo sin rubros (o con rubros sin descripción), mostrar automáticamente la biblioteca de subrubros típicos
   const toggleCapituloConSubrubros = useCallback((cap: Capitulo) => {
     const yaExpandido = expandidos.has(cap.id);
     toggleCapitulo(cap.id);
-    if (!yaExpandido && cap.rubros.length === 0) {
+    if (!yaExpandido && capituloVacio(cap) && CAPITULOS_SAU_MAP[cap.nombre]) {
       abrirSubrubrosPanel(cap);
     }
   }, [expandidos, abrirSubrubrosPanel]);
@@ -1736,15 +1741,17 @@ export default function ProyectoPage() {
                       <div className="border-t border-slate-100 overflow-x-auto">
                         <div className="min-w-[640px]">
 
-                        {cap.rubros.length === 0 ? (
+                        {capituloVacio(cap) ? (
                           <>
-                            <PanelSubrubrosEstandar
-                              subrubros={subrubrosPorCapitulo[cap.id] ?? []}
-                              cargando={cargandoSubrubros}
-                              moneda={moneda}
-                              onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
-                              onCerrar={() => setPanelSubrubrosCapId(null)}
-                            />
+                            {CAPITULOS_SAU_MAP[cap.nombre] && (
+                              <PanelSubrubrosEstandar
+                                subrubros={subrubrosPorCapitulo[cap.id] ?? []}
+                                cargando={cargandoSubrubros}
+                                moneda={moneda}
+                                onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
+                                onCerrar={() => setPanelSubrubrosCapId(null)}
+                              />
+                            )}
                             <div className="flex items-center pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
                               <button
                                 onClick={() => agregarRubro(cap.id)}
@@ -1876,13 +1883,15 @@ export default function ProyectoPage() {
                           >
                             <Plus className="w-3 h-3" /> Agregar rubro
                           </button>
-                          <button
-                            onClick={() => toggleSubrubrosPanel(cap)}
-                            title="Agregar desde la biblioteca de subrubros típicos"
-                            className="flex items-center justify-center w-5 h-5 rounded-[4px] text-slate-400 hover:text-[#2563EB] hover:bg-blue-50 transition-colors"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
+                          {CAPITULOS_SAU_MAP[cap.nombre] && (
+                            <button
+                              onClick={() => toggleSubrubrosPanel(cap)}
+                              title="Agregar desde la biblioteca de subrubros típicos"
+                              className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-[#2563EB] transition-colors"
+                            >
+                              📋 Biblioteca
+                            </button>
+                          )}
                         </div>
 
                         {panelSubrubrosCapId === cap.id && (
