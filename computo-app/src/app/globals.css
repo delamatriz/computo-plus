@@ -67,7 +67,7 @@ body {
 /* Scrollbar elegante */
 ::-webkit-scrollbar {
   width: 6px;
-  height: 6px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
