@@ -73,21 +73,41 @@ interface SubrubroEstandar {
   aportesSociales: number;
 }
 
-/** Mapeo entre nombres de capítulo del proyecto y capítulos del rubrado SAU ago. 2022 */
-const CAPITULOS_SAU_MAP: Record<string, string[]> = {
-  "Implantación y Replanteo": ["Implantación y Replanteo"],
-  "Excavaciones y Movimiento de Tierra": ["Excavaciones y Movimientos de Tierra"],
-  "Demoliciones y Picados": ["Demoliciones"],
-  "Cimentaciones": ["Cimentaciones"],
-  "Estructura de Hormigón Armado": ["Estructura"],
-  "Albañilería": ["Albañilería"],
-  "Pisos, Zócalos y Revestimientos": ["Albañilería"],
-  "Impermeabilizaciones y Aislaciones": ["Albañilería"],
-  "Pinturas": ["Subcontratos - Pinturas"],
-  "Carpintería": ["Subcontratos - Carpinterías"],
-  "Vidrios y Espejos": ["Subcontratos - Vidrios"],
-  "Yeso y Cielorrasos": ["Subcontratos - Yeso"],
-  "Sistemas Constructivos No Tradicionales": ["Sistemas No Tradicionales"],
+/** Mapeo entre nombres de capítulo del proyecto y capítulos/subcapítulos del rubrado SAU ago. 2022 */
+const CAPITULOS_SAU_MAP: Record<string, { capitulos: string[]; subcapitulos?: string[] }> = {
+  "Implantación y Replanteo": { capitulos: ["Implantación y Replanteo"] },
+  "Excavaciones y Movimiento de Tierra": { capitulos: ["Excavaciones y Movimientos de Tierra"] },
+  "Demoliciones y Picados": { capitulos: ["Demoliciones"] },
+  "Cimentaciones": { capitulos: ["Cimentaciones"] },
+  "Estructura de Hormigón Armado": { capitulos: ["Estructura"] },
+  // Albañilería propiamente dicha: muros, revoques y contrapisos (excluye pisos/revestimientos e impermeabilizaciones, que tienen su propio capítulo en el proyecto)
+  "Albañilería": {
+    capitulos: ["Albañilería"],
+    subcapitulos: [
+      "Elevación de Muros — Ladrillo de Campo",
+      "Elevación de Muros — Ticholos",
+      "Elevación de Muros — Bloque Hormigón",
+      "Elevación de Muros — Ladrillo de Vidrio",
+      "Revoques — Cielorraso",
+      "Revoques — Muros Interiores",
+      "Revoques — Muros Exteriores",
+      "Revoques — Otros",
+      "Contrapisos",
+    ],
+  },
+  "Pisos, Zócalos y Revestimientos": {
+    capitulos: ["Albañilería"],
+    subcapitulos: ["Pisos, Zócalos y Otros", "Revestimientos"],
+  },
+  "Impermeabilizaciones y Aislaciones": {
+    capitulos: ["Albañilería"],
+    subcapitulos: ["Impermeabilizaciones y Aislaciones"],
+  },
+  "Pinturas": { capitulos: ["Subcontratos - Pinturas"] },
+  "Carpintería": { capitulos: ["Subcontratos - Carpinterías"] },
+  "Vidrios y Espejos": { capitulos: ["Subcontratos - Vidrios"] },
+  "Yeso y Cielorrasos": { capitulos: ["Subcontratos - Yeso"] },
+  "Sistemas Constructivos No Tradicionales": { capitulos: ["Sistemas No Tradicionales"] },
 };
 
 /* ─── Tipos APU ───────────────────────────────────────────── */
@@ -278,7 +298,8 @@ const TCU = 42.5;
  * La actualización a precios vigentes la hace el usuario con "Consultar ICCV".
  */
 function precioDesdeSubrubro(sub: SubrubroEstandar, moneda: string): number {
-  return moneda === "USD" ? sub.precioUY / TCU : sub.precioUY;
+  const precio = moneda === "USD" ? sub.precioUY / TCU : sub.precioUY;
+  return parseFloat(precio.toFixed(2));
 }
 
 function fmtMoneda(v: number, moneda: string): string {
@@ -299,6 +320,12 @@ function fmtRendimiento(v: number): string {
 /** Monetario: 2 decimales fijos con separador de miles */
 function fmtMon(v: number): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Igual que fmtMoneda pero conservando hasta 2 decimales (para precios de catálogo) */
+function fmtMonedaDecimal(v: number, moneda: string): string {
+  if (v === 0) return "—";
+  return moneda === "USD" ? `U$S ${fmtMon(v)}` : `$ ${fmtMon(v)}`;
 }
 
 function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
@@ -450,7 +477,7 @@ function PanelSubrubrosEstandar({
                   {s.codigo} — {s.descripcion}
                 </span>
                 <span className="text-[10px] font-bold text-[#2563EB] whitespace-nowrap flex-shrink-0 tabular-nums">
-                  {fmtMoneda(precio, moneda)}/{s.unidad}
+                  {fmtMonedaDecimal(precio, moneda)}/{s.unidad}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -1384,17 +1411,20 @@ export default function ProyectoPage() {
     setPanelSubrubrosCapId(cap.id);
     if (subrubrosPorCapitulo[cap.id]) return;
 
-    const capitulosSAU = CAPITULOS_SAU_MAP[cap.nombre] ?? [cap.nombre];
+    const mapeo = CAPITULOS_SAU_MAP[cap.nombre] ?? { capitulos: [cap.nombre] };
     setCargandoSubrubros(true);
     try {
       const resultados = await Promise.all(
-        capitulosSAU.map((capSAU) =>
+        mapeo.capitulos.map((capSAU) =>
           fetch(`/api/subrubros-estandar?capitulo=${encodeURIComponent(capSAU)}`).then((r) =>
             r.ok ? r.json() : []
           )
         )
       );
-      const lista: SubrubroEstandar[] = resultados.flat();
+      let lista: SubrubroEstandar[] = resultados.flat();
+      if (mapeo.subcapitulos) {
+        lista = lista.filter((s) => s.subcapitulo && mapeo.subcapitulos!.includes(s.subcapitulo));
+      }
       setSubrubrosPorCapitulo((prev) => ({ ...prev, [cap.id]: lista }));
     } catch (err) {
       console.error("[abrirSubrubrosPanel]", err);
