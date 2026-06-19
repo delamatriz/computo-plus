@@ -407,6 +407,27 @@ function precioDesdeSubrubro(sub: SubrubroEstandar, moneda: string): number {
   return parseFloat(precio.toFixed(2));
 }
 
+/** "DEMOLICIÓN DE LOSA" → "Demolición de losa" */
+function toTitleCase(texto: string): string {
+  const minusculas = texto.toLocaleLowerCase("es");
+  return minusculas.charAt(0).toUpperCase() + minusculas.slice(1);
+}
+
+/**
+ * Guarda en background un rubro recién creado por el usuario en la biblioteca
+ * global de subrubros típicos, para sugerirlo en futuros proyectos. No bloquea
+ * el flujo ni reporta errores al usuario — es una mejora silenciosa.
+ */
+function guardarEnBibliotecaGlobal(descripcion: string, unidad: string, capitulo: string, precioUnit: number, moneda: string) {
+  if (!descripcion.trim() || !unidad.trim() || !capitulo.trim() || !precioUnit) return;
+  const precioUY = moneda === "USD" ? precioUnit * TCU : precioUnit;
+  fetch("/api/subrubros-estandar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ descripcion, unidad, capitulo, precioUY }),
+  }).catch((err) => console.error("[guardarEnBibliotecaGlobal]", err));
+}
+
 function fmtMoneda(v: number, moneda: string): string {
   if (v === 0) return "—";
   const fmt = Math.round(v).toLocaleString("es-UY");
@@ -578,7 +599,7 @@ function PanelSubrubrosEstandar({
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
-                  {s.codigo} — {s.descripcion}
+                  {s.codigo} — {toTitleCase(s.descripcion)}
                 </span>
                 <span className="text-sm font-bold text-[#2563EB] whitespace-nowrap flex-shrink-0 tabular-nums">
                   {fmtMonedaDecimal(precio, moneda)}/{s.unidad}
@@ -1508,6 +1529,7 @@ export default function ProyectoPage() {
                 }
               )
             );
+            guardarEnBibliotecaGlobal(desc, unidad, capActual?.nombre ?? "", precio, moneda);
           })
           .catch((err) => console.error("[agregarRubro sugerirAPU]", err))
           .finally(() => {
@@ -1530,7 +1552,7 @@ export default function ProyectoPage() {
         )
       );
     }
-  }, []);
+  }, [moneda]);
 
   const abrirSubrubrosPanel = useCallback(async (cap: Capitulo) => {
     setPanelSubrubrosCapId(cap.id);
@@ -1733,12 +1755,13 @@ export default function ProyectoPage() {
           }
         )
       );
+      guardarEnBibliotecaGlobal(rubro.descripcion, rubro.unidad, cap?.nombre ?? "", precio, moneda);
     } catch (err) {
       console.error("[sugerirAPU]", err);
     } finally {
       setApuGenerando((prev) => { const s = new Set(prev); s.delete(rubroId); return s; });
     }
-  }, [capitulos, apuData, proyecto]);
+  }, [capitulos, apuData, proyecto, moneda]);
 
   // Mantener el ref actualizado para que agregarRubro pueda llamarla sin dep circular
   sugerirAPURef.current = sugerirAPU;
@@ -2074,21 +2097,21 @@ export default function ProyectoPage() {
 
                         {/* Botón agregar rubro */}
                         <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
+                          {obtenerMapeoSAU(cap.nombre) && (
+                            <button
+                              onClick={() => toggleSubrubrosPanel(cap)}
+                              title="Ver subrubros típicos de este capítulo"
+                              className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                              Subrubros
+                            </button>
+                          )}
                           <button
                             onClick={() => agregarRubro(cap.id)}
                             className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
                           >
                             <Plus className="w-3 h-3" /> Agregar rubro
                           </button>
-                          {obtenerMapeoSAU(cap.nombre) && (
-                            <button
-                              onClick={() => toggleSubrubrosPanel(cap)}
-                              title="Agregar desde la biblioteca de subrubros típicos"
-                              className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-[#2563EB] transition-colors"
-                            >
-                              📋 Biblioteca
-                            </button>
-                          )}
                         </div>
 
                         {panelSubrubrosCapId === cap.id && (
