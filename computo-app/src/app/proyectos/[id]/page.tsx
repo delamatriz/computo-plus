@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
@@ -301,6 +301,97 @@ function totalCapitulo(cap: Capitulo): number {
 /** Un capítulo se considera "vacío" si no tiene rubros o todos están sin descripción */
 function capituloVacio(cap: Capitulo): boolean {
   return cap.rubros.every((r) => !r.descripcion?.trim());
+}
+
+type FilaMaterialGlobal = { descripcion: string; unidad: string; dosificacion?: string; cantidadTotal: number; precioUnit?: number };
+
+/** Agrega los materiales de todos los APU del proyecto en una sola lista (cómputo global) */
+function computarMaterialesGlobales(capitulos: Capitulo[], apuData: Record<string, APU>): { filas: FilaMaterialGlobal[]; total: number } {
+  const mapa = new Map<string, FilaMaterialGlobal>();
+
+  const agregar = (key: string, desc: string, unidad: string, dosif: string | undefined, cant: number, precio: number | undefined) => {
+    const ex = mapa.get(key);
+    if (ex) {
+      ex.cantidadTotal += cant;
+    } else {
+      mapa.set(key, { descripcion: desc, unidad, dosificacion: dosif, cantidadTotal: cant, precioUnit: precio });
+    }
+  };
+
+  for (const cap of capitulos) {
+    for (const rubro of cap.rubros) {
+      const apu = apuData[rubro.id];
+      if (!apu || rubro.cantidad == null) continue;
+      for (const m of apu.materiales) {
+        if (m.componentes && m.componentes.length > 0) {
+          for (const comp of m.componentes) {
+            const cant = comp.rendimientoPorUnidad * m.rendimiento * rubro.cantidad;
+            agregar(`${comp.descripcion}||${comp.unidad}`, comp.descripcion, comp.unidad, undefined, cant, comp.precioUnit);
+          }
+        } else {
+          const cant = m.rendimiento * rubro.cantidad;
+          agregar(`${m.descripcion}||${m.unidad}`, m.descripcion, m.unidad, m.dosificacion, cant, m.precioUnit);
+        }
+      }
+    }
+  }
+
+  const filas = Array.from(mapa.values())
+    .filter((f) => f.cantidadTotal > 0)
+    .sort((a, b) => a.descripcion.localeCompare(b.descripcion, "es"));
+
+  const total = filas.reduce((s, f) => (f.precioUnit == null ? s : s + f.cantidadTotal * f.precioUnit), 0);
+
+  return { filas, total };
+}
+
+/** Genera y descarga el Excel "Lista de Materiales" del cómputo global */
+function descargarExcelMateriales(nombreProyecto: string, filas: FilaMaterialGlobal[], total: number) {
+  const fecha = new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const wb = XLSX.utils.book_new();
+
+  const datos: (string | number | null)[][] = [
+    [`LISTA DE MATERIALES — ${nombreProyecto}`],
+    [`Fecha de generación: ${fecha}`],
+    [],
+    ["MATERIAL", "UNIDAD", "DOSIFICACIÓN", "CANTIDAD", "PRECIO UNIT. (UYU)", "COSTO TOTAL (UYU)"],
+    ...filas.map((f) => [
+      f.descripcion,
+      f.unidad,
+      f.dosificacion ?? "",
+      parseFloat(f.cantidadTotal.toFixed(2)),
+      f.precioUnit != null ? parseFloat(f.precioUnit.toFixed(2)) : null,
+      f.precioUnit != null ? parseFloat((f.cantidadTotal * f.precioUnit).toFixed(2)) : null,
+    ]),
+    ["TOTAL MATERIALES", "", "", "", "", parseFloat(total.toFixed(2))],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(datos);
+
+  ws["!cols"] = [
+    { wch: 35 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 18 },
+  ];
+
+  // Aplicar formato numérico directamente en cada celda numérica (SheetJS CE)
+  // Columnas D(3), E(4), F(5) — filas de datos + fila total
+  const COLS = ["A", "B", "C", "D", "E", "F"];
+  const numColIdx = [3, 4, 5];
+  const dataStart = 4; // índice 0-based de la primera fila de datos
+  const totalRowIdx = datos.length - 1;
+
+  for (let r = dataStart; r <= totalRowIdx; r++) {
+    numColIdx.forEach((c) => {
+      const addr = `${COLS[c]}${r + 1}`;
+      const cell = ws[addr];
+      if (cell != null && cell.v != null) {
+        cell.t = "n";
+        cell.z = "#,##0.00";
+      }
+    });
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, "Lista de Materiales");
+  XLSX.writeFile(wb, `Lista-Materiales-${nombreProyecto.replace(/\s+/g, "-")}.xlsx`);
 }
 
 /** Tipo de cambio de referencia U$S → $UY, igual al usado en /calcular */
@@ -1270,6 +1361,11 @@ export default function ProyectoPage() {
   const estado = ESTADOS[proyectoActivo.estado] ?? ESTADOS.BORRADOR;
   const totalGeneral = capitulos.reduce((s, c) => s + totalCapitulo(c), 0);
 
+  const { filas: filasMateriales, total: totalMateriales } = useMemo(
+    () => computarMaterialesGlobales(capitulos, apuData),
+    [capitulos, apuData]
+  );
+
   // Rubro activo en el drawer
   const drawerRubro = drawerRubroId
     ? capitulos.flatMap((c) => c.rubros).find((r) => r.id === drawerRubroId) ?? null
@@ -1724,10 +1820,18 @@ export default function ProyectoPage() {
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+              <button
+                onClick={() => router.push(`/proyectos/${proyectoId}/editar`)}
+                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              >
                 <Pencil className="w-3.5 h-3.5" /> <span className="hidden md:inline">Editar</span>
               </button>
-              <button className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+              <button
+                onClick={() => descargarExcelMateriales(proyectoActivo.nombre, filasMateriales, totalMateriales)}
+                disabled={filasMateriales.length === 0}
+                title={filasMateriales.length === 0 ? "No hay materiales con APU cargado para exportar" : undefined}
+                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
                 <FileSpreadsheet className="w-3.5 h-3.5" /> <span className="hidden md:inline">Excel</span>
               </button>
               <a
@@ -2093,95 +2197,8 @@ export default function ProyectoPage() {
         />
 
         {/* ── Cómputo global de materiales ────────────────── */}
-        {(() => {
-          type FilaGlobal = { descripcion: string; unidad: string; dosificacion?: string; cantidadTotal: number; precioUnit?: number };
-          const mapa = new Map<string, FilaGlobal>();
-
-          const descargarExcel = (filas: FilaGlobal[], total: number) => {
-            const fecha = new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
-            const wb = XLSX.utils.book_new();
-
-            const datos: (string | number | null)[][] = [
-              [`LISTA DE MATERIALES — ${proyectoActivo.nombre}`],
-              [`Fecha de generación: ${fecha}`],
-              [],
-              ["MATERIAL", "UNIDAD", "DOSIFICACIÓN", "CANTIDAD", "PRECIO UNIT. (UYU)", "COSTO TOTAL (UYU)"],
-              ...filas.map((f) => [
-                f.descripcion,
-                f.unidad,
-                f.dosificacion ?? "",
-                parseFloat(f.cantidadTotal.toFixed(2)),
-                f.precioUnit != null ? parseFloat(f.precioUnit.toFixed(2)) : null,
-                f.precioUnit != null ? parseFloat((f.cantidadTotal * f.precioUnit).toFixed(2)) : null,
-              ]),
-              ["TOTAL MATERIALES", "", "", "", "", parseFloat(total.toFixed(2))],
-            ];
-
-            const ws = XLSX.utils.aoa_to_sheet(datos);
-
-            ws["!cols"] = [
-              { wch: 35 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 18 },
-            ];
-
-            // Aplicar formato numérico directamente en cada celda numérica (SheetJS CE)
-            // Columnas D(3), E(4), F(5) — filas de datos + fila total
-            const COLS = ["A", "B", "C", "D", "E", "F"];
-            const numColIdx = [3, 4, 5];
-            const dataStart = 4; // índice 0-based de la primera fila de datos
-            const totalRowIdx = datos.length - 1;
-
-            for (let r = dataStart; r <= totalRowIdx; r++) {
-              numColIdx.forEach((c) => {
-                const addr = `${COLS[c]}${r + 1}`;
-                const cell = ws[addr];
-                if (cell != null && cell.v != null) {
-                  cell.t = "n";
-                  cell.z = "#,##0.00";
-                }
-              });
-            }
-
-            XLSX.utils.book_append_sheet(wb, ws, "Lista de Materiales");
-            XLSX.writeFile(wb, `Lista-Materiales-${proyectoActivo.nombre.replace(/\s+/g, "-")}.xlsx`);
-          };
-
-          const agregar = (key: string, desc: string, unidad: string, dosif: string | undefined, cant: number, precio: number | undefined) => {
-            const ex = mapa.get(key);
-            if (ex) {
-              ex.cantidadTotal += cant;
-            } else {
-              mapa.set(key, { descripcion: desc, unidad, dosificacion: dosif, cantidadTotal: cant, precioUnit: precio });
-            }
-          };
-
-          for (const cap of capitulos) {
-            for (const rubro of cap.rubros) {
-              const apu = apuData[rubro.id];
-              if (!apu || rubro.cantidad == null) continue;
-              for (const m of apu.materiales) {
-                if (m.componentes && m.componentes.length > 0) {
-                  for (const comp of m.componentes) {
-                    const cant = comp.rendimientoPorUnidad * m.rendimiento * rubro.cantidad;
-                    agregar(`${comp.descripcion}||${comp.unidad}`, comp.descripcion, comp.unidad, undefined, cant, comp.precioUnit);
-                  }
-                } else {
-                  const cant = m.rendimiento * rubro.cantidad;
-                  agregar(`${m.descripcion}||${m.unidad}`, m.descripcion, m.unidad, m.dosificacion, cant, m.precioUnit);
-                }
-              }
-            }
-          }
-
-          const filas = Array.from(mapa.values())
-            .filter((f) => f.cantidadTotal > 0)
-            .sort((a, b) => a.descripcion.localeCompare(b.descripcion, "es"));
-
-          if (filas.length === 0) return null;
-
-          const totalMateriales = filas.reduce((s, f) => {
-            if (f.precioUnit == null) return s;
-            return s + f.cantidadTotal * f.precioUnit;
-          }, 0);
+        {filasMateriales.length > 0 && (() => {
+          const filas = filasMateriales;
 
           return (
             <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
@@ -2199,7 +2216,7 @@ export default function ProyectoPage() {
                     <FileText className="w-3.5 h-3.5" /> PDF
                   </a>
                   <button
-                    onClick={() => descargarExcel(filas, totalMateriales)}
+                    onClick={() => descargarExcelMateriales(proyectoActivo.nombre, filas, totalMateriales)}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" /> Excel

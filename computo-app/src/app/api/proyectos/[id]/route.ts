@@ -74,11 +74,14 @@ export async function PATCH(
       data: {
         ...(body.nombre     !== undefined && { nombre:     body.nombre }),
         ...(body.cliente    !== undefined && { cliente:    body.cliente }),
+        ...(body.tipo       !== undefined && { tipo:       body.tipo }),
         ...(body.estado     !== undefined && { estado:     body.estado }),
         ...(body.moneda     !== undefined && { moneda:     body.moneda }),
         ...(body.area       !== undefined && { area:       body.area }),
         ...(body.direccion  !== undefined && { direccion:  body.direccion }),
         ...(body.descripcion !== undefined && { descripcion: body.descripcion }),
+        ...(body.fechaInicio !== undefined && { fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null }),
+        ...(body.plazoObra   !== undefined && { plazoObra:   body.plazoObra }),
       },
     });
     return NextResponse.json(proyecto);
