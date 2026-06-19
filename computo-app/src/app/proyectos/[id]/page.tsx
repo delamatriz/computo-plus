@@ -1213,6 +1213,8 @@ export default function ProyectoPage() {
   const [proyecto, setProyecto] = useState<ProyectoData | null>(null);
   const [mostrarConfirmEliminar, setMostrarConfirmEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  // Rubro cuya descripción está siendo editada — mientras tanto se muestra el valor real, no toTitleCase
+  const [descripcionEnFoco, setDescripcionEnFoco] = useState<string | null>(null);
   const [capitulos, setCapitulos] = useState<Capitulo[]>([]);
   // Ref para leer siempre el estado más reciente de capitulos desde callbacks async
   const capitulosRef = useRef<Capitulo[]>([]);
@@ -2033,9 +2035,10 @@ export default function ProyectoPage() {
                                 <div className="flex-1 px-2 min-w-0 flex items-center gap-1.5">
                                   <input
                                     type="text"
-                                    value={rubro.descripcion}
+                                    value={descripcionEnFoco === rubro.id ? rubro.descripcion : toTitleCase(rubro.descripcion)}
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "descripcion", e.target.value)}
-                                    onBlur={() => sugerirAPU(cap.id, rubro.id)}
+                                    onFocus={() => setDescripcionEnFoco(rubro.id)}
+                                    onBlur={() => { setDescripcionEnFoco(null); sugerirAPU(cap.id, rubro.id); }}
                                     placeholder="Descripción del rubro"
                                     className="flex-1 min-w-0 text-sm text-slate-700 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300"
                                   />
