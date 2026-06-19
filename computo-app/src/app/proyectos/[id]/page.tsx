@@ -458,13 +458,13 @@ function PanelSubrubrosEstandar({
   onCerrar: () => void;
 }) {
   return (
-    <div className="mx-4 my-2 rounded-lg border border-blue-200 bg-[#F0F7FF] p-3 space-y-2">
+    <div className="mx-4 my-2 rounded-lg border border-blue-100 bg-[#F0F7FF] p-2 space-y-1.5">
       <div className="flex items-center justify-end">
         <button type="button" onClick={onCerrar} className="text-slate-400 hover:text-slate-600 transition-colors">
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
-      <div className="max-h-64 overflow-y-auto rounded-[6px] border border-slate-200 bg-white">
+      <div className="max-h-64 overflow-y-auto rounded-[6px] border border-slate-100 bg-white">
         {cargando && (
           <div className="px-3 py-2 text-xs text-slate-400 italic">Cargando…</div>
         )}
