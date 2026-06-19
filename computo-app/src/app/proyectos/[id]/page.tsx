@@ -1375,11 +1375,7 @@ export default function ProyectoPage() {
     }
   }, []);
 
-  const toggleSubrubrosPanel = useCallback(async (cap: Capitulo) => {
-    if (panelSubrubrosCapId === cap.id) {
-      setPanelSubrubrosCapId(null);
-      return;
-    }
+  const abrirSubrubrosPanel = useCallback(async (cap: Capitulo) => {
     setPanelSubrubrosCapId(cap.id);
     if (subrubrosPorCapitulo[cap.id]) return;
 
@@ -1396,12 +1392,29 @@ export default function ProyectoPage() {
       const lista: SubrubroEstandar[] = resultados.flat();
       setSubrubrosPorCapitulo((prev) => ({ ...prev, [cap.id]: lista }));
     } catch (err) {
-      console.error("[toggleSubrubrosPanel]", err);
+      console.error("[abrirSubrubrosPanel]", err);
       setSubrubrosPorCapitulo((prev) => ({ ...prev, [cap.id]: [] }));
     } finally {
       setCargandoSubrubros(false);
     }
-  }, [panelSubrubrosCapId, subrubrosPorCapitulo]);
+  }, [subrubrosPorCapitulo]);
+
+  const toggleSubrubrosPanel = useCallback((cap: Capitulo) => {
+    if (panelSubrubrosCapId === cap.id) {
+      setPanelSubrubrosCapId(null);
+      return;
+    }
+    abrirSubrubrosPanel(cap);
+  }, [panelSubrubrosCapId, abrirSubrubrosPanel]);
+
+  // Al expandir un capítulo sin rubros, mostrar automáticamente la biblioteca de subrubros típicos
+  const toggleCapituloConSubrubros = useCallback((cap: Capitulo) => {
+    const yaExpandido = expandidos.has(cap.id);
+    toggleCapitulo(cap.id);
+    if (!yaExpandido && cap.rubros.length === 0) {
+      abrirSubrubrosPanel(cap);
+    }
+  }, [expandidos, abrirSubrubrosPanel]);
 
   const agregarRubroDesdeSubrubro = useCallback(async (capId: string, sub: SubrubroEstandar) => {
     setPanelSubrubrosCapId(null);
@@ -1686,7 +1699,7 @@ export default function ProyectoPage() {
 
                 {/* Fila del capítulo */}
                 <button
-                  onClick={() => toggleCapitulo(cap.id)}
+                  onClick={() => toggleCapituloConSubrubros(cap)}
                   className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors text-left group"
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -1723,6 +1736,26 @@ export default function ProyectoPage() {
                       <div className="border-t border-slate-100 overflow-x-auto">
                         <div className="min-w-[640px]">
 
+                        {cap.rubros.length === 0 ? (
+                          <>
+                            <PanelSubrubrosEstandar
+                              subrubros={subrubrosPorCapitulo[cap.id] ?? []}
+                              cargando={cargandoSubrubros}
+                              moneda={moneda}
+                              onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
+                              onCerrar={() => setPanelSubrubrosCapId(null)}
+                            />
+                            <div className="flex items-center pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
+                              <button
+                                onClick={() => agregarRubro(cap.id)}
+                                className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                              >
+                                <Plus className="w-3 h-3" /> Agregar rubro personalizado
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                        <>
                         {/* Header de columnas */}
                         <div className="flex items-center bg-slate-50 border-b border-slate-200" style={{ height: 28 }}>
                           {/* espacio botón APU + número */}
@@ -1736,11 +1769,7 @@ export default function ProyectoPage() {
 
                         {/* Filas */}
                         <div>
-                          {cap.rubros.length === 0 ? (
-                            <div className="flex items-center pl-6 text-xs text-slate-400 italic" style={{ height: 28 }}>
-                              Sin rubros — agregá el primero abajo
-                            </div>
-                          ) : cap.rubros.map((rubro, rubroIdx) => {
+                          {cap.rubros.map((rubro, rubroIdx) => {
                             const tieneAPU = !!apuData[rubro.id];
                             const apuPrecio = tieneAPU ? calcAPU(apuData[rubro.id]).precioFinal : 0;
 
@@ -1830,16 +1859,14 @@ export default function ProyectoPage() {
                         </div>
 
                         {/* Subtotal */}
-                        {cap.rubros.length > 0 && (
-                          <div className="flex items-center bg-slate-50 border-t border-slate-200" style={{ height: 26 }}>
-                            <div className="flex-1 pl-6 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                              Subtotal {cap.nombre}
-                            </div>
-                            <div style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-sm font-bold tabular-nums text-right text-[#2563EB]">
-                              {fmtMoneda(totalCap, moneda)}
-                            </div>
+                        <div className="flex items-center bg-slate-50 border-t border-slate-200" style={{ height: 26 }}>
+                          <div className="flex-1 pl-6 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                            Subtotal {cap.nombre}
                           </div>
-                        )}
+                          <div style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-sm font-bold tabular-nums text-right text-[#2563EB]">
+                            {fmtMoneda(totalCap, moneda)}
+                          </div>
+                        </div>
 
                         {/* Botón agregar rubro */}
                         <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
@@ -1851,9 +1878,10 @@ export default function ProyectoPage() {
                           </button>
                           <button
                             onClick={() => toggleSubrubrosPanel(cap)}
-                            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-[#2563EB] transition-colors"
+                            title="Agregar desde la biblioteca de subrubros típicos"
+                            className="flex items-center justify-center w-5 h-5 rounded-[4px] text-slate-400 hover:text-[#2563EB] hover:bg-blue-50 transition-colors"
                           >
-                            📋 Subrubros típicos
+                            <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
@@ -1865,6 +1893,8 @@ export default function ProyectoPage() {
                             onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
                             onCerrar={() => setPanelSubrubrosCapId(null)}
                           />
+                        )}
+                        </>
                         )}
                         </div>
                       </div>
