@@ -73,42 +73,52 @@ interface SubrubroEstandar {
   aportesSociales: number;
 }
 
-/** Mapeo entre nombres de capítulo del proyecto y capítulos/subcapítulos del rubrado SAU ago. 2022 */
-const CAPITULOS_SAU_MAP: Record<string, { capitulos: string[]; subcapitulos?: string[] }> = {
-  "Implantación y Replanteo": { capitulos: ["Implantación y Replanteo"] },
-  "Excavaciones y Movimiento de Tierra": { capitulos: ["Excavaciones y Movimientos de Tierra"] },
-  "Demoliciones y Picados": { capitulos: ["Demoliciones"] },
-  "Cimentaciones": { capitulos: ["Cimentaciones"] },
-  "Estructura de Hormigón Armado": { capitulos: ["Estructura"] },
-  // Albañilería propiamente dicha: muros, revoques y contrapisos (excluye pisos/revestimientos e impermeabilizaciones, que tienen su propio capítulo en el proyecto)
-  "Albañilería": {
-    capitulos: ["Albañilería"],
-    subcapitulos: [
-      "Elevación de Muros — Ladrillo de Campo",
-      "Elevación de Muros — Ticholos",
-      "Elevación de Muros — Bloque Hormigón",
-      "Elevación de Muros — Ladrillo de Vidrio",
-      "Revoques — Cielorraso",
-      "Revoques — Muros Interiores",
-      "Revoques — Muros Exteriores",
-      "Revoques — Otros",
-      "Contrapisos",
-    ],
-  },
-  "Pisos, Zócalos y Revestimientos": {
-    capitulos: ["Albañilería"],
-    subcapitulos: ["Pisos, Zócalos y Otros", "Revestimientos"],
-  },
-  "Impermeabilizaciones y Aislaciones": {
-    capitulos: ["Albañilería"],
-    subcapitulos: ["Impermeabilizaciones y Aislaciones"],
-  },
-  "Pinturas": { capitulos: ["Subcontratos - Pinturas"] },
-  "Carpintería": { capitulos: ["Subcontratos - Carpinterías"] },
-  "Vidrios y Espejos": { capitulos: ["Subcontratos - Vidrios"] },
-  "Yeso y Cielorrasos": { capitulos: ["Subcontratos - Yeso"] },
-  "Sistemas Constructivos No Tradicionales": { capitulos: ["Sistemas No Tradicionales"] },
-};
+type MapeoSAU = { alias: string[]; capitulos: string[]; subcapitulos?: string[] };
+
+const MUROS_SUBCAPS = [
+  "Elevación de Muros — Ladrillo de Campo",
+  "Elevación de Muros — Ticholos",
+  "Elevación de Muros — Bloque Hormigón",
+  "Elevación de Muros — Ladrillo de Vidrio",
+];
+const REVOQUES_SUBCAPS = [
+  "Revoques — Cielorraso",
+  "Revoques — Muros Interiores",
+  "Revoques — Muros Exteriores",
+  "Revoques — Otros",
+];
+const PISOS_SUBCAPS = ["Pisos, Zócalos y Otros", "Revestimientos", "Contrapisos"];
+
+/**
+ * Mapeo entre nombres de capítulo del proyecto y capítulos/subcapítulos del rubrado SAU ago. 2022.
+ * Cada entrada admite varios alias porque distintos proyectos nombran los capítulos de forma distinta
+ * (ej: "Pisos, Zócalos y Revestimientos" vs "Revestimientos y pisos").
+ */
+const CAPITULOS_SAU: MapeoSAU[] = [
+  { alias: ["Implantación y Replanteo", "Trabajos preliminares"], capitulos: ["Implantación y Replanteo"] },
+  { alias: ["Excavaciones y Movimiento de Tierra"], capitulos: ["Excavaciones y Movimientos de Tierra"] },
+  { alias: ["Movimiento de tierra y fundaciones"], capitulos: ["Excavaciones y Movimientos de Tierra", "Cimentaciones"] },
+  { alias: ["Demoliciones y Picados"], capitulos: ["Demoliciones"] },
+  { alias: ["Cimentaciones"], capitulos: ["Cimentaciones"] },
+  { alias: ["Estructura de Hormigón Armado", "Estructura"], capitulos: ["Estructura"] },
+  // Albañilería completa: muros + revoques (excluye pisos/revestimientos e impermeabilizaciones, que tienen capítulo propio)
+  { alias: ["Albañilería"], capitulos: ["Albañilería"], subcapitulos: [...MUROS_SUBCAPS, ...REVOQUES_SUBCAPS] },
+  { alias: ["Mampostería y muros"], capitulos: ["Albañilería"], subcapitulos: MUROS_SUBCAPS },
+  { alias: ["Revoques y enlucidos"], capitulos: ["Albañilería"], subcapitulos: REVOQUES_SUBCAPS },
+  { alias: ["Pisos, Zócalos y Revestimientos", "Revestimientos y pisos"], capitulos: ["Albañilería"], subcapitulos: PISOS_SUBCAPS },
+  { alias: ["Impermeabilizaciones y Aislaciones"], capitulos: ["Albañilería"], subcapitulos: ["Impermeabilizaciones y Aislaciones"] },
+  { alias: ["Pinturas", "Pintura"], capitulos: ["Subcontratos - Pinturas"] },
+  { alias: ["Carpintería"], capitulos: ["Subcontratos - Carpinterías"] },
+  { alias: ["Vidrios y Espejos", "Vidriería"], capitulos: ["Subcontratos - Vidrios"] },
+  { alias: ["Yeso y Cielorrasos"], capitulos: ["Subcontratos - Yeso"] },
+  { alias: ["Sistemas Constructivos No Tradicionales"], capitulos: ["Sistemas No Tradicionales"] },
+];
+
+function obtenerMapeoSAU(nombreCapitulo: string): { capitulos: string[]; subcapitulos?: string[] } | undefined {
+  const norm = nombreCapitulo.trim().toLowerCase();
+  const entrada = CAPITULOS_SAU.find((m) => m.alias.some((a) => a.toLowerCase() === norm));
+  return entrada ? { capitulos: entrada.capitulos, subcapitulos: entrada.subcapitulos } : undefined;
+}
 
 /* ─── Tipos APU ───────────────────────────────────────────── */
 interface ComponenteInsumo {
@@ -1411,7 +1421,7 @@ export default function ProyectoPage() {
     setPanelSubrubrosCapId(cap.id);
     if (subrubrosPorCapitulo[cap.id]) return;
 
-    const mapeo = CAPITULOS_SAU_MAP[cap.nombre] ?? { capitulos: [cap.nombre] };
+    const mapeo = obtenerMapeoSAU(cap.nombre) ?? { capitulos: [cap.nombre] };
     setCargandoSubrubros(true);
     try {
       const resultados = await Promise.all(
@@ -1446,7 +1456,7 @@ export default function ProyectoPage() {
   const toggleCapituloConSubrubros = useCallback((cap: Capitulo) => {
     const yaExpandido = expandidos.has(cap.id);
     toggleCapitulo(cap.id);
-    if (!yaExpandido && capituloVacio(cap) && CAPITULOS_SAU_MAP[cap.nombre]) {
+    if (!yaExpandido && capituloVacio(cap) && obtenerMapeoSAU(cap.nombre)) {
       abrirSubrubrosPanel(cap);
     }
   }, [expandidos, abrirSubrubrosPanel]);
@@ -1773,7 +1783,7 @@ export default function ProyectoPage() {
 
                         {capituloVacio(cap) ? (
                           <>
-                            {CAPITULOS_SAU_MAP[cap.nombre] && (
+                            {obtenerMapeoSAU(cap.nombre) && (
                               <PanelSubrubrosEstandar
                                 subrubros={subrubrosPorCapitulo[cap.id] ?? []}
                                 cargando={cargandoSubrubros}
@@ -1913,7 +1923,7 @@ export default function ProyectoPage() {
                           >
                             <Plus className="w-3 h-3" /> Agregar rubro
                           </button>
-                          {CAPITULOS_SAU_MAP[cap.nombre] && (
+                          {obtenerMapeoSAU(cap.nombre) && (
                             <button
                               onClick={() => toggleSubrubrosPanel(cap)}
                               title="Agregar desde la biblioteca de subrubros típicos"
