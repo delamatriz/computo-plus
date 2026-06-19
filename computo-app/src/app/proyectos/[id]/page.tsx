@@ -98,7 +98,7 @@ const CAPITULOS_SAU: MapeoSAU[] = [
   { alias: ["Implantación y Replanteo", "Trabajos preliminares"], capitulos: ["Implantación y Replanteo"] },
   { alias: ["Excavaciones y Movimiento de Tierra"], capitulos: ["Excavaciones y Movimientos de Tierra"] },
   { alias: ["Movimiento de tierra y fundaciones"], capitulos: ["Excavaciones y Movimientos de Tierra", "Cimentaciones"] },
-  { alias: ["Demoliciones y Picados"], capitulos: ["Demoliciones"] },
+  { alias: ["Demoliciones y Picados", "Picado de mamposteria", "Picado de mampostería"], capitulos: ["Demoliciones"] },
   { alias: ["Cimentaciones"], capitulos: ["Cimentaciones"] },
   { alias: ["Estructura de Hormigón Armado", "Estructura"], capitulos: ["Estructura"] },
   // Albañilería completa: muros + revoques (excluye pisos/revestimientos e impermeabilizaciones, que tienen capítulo propio)
@@ -109,9 +109,12 @@ const CAPITULOS_SAU: MapeoSAU[] = [
   { alias: ["Impermeabilizaciones y Aislaciones"], capitulos: ["Albañilería"], subcapitulos: ["Impermeabilizaciones y Aislaciones"] },
   { alias: ["Pinturas", "Pintura"], capitulos: ["Subcontratos - Pinturas"] },
   { alias: ["Carpintería"], capitulos: ["Subcontratos - Carpinterías"] },
+  { alias: ["Herrería y metálica", "Herrería y metalica"], capitulos: ["Subcontratos - Carpinterías"], subcapitulos: ["Hierro"] },
   { alias: ["Vidrios y Espejos", "Vidriería"], capitulos: ["Subcontratos - Vidrios"] },
   { alias: ["Yeso y Cielorrasos"], capitulos: ["Subcontratos - Yeso"] },
   { alias: ["Sistemas Constructivos No Tradicionales"], capitulos: ["Sistemas No Tradicionales"] },
+  { alias: ["Equipamiento"], capitulos: ["Subcontratos - Acondicionamientos"] },
+  { alias: ["Obras exteriores y paisajismo", "Obra Exterior / Jardín", "Obra Exterior y Jardín"], capitulos: ["Subcontratos - Acondicionamientos"] },
 ];
 
 function obtenerMapeoSAU(nombreCapitulo: string): { capitulos: string[]; subcapitulos?: string[] } | undefined {
