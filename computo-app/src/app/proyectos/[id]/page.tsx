@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import * as XLSX from "xlsx";
@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   X,
   LayoutList,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
@@ -1093,10 +1094,13 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
 /* ─── Componente principal ────────────────────────────────── */
 export default function ProyectoPage() {
   const params = useParams();
+  const router = useRouter();
   const proyectoId = (params?.id as string) ?? "proyecto-demo-1";
 
   // ─── Estado ────────────────────────────────────────────────
   const [proyecto, setProyecto] = useState<ProyectoData | null>(null);
+  const [mostrarConfirmEliminar, setMostrarConfirmEliminar] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
   const [capitulos, setCapitulos] = useState<Capitulo[]>([]);
   // Ref para leer siempre el estado más reciente de capitulos desde callbacks async
   const capitulosRef = useRef<Capitulo[]>([]);
@@ -1280,6 +1284,19 @@ export default function ProyectoPage() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const eliminarProyecto = async () => {
+    setEliminando(true);
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("No se pudo eliminar el proyecto");
+      router.push("/proyectos");
+    } catch (err) {
+      console.error("[eliminarProyecto]", err);
+      setEliminando(false);
+      setMostrarConfirmEliminar(false);
+    }
   };
 
   // Mantener ref sincronizado con el estado más reciente
@@ -1721,10 +1738,44 @@ export default function ProyectoPage() {
               >
                 <Download className="w-3.5 h-3.5" /> <span className="hidden md:inline">PDF</span>
               </a>
+              <button
+                onClick={() => setMostrarConfirmEliminar(true)}
+                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> <span className="hidden md:inline">Eliminar</span>
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Modal confirmación eliminar proyecto ─────────────── */}
+      {mostrarConfirmEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4">
+            <h2 className="text-base font-bold text-[#1A3A5C]">¿Eliminar este proyecto?</h2>
+            <p className="text-sm text-slate-500">
+              Esta acción no se puede deshacer. Se eliminarán todos los capítulos, rubros, APUs, certificaciones y metrajes asociados.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setMostrarConfirmEliminar(false)}
+                disabled={eliminando}
+                className="px-4 py-2 rounded-[8px] text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={eliminarProyecto}
+                disabled={eliminando}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> {eliminando ? "Eliminando…" : "Eliminar proyecto"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Tabla de capítulos ──────────────────────────── */}
       <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
