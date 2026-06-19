@@ -57,32 +57,30 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
         </div>
       </Link>
 
-      {/* Nav central — solo visible fuera del home */}
-      {!isHome && (
-        <nav className="hidden md:flex items-center gap-1">
-          {[
-            { href: "/calcular", label: "Cálculo rápido" },
-            { href: "/proyectos", label: "Proyectos" },
-            { href: "/metrajes", label: "Metrajes" },
-            { href: "/rubros", label: "Rubros" },
-            { href: "/recetas", label: "Descompuestos" },
-            { href: "/configuracion", label: "Configuración" },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "px-3.5 py-2 rounded-[8px] text-sm font-medium transition-colors whitespace-nowrap",
-                pathname.startsWith(item.href)
-                  ? "bg-brand-pale text-brand-accent"
-                  : "text-text-secondary hover:text-text-primary hover:bg-bg-base"
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      )}
+      {/* Nav central */}
+      <nav className="hidden md:flex items-center gap-1">
+        {[
+          { href: "/calcular", label: "Cálculo rápido" },
+          { href: "/proyectos", label: "Proyectos" },
+          { href: "/metrajes", label: "Metrajes" },
+          { href: "/rubros", label: "Rubros" },
+          { href: "/recetas", label: "Descompuestos" },
+          { href: "/configuracion", label: "Configuración" },
+        ].map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "px-3.5 py-2 rounded-[8px] text-sm font-medium transition-colors whitespace-nowrap",
+              pathname.startsWith(item.href)
+                ? "bg-brand-pale text-brand-accent"
+                : "text-text-secondary hover:text-text-primary hover:bg-bg-base"
+            )}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
 
       {/* Acciones derecha */}
       <div className="flex items-center gap-2">

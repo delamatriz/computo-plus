@@ -262,6 +262,23 @@ model FotoCertificacionItem {
   createdAt           DateTime          @default(now())
 }
 
+model SubrubroEstandar {
+  id              String   @id @default(cuid())
+  codigo          String
+  capitulo        String
+  subcapitulo     String?
+  descripcion     String
+  unidad          String
+  precioUY        Float
+  fechaBase       String   @default("2022-08")
+  aportesSociales Float    @default(0)
+  origen          String   @default("sau_ago2022")
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  @@unique([codigo])
+}
+
 model PrecioMTOP {
   id             String   @id @default(cuid())
   codigo         String   @unique

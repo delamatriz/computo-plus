@@ -28,7 +28,9 @@
       "Skill(claude-api:*)",
       "Bash(node -e \"require\\('@anthropic-ai/sdk'\\); console.log\\('ok'\\)\")",
       "Bash(Test-Path \"C:\\\\Users\\\\Pc\\\\Documents\\\\MIS DOCUMENTOS\\\\COMPUTO+\\\\computo-app\\\\.env.local\")",
-      "Bash(mkdir -p \"C:\\\\Users\\\\Pc\\\\Documents\\\\MIS DOCUMENTOS\\\\COMPUTO+\\\\computo-app\\\\src\\\\app\\\\proyectos\\\\[id]\")"
+      "Bash(mkdir -p \"C:\\\\Users\\\\Pc\\\\Documents\\\\MIS DOCUMENTOS\\\\COMPUTO+\\\\computo-app\\\\src\\\\app\\\\proyectos\\\\[id]\")",
+      "Bash(cd \"/c/Users/Pc/Documents/MIS DOCUMENTOS/COMPUTO+/computo-app\" && grep -E '\"dotenv\"' package.json)",
+      "Bash(npx tsx *)"
     ]
   }
 }

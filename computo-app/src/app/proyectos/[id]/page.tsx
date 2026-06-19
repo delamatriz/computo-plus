@@ -61,6 +61,35 @@ interface Capitulo {
   rubros: Rubro[];
 }
 
+interface SubrubroEstandar {
+  id: string;
+  codigo: string;
+  capitulo: string;
+  subcapitulo: string | null;
+  descripcion: string;
+  unidad: string;
+  precioUY: number;
+  fechaBase: string;
+  aportesSociales: number;
+}
+
+/** Mapeo entre nombres de capítulo del proyecto y capítulos del rubrado SAU ago. 2022 */
+const CAPITULOS_SAU_MAP: Record<string, string[]> = {
+  "Implantación y Replanteo": ["Implantación y Replanteo"],
+  "Excavaciones y Movimiento de Tierra": ["Excavaciones y Movimientos de Tierra"],
+  "Demoliciones y Picados": ["Demoliciones"],
+  "Cimentaciones": ["Cimentaciones"],
+  "Estructura de Hormigón Armado": ["Estructura"],
+  "Albañilería": ["Albañilería"],
+  "Pisos, Zócalos y Revestimientos": ["Albañilería"],
+  "Impermeabilizaciones y Aislaciones": ["Albañilería"],
+  "Pinturas": ["Subcontratos - Pinturas"],
+  "Carpintería": ["Subcontratos - Carpinterías"],
+  "Vidrios y Espejos": ["Subcontratos - Vidrios"],
+  "Yeso y Cielorrasos": ["Subcontratos - Yeso"],
+  "Sistemas Constructivos No Tradicionales": ["Sistemas No Tradicionales"],
+};
+
 /* ─── Tipos APU ───────────────────────────────────────────── */
 interface ComponenteInsumo {
   id: string;
@@ -235,6 +264,18 @@ function totalCapitulo(cap: Capitulo): number {
   return cap.rubros.reduce((s, r) => s + totalRubro(r), 0);
 }
 
+/** Tipo de cambio de referencia U$S → $UY, igual al usado en /calcular */
+const TCU = 42.5;
+
+/**
+ * Precio del rubro a partir de un subrubro típico (precio base en $UY, fechaBase).
+ * En UYU se usa el precio base directo; en USD se convierte con el TC de referencia.
+ * La actualización a precios vigentes la hace el usuario con "Consultar ICCV".
+ */
+function precioDesdeSubrubro(sub: SubrubroEstandar, moneda: string): number {
+  return moneda === "USD" ? sub.precioUY / TCU : sub.precioUY;
+}
+
 function fmtMoneda(v: number, moneda: string): string {
   if (v === 0) return "—";
   const fmt = Math.round(v).toLocaleString("es-UY");
@@ -355,6 +396,69 @@ function BuscadorMTOP({
         >
           Cancelar
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Subrubros típicos SAU ─────────────────────────────────── */
+function PanelSubrubrosEstandar({
+  subrubros,
+  cargando,
+  moneda,
+  onSeleccionar,
+  onCerrar,
+}: {
+  subrubros: SubrubroEstandar[];
+  cargando: boolean;
+  moneda: string;
+  onSeleccionar: (s: SubrubroEstandar) => void;
+  onCerrar: () => void;
+}) {
+  return (
+    <div className="mx-4 my-2 rounded-lg border border-blue-200 bg-[#F0F7FF] p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Subrubros típicos — SAU ago. 2022</span>
+        <button type="button" onClick={onCerrar} className="text-slate-400 hover:text-slate-600 transition-colors">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <div className="max-h-64 overflow-y-auto rounded-[6px] border border-slate-200 bg-white">
+        {cargando && (
+          <div className="px-3 py-2 text-xs text-slate-400 italic">Cargando…</div>
+        )}
+        {!cargando && subrubros.length === 0 && (
+          <div className="px-3 py-2 text-xs text-slate-400 italic">No hay subrubros típicos para este capítulo</div>
+        )}
+        {!cargando && subrubros.map((s) => {
+          const precio = precioDesdeSubrubro(s, moneda);
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => onSeleccionar(s)}
+              title={`Precio base ${s.fechaBase} — actualizar con ICCV`}
+              className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-0"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
+                  {s.codigo} — {s.descripcion}
+                </span>
+                <span className="text-[10px] font-bold text-[#2563EB] whitespace-nowrap flex-shrink-0 tabular-nums">
+                  {fmtMoneda(precio, moneda)}/{s.unidad}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {s.subcapitulo && (
+                  <span className="text-[10px] text-slate-400">{s.subcapitulo}</span>
+                )}
+                <span className="text-[9px] font-medium text-slate-300">
+                  precio base {s.fechaBase} — actualizar con ICCV
+                </span>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -961,6 +1065,9 @@ export default function ProyectoPage() {
   const [recalculandoMO, setRecalculandoMO] = useState(false);
   const [guardandoLeyes, setGuardandoLeyes] = useState(false);
   const [apuGenerando, setApuGenerando] = useState<Set<string>>(new Set());
+  const [panelSubrubrosCapId, setPanelSubrubrosCapId] = useState<string | null>(null);
+  const [subrubrosPorCapitulo, setSubrubrosPorCapitulo] = useState<Record<string, SubrubroEstandar[]>>({});
+  const [cargandoSubrubros, setCargandoSubrubros] = useState(false);
 
   // Refs para debounce de auto-save por rubro
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -1267,6 +1374,92 @@ export default function ProyectoPage() {
       );
     }
   }, []);
+
+  const toggleSubrubrosPanel = useCallback(async (cap: Capitulo) => {
+    if (panelSubrubrosCapId === cap.id) {
+      setPanelSubrubrosCapId(null);
+      return;
+    }
+    setPanelSubrubrosCapId(cap.id);
+    if (subrubrosPorCapitulo[cap.id]) return;
+
+    const capitulosSAU = CAPITULOS_SAU_MAP[cap.nombre] ?? [cap.nombre];
+    setCargandoSubrubros(true);
+    try {
+      const resultados = await Promise.all(
+        capitulosSAU.map((capSAU) =>
+          fetch(`/api/subrubros-estandar?capitulo=${encodeURIComponent(capSAU)}`).then((r) =>
+            r.ok ? r.json() : []
+          )
+        )
+      );
+      const lista: SubrubroEstandar[] = resultados.flat();
+      setSubrubrosPorCapitulo((prev) => ({ ...prev, [cap.id]: lista }));
+    } catch (err) {
+      console.error("[toggleSubrubrosPanel]", err);
+      setSubrubrosPorCapitulo((prev) => ({ ...prev, [cap.id]: [] }));
+    } finally {
+      setCargandoSubrubros(false);
+    }
+  }, [panelSubrubrosCapId, subrubrosPorCapitulo]);
+
+  const agregarRubroDesdeSubrubro = useCallback(async (capId: string, sub: SubrubroEstandar) => {
+    setPanelSubrubrosCapId(null);
+    const precioUnit = precioDesdeSubrubro(sub, proyecto?.moneda ?? "UYU");
+    const tempId = `temp-${Date.now()}`;
+    setCapitulos((prev) =>
+      prev.map((c) =>
+        c.id !== capId ? c : {
+          ...c,
+          rubros: [...c.rubros, {
+            id: tempId,
+            descripcion: sub.descripcion,
+            unidad: sub.unidad,
+            cantidad: null,
+            precioUnit,
+          }],
+        }
+      )
+    );
+    setExpandidos((prev) => new Set([...prev, capId]));
+
+    try {
+      const res = await fetch(`/api/capitulos/${capId}/rubros`, { method: "POST" });
+      if (!res.ok) throw new Error("Error al crear rubro");
+      const nuevoRubro = await res.json();
+
+      setCapitulos((prev) =>
+        prev.map((c) =>
+          c.id !== capId ? c : {
+            ...c,
+            rubros: c.rubros.map((r) =>
+              r.id === tempId ? { ...r, id: nuevoRubro.id } : r
+            ),
+          }
+        )
+      );
+
+      await fetch(`/api/rubros/${nuevoRubro.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          descripcion: sub.descripcion,
+          unidad: sub.unidad,
+          precioUnit,
+        }),
+      });
+    } catch (err) {
+      console.error("[agregarRubroDesdeSubrubro]", err);
+      setCapitulos((prev) =>
+        prev.map((c) =>
+          c.id !== capId ? c : {
+            ...c,
+            rubros: c.rubros.filter((r) => r.id !== tempId),
+          }
+        )
+      );
+    }
+  }, [proyecto?.moneda]);
 
   const actualizarRubro = useCallback((capId: string, rubroId: string, field: keyof Rubro, value: string) => {
     // Actualización optimista en UI
@@ -1649,14 +1842,30 @@ export default function ProyectoPage() {
                         )}
 
                         {/* Botón agregar rubro */}
-                        <div className="flex items-center pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
+                        <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
                           <button
                             onClick={() => agregarRubro(cap.id)}
                             className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
                           >
                             <Plus className="w-3 h-3" /> Agregar rubro
                           </button>
+                          <button
+                            onClick={() => toggleSubrubrosPanel(cap)}
+                            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-[#2563EB] transition-colors"
+                          >
+                            📋 Subrubros típicos
+                          </button>
                         </div>
+
+                        {panelSubrubrosCapId === cap.id && (
+                          <PanelSubrubrosEstandar
+                            subrubros={subrubrosPorCapitulo[cap.id] ?? []}
+                            cargando={cargandoSubrubros}
+                            moneda={moneda}
+                            onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
+                            onCerrar={() => setPanelSubrubrosCapId(null)}
+                          />
+                        )}
                         </div>
                       </div>
                     </motion.div>
