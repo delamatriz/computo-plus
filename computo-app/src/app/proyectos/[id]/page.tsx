@@ -485,7 +485,7 @@ function PanelSubrubrosEstandar({
                 <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
                   {s.codigo} — {s.descripcion}
                 </span>
-                <span className="text-[10px] font-bold text-[#2563EB] whitespace-nowrap flex-shrink-0 tabular-nums">
+                <span className="text-sm font-bold text-[#2563EB] whitespace-nowrap flex-shrink-0 tabular-nums">
                   {fmtMonedaDecimal(precio, moneda)}/{s.unidad}
                 </span>
               </div>
