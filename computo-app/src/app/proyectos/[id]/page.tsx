@@ -459,8 +459,7 @@ function PanelSubrubrosEstandar({
 }) {
   return (
     <div className="mx-4 my-2 rounded-lg border border-blue-200 bg-[#F0F7FF] p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Subrubros típicos — SAU ago. 2022</span>
+      <div className="flex items-center justify-end">
         <button type="button" onClick={onCerrar} className="text-slate-400 hover:text-slate-600 transition-colors">
           <X className="w-3.5 h-3.5" />
         </button>
