@@ -534,26 +534,17 @@ export default function CalcularPage() {
                   <label className="block text-sm font-semibold text-text-primary mb-3">
                     Zona
                   </label>
-                  <div className="space-y-1.5">
+                  <select
+                    value={zona}
+                    onChange={(e) => setZona(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-[10px] border border-slate-300 bg-bg-base text-sm font-medium text-text-primary focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer"
+                  >
                     {ZONAS.map((z) => (
-                      <button
-                        key={z.id}
-                        onClick={() => setZona(z.id)}
-                        className={cn(
-                          "w-full flex items-center gap-2 px-3 py-2 rounded-[8px] text-sm transition-all text-left",
-                          zona === z.id
-                            ? "bg-blue-50 text-[#2563EB] font-semibold"
-                            : "text-slate-500 hover:bg-slate-50"
-                        )}
-                      >
-                        <span className={cn(
-                          "w-2 h-2 rounded-full flex-shrink-0",
-                          zona === z.id ? "bg-[#2563EB]" : "bg-slate-300"
-                        )} />
+                      <option key={z.id} value={z.id}>
                         {z.label}
-                      </button>
+                      </option>
                     ))}
-                  </div>
+                  </select>
                 </div>
 
                 <div>
