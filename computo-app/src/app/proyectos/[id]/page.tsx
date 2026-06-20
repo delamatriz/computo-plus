@@ -116,6 +116,10 @@ const CAPITULOS_SAU: MapeoSAU[] = [
   { alias: ["Sistemas Constructivos No Tradicionales"], capitulos: ["Sistemas No Tradicionales"] },
   { alias: ["Equipamiento"], capitulos: ["Subcontratos - Acondicionamientos"] },
   { alias: ["Obras exteriores y paisajismo", "Obra Exterior / Jardín", "Obra Exterior y Jardín"], capitulos: ["Subcontratos - Acondicionamientos"] },
+  { alias: ["Cubierta / Techos", "Cubierta"], capitulos: ["Cubierta / Techos"] },
+  { alias: ["Instalación Sanitaria"], capitulos: ["Instalación Sanitaria"] },
+  { alias: ["Instalación Eléctrica"], capitulos: ["Instalación Eléctrica"] },
+  { alias: ["Instalación Térmica / Aire Acondicionado", "Instalación Térmica"], capitulos: ["Instalación Térmica / Aire Acondicionado"] },
 ];
 
 function obtenerMapeoSAU(nombreCapitulo: string): { capitulos: string[]; subcapitulos?: string[] } | undefined {
@@ -1602,8 +1606,10 @@ export default function ProyectoPage() {
 
   const agregarRubroDesdeSubrubro = useCallback(async (capId: string, sub: SubrubroEstandar) => {
     setPanelSubrubrosCapId(null);
-    const precioUnit = precioDesdeSubrubro(sub, proyecto?.moneda ?? "UYU");
+    const sinPrecio = sub.precioUY === 0;
+    const precioUnit = sinPrecio ? null : precioDesdeSubrubro(sub, proyecto?.moneda ?? "UYU");
     const tempId = `temp-${Date.now()}`;
+    const capActual = capitulos.find((c) => c.id === capId);
     setCapitulos((prev) =>
       prev.map((c) =>
         c.id !== capId ? c : {
@@ -1624,27 +1630,87 @@ export default function ProyectoPage() {
       const res = await fetch(`/api/capitulos/${capId}/rubros`, { method: "POST" });
       if (!res.ok) throw new Error("Error al crear rubro");
       const nuevoRubro = await res.json();
+      const rubroId = nuevoRubro.id;
 
       setCapitulos((prev) =>
         prev.map((c) =>
           c.id !== capId ? c : {
             ...c,
             rubros: c.rubros.map((r) =>
-              r.id === tempId ? { ...r, id: nuevoRubro.id } : r
+              r.id === tempId ? { ...r, id: rubroId } : r
             ),
           }
         )
       );
 
-      await fetch(`/api/rubros/${nuevoRubro.id}`, {
+      await fetch(`/api/rubros/${rubroId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           descripcion: sub.descripcion,
           unidad: sub.unidad,
-          precioUnit,
+          ...(precioUnit !== null && { precioUnit }),
         }),
       });
+
+      // Subrubro sin precio base (precioUY === 0) — disparar sugerencia de APU automáticamente
+      if (sinPrecio) {
+        setApuGenerando((prev) => new Set(prev).add(rubroId));
+        fetch(`/api/rubros/${rubroId}/sugerir-apu`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            descripcion: sub.descripcion,
+            unidad: sub.unidad,
+            capitulo: capActual?.nombre ?? "",
+            tipoObra: proyecto?.tipo ?? "",
+          }),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (!data) return;
+            const nuevoAPU: APU = {
+              gastosGeneralesPct: 15,
+              utilidadPct: 10,
+              materiales: data.materiales.map((m: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }, i: number) => ({
+                id: `ai-mat-${i}`,
+                descripcion: m.descripcion,
+                unidad: m.unidad,
+                rendimiento: m.rendimiento,
+                precioUnit: m.precioUnit,
+              })),
+              manoObra: data.manoObra.map((mo: { categoria: string; rendimiento: number; jornal: number }, i: number) => ({
+                id: `ai-mo-${i}`,
+                categoria: mo.categoria,
+                jornadaHs: 8,
+                rendimiento: mo.rendimiento,
+                jornalRef: mo.jornal,
+              })),
+              equipos: [],
+            };
+            setApuData((prev) => ({ ...prev, [rubroId]: nuevoAPU }));
+            const precio = Math.round(data.precioUnitarioEstimado * 100) / 100;
+            setCapitulos((prev) =>
+              prev.map((c) =>
+                c.id !== capId ? c : {
+                  ...c,
+                  rubros: c.rubros.map((r) =>
+                    r.id !== rubroId ? r : { ...r, precioUnit: precio }
+                  ),
+                }
+              )
+            );
+            guardarEnBibliotecaGlobal(sub.descripcion, sub.unidad, capActual?.nombre ?? "", precio, moneda);
+          })
+          .catch((err) => console.error("[agregarRubroDesdeSubrubro sugerirAPU]", err))
+          .finally(() => {
+            setApuGenerando((prev) => {
+              const s = new Set(prev);
+              s.delete(rubroId);
+              return s;
+            });
+          });
+      }
     } catch (err) {
       console.error("[agregarRubroDesdeSubrubro]", err);
       setCapitulos((prev) =>
@@ -1656,7 +1722,7 @@ export default function ProyectoPage() {
         )
       );
     }
-  }, [proyecto?.moneda]);
+  }, [proyecto?.moneda, proyecto?.tipo, capitulos, moneda]);
 
   const actualizarRubro = useCallback((capId: string, rubroId: string, field: keyof Rubro, value: string) => {
     // Actualización optimista en UI
