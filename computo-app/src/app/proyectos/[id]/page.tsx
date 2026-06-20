@@ -464,7 +464,11 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
   let nroGlobal = 1;
   let totalGeneral = 0;
 
-  for (const cap of capitulos) {
+  const capitulosConRubros = capitulos.filter((cap) =>
+    cap.rubros.some((rubro) => rubro.descripcion.trim().length > 0)
+  );
+
+  for (const cap of capitulosConRubros) {
     r = pushRow([cap.nombre]);
     styleRow(r, styTituloCap);
     merges.push({ s: { r, c: 0 }, e: { r, c: NUM_COLS - 1 } });
@@ -503,7 +507,7 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
   const ws = XLSX.utils.aoa_to_sheet(datos);
 
   ws["!cols"] = [
-    { wch: 6 }, { wch: 45 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 18 },
+    { wch: 6 }, { wch: 45 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 16 },
   ];
   ws["!merges"] = merges;
 
