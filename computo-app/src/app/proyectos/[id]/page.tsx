@@ -2403,6 +2403,11 @@ export default function ProyectoPage() {
                                     type="number"
                                     value={rubro.precioUnit ?? ""}
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "precioUnit", e.target.value)}
+                                    onBlur={() => {
+                                      if (rubro.precioUnit && rubro.precioUnit > 0) {
+                                        guardarEnBibliotecaGlobal(rubro.descripcion, rubro.unidad, cap.nombre, rubro.precioUnit, moneda);
+                                      }
+                                    }}
                                     placeholder="0.00"
                                     className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />

@@ -36,14 +36,22 @@ export async function POST(req: NextRequest) {
 
     const descripcionLimpia = descripcion.trim();
     const capituloLimpio = capitulo.trim();
+    const unidadLimpia = unidad.trim();
 
     const existente = await db.subrubroEstandar.findFirst({
       where: {
         capitulo: capituloLimpio,
         descripcion: { equals: descripcionLimpia, mode: "insensitive" },
+        unidad: { equals: unidadLimpia, mode: "insensitive" },
       },
     });
     if (existente) {
+      if (precioUY > 0 && Math.abs(existente.precioUY - precioUY) > 1) {
+        await db.subrubroEstandar.update({
+          where: { id: existente.id },
+          data: { precioUY, fechaBase: new Date().toISOString().slice(0, 7) },
+        });
+      }
       return NextResponse.json(existente);
     }
 
@@ -52,7 +60,7 @@ export async function POST(req: NextRequest) {
         codigo: `manual-${randomUUID()}`,
         capitulo: capituloLimpio,
         descripcion: descripcionLimpia,
-        unidad: unidad.trim(),
+        unidad: unidadLimpia,
         precioUY,
         fechaBase: new Date().toISOString().slice(0, 7),
         origen: "manual",
