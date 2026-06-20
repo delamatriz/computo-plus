@@ -68,7 +68,7 @@ export default function HomePage() {
               transition={{ duration: 0.35, delay: 0.12 + i * 0.07 }}
             >
               <Link href={mode.href} className="block h-full group">
-                <div className="h-full min-h-[220px] rounded-xl border border-slate-200 bg-white p-8 flex flex-col shadow-md transition-shadow duration-200 hover:shadow-lg">
+                <div className="h-full min-h-[200px] rounded-xl border border-slate-200 bg-white p-6 flex flex-col shadow-md transition-shadow duration-200 hover:shadow-lg">
                   <h3 className="text-xl font-bold text-[#1A3A5C] mb-2">
                     {mode.title}
                   </h3>
@@ -89,7 +89,7 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.3 }}
-          className="text-slate-400 text-sm max-w-2xl mx-auto mt-10 text-center"
+          className="text-slate-500 text-base max-w-2xl mx-auto mt-10 text-center"
         >
           Una herramienta completa para presupuestar y gestionar obras. Precios de
           materiales, mano de obra y leyes sociales de nuestro mercado, análisis de
