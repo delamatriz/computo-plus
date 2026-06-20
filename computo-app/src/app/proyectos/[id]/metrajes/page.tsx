@@ -42,6 +42,17 @@ interface FotoRelevamiento {
   preview: string;
 }
 
+interface ElementoDetectado {
+  descripcion: string;
+  largo: number | null;
+  ancho: number | null;
+  alto: number | null;
+  cantidad: number;
+  subtotal: number;
+  unidad: "M2" | "M3" | "ML" | "U";
+  nota: string;
+}
+
 const MAX_FOTOS = 10;
 const MAX_DOCS = 5;
 
@@ -134,6 +145,13 @@ export default function MetrajesPage() {
   // Fila con IA
   const [iaTexto, setIaTexto] = useState("");
   const [iaCargando, setIaCargando] = useState(false);
+
+  // Análisis de imágenes con IA
+  const [analisisCargando, setAnalisisCargando] = useState(false);
+  const [analisisError, setAnalisisError] = useState<string | null>(null);
+  const [elementosDetectados, setElementosDetectados] = useState<ElementoDetectado[] | null>(null);
+  const [observacionesIA, setObservacionesIA] = useState("");
+  const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
 
   // Calculadora rápida
   const [mostrarCalculadora, setMostrarCalculadora] = useState(false);
@@ -285,6 +303,73 @@ export default function MetrajesPage() {
     }
   };
 
+  /* Convierte un File a data URL base64 */
+  const fileABase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  /* Analizar fotos de relevamiento con IA */
+  const analizarImagenes = async () => {
+    if (fotos.length === 0 || analisisCargando) return;
+    setAnalisisCargando(true);
+    setAnalisisError(null);
+    try {
+      const fotosBase64 = await Promise.all(fotos.map((f) => fileABase64(f.file)));
+      const res = await fetch("/api/metrajes/analizar-imagen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fotos: fotosBase64, contexto: notas.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error("Error al analizar las imágenes");
+      const data = await res.json();
+      const elementos: ElementoDetectado[] = data.elementos ?? [];
+      setElementosDetectados(elementos);
+      setObservacionesIA(data.observaciones ?? "");
+      setSeleccionados(new Set(elementos.map((_, i) => i)));
+    } catch (err) {
+      console.error("[metrajes] analizarImagenes", err);
+      setAnalisisError("No se pudieron analizar las imágenes. Probá de nuevo.");
+    } finally {
+      setAnalisisCargando(false);
+    }
+  };
+
+  const toggleSeleccionado = (i: number) => {
+    setSeleccionados((prev) => {
+      const copia = new Set(prev);
+      if (copia.has(i)) copia.delete(i);
+      else copia.add(i);
+      return copia;
+    });
+  };
+
+  const cerrarPanelAnalisis = () => {
+    setElementosDetectados(null);
+    setObservacionesIA("");
+    setSeleccionados(new Set());
+    setAnalisisError(null);
+  };
+
+  const agregarElementosSeleccionados = () => {
+    if (!elementosDetectados) return;
+    const nuevasFilas = elementosDetectados
+      .filter((_, i) => seleccionados.has(i))
+      .map((el) => ({
+        ...nuevaFila(),
+        descripcion: el.nota ? `${el.descripcion} (${el.nota})` : el.descripcion,
+        largo: el.largo,
+        ancho: el.ancho,
+        alto: el.alto,
+        cantidad: el.cantidad ?? 1,
+      }));
+    if (nuevasFilas.length > 0) setFilas((prev) => [...prev, ...nuevasFilas]);
+    cerrarPanelAnalisis();
+  };
+
   const totalGeneral = useMemo(
     () => filas.reduce((s, f) => s + subtotalFila(f), 0),
     [filas]
@@ -328,6 +413,7 @@ export default function MetrajesPage() {
     "w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300";
 
   return (
+    <>
     <div className="min-h-full flex flex-col" style={{ background: "#F8FAFC" }}>
       {/* ── Header ───────────────────────────────────────── */}
       <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-4">
@@ -433,6 +519,30 @@ export default function MetrajesPage() {
                     </div>
                   ))}
                 </div>
+              )}
+
+              {fotos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={analizarImagenes}
+                  disabled={analisisCargando}
+                  className={cn(
+                    "mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-colors",
+                    analisisCargando
+                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                      : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                  )}
+                >
+                  {analisisCargando ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  Analizar medidas
+                </button>
+              )}
+              {analisisError && (
+                <p className="mt-2 text-xs text-red-500">{analisisError}</p>
               )}
             </div>
 
@@ -781,6 +891,125 @@ export default function MetrajesPage() {
       </AnimatePresence>
     </div>
     </div>
+
+      {/* ── Modal: elementos detectados por IA ────────────── */}
+      <AnimatePresence>
+        {elementosDetectados && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
+            onClick={cerrarPanelAnalisis}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[16px] shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#2563EB]" />
+                  <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
+                    Elementos detectados
+                  </span>
+                </div>
+                <button
+                  onClick={cerrarPanelAnalisis}
+                  className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  aria-label="Cerrar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-auto px-5 py-4 space-y-2">
+                {elementosDetectados.length === 0 ? (
+                  <p className="text-sm text-slate-400 text-center py-6">
+                    No se detectaron elementos medibles en las imágenes.
+                  </p>
+                ) : (
+                  elementosDetectados.map((el, i) => (
+                    <label
+                      key={i}
+                      className={cn(
+                        "flex items-start gap-3 px-3 py-2.5 rounded-[10px] border cursor-pointer transition-colors",
+                        seleccionados.has(i)
+                          ? "border-[#2563EB] bg-blue-50/50"
+                          : "border-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={seleccionados.has(i)}
+                        onChange={() => toggleSeleccionado(i)}
+                        className="mt-0.5 w-4 h-4 accent-[#2563EB] flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-[#1A3A5C]">{el.descripcion}</span>
+                          <span className="text-sm font-semibold text-[#2563EB] tabular-nums flex-shrink-0">
+                            {fmtNum(el.subtotal)} {el.unidad}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5">
+                          {[
+                            el.largo != null ? `L: ${fmtNum(el.largo)}` : null,
+                            el.ancho != null ? `A: ${fmtNum(el.ancho)}` : null,
+                            el.alto != null ? `H: ${fmtNum(el.alto)}` : null,
+                            el.cantidad != null ? `Cant: ${el.cantidad}` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </div>
+                        {el.nota && (
+                          <p className="text-xs text-slate-400 italic mt-1">{el.nota}</p>
+                        )}
+                      </div>
+                    </label>
+                  ))
+                )}
+
+                {observacionesIA && (
+                  <div className="mt-3 px-3 py-2.5 rounded-[10px] bg-[#F0F7FF] border border-blue-100">
+                    <p className="text-xs text-slate-500">{observacionesIA}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-slate-200 flex-shrink-0">
+                <span className="text-xs text-slate-400">
+                  {seleccionados.size} de {elementosDetectados.length} seleccionados
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={cerrarPanelAnalisis}
+                    className="px-3 py-2 rounded-[8px] text-sm font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={agregarElementosSeleccionados}
+                    disabled={seleccionados.size === 0}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-sm font-semibold transition-colors",
+                      seleccionados.size === 0
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                    )}
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar seleccionados a la planilla
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
