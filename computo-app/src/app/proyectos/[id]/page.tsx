@@ -884,6 +884,22 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
     return acc + (Number.isFinite(sub) ? sub : 0);
   }, 0);
 
+  const totalEquipos = apu.equipos.reduce((acc, eq) => acc + eq.rendimiento * eq.costoUnit, 0);
+
+  // Auto-save del APU completo a la DB, debounced — se dispara al salir de
+  // cualquier campo editable de Materiales, Mano de obra o Equipos.
+  const guardarApuTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const guardarApuActual = useCallback(() => {
+    if (guardarApuTimer.current) clearTimeout(guardarApuTimer.current);
+    guardarApuTimer.current = setTimeout(() => {
+      fetch(`/api/rubros/${rubro.id}/apu`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(apu),
+      }).catch((err) => console.error("[auto-save APU]", err));
+    }, 600);
+  }, [apu, rubro.id]);
+
   // Cargar categorías laborales SUNCA al montar
   useEffect(() => {
     let cancelado = false;
@@ -964,7 +980,6 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
   };
   const addEq  = () => setEq([...apu.equipos,    { id: `e${Date.now()}`,  descripcion: "", unidad: "", rendimiento: 0, costoUnit: 0 }]);
 
-  const thCls = "text-[10px] font-semibold text-slate-400 uppercase tracking-wider";
   const inputCls = "w-full bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-sm text-slate-700 placeholder:text-slate-300";
 
   return (
@@ -1074,21 +1089,23 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
                               type="text"
                               value={m.descripcion}
                               onChange={(e) => updateMat(m.id, "descripcion", e.target.value)}
+                              onBlur={guardarApuActual}
                               placeholder="Descripción"
                               className={inputCls}
                             />
                           </td>
                           <td className="text-center">
-                            <input type="text" value={m.dosificacion ?? ""} onChange={(e) => updateMat(m.id, "dosificacion", e.target.value)} placeholder="—" className={cn(inputCls, "text-center text-slate-500")} />
+                            <input type="text" value={m.dosificacion ?? ""} onChange={(e) => updateMat(m.id, "dosificacion", e.target.value)} onBlur={guardarApuActual} placeholder="—" className={cn(inputCls, "text-center text-slate-500")} />
                           </td>
                           <td className="text-center">
-                            <input type="text" value={m.unidad} onChange={(e) => updateMat(m.id, "unidad", e.target.value)} placeholder="u" className={cn(inputCls, "text-center")} />
+                            <input type="text" value={m.unidad} onChange={(e) => updateMat(m.id, "unidad", e.target.value)} onBlur={guardarApuActual} placeholder="u" className={cn(inputCls, "text-center")} />
                           </td>
                           <td className="text-right pr-2">
                             <input
                               type="number"
                               value={m.rendimiento === 0 ? "" : m.rendimiento}
                               onChange={(e) => updateMat(m.id, "rendimiento", e.target.value)}
+                              onBlur={guardarApuActual}
                               placeholder="0"
                               className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
                             />
@@ -1098,6 +1115,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
                               type="number"
                               value={m.precioUnit === 0 ? "" : m.precioUnit}
                               onChange={(e) => updateMat(m.id, "precioUnit", e.target.value)}
+                              onBlur={guardarApuActual}
                               placeholder="0.00"
                               className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
                             />
@@ -1213,10 +1231,10 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
                     return (
                       <tr key={mo.id} className="border-b border-slate-50" style={{ height: 28 }}>
                         <td className="pl-4 pr-2">
-                          <input type="text" value={mo.categoria} onChange={(e) => updateMO(mo.id, "categoria", e.target.value)} placeholder="Peón / Oficial" className={inputCls} />
+                          <input type="text" value={mo.categoria} onChange={(e) => updateMO(mo.id, "categoria", e.target.value)} onBlur={guardarApuActual} placeholder="Peón / Oficial" className={inputCls} />
                         </td>
                         <td className="text-right pr-2">
-                          <input type="number" value={mo.jornadaHs || ""} onChange={(e) => updateMO(mo.id, "jornadaHs", e.target.value)} placeholder="8" className={cn(inputCls, "text-right")} />
+                          <input type="number" value={mo.jornadaHs || ""} onChange={(e) => updateMO(mo.id, "jornadaHs", e.target.value)} onBlur={guardarApuActual} placeholder="8" className={cn(inputCls, "text-right")} />
                         </td>
                         <td className="text-right pr-2 tabular-nums text-slate-700">
                           {hsPorUnidad > 0 ? fmtMon(hsPorUnidad) : "—"}
@@ -1225,7 +1243,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
                           {hsTotales != null && hsTotales > 0 ? fmtMon(hsTotales) : "—"}
                         </td>
                         <td className="text-right pr-3">
-                          <input type="number" value={mo.jornalRef || ""} onChange={(e) => updateMO(mo.id, "jornalRef", e.target.value)} placeholder="0" className={cn(inputCls, "text-right")} />
+                          <input type="number" value={mo.jornalRef || ""} onChange={(e) => updateMO(mo.id, "jornalRef", e.target.value)} onBlur={guardarApuActual} placeholder="0" className={cn(inputCls, "text-right")} />
                           {catRef && (
                             <div className="text-[9px] text-slate-400 leading-tight">{catRef.categoria}</div>
                           )}
@@ -1281,40 +1299,91 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
 
           {/* 3 — EQUIPOS */}
           <SeccionAPU titulo="Equipos">
-            <div className="px-1 pb-2">
-              <div className="flex items-center px-3 py-1.5 border-b border-slate-100">
-                <div className="flex-1         pr-2"><span className={thCls}>Equipo</span></div>
-                <div style={{ width: 52  }}><span className={thCls}>Unidad</span></div>
-                <div style={{ width: 80  }} className="text-right"><span className={thCls}>Rendim.</span></div>
-                <div style={{ width: 80  }} className="text-right"><span className={thCls}>Costo unit.</span></div>
-                <div style={{ width: 72  }} className="text-right"><span className={thCls}>Subtotal</span></div>
+            <div className="pb-2">
+              <div className="overflow-x-auto -mx-4 px-4">
+              <table className="w-full text-xs border-collapse min-w-[480px]">
+                <colgroup>
+                  <col style={{ width: "auto" }} />
+                  <col style={{ width: "64px" }} />
+                  <col style={{ width: "80px" }} />
+                  <col style={{ width: "84px" }} />
+                  <col style={{ width: "80px" }} />
+                </colgroup>
+                <thead>
+                  <tr style={{ background: "#F8FAFC", height: 28 }} className="border-b border-slate-100">
+                    <th className="text-left pl-4 font-semibold text-slate-400 uppercase tracking-wider">Equipo</th>
+                    <th className="text-center font-semibold text-slate-400 uppercase tracking-wider">Unidad</th>
+                    <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title="Cantidad por unidad de rubro">Cant/U</th>
+                    <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">P. unit.</th>
+                    <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {apu.equipos.length === 0 && (
+                    <tr><td colSpan={5} className="pl-4 py-2 text-slate-400 italic">Sin equipos</td></tr>
+                  )}
+                  {apu.equipos.map((eq) => {
+                    const sub = eq.rendimiento * eq.costoUnit;
+                    return (
+                      <tr key={eq.id} className="border-b border-slate-50" style={{ height: 28 }}>
+                        <td className="pl-4 pr-2">
+                          <input
+                            type="text"
+                            value={eq.descripcion}
+                            onChange={(e) => updateEq(eq.id, "descripcion", e.target.value)}
+                            onBlur={() => guardarApuActual()}
+                            placeholder="Descripción"
+                            className={inputCls}
+                          />
+                        </td>
+                        <td className="text-center">
+                          <input
+                            type="text"
+                            value={eq.unidad}
+                            onChange={(e) => updateEq(eq.id, "unidad", e.target.value)}
+                            onBlur={() => guardarApuActual()}
+                            placeholder="día"
+                            className={cn(inputCls, "text-center")}
+                          />
+                        </td>
+                        <td className="text-right pr-2">
+                          <input
+                            type="number"
+                            value={eq.rendimiento || ""}
+                            onChange={(e) => updateEq(eq.id, "rendimiento", e.target.value)}
+                            onBlur={() => guardarApuActual()}
+                            placeholder="0"
+                            className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                          />
+                        </td>
+                        <td className="text-right pr-3">
+                          <input
+                            type="number"
+                            value={eq.costoUnit || ""}
+                            onChange={(e) => updateEq(eq.id, "costoUnit", e.target.value)}
+                            onBlur={() => guardarApuActual()}
+                            placeholder="0.00"
+                            className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                          />
+                        </td>
+                        <td className="text-right pr-3 font-semibold tabular-nums text-[#2563EB]">
+                          {sub > 0 ? fmtMon(sub) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                {apu.equipos.length > 0 && (
+                  <tfoot>
+                    <tr style={{ background: "#F1F5F9", height: 28 }} className="border-t border-slate-200">
+                      <td colSpan={4} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL EQUIPOS</td>
+                      <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalEquipos)}</td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
               </div>
-              {apu.equipos.length === 0 && (
-                <p className="text-xs text-slate-400 italic px-3 py-2">Sin equipos</p>
-              )}
-              {apu.equipos.map((eq) => {
-                const sub = eq.rendimiento * eq.costoUnit;
-                return (
-                  <div key={eq.id} className="flex items-center px-3 border-b border-slate-50" style={{ height: 28 }}>
-                    <div className="flex-1 pr-2 min-w-0">
-                      <input type="text" value={eq.descripcion} onChange={(e) => updateEq(eq.id, "descripcion", e.target.value)} placeholder="Descripción" className={inputCls} />
-                    </div>
-                    <div style={{ width: 52 }}>
-                      <input type="text" value={eq.unidad} onChange={(e) => updateEq(eq.id, "unidad", e.target.value)} placeholder="día" className={cn(inputCls, "text-center")} />
-                    </div>
-                    <div style={{ width: 80 }}>
-                      <input type="number" value={eq.rendimiento || ""} onChange={(e) => updateEq(eq.id, "rendimiento", e.target.value)} placeholder="0" className={cn(inputCls, "text-right")} />
-                    </div>
-                    <div style={{ width: 80 }}>
-                      <input type="number" value={eq.costoUnit || ""} onChange={(e) => updateEq(eq.id, "costoUnit", e.target.value)} placeholder="0.00" className={cn(inputCls, "text-right")} />
-                    </div>
-                    <div style={{ width: 72 }} className="text-right text-sm font-semibold tabular-nums text-[#2563EB]">
-                      {sub > 0 ? fmtNum(sub) : "—"}
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="px-3 pt-1.5">
+              <div className="pl-4 pt-1.5">
                 <button onClick={addEq} className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">
                   <Plus className="w-3 h-3" /> Agregar equipo
                 </button>
