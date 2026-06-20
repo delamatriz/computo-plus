@@ -474,7 +474,7 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
     merges.push({ s: { r, c: 0 }, e: { r, c: NUM_COLS - 1 } });
 
     let subtotalCap = 0;
-    for (const rubro of cap.rubros) {
+    for (const rubro of cap.rubros.filter((r) => r.descripcion.trim() !== "")) {
       const cantidad = rubro.cantidad ?? 0;
       const precioUnit = rubro.precioUnit ?? 0;
       const totalRubro = cantidad * precioUnit;
