@@ -215,7 +215,7 @@ export default function SeccionLeyesSociales({
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
                     >
                       <RotateCw className={cn("w-3.5 h-3.5", recalculando && "animate-spin")} />
-                      Recalcular desde APUs
+                      Calcular
                     </button>
                   </div>
                 </div>
