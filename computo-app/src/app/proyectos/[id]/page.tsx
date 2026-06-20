@@ -864,6 +864,26 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
   const [categoriasLaborales, setCategoriasLaborales] = useState<CategoriaLaboral[]>([]);
   const { costoDirecto, precioFinal } = calcAPU(apu);
 
+  const totalMateriales = apu.materiales.reduce((acc, m) => {
+    if (m.componentes && m.componentes.length > 0) {
+      const totalComponentes = m.componentes.reduce((accComp, comp) => {
+        const costoTotalComp = comp.precioUnit != null && rubro.cantidad != null
+          ? comp.rendimientoPorUnidad * comp.precioUnit * m.rendimiento * rubro.cantidad
+          : 0;
+        return accComp + costoTotalComp;
+      }, 0);
+      return acc + totalComponentes;
+    }
+    const costoTotalPadre = rubro.cantidad != null ? m.rendimiento * m.precioUnit * rubro.cantidad : 0;
+    return acc + costoTotalPadre;
+  }, 0);
+
+  const totalManoObra = apu.manoObra.reduce((acc, mo) => {
+    const hsPorUnidad = mo.rendimiento > 0 ? mo.jornadaHs / mo.rendimiento : 0;
+    const sub = hsPorUnidad / mo.jornadaHs * mo.jornalRef * (rubro.cantidad ?? 1);
+    return acc + (Number.isFinite(sub) ? sub : 0);
+  }, 0);
+
   // Cargar categorías laborales SUNCA al montar
   useEffect(() => {
     let cancelado = false;
@@ -1125,6 +1145,14 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
                     );
                   })}
                 </tbody>
+                {apu.materiales.length > 0 && (
+                  <tfoot>
+                    <tr style={{ background: "#F1F5F9", height: 28 }} className="border-t border-slate-200">
+                      <td colSpan={6} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MATERIALES</td>
+                      <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalMateriales)}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
               </div>
               {/* Buscador MTOP inline */}
@@ -1209,6 +1237,14 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
                     );
                   })}
                 </tbody>
+                {apu.manoObra.length > 0 && (
+                  <tfoot>
+                    <tr style={{ background: "#F1F5F9", height: 28 }} className="border-t border-slate-200">
+                      <td colSpan={5} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MANO DE OBRA</td>
+                      <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalManoObra)}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
               </div>
               {mostrarSelectorMO ? (
