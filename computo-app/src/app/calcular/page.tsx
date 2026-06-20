@@ -112,6 +112,46 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+/* ─── Comprime una imagen a máx. 800px y calidad JPEG 0.7 ──── */
+const FOTO_MAX_DIM = 800;
+const FOTO_CALIDAD_JPEG = 0.7;
+
+function comprimirImagen(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > FOTO_MAX_DIM || height > FOTO_MAX_DIM) {
+        if (width > height) {
+          height = Math.round((height * FOTO_MAX_DIM) / width);
+          width = FOTO_MAX_DIM;
+        } else {
+          width = Math.round((width * FOTO_MAX_DIM) / height);
+          height = FOTO_MAX_DIM;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("No se pudo obtener el contexto del canvas"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", FOTO_CALIDAD_JPEG);
+      resolve(dataUrl.split(",")[1] ?? "");
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("No se pudo cargar la imagen"));
+    };
+    img.src = url;
+  });
+}
+
 export default function CalcularPage() {
   const router = useRouter();
   const [tipo, setTipo]       = useState("vivienda");
@@ -133,6 +173,7 @@ export default function CalcularPage() {
   const [fotos, setFotos] = useState<FotoSeleccionada[]>([]);
   const fotosInputRef = useRef<HTMLInputElement>(null);
   const [iniciandoProyecto, setIniciandoProyecto] = useState(false);
+  const [avisoFotos, setAvisoFotos] = useState<string | null>(null);
 
   const esDescriptivo = tipo === "reparaciones" || tipo === "reforma";
   const esPH          = tipo === "ph";
@@ -370,38 +411,6 @@ export default function CalcularPage() {
                     ))}
                   </div>
                 )}
-
-                <button
-                  onClick={calcularEstimacion}
-                  disabled={!descripcion.trim() || calculandoIA}
-                  className={cn(
-                    "mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-[12px] font-semibold text-sm transition-colors",
-                    !descripcion.trim() || calculandoIA
-                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                      : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-                  )}
-                  style={
-                    descripcion.trim() && !calculandoIA
-                      ? { boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.3)" }
-                      : undefined
-                  }
-                >
-                  {calculandoIA ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Analizando...
-                    </>
-                  ) : (
-                    <>
-                      <Calculator className="w-4 h-4" />
-                      Calcular estimación
-                    </>
-                  )}
-                </button>
-
-                {errorIA && (
-                  <p className="text-xs text-red-500 mt-2">{errorIA}</p>
-                )}
               </div>
             ) : esPH ? (
               <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm space-y-4">
@@ -575,6 +584,43 @@ export default function CalcularPage() {
                 </div>
               </div>
             </div>
+
+            {/* Calcular estimación (solo flujo descriptivo) */}
+            {esDescriptivo && (
+              <div>
+                <button
+                  onClick={calcularEstimacion}
+                  disabled={!descripcion.trim() || calculandoIA}
+                  className={cn(
+                    "flex items-center justify-center gap-2 w-full py-3 rounded-[12px] font-semibold text-sm transition-colors",
+                    !descripcion.trim() || calculandoIA
+                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                      : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                  )}
+                  style={
+                    descripcion.trim() && !calculandoIA
+                      ? { boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.3)" }
+                      : undefined
+                  }
+                >
+                  {calculandoIA ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Analizando...
+                    </>
+                  ) : (
+                    <>
+                      <Calculator className="w-4 h-4" />
+                      Calcular estimación
+                    </>
+                  )}
+                </button>
+
+                {errorIA && (
+                  <p className="text-xs text-red-500 mt-2">{errorIA}</p>
+                )}
+              </div>
+            )}
           </motion.div>
 
           {/* ─── Panel derecho — resultados ───────────────────── */}
@@ -848,27 +894,35 @@ export default function CalcularPage() {
                   onClick={async () => {
                     if (iniciandoProyecto) return;
                     setIniciandoProyecto(true);
-                    try {
-                      const href = esDescriptivo
-                        ? `/proyectos/nuevo?tipo=${tipo}&descripcion=${encodeURIComponent(descripcion)}&calidad=${calidad}`
-                        : esPH
-                        ? `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&unidades=${unidadesNum}&calidad=${calidad}`
-                        : `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&calidad=${calidad}`;
+                    setAvisoFotos(null);
+                    const href = esDescriptivo
+                      ? `/proyectos/nuevo?tipo=${tipo}&descripcion=${encodeURIComponent(descripcion)}&calidad=${calidad}`
+                      : esPH
+                      ? `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&unidades=${unidadesNum}&calidad=${calidad}`
+                      : `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&calidad=${calidad}`;
 
+                    try {
                       sessionStorage.setItem("calculoRapido_descripcion", descripcion);
 
                       const fotosBase64 = await Promise.all(
                         fotos.map(async (f) => ({
-                          mediaType: f.file.type,
-                          data: await fileToBase64(f.file),
+                          mediaType: "image/jpeg",
+                          data: await comprimirImagen(f.file),
                         }))
                       );
                       sessionStorage.setItem("calculoRapido_fotos", JSON.stringify(fotosBase64));
-
                       router.push(href);
                     } catch (err) {
-                      console.error("[calcular] iniciar proyecto completo", err);
-                      setIniciandoProyecto(false);
+                      console.error("[calcular] guardar fotos en sessionStorage", err);
+                      sessionStorage.removeItem("calculoRapido_fotos");
+                      if (fotos.length > 0) {
+                        setAvisoFotos(
+                          "Las fotos no pudieron transferirse. Podés agregarlas manualmente en el nuevo proyecto."
+                        );
+                        setTimeout(() => router.push(href), 1800);
+                      } else {
+                        router.push(href);
+                      }
                     }
                   }}
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white font-semibold text-sm transition-colors"
@@ -881,6 +935,10 @@ export default function CalcularPage() {
                   )}
                   Iniciar proyecto completo
                 </button>
+
+                {avisoFotos && (
+                  <p className="text-xs text-amber-600 text-center -mt-1">{avisoFotos}</p>
+                )}
 
                 <button className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-border text-text-secondary hover:text-text-primary hover:border-slate-300 font-medium text-sm transition-colors bg-bg-card">
                   <Download className="w-4 h-4" />
