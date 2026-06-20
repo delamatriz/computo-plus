@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import {
   ChevronRight,
   ChevronDown,
@@ -376,7 +376,7 @@ function descargarExcelMateriales(nombreProyecto: string, filas: FilaMaterialGlo
     { wch: 35 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 18 },
   ];
 
-  // Aplicar formato numérico directamente en cada celda numérica (SheetJS CE)
+  // Aplicar formato numérico directamente en cada celda numérica
   // Columnas D(3), E(4), F(5) — filas de datos + fila total
   const COLS = ["A", "B", "C", "D", "E", "F"];
   const numColIdx = [3, 4, 5];
@@ -396,6 +396,137 @@ function descargarExcelMateriales(nombreProyecto: string, filas: FilaMaterialGlo
 
   XLSX.utils.book_append_sheet(wb, ws, "Lista de Materiales");
   XLSX.writeFile(wb, `Lista-Materiales-${nombreProyecto.replace(/\s+/g, "-")}.xlsx`);
+}
+
+/** Genera y descarga el Excel del presupuesto completo (capítulos, rubros y totales) */
+function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]) {
+  const fecha = new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const wb = XLSX.utils.book_new();
+
+  const AZUL_OSCURO = "1A3A5C";
+  const GRIS_CLARO = "F1F5F9";
+
+  const styTituloCap = {
+    font: { bold: true, color: { rgb: "FFFFFF" } },
+    fill: { patternType: "solid", fgColor: { rgb: AZUL_OSCURO } },
+    alignment: { vertical: "center" },
+  };
+  const styEncabezadoCols = {
+    font: { bold: true },
+    fill: { patternType: "solid", fgColor: { rgb: GRIS_CLARO } },
+    alignment: { vertical: "center" },
+  };
+  const stySubtotal = {
+    font: { bold: true },
+    fill: { patternType: "solid", fgColor: { rgb: GRIS_CLARO } },
+    alignment: { vertical: "center" },
+  };
+  const styTotalGeneral = {
+    font: { bold: true, sz: 13, color: { rgb: "FFFFFF" } },
+    fill: { patternType: "solid", fgColor: { rgb: AZUL_OSCURO } },
+    alignment: { vertical: "center" },
+  };
+  const styBold = { font: { bold: true } };
+
+  const datos: (string | number | null)[][] = [];
+  const merges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = [];
+  const styledCells: { addr: string; s: Record<string, unknown> }[] = [];
+
+  const NUM_COLS = 6; // N° | DESCRIPCIÓN | UNIDAD | CANTIDAD | PRECIO UNIT. | TOTAL
+  const COLS = ["A", "B", "C", "D", "E", "F"];
+
+  function pushRow(row: (string | number | null)[]) {
+    datos.push(row);
+    return datos.length - 1; // índice (0-based) de la fila recién agregada
+  }
+
+  function styleRow(rowIdx: number, style: Record<string, unknown>, fromCol = 0, toCol = NUM_COLS - 1) {
+    for (let c = fromCol; c <= toCol; c++) {
+      styledCells.push({ addr: `${COLS[c]}${rowIdx + 1}`, s: style });
+    }
+  }
+
+  // Header del proyecto
+  let r = pushRow([`PRESUPUESTO — ${proyecto.nombre}`]);
+  styleRow(r, styBold);
+  merges.push({ s: { r, c: 0 }, e: { r, c: NUM_COLS - 1 } });
+
+  pushRow([`Cliente: ${proyecto.cliente || "—"}`]);
+  pushRow([`Dirección: ${proyecto.direccion || "—"}`]);
+  pushRow([`Tipo de obra: ${proyecto.tipo || "—"}`]);
+  pushRow([`Fecha: ${fecha}`]);
+  pushRow([`Moneda: ${proyecto.moneda}`]);
+  pushRow([]);
+
+  r = pushRow(["N°", "DESCRIPCIÓN", "UNIDAD", "CANTIDAD", "PRECIO UNIT.", "TOTAL"]);
+  styleRow(r, styEncabezadoCols);
+
+  let nroGlobal = 1;
+  let totalGeneral = 0;
+
+  for (const cap of capitulos) {
+    r = pushRow([cap.nombre]);
+    styleRow(r, styTituloCap);
+    merges.push({ s: { r, c: 0 }, e: { r, c: NUM_COLS - 1 } });
+
+    let subtotalCap = 0;
+    for (const rubro of cap.rubros) {
+      const cantidad = rubro.cantidad ?? 0;
+      const precioUnit = rubro.precioUnit ?? 0;
+      const totalRubro = cantidad * precioUnit;
+      subtotalCap += totalRubro;
+
+      pushRow([
+        nroGlobal++,
+        rubro.descripcion,
+        rubro.unidad,
+        rubro.cantidad != null ? parseFloat(cantidad.toFixed(2)) : null,
+        rubro.precioUnit != null ? parseFloat(precioUnit.toFixed(2)) : null,
+        rubro.cantidad != null && rubro.precioUnit != null ? parseFloat(totalRubro.toFixed(2)) : null,
+      ]);
+    }
+
+    r = pushRow(["", "", "", "", `SUBTOTAL ${cap.nombre}`, parseFloat(subtotalCap.toFixed(2))]);
+    styleRow(r, stySubtotal);
+
+    totalGeneral += subtotalCap;
+  }
+
+  pushRow([]);
+  r = pushRow(["", "", "", "", "TOTAL GENERAL", parseFloat(totalGeneral.toFixed(2))]);
+  styleRow(r, styTotalGeneral);
+
+  pushRow([]);
+  r = pushRow(["Valores sin IVA ni aportes sociales (BPS)"]);
+  styledCells.push({ addr: `A${r + 1}`, s: { font: { italic: true, color: { rgb: "64748B" } } } });
+
+  const ws = XLSX.utils.aoa_to_sheet(datos);
+
+  ws["!cols"] = [
+    { wch: 6 }, { wch: 45 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 18 },
+  ];
+  ws["!merges"] = merges;
+
+  // Formato numérico en columnas D, E, F de todas las filas con datos
+  for (let i = 0; i < datos.length; i++) {
+    [3, 4, 5].forEach((c) => {
+      const addr = `${COLS[c]}${i + 1}`;
+      const cell = ws[addr];
+      if (cell != null && cell.v != null && typeof cell.v === "number") {
+        cell.t = "n";
+        cell.z = "#,##0.00";
+      }
+    });
+  }
+
+  // Aplicar estilos de celda (bold, colores de fondo) — xlsx-js-style sí persiste fills y fuentes al exportar
+  styledCells.forEach(({ addr, s }) => {
+    if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+    ws[addr].s = { ...(ws[addr].s ?? {}), ...s };
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws, "Presupuesto");
+  XLSX.writeFile(wb, `Presupuesto-${proyecto.nombre.replace(/\s+/g, "-")}.xlsx`);
 }
 
 /** Tipo de cambio de referencia U$S → $UY, igual al usado en /calcular */
@@ -1918,9 +2049,9 @@ export default function ProyectoPage() {
                 <Pencil className="w-3.5 h-3.5" /> <span className="hidden md:inline">Editar</span>
               </button>
               <button
-                onClick={() => descargarExcelMateriales(proyectoActivo.nombre, filasMateriales, totalMateriales)}
-                disabled={filasMateriales.length === 0}
-                title={filasMateriales.length === 0 ? "No hay materiales con APU cargado para exportar" : undefined}
+                onClick={() => descargarExcelPresupuesto(proyectoActivo, capitulos)}
+                disabled={capitulos.every((c) => c.rubros.length === 0)}
+                title={capitulos.every((c) => c.rubros.length === 0) ? "No hay rubros para exportar" : undefined}
                 className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" /> <span className="hidden md:inline">Excel</span>
