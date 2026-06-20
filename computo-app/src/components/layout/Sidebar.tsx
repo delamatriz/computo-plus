@@ -13,8 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  HardHat,
-  BarChart3,
   Wrench,
   Ruler,
 } from "lucide-react";
@@ -35,13 +33,6 @@ const navItems = [
       { href: "/metrajes", icon: Ruler, label: "Metrajes" },
       { href: "/rubros", icon: Layers, label: "Rubros" },
       { href: "/recetas", icon: BookOpen, label: "Descompuestos" },
-      { href: "/categorias", icon: HardHat, label: "Mano de Obra" },
-    ],
-  },
-  {
-    section: "Análisis",
-    items: [
-      { href: "/reportes", icon: BarChart3, label: "Reportes" },
     ],
   },
   {
