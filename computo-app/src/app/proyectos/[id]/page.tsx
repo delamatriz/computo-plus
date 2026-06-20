@@ -1897,6 +1897,28 @@ export default function ProyectoPage() {
     }, 800);
   }, []);
 
+  const eliminarRubro = useCallback((capId: string, rubroId: string, descripcion: string) => {
+    const tieneDescripcion = descripcion.trim() !== "";
+    if (tieneDescripcion) {
+      const ok = window.confirm(`¿Eliminar el rubro "${descripcion.trim()}"?`);
+      if (!ok) return;
+    }
+
+    setCapitulos((prev) =>
+      prev.map((c) =>
+        c.id !== capId ? c : {
+          ...c,
+          rubros: c.rubros.filter((r) => r.id !== rubroId),
+        }
+      )
+    );
+
+    if (rubroId.startsWith("temp-")) return; // no persistido aún — nada que borrar en la DB
+    fetch(`/api/rubros/${rubroId}`, { method: "DELETE" }).catch((err) =>
+      console.error("[eliminarRubro]", err)
+    );
+  }, []);
+
   const sugerirAPU = useCallback(async (capId: string, rubroId: string) => {
     if (rubroId.startsWith("temp-")) return;
     const cap = capitulos.find((c) => c.id === capId);
@@ -2195,6 +2217,7 @@ export default function ProyectoPage() {
                           <div style={{ width: 96,  flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
                           <div style={{ width: 116, flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Precio unit.</div>
                           <div style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Total</div>
+                          <div style={{ width: 28, flexShrink: 0 }} />
                         </div>
 
                         {/* Filas */}
@@ -2207,7 +2230,7 @@ export default function ProyectoPage() {
                               <div
                                 key={rubro.id}
                                 className={cn(
-                                  "flex items-center hover:bg-blue-50/20 transition-colors",
+                                  "group flex items-center hover:bg-blue-50/20 transition-colors",
                                   rubroIdx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white"
                                 )}
                                 style={{ height: 28, borderBottom: "1px solid #F1F5F9" }}
@@ -2283,6 +2306,16 @@ export default function ProyectoPage() {
                                   <span className={cn("text-sm font-semibold tabular-nums", totalRubro(rubro) > 0 ? "text-[#2563EB]" : "text-slate-300")}>
                                     {totalRubro(rubro) > 0 ? fmtMoneda(totalRubro(rubro), moneda) : "—"}
                                   </span>
+                                </div>
+                                <div style={{ width: 28, flexShrink: 0 }} className="flex items-center justify-center">
+                                  <button
+                                    onClick={() => eliminarRubro(cap.id, rubro.id, rubro.descripcion)}
+                                    title="Eliminar rubro"
+                                    className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
+                                    style={{ width: 20, height: 20 }}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               </div>
                             );
