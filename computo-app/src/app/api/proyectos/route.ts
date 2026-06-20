@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { generarRubrosAutomaticos } from "@/lib/rubrosAutomaticos";
 
 export async function GET() {
   try {
@@ -68,6 +69,14 @@ export async function POST(req: NextRequest) {
       },
       include: { capitulos: true },
     });
+
+    // Si viene del flujo de Cálculo Rápido con descripción de trabajos,
+    // generar los rubros principales por capítulo en background.
+    if (descripcion?.trim() && proyecto.capitulos.length > 0) {
+      generarRubrosAutomaticos(proyecto.id).catch((err) =>
+        console.error("[POST /api/proyectos] generarRubrosAutomaticos", err)
+      );
+    }
 
     return NextResponse.json(proyecto);
   } catch (err) {
