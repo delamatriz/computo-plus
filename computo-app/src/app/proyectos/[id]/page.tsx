@@ -2588,23 +2588,35 @@ export default function ProyectoPage() {
                 {fmtMoneda(totalGeneral, moneda)}
               </span>
             </div>
-            {proyecto?.incluyeIVA && (
-              <>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs font-medium text-slate-400">IVA (22%)</span>
-                  <span className="text-sm font-semibold tabular-nums text-slate-500">
-                    {fmtMoneda(totalGeneral * 0.22, moneda)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-slate-200">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total + IVA</span>
-                  <span className="text-base font-bold tabular-nums text-[#2563EB]">
-                    {fmtMoneda(totalGeneral * 1.22, moneda)}
-                  </span>
-                </div>
-              </>
-            )}
           </div>
+        </div>
+
+        {/* ── IVA sobre el total — control inline ─────────── */}
+        <div className="mt-3 rounded-[10px] border border-slate-200 bg-slate-50 px-4 py-3">
+          <label className="flex items-center justify-between cursor-pointer">
+            <span className="flex items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={proyecto?.incluyeIVA ?? false}
+                onChange={(e) => actualizarIncluyeIVA(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30"
+              />
+              <span className="text-sm font-medium text-slate-600">Incluir IVA (22%)</span>
+            </span>
+            {proyecto?.incluyeIVA && (
+              <span className="text-sm font-semibold tabular-nums text-slate-500">
+                + {fmtMoneda(totalGeneral * 0.22, moneda)}
+              </span>
+            )}
+          </label>
+          {proyecto?.incluyeIVA && (
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total + IVA</span>
+              <span className="text-base font-bold tabular-nums text-[#2563EB]">
+                {fmtMoneda(totalGeneral * 1.22, moneda)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Botón agregar capítulo */}
