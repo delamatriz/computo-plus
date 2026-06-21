@@ -34,15 +34,15 @@ export async function calcularMOTotal(proyectoId: string): Promise<ResultadoMOTo
 
   for (const cap of capitulos) {
     for (const rubro of cap.rubros) {
-      if (rubro.cantidad == null || rubro.cantidad === 0) continue;
+      const cantidadEfectiva = (rubro.cantidad == null || rubro.cantidad === 0) ? 1 : rubro.cantidad;
 
       if (rubro.apu?.manoObra && rubro.apu.manoObra.length > 0) {
         for (const mo of rubro.apu.manoObra) {
           const costoPorUnidad = (mo.jornadaHs / mo.rendimiento) * mo.jornalRef;
-          total += costoPorUnidad * rubro.cantidad;
+          total += costoPorUnidad * cantidadEfectiva;
         }
       } else if (rubro.precioUnit > 0) {
-        total += rubro.precioUnit * rubro.cantidad * MO_PORCENTAJE_FALLBACK;
+        total += rubro.precioUnit * cantidadEfectiva * MO_PORCENTAJE_FALLBACK;
         metodo = "estimado";
       }
     }
