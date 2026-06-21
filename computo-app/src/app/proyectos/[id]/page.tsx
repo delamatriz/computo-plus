@@ -2562,27 +2562,26 @@ export default function ProyectoPage() {
         </div>
 
         {/* ── Total / IVA / Total + IVA — tarjetas separadas ── */}
-        <div className="mt-3 flex flex-col gap-2">
-          <div className="bg-white border border-slate-200 rounded-lg py-3 px-5 flex items-center justify-between">
+        <div className="flex flex-col gap-2 mt-2">
+
+          {/* Tarjeta 1 - TOTAL */}
+          <div className="bg-white border border-slate-200 rounded-lg px-5 py-3 flex justify-between items-center">
             <span className="text-sm font-medium text-slate-700 uppercase tracking-wide">Total</span>
-            <span className="text-lg font-semibold tabular-nums text-slate-900">
-              {fmtMoneda(totalGeneral, moneda)}
-            </span>
+            <span className="text-lg font-semibold text-slate-900">{fmtMoneda(totalGeneral, moneda)}</span>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-lg py-3 px-5 flex items-center justify-between">
+          {/* Tarjeta 2 - IVA */}
+          <div className="bg-white border border-slate-200 rounded-lg px-5 py-3 flex justify-between items-center">
             <span className="text-sm font-medium text-slate-500">IVA (22%)</span>
-            <span className="text-base font-medium tabular-nums text-slate-700">
-              + {fmtMoneda(totalGeneral * 0.22, moneda)}
-            </span>
+            <span className="text-base font-medium text-slate-700">+ {fmtMoneda(totalGeneral * 0.22, moneda)}</span>
           </div>
 
-          <div className="rounded-lg py-4 px-5 flex items-center justify-between" style={{ background: "#1A3A5C" }}>
+          {/* Tarjeta 3 - TOTAL + IVA */}
+          <div className="rounded-lg px-5 py-4 flex justify-between items-center" style={{ backgroundColor: "#1A3A5C" }}>
             <span className="text-sm font-semibold text-white uppercase tracking-wide">Total + IVA</span>
-            <span className="text-2xl font-bold tabular-nums text-white">
-              {fmtMoneda(totalGeneral * 1.22, moneda)}
-            </span>
+            <span className="text-2xl font-bold text-white">{fmtMoneda(totalGeneral * 1.22, moneda)}</span>
           </div>
+
         </div>
 
         {/* Botón agregar capítulo */}
