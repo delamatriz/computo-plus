@@ -13,7 +13,7 @@ export async function GET(
     let leyesSociales = await db.leyesSociales.findUnique({ where: { proyectoId } });
 
     if (!leyesSociales) {
-      const montoImponibleMO = await calcularMOTotal(proyectoId);
+      const { total: montoImponibleMO } = await calcularMOTotal(proyectoId);
       leyesSociales = await db.leyesSociales.create({
         data: { proyectoId, montoImponibleMO },
       });
@@ -33,7 +33,7 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await params;
-    const montoImponibleMO = await calcularMOTotal(proyectoId);
+    const { total: montoImponibleMO, metodo } = await calcularMOTotal(proyectoId);
 
     const leyesSociales = await db.leyesSociales.upsert({
       where: { proyectoId },
@@ -41,7 +41,7 @@ export async function POST(
       create: { proyectoId, montoImponibleMO },
     });
 
-    return NextResponse.json(leyesSociales);
+    return NextResponse.json({ ...leyesSociales, metodo });
   } catch (err) {
     console.error("[POST /api/proyectos/[id]/leyes-sociales]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
