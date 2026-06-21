@@ -46,6 +46,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       empresa: proyecto.empresa ? { nombre: proyecto.empresa.nombre } : null,
       gastosGenerales,
       incluyeIVA: proyecto.incluyeIVA,
+      montoImponibleMO: proyecto.leyesSociales?.montoImponibleMO ?? null,
       capitulos: proyecto.capitulos.map((cap) => ({
         id: cap.id,
         nombre: cap.nombre,

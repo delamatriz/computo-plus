@@ -33,6 +33,7 @@ export interface ProyectoConCapitulos {
   capitulos: CapituloPDF[];
   gastosGenerales: number;
   incluyeIVA: boolean;
+  montoImponibleMO: number | null;
 }
 
 /* ─── Formato de números ──────────────────────────────────── */
@@ -186,34 +187,26 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
   },
 
-  // Resumen final
-  bloqueResumen: {
-    marginTop: 20,
-    borderTopWidth: 2,
-    borderTopColor: "#1A3A5C",
-    paddingTop: 10,
-  },
-  tituloResumen: {
-    fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-    color: "#1A3A5C",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  filaResumenCapitulo: {
+  // Capítulo de Gastos Generales — mismo estilo de header que un capítulo de obra,
+  // pero de una sola línea (sin tabla de rubros ni desglose interno).
+  filaGastosGenerales: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 2.5,
+    alignItems: "center",
+    backgroundColor: "#1A3A5C",
+    paddingVertical: 5,
     paddingHorizontal: 6,
+    marginTop: 12,
   },
-  textoResumenCapitulo: {
-    fontSize: 8.5,
-    color: "#475569",
+  montoGastosGenerales: {
+    color: "#FFFFFF",
+    fontFamily: "Helvetica-Bold",
+    fontSize: 9,
   },
-  textoResumenMonto: {
-    fontSize: 8.5,
-    color: "#475569",
+
+  // Líneas finales — subtotal, IVA, leyes sociales, total
+  bloqueFinal: {
+    marginTop: 16,
   },
   separadorFinal: {
     borderBottomWidth: 1,
@@ -366,9 +359,11 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
     (acc, cap) => acc + cap.rubros.reduce((a, r) => a + r.cantidad * r.precioUnit, 0),
     0
   );
-  const baseIVA = subtotalObra + proyecto.gastosGenerales;
-  const montoIVA = proyecto.incluyeIVA ? baseIVA * 0.22 : 0;
-  const totalGeneral = baseIVA + montoIVA;
+  const subtotal = subtotalObra + proyecto.gastosGenerales;
+  const montoIVA = proyecto.incluyeIVA ? subtotal * 0.22 : 0;
+  const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * 0.714 : null;
+  const totalGeneral = subtotal + montoIVA + (leyesSocialesPropietario ?? 0);
+  const codigoGastosGenerales = String(proyecto.capitulos.length + 1).padStart(2, "0");
 
   const datosSubtitulo = [
     proyecto.cliente,
@@ -396,38 +391,33 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
           <BloqueCapitulo key={cap.id} capitulo={cap} esPrimero={i === 0} simbolo={simbolo} />
         ))}
 
-        {/* Resumen */}
-        <View style={styles.bloqueResumen} wrap={false}>
-          <Text style={styles.tituloResumen}>Resumen</Text>
+        {/* Capítulo de Gastos Generales — una sola línea, sin desglose interno */}
+        <View style={styles.filaGastosGenerales} wrap={false}>
+          <Text style={styles.textoCapitulo}>
+            {codigoGastosGenerales} · GASTOS GENERALES
+          </Text>
+          <Text style={styles.montoGastosGenerales}>{fmtMon(proyecto.gastosGenerales, simbolo)}</Text>
+        </View>
 
-          {proyecto.capitulos.map((cap) => {
-            const subtotalCap = cap.rubros.reduce((a, r) => a + r.cantidad * r.precioUnit, 0);
-            if (!subtotalCap) return null;
-            return (
-              <View key={cap.id} style={styles.filaResumenCapitulo}>
-                <Text style={styles.textoResumenCapitulo}>
-                  Cap. {cap.codigo} {cap.nombre}
-                </Text>
-                <Text style={styles.textoResumenMonto}>{fmtMon(subtotalCap, simbolo)}</Text>
-              </View>
-            );
-          })}
-
+        {/* Líneas finales — subtotal, IVA, leyes sociales, total */}
+        <View style={styles.bloqueFinal} wrap={false}>
           <View style={styles.separadorFinal} />
           <View style={styles.filaResumenLinea}>
-            <Text style={styles.labelResumenLinea}>Subtotal obra</Text>
-            <Text style={styles.montoResumenLinea}>{fmtMon(subtotalObra, simbolo)}</Text>
-          </View>
-
-          <View style={styles.filaResumenLinea}>
-            <Text style={styles.labelResumenLinea}>Gastos generales</Text>
-            <Text style={styles.montoResumenLinea}>{fmtMon(proyecto.gastosGenerales, simbolo)}</Text>
+            <Text style={styles.labelResumenLinea}>Subtotal</Text>
+            <Text style={styles.montoResumenLinea}>{fmtMon(subtotal, simbolo)}</Text>
           </View>
 
           {proyecto.incluyeIVA && (
             <View style={styles.filaResumenLinea}>
               <Text style={styles.labelResumenLinea}>IVA (22%)</Text>
               <Text style={styles.montoResumenLinea}>{fmtMon(montoIVA, simbolo)}</Text>
+            </View>
+          )}
+
+          {leyesSocialesPropietario != null && (
+            <View style={styles.filaResumenLinea}>
+              <Text style={styles.labelResumenLinea}>Leyes sociales — Aporte propietario</Text>
+              <Text style={styles.montoResumenLinea}>{fmtMon(leyesSocialesPropietario, simbolo)}</Text>
             </View>
           )}
 
