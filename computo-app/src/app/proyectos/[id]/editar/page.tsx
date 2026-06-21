@@ -25,7 +25,17 @@ interface FormData {
   fechaInicio: string;
   plazoObra: string;
   descripcion: string;
+  requierePlanSeguridad: boolean;
+  modalidadAltura: string[];
 }
+
+const MODALIDADES_ALTURA = [
+  { id: "andamios", label: "Andamios" },
+  { id: "balancin", label: "Balancín" },
+  { id: "silleta",  label: "Silleta" },
+  { id: "combinacion", label: "Combinación" },
+  { id: "grua", label: "Grúa / otra maquinaria" },
+];
 
 export default function EditarProyectoPage() {
   const params = useParams();
@@ -35,6 +45,7 @@ export default function EditarProyectoPage() {
   const [form, setForm] = useState<FormData>({
     nombre: "", cliente: "", tipo: "VIVIENDA", direccion: "",
     moneda: "UYU", area: "", fechaInicio: "", plazoObra: "", descripcion: "",
+    requierePlanSeguridad: false, modalidadAltura: [],
   });
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -56,6 +67,8 @@ export default function EditarProyectoPage() {
           fechaInicio: data.fechaInicio ? data.fechaInicio.slice(0, 10) : "",
           plazoObra: data.plazoObra != null ? String(data.plazoObra) : "",
           descripcion: data.descripcion ?? "",
+          requierePlanSeguridad: !!data.requierePlanSeguridad,
+          modalidadAltura: data.modalidadAltura ? data.modalidadAltura.split(",").filter(Boolean) : [],
         });
       })
       .catch((err) => { console.error("[cargar proyecto editar]", err); setError("No se pudo cargar el proyecto"); })
@@ -65,6 +78,15 @@ export default function EditarProyectoPage() {
 
   const set = <K extends keyof FormData>(campo: K, valor: FormData[K]) =>
     setForm((prev) => ({ ...prev, [campo]: valor }));
+
+  const toggleModalidadAltura = (id: string) => {
+    set(
+      "modalidadAltura",
+      form.modalidadAltura.includes(id)
+        ? form.modalidadAltura.filter((m) => m !== id)
+        : [...form.modalidadAltura, id]
+    );
+  };
 
   const guardar = async () => {
     setGuardando(true);
@@ -83,9 +105,20 @@ export default function EditarProyectoPage() {
           fechaInicio: form.fechaInicio || null,
           plazoObra: form.plazoObra ? parseInt(form.plazoObra, 10) : null,
           descripcion: form.descripcion.trim() || null,
+          requierePlanSeguridad: form.requierePlanSeguridad,
+          modalidadAltura: form.requierePlanSeguridad && form.modalidadAltura.length > 0
+            ? form.modalidadAltura.join(",")
+            : null,
         }),
       });
       if (!res.ok) throw new Error("No se pudo guardar el proyecto");
+
+      if (form.requierePlanSeguridad) {
+        fetch(`/api/proyectos/${proyectoId}/generar-seguridad-altura`, {
+          method: "POST",
+        }).catch((err) => console.error("[editar proyecto] generar-seguridad-altura", err));
+      }
+
       router.push(`/proyectos/${proyectoId}`);
     } catch (err) {
       console.error("[guardar proyecto editar]", err);
@@ -232,6 +265,45 @@ export default function EditarProyectoPage() {
             className={cn(inputCls, "resize-none")}
           />
         </Field>
+      </div>
+
+      <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
+        <div>
+          <h3 className="text-sm font-bold text-[#1A3A5C]">Trabajos en altura</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Solo si la obra requiere trabajo sobre nivel de piso</p>
+        </div>
+
+        <label className="flex items-center gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.requierePlanSeguridad}
+            onChange={(e) => set("requierePlanSeguridad", e.target.checked)}
+            className="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30"
+          />
+          <span className="text-sm text-slate-700">Requiere plan y estudio de seguridad (MTOP)</span>
+        </label>
+
+        {form.requierePlanSeguridad && (
+          <Field label="Modalidad de trabajo en altura">
+            <div className="flex flex-wrap gap-2">
+              {MODALIDADES_ALTURA.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => toggleModalidadAltura(m.id)}
+                  className={cn(
+                    "px-3.5 py-2 rounded-[10px] border text-sm font-medium transition-all",
+                    form.modalidadAltura.includes(m.id)
+                      ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                      : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                  )}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
       </div>
 
       {error && (

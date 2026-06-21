@@ -13,6 +13,9 @@ const cats = [
   { nombre: "Electricista oficial", categoria: "electricista_oficial", jornal: 1250 },
   { nombre: "Plomero oficial", categoria: "plomero_oficial", jornal: 1230 },
   { nombre: "Pintor oficial", categoria: "pintor_oficial", jornal: 1180 },
+  // Jornal placeholder — se actualizará cuando confirmemos el recargo real
+  // SUNCA por riesgo de altura sobre el oficial común (abril 2025).
+  { nombre: "Oficial trabajo en altura", categoria: "oficial_altura", jornal: 1680 },
 ];
 
 async function main() {

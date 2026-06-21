@@ -96,6 +96,8 @@ export async function PATCH(
         ...(body.fechaInicio !== undefined && { fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null }),
         ...(body.plazoObra   !== undefined && { plazoObra:   body.plazoObra }),
         ...(body.generandoRubros !== undefined && { generandoRubros: body.generandoRubros }),
+        ...(body.requierePlanSeguridad !== undefined && { requierePlanSeguridad: !!body.requierePlanSeguridad }),
+        ...(body.modalidadAltura !== undefined && { modalidadAltura: body.modalidadAltura || null }),
       },
     });
     return NextResponse.json(proyecto);

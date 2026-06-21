@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
       direccion,
       fechaInicio,
       plazoObra,
+      requierePlanSeguridad,
+      modalidadAltura,
       capitulos,
     } = body;
 
@@ -53,6 +55,8 @@ export async function POST(req: NextRequest) {
         direccion: direccion || "",
         fechaInicio: fechaInicio ? new Date(fechaInicio) : new Date(),
         plazoObra: plazoObra ? parseInt(plazoObra) : null,
+        requierePlanSeguridad: !!requierePlanSeguridad,
+        modalidadAltura: modalidadAltura || null,
         estado: "EN_CURSO",
         empresaId: empresa.id,
         capitulos: {

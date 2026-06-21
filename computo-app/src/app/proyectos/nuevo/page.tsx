@@ -34,6 +34,8 @@ interface FormData {
   capitulos: Capitulo[];
   fotos: FotoProyecto[];
   documentos: File[];
+  requierePlanSeguridad: boolean;
+  modalidadAltura: string[];
 }
 
 interface Capitulo {
@@ -132,6 +134,14 @@ const COLORS = [
   "#EC4899", "#06B6D4", "#22C55E", "#78716C", "#64748B",
 ];
 
+const MODALIDADES_ALTURA = [
+  { id: "andamios", label: "Andamios" },
+  { id: "balancin", label: "Balancín" },
+  { id: "silleta",  label: "Silleta" },
+  { id: "combinacion", label: "Combinación" },
+  { id: "grua", label: "Grúa / otra maquinaria" },
+];
+
 const STEPS = [
   { id: 1, label: "1. Datos" },
   { id: 2, label: "2. Detalles" },
@@ -171,6 +181,8 @@ function NuevoProyectoContent() {
     capitulos: [],
     fotos: [],
     documentos: [],
+    requierePlanSeguridad: false,
+    modalidadAltura: [],
   });
 
   const fotosInputRef = useRef<HTMLInputElement>(null);
@@ -342,6 +354,15 @@ function NuevoProyectoContent() {
     }
   };
 
+  const toggleModalidadAltura = (id: string) => {
+    set(
+      "modalidadAltura",
+      form.modalidadAltura.includes(id)
+        ? form.modalidadAltura.filter((m) => m !== id)
+        : [...form.modalidadAltura, id]
+    );
+  };
+
   const toggleCapitulo = (id: string) => {
     set("capitulos", form.capitulos.map((c) => c.id === id ? { ...c, activo: !c.activo } : c));
   };
@@ -383,6 +404,10 @@ function NuevoProyectoContent() {
           direccion: form.direccion,
           fechaInicio: form.fechaInicio,
           plazoObra: form.plazoMeses,
+          requierePlanSeguridad: form.requierePlanSeguridad,
+          modalidadAltura: form.requierePlanSeguridad && form.modalidadAltura.length > 0
+            ? form.modalidadAltura.join(",")
+            : null,
           capitulos: capitularActivos.map((c, i) => ({
             nombre: c.nombre,
             color: c.color,
@@ -420,6 +445,12 @@ function NuevoProyectoContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ capitulosConMontos }),
       }).catch((err) => console.error("[proyectos/nuevo] generar-rubros", err));
+
+      if (form.requierePlanSeguridad) {
+        fetch(`/api/proyectos/${proyecto.id}/generar-seguridad-altura`, {
+          method: "POST",
+        }).catch((err) => console.error("[proyectos/nuevo] generar-seguridad-altura", err));
+      }
 
       router.push(`/proyectos/${proyecto.id}`);
     } catch {
@@ -791,6 +822,45 @@ function NuevoProyectoContent() {
                       </p>
                     </div>
                   </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
+                <div>
+                  <h3 className="text-sm font-bold text-[#1A3A5C]">Trabajos en altura</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Solo si la obra requiere trabajo sobre nivel de piso</p>
+                </div>
+
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.requierePlanSeguridad}
+                    onChange={(e) => set("requierePlanSeguridad", e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30"
+                  />
+                  <span className="text-sm text-slate-700">Requiere plan y estudio de seguridad (MTOP)</span>
+                </label>
+
+                {form.requierePlanSeguridad && (
+                  <Field label="Modalidad de trabajo en altura">
+                    <div className="flex flex-wrap gap-2">
+                      {MODALIDADES_ALTURA.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => toggleModalidadAltura(m.id)}
+                          className={cn(
+                            "px-3.5 py-2 rounded-[10px] border text-sm font-medium transition-all",
+                            form.modalidadAltura.includes(m.id)
+                              ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                              : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                          )}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
                 )}
               </div>
             </div>
