@@ -1470,6 +1470,7 @@ export default function ProyectoPage() {
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [leyesSociales, setLeyesSociales] = useState<LeyesSocialesData | null>(null);
+  const [metodoMontoImponible, setMetodoMontoImponible] = useState<"apu" | "estimado" | null>(null);
   const [recalculandoMO, setRecalculandoMO] = useState(false);
   const [guardandoLeyes, setGuardandoLeyes] = useState(false);
   const [apuGenerando, setApuGenerando] = useState<Set<string>>(new Set());
@@ -1625,6 +1626,7 @@ export default function ProyectoPage() {
       if (!res.ok) throw new Error("Error al recalcular");
       const data = await res.json();
       setLeyesSociales((prev) => prev ? { ...prev, montoImponibleMO: data.montoImponibleMO ?? 0 } : prev);
+      setMetodoMontoImponible(data.metodo ?? null);
     } catch (err) {
       console.error("[recalcular MO]", err);
     } finally {
@@ -2545,6 +2547,7 @@ export default function ProyectoPage() {
             onGuardar={guardarLeyesSociales}
             recalculando={recalculandoMO}
             guardando={guardandoLeyes}
+            metodoMontoImponible={metodoMontoImponible}
           />
         )}
 

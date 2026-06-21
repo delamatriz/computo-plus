@@ -27,6 +27,7 @@ interface Props {
   onGuardar: () => Promise<void>;
   recalculando: boolean;
   guardando: boolean;
+  metodoMontoImponible?: "apu" | "estimado" | null;
 }
 
 function fmtMoneda(v: number, moneda: string): string {
@@ -125,6 +126,7 @@ export default function SeccionLeyesSociales({
   onGuardar,
   recalculando,
   guardando,
+  metodoMontoImponible,
 }: Props) {
   const [expandido, setExpandido] = useState(false);
   const [editandoMonto, setEditandoMonto] = useState(false);
@@ -218,6 +220,11 @@ export default function SeccionLeyesSociales({
                       Calcular
                     </button>
                   </div>
+                  {metodoMontoImponible === "estimado" && (
+                    <p className="text-xs text-amber-600 mt-1.5">
+                      ⚠ Monto imponible estimado (38% sobre precio unitario). Cargá el APU con mano de obra para mayor precisión.
+                    </p>
+                  )}
                 </div>
 
                 <div>
