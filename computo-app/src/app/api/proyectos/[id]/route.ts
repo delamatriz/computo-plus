@@ -29,11 +29,24 @@ const PROYECTO_INCLUDE = {
 } as const;
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+
+    // Poll liviano: solo el estado de generación de rubros, sin capítulos/rubros/APUs
+    if (req.nextUrl.searchParams.get("light") === "1") {
+      const proyecto = await db.proyecto.findUnique({
+        where: { id },
+        select: { generandoRubros: true },
+      });
+      if (!proyecto) {
+        return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+      }
+      return NextResponse.json(proyecto);
+    }
+
     const proyecto = await db.proyecto.findUnique({
       where: { id },
       include: PROYECTO_INCLUDE,
@@ -82,6 +95,7 @@ export async function PATCH(
         ...(body.descripcion !== undefined && { descripcion: body.descripcion }),
         ...(body.fechaInicio !== undefined && { fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null }),
         ...(body.plazoObra   !== undefined && { plazoObra:   body.plazoObra }),
+        ...(body.generandoRubros !== undefined && { generandoRubros: body.generandoRubros }),
       },
     });
     return NextResponse.json(proyecto);

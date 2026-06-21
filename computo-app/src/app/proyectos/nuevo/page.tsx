@@ -407,6 +407,14 @@ function NuevoProyectoContent() {
         sessionStorage.removeItem("calculoRapido_resultado");
       }
 
+      if (capitulosConMontos) {
+        await fetch(`/api/proyectos/${proyecto.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ generandoRubros: true }),
+        }).catch((err) => console.error("[proyectos/nuevo] generandoRubros:true", err));
+      }
+
       fetch(`/api/proyectos/${proyecto.id}/generar-rubros`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

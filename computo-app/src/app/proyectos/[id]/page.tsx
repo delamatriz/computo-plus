@@ -17,6 +17,7 @@ import {
   X,
   LayoutList,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
@@ -41,6 +42,7 @@ interface ProyectoData {
   createdAt?: string | null;
   fechaBaseIndice?: string | null;
   ultimaActualizacionIndice?: string | null;
+  generandoRubros?: boolean;
 }
 
 /* ─── Tipos base ──────────────────────────────────────────── */
@@ -1479,92 +1481,116 @@ export default function ProyectoPage() {
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // ─── Carga inicial desde la DB ─────────────────────────────
-  useEffect(() => {
-    async function cargar() {
+  const cargar = useCallback(async () => {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10_000);
+      let res: Response;
       try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 10_000);
-        let res: Response;
-        try {
-          res = await fetch(`/api/proyectos/${proyectoId}`, { signal: ctrl.signal });
-        } finally {
-          clearTimeout(timer);
-        }
-        if (!res.ok) throw new Error(`Error ${res.status} al cargar el proyecto`);
-        const data = await res.json();
+        res = await fetch(`/api/proyectos/${proyectoId}`, { signal: ctrl.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+      if (!res.ok) throw new Error(`Error ${res.status} al cargar el proyecto`);
+      const data = await res.json();
 
-        // Mapear proyecto
-        setProyecto({
-          id:        data.id,
-          nombre:    data.nombre,
-          cliente:   data.cliente    ?? "",
-          tipo:      data.tipo       ?? "",
-          estado:    (data.estado as keyof typeof ESTADOS) in ESTADOS
-                       ? (data.estado as keyof typeof ESTADOS)
-                       : "BORRADOR",
-          moneda:    data.moneda     ?? "UYU",
-          area:      data.area       ?? 0,
-          direccion: data.direccion  ?? "",
-          memoriaDescriptiva: data.memoriaDescriptiva ?? null,
-          createdAt: data.createdAt ?? null,
-          fechaBaseIndice: data.fechaBaseIndice ?? null,
-          ultimaActualizacionIndice: data.ultimaActualizacionIndice ?? null,
-        });
+      // Mapear proyecto
+      setProyecto({
+        id:        data.id,
+        nombre:    data.nombre,
+        cliente:   data.cliente    ?? "",
+        tipo:      data.tipo       ?? "",
+        estado:    (data.estado as keyof typeof ESTADOS) in ESTADOS
+                     ? (data.estado as keyof typeof ESTADOS)
+                     : "BORRADOR",
+        moneda:    data.moneda     ?? "UYU",
+        area:      data.area       ?? 0,
+        direccion: data.direccion  ?? "",
+        memoriaDescriptiva: data.memoriaDescriptiva ?? null,
+        createdAt: data.createdAt ?? null,
+        fechaBaseIndice: data.fechaBaseIndice ?? null,
+        ultimaActualizacionIndice: data.ultimaActualizacionIndice ?? null,
+        generandoRubros: data.generandoRubros ?? false,
+      });
 
-        // Mapear capítulos y rubros
-        const caps: Capitulo[] = (data.capitulos ?? []).map((cap: {
-          id: string; nombre: string; codigo?: string; color?: string;
-          fechaInicio?: string | null; fechaFin?: string | null;
-          rubros: {
-            id: string; descripcion: string; unidad: string;
-            cantidad: number; precioUnit: number; apu: unknown;
-          }[];
-        }) => ({
-          id:          cap.id,
-          nombre:      cap.nombre,
-          codigo:      cap.codigo,
-          color:       cap.color,
-          fechaInicio: cap.fechaInicio,
-          fechaFin:    cap.fechaFin,
-          rubros: (cap.rubros ?? []).map((r) => ({
-            id:          r.id,
-            descripcion: r.descripcion,
-            unidad:      r.unidad,
-            cantidad:    r.cantidad   || null,
-            precioUnit:  r.precioUnit || null,
-          })),
-        }));
-        setCapitulos(caps);
+      // Mapear capítulos y rubros
+      const caps: Capitulo[] = (data.capitulos ?? []).map((cap: {
+        id: string; nombre: string; codigo?: string; color?: string;
+        fechaInicio?: string | null; fechaFin?: string | null;
+        rubros: {
+          id: string; descripcion: string; unidad: string;
+          cantidad: number; precioUnit: number; apu: unknown;
+        }[];
+      }) => ({
+        id:          cap.id,
+        nombre:      cap.nombre,
+        codigo:      cap.codigo,
+        color:       cap.color,
+        fechaInicio: cap.fechaInicio,
+        fechaFin:    cap.fechaFin,
+        rubros: (cap.rubros ?? []).map((r) => ({
+          id:          r.id,
+          descripcion: r.descripcion,
+          unidad:      r.unidad,
+          cantidad:    r.cantidad   || null,
+          precioUnit:  r.precioUnit || null,
+        })),
+      }));
+      setCapitulos(caps);
 
-        // Expandir los 3 primeros con rubros
+      // Expandir los 3 primeros con rubros — no mientras se están generando,
+      // para no mostrar capítulos vacíos como si ya hubieran sido revisados
+      if (!data.generandoRubros) {
         const conRubros = caps.filter((c) => c.rubros.length > 0).slice(0, 3).map((c) => c.id);
         setExpandidos(new Set(conRubros));
+      }
 
-        // Mapear APUs
-        const apus: Record<string, APU> = {};
-        for (const cap of (data.capitulos ?? [])) {
-          for (const rubro of (cap.rubros ?? [])) {
-            if (rubro.apu) {
-              apus[rubro.id] = {
-                materiales:         rubro.apu.materiales ?? [],
-                manoObra:           rubro.apu.manoObra   ?? [],
-                equipos:            rubro.apu.equipos    ?? [],
-                gastosGeneralesPct: rubro.apu.gastosGeneralesPct ?? 15,
-                utilidadPct:        rubro.apu.utilidadPct        ?? 10,
-              };
-            }
+      // Mapear APUs
+      const apus: Record<string, APU> = {};
+      for (const cap of (data.capitulos ?? [])) {
+        for (const rubro of (cap.rubros ?? [])) {
+          if (rubro.apu) {
+            apus[rubro.id] = {
+              materiales:         rubro.apu.materiales ?? [],
+              manoObra:           rubro.apu.manoObra   ?? [],
+              equipos:            rubro.apu.equipos    ?? [],
+              gastosGeneralesPct: rubro.apu.gastosGeneralesPct ?? 15,
+              utilidadPct:        rubro.apu.utilidadPct        ?? 10,
+            };
           }
         }
-        setApuData(apus);
-      } catch (err) {
-        console.error("[cargar proyecto]", err);
-        setErrorCarga(err instanceof Error ? err.message : "Error al cargar el proyecto");
-      } finally {
-        setCargando(false);
       }
+      setApuData(apus);
+    } catch (err) {
+      console.error("[cargar proyecto]", err);
+      setErrorCarga(err instanceof Error ? err.message : "Error al cargar el proyecto");
+    } finally {
+      setCargando(false);
     }
-    cargar();
   }, [proyectoId]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  // ─── Polling mientras se generan los rubros automáticos ────
+  useEffect(() => {
+    if (!proyecto?.generandoRubros) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/proyectos/${proyectoId}?light=1`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.generandoRubros) {
+          clearInterval(interval);
+          cargar();
+        }
+      } catch (err) {
+        console.error("[poll generandoRubros]", err);
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [proyecto?.generandoRubros, proyectoId, cargar]);
 
   // ─── Carga de Leyes Sociales / BPS ─────────────────────────
   useEffect(() => {
@@ -1839,10 +1865,10 @@ export default function ProyectoPage() {
   const toggleCapituloConSubrubros = useCallback((cap: Capitulo) => {
     const yaExpandido = expandidos.has(cap.id);
     toggleCapitulo(cap.id);
-    if (!yaExpandido && capituloVacio(cap) && obtenerMapeoSAU(cap.nombre)) {
+    if (!yaExpandido && !proyecto?.generandoRubros && capituloVacio(cap) && obtenerMapeoSAU(cap.nombre)) {
       abrirSubrubrosPanel(cap);
     }
-  }, [expandidos, abrirSubrubrosPanel]);
+  }, [expandidos, abrirSubrubrosPanel, proyecto?.generandoRubros]);
 
   const agregarRubroDesdeSubrubro = useCallback(async (capId: string, sub: SubrubroEstandar) => {
     setPanelSubrubrosCapId(null);
@@ -2205,6 +2231,17 @@ export default function ProyectoPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Banner: generación de rubros en curso ────────────── */}
+      {proyecto?.generandoRubros && (
+        <div className="bg-blue-50 border-b border-blue-100 px-4 md:px-6 py-2.5">
+          <div className="max-w-6xl mx-auto flex items-center gap-2 text-sm text-blue-700">
+            <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+            <span className="font-medium">Generando rubros...</span>
+            <span className="text-blue-500">Estamos preparando tu presupuesto, listo en unos segundos.</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal confirmación eliminar proyecto ─────────────── */}
       {mostrarConfirmEliminar && (

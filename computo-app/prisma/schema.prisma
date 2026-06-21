@@ -39,6 +39,7 @@ model Proyecto {
   fechaBaseIndice    DateTime?
   indiceBaseValor    Float?
   ultimaActualizacionIndice DateTime?
+  generandoRubros    Boolean    @default(false)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }

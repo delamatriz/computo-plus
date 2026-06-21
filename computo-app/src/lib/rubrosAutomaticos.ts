@@ -24,6 +24,20 @@ export async function generarRubrosAutomaticos(
   proyectoId: string,
   capitulosConMontos?: CapituloConMonto[]
 ): Promise<void> {
+  try {
+    await generarRubrosAutomaticosInterno(proyectoId, capitulosConMontos);
+  } finally {
+    await db.proyecto.update({
+      where: { id: proyectoId },
+      data: { generandoRubros: false },
+    }).catch((err) => console.error("[rubrosAutomaticos] no se pudo limpiar generandoRubros", err));
+  }
+}
+
+async function generarRubrosAutomaticosInterno(
+  proyectoId: string,
+  capitulosConMontos?: CapituloConMonto[]
+): Promise<void> {
   const proyecto = await db.proyecto.findUnique({
     where: { id: proyectoId },
     include: { capitulos: true },
