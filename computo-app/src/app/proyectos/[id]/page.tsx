@@ -18,6 +18,7 @@ import {
   LayoutList,
   Trash2,
   Loader2,
+  TriangleAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
@@ -56,6 +57,7 @@ interface Rubro {
   unidad: string;
   cantidad: number | null;
   precioUnit: number | null;
+  trabajoEnAltura?: boolean;
 }
 
 interface Capitulo {
@@ -772,13 +774,20 @@ function SelectorCategoriaMO({
   onSeleccionar,
   onPersonalizada,
   onCancelar,
+  destacarAltura = false,
 }: {
   categorias: CategoriaLaboral[];
   onSeleccionar: (cat: CategoriaLaboral) => void;
   onPersonalizada: () => void;
   onCancelar: () => void;
+  destacarAltura?: boolean;
 }) {
-  const categoriasOrdenadas = [...categorias].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const categoriaAltura = destacarAltura
+    ? categorias.find((c) => c.categoria === "oficial_altura")
+    : undefined;
+  const resto = [...categorias]
+    .filter((c) => c.id !== categoriaAltura?.id)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
   return (
     <div className="mx-4 my-2 rounded-lg border border-blue-200 bg-[#F0F7FF] p-3 space-y-2">
@@ -797,7 +806,15 @@ function SelectorCategoriaMO({
         className="w-full px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] text-slate-700"
       >
         <option value="" disabled>Seleccionar categoría…</option>
-        {categoriasOrdenadas.map((c) => (
+        {categoriaAltura && (
+          <>
+            <option value={categoriaAltura.id}>
+              {categoriaAltura.nombre} — jornal ref: U$S {fmtMon(categoriaAltura.jornal)} (recomendado)
+            </option>
+            <option value="" disabled>──────────</option>
+          </>
+        )}
+        {resto.map((c) => (
           <option key={c.id} value={c.id}>
             {c.nombre} — jornal ref: U$S {fmtMon(c.jornal)}
           </option>
@@ -1203,6 +1220,11 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
           {/* 2 — MANO DE OBRA */}
           <SeccionAPU titulo="Mano de obra">
             <div className="pb-2">
+              {rubro.trabajoEnAltura && (
+                <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                  Rubro en altura — considerar categoría Oficial trabajo en altura
+                </div>
+              )}
               <div className="overflow-x-auto -mx-4 px-4">
               <table className="w-full text-xs border-collapse min-w-[480px]">
                 <colgroup>
@@ -1277,6 +1299,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
                   onSeleccionar={agregarMODesdeCategoria}
                   onPersonalizada={agregarMOPersonalizada}
                   onCancelar={() => setMostrarSelectorMO(false)}
+                  destacarAltura={!!rubro.trabajoEnAltura}
                 />
               ) : (
                 <div className="pl-4 pt-1.5">
@@ -1528,6 +1551,7 @@ export default function ProyectoPage() {
         rubros: {
           id: string; descripcion: string; unidad: string;
           cantidad: number; precioUnit: number; apu: unknown;
+          trabajoEnAltura?: boolean;
         }[];
       }) => ({
         id:          cap.id,
@@ -1542,6 +1566,7 @@ export default function ProyectoPage() {
           unidad:      r.unidad,
           cantidad:    r.cantidad   || null,
           precioUnit:  r.precioUnit || null,
+          trabajoEnAltura: r.trabajoEnAltura ?? false,
         })),
       }));
       setCapitulos(caps);
@@ -2070,6 +2095,27 @@ export default function ProyectoPage() {
     }, 800);
   }, []);
 
+  // Toggle inmediato, sin debounce — el usuario espera feedback instantáneo
+  const toggleTrabajoEnAltura = useCallback((capId: string, rubroId: string, actual: boolean) => {
+    const nuevoValor = !actual;
+    setCapitulos((prev) =>
+      prev.map((c) =>
+        c.id !== capId ? c : {
+          ...c,
+          rubros: c.rubros.map((r) =>
+            r.id !== rubroId ? r : { ...r, trabajoEnAltura: nuevoValor }
+          ),
+        }
+      )
+    );
+    if (rubroId.startsWith("temp-")) return;
+    fetch(`/api/rubros/${rubroId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trabajoEnAltura: nuevoValor }),
+    }).catch((err) => console.error("[toggle trabajoEnAltura]", err));
+  }, []);
+
   const eliminarRubro = useCallback((capId: string, rubroId: string, descripcion: string) => {
     const tieneDescripcion = descripcion.trim() !== "";
     if (tieneDescripcion) {
@@ -2441,6 +2487,17 @@ export default function ProyectoPage() {
 
                                 {/* Descripción + badge APU */}
                                 <div className="flex-1 px-2 min-w-0 flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleTrabajoEnAltura(cap.id, rubro.id, !!rubro.trabajoEnAltura)}
+                                    title="Trabajo en altura"
+                                    className={cn(
+                                      "flex-shrink-0 flex items-center justify-center transition-colors",
+                                      rubro.trabajoEnAltura ? "text-amber-500" : "text-slate-300 hover:text-slate-400"
+                                    )}
+                                  >
+                                    <TriangleAlert className="w-3.5 h-3.5" />
+                                  </button>
                                   <input
                                     type="text"
                                     value={descripcionEnFoco === rubro.id ? rubro.descripcion : toTitleCase(rubro.descripcion)}

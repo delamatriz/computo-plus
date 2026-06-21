@@ -16,7 +16,8 @@ export async function generarApuParaRubro(
 ): Promise<ApuGenerado> {
   const { descripcion, unidad, capitulo, tipoObra } = datos;
 
-  const [categorias, preciosMTOP] = await Promise.all([
+  const [rubro, categorias, preciosMTOP] = await Promise.all([
+    db.rubro.findUnique({ where: { id: rubroId }, select: { trabajoEnAltura: true } }),
     db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),
     db.precioMTOP.findMany({ take: 50, orderBy: { descripcion: "asc" } }),
   ]);
@@ -29,6 +30,10 @@ export async function generarApuParaRubro(
     .map((p) => `${p.descripcion}: ${p.precioUnitario} UYU/${p.unidad}`)
     .join("\n");
 
+  const notaAltura = rubro?.trabajoEnAltura
+    ? "\n\nEste rubro requiere trabajo en altura. Incluir en la mano de obra la categoría Oficial trabajo en altura con el recargo correspondiente."
+    : "";
+
   const prompt = `Rubro: "${descripcion}"
 Unidad de medida: ${unidad || "—"}
 Capítulo: ${capitulo || "—"}
@@ -39,6 +44,7 @@ ${tablaJornales}
 
 PRECIOS DE REFERENCIA MTOP (Lista Nº599, Nov 2025, en UYU):
 ${tablaMateriales}
+${notaAltura}
 
 Devolvé SOLO un JSON con esta estructura exacta:
 {

@@ -101,6 +101,7 @@ model Rubro {
   cantidad    Float    @default(0)
   precioUnit  Float    @default(0)
   tipo        String   @default("GLOBAL")
+  trabajoEnAltura Boolean @default(false)
   capituloId  String
   capitulo    Capitulo @relation(fields: [capituloId], references: [id], onDelete: Cascade)
   apu         APU?
