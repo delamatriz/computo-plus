@@ -895,6 +895,13 @@ export default function CalcularPage() {
                     try {
                       sessionStorage.setItem("calculoRapido_descripcion", descripcion);
 
+                      if (resultadoIA?.capitulos) {
+                        sessionStorage.setItem(
+                          "calculoRapido_resultado",
+                          JSON.stringify(resultadoIA.capitulos)
+                        );
+                      }
+
                       const fotosBase64 = await Promise.all(
                         fotos.map(async (f) => ({
                           mediaType: "image/jpeg",

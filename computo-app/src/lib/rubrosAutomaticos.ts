@@ -10,10 +10,20 @@ interface RubroSugerido {
   unidad: string;
 }
 
+export interface CapituloConMonto {
+  nombre: string;
+  monto: number;
+}
+
 /* ─── Genera rubros principales por capítulo a partir de la descripción
    de trabajos del Cálculo Rápido, y dispara el APU de cada uno.
-   Pensada para ejecutarse en background (no se espera su resolución). ── */
-export async function generarRubrosAutomaticos(proyectoId: string): Promise<void> {
+   Pensada para ejecutarse en background (no se espera su resolución).
+   Si se pasan capitulosConMontos (del desglose de Cálculo Rápido), se
+   incluyen como contexto de precios para que la IA los use de referencia. ── */
+export async function generarRubrosAutomaticos(
+  proyectoId: string,
+  capitulosConMontos?: CapituloConMonto[]
+): Promise<void> {
   const proyecto = await db.proyecto.findUnique({
     where: { id: proyectoId },
     include: { capitulos: true },
@@ -23,7 +33,14 @@ export async function generarRubrosAutomaticos(proyectoId: string): Promise<void
 
   const listaCapitulos = proyecto.capitulos.map((c) => c.nombre).join(", ");
 
-  const prompt = `Dado este presupuesto de obra tipo ${proyecto.tipo} con la siguiente descripción de trabajos: '${proyecto.descripcion}', y estos capítulos: ${listaCapitulos}, sugerí los 2-3 rubros más importantes para cada capítulo, con descripción y unidad de medida. Basate en prácticas constructivas uruguayas.
+  const contextoMontos =
+    capitulosConMontos && capitulosConMontos.length > 0
+      ? `\n\nLos montos estimados por capítulo son:\n${capitulosConMontos
+          .map((c) => `- ${c.nombre}: $${Math.round(c.monto).toLocaleString("es-UY")}`)
+          .join("\n")}\nUsá estos montos como referencia: el precio unitario × cantidad de los rubros que generes para cada capítulo debería aproximarse al monto indicado para ese capítulo.`
+      : "";
+
+  const prompt = `Dado este presupuesto de obra tipo ${proyecto.tipo} con la siguiente descripción de trabajos: '${proyecto.descripcion}', y estos capítulos: ${listaCapitulos}, sugerí los 2-3 rubros más importantes para cada capítulo, con descripción y unidad de medida. Basate en prácticas constructivas uruguayas.${contextoMontos}
 Respondé SOLO con JSON:
 { "rubros": [{ "capitulo": string, "descripcion": string, "unidad": string }] }`;
 

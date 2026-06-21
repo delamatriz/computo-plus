@@ -379,7 +379,7 @@ function NuevoProyectoContent() {
           tipo: form.tipo,
           moneda: form.moneda,
           area: form.area,
-          descripcion: form.descripcion,
+          descripcion: form.trabajos || form.descripcion,
           direccion: form.direccion,
           fechaInicio: form.fechaInicio,
           plazoObra: form.plazoMeses,
@@ -393,6 +393,26 @@ function NuevoProyectoContent() {
       });
       if (!res.ok) throw new Error("No se pudo crear el proyecto");
       const proyecto = await res.json();
+
+      // Si viene del flujo de Cálculo Rápido, usar el desglose de montos
+      // por capítulo como contexto para los rubros automáticos por IA.
+      const resultadoRaw = sessionStorage.getItem("calculoRapido_resultado");
+      let capitulosConMontos: { nombre: string; monto: number }[] | undefined;
+      if (resultadoRaw) {
+        try {
+          capitulosConMontos = JSON.parse(resultadoRaw);
+        } catch (err) {
+          console.error("[proyectos/nuevo] parseo de calculoRapido_resultado", err);
+        }
+        sessionStorage.removeItem("calculoRapido_resultado");
+      }
+
+      fetch(`/api/proyectos/${proyecto.id}/generar-rubros`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ capitulosConMontos }),
+      }).catch((err) => console.error("[proyectos/nuevo] generar-rubros", err));
+
       router.push(`/proyectos/${proyecto.id}`);
     } catch {
       setErrorGuardar("No se pudo crear el proyecto. Intentá de nuevo.");
