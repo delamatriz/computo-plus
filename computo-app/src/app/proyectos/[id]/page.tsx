@@ -2559,29 +2559,29 @@ export default function ProyectoPage() {
               </div>
             );
           })}
+        </div>
 
-          {/* ── Total + IVA ────────────────────────────────── */}
-          <div className="border-t-2 border-slate-300 px-5 py-4 bg-white">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Total</span>
-              <span className="text-xl font-bold tabular-nums text-[#2563EB]">
-                {fmtMoneda(totalGeneral, moneda)}
-              </span>
-            </div>
+        {/* ── Total / IVA / Total + IVA — tarjetas separadas ── */}
+        <div className="mt-3 flex flex-col gap-2">
+          <div className="bg-white border border-slate-200 rounded-lg py-3 px-5 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-700 uppercase tracking-wide">Total</span>
+            <span className="text-lg font-semibold tabular-nums text-slate-900">
+              {fmtMoneda(totalGeneral, moneda)}
+            </span>
+          </div>
 
-            <div className="flex items-center justify-between mt-3">
-              <span className="text-sm text-slate-600">IVA (22%)</span>
-              <span className="text-sm font-semibold tabular-nums text-[#2563EB]">
-                + {fmtMoneda(totalGeneral * 0.22, moneda)}
-              </span>
-            </div>
+          <div className="bg-white border border-slate-200 rounded-lg py-3 px-5 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">IVA (22%)</span>
+            <span className="text-base font-medium tabular-nums text-slate-700">
+              + {fmtMoneda(totalGeneral * 0.22, moneda)}
+            </span>
+          </div>
 
-            <div className="flex items-center justify-between mt-2 pt-3 border-t-2 border-slate-300">
-              <span className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Total + IVA</span>
-              <span className="text-xl font-bold tabular-nums text-[#2563EB]">
-                {fmtMoneda(totalGeneral * 1.22, moneda)}
-              </span>
-            </div>
+          <div className="rounded-lg py-4 px-5 flex items-center justify-between" style={{ background: "#1A3A5C" }}>
+            <span className="text-sm font-semibold text-white uppercase tracking-wide">Total + IVA</span>
+            <span className="text-2xl font-bold tabular-nums text-white">
+              {fmtMoneda(totalGeneral * 1.22, moneda)}
+            </span>
           </div>
         </div>
 
