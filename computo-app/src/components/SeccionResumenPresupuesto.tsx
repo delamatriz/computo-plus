@@ -226,21 +226,27 @@ export default function SeccionResumenPresupuesto({
                 <span className="text-sm text-slate-700">Incluir IVA (22%)</span>
               </label>
 
-              {incluyeIVA && (
-                <div className="flex items-center px-4 py-1.5 max-w-md">
-                  <div className="flex-1 min-w-0 text-sm text-slate-700">IVA (22%)</div>
-                  <div className="text-sm font-semibold tabular-nums text-slate-600 pl-3">
-                    {fmtMoneda(montoIVA, moneda)}
-                  </div>
-                </div>
-              )}
-
               {/* E) Total final */}
               <div className="border-t border-slate-300 pt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-bold text-[#1A3A5C] uppercase tracking-wide">Total presupuesto</span>
-                  <span className="text-2xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(totalFinal, moneda)}</span>
+                  <span className="text-2xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(baseIVA, moneda)}</span>
                 </div>
+
+                {incluyeIVA && (
+                  <>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-sm text-slate-600">IVA (22%)</span>
+                      <span className="text-sm font-semibold tabular-nums text-slate-600">
+                        {fmtMoneda(montoIVA, moneda)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t-2 border-slate-300">
+                      <span className="text-base font-bold text-[#1A3A5C] uppercase tracking-wide">Total con IVA</span>
+                      <span className="text-2xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(totalFinal, moneda)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

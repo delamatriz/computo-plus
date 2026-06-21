@@ -48,6 +48,12 @@ function fmtMon(v: number, simbolo: string): string {
   return `${simbolo} ${fmtNum(v)}`;
 }
 
+/** Igual que fmtMon pero sin el fallback "—" — para líneas de totales/resumen
+ *  donde un monto en cero es un valor real (ej. Gastos Generales sin cargar). */
+function fmtMonTotal(v: number, simbolo: string): string {
+  return `${simbolo} ${fmtNum(v)}`;
+}
+
 function simboloMoneda(moneda: string): string {
   return moneda === "USD" ? "U$S" : "$";
 }
@@ -204,20 +210,20 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
 
-  // Líneas finales — subtotal, IVA, leyes sociales, total
+  // Líneas finales — subtotal, gastos generales, IVA, leyes sociales, total
   bloqueFinal: {
-    marginTop: 16,
+    marginTop: 14,
   },
   separadorFinal: {
     borderBottomWidth: 1,
     borderBottomColor: "#CBD5E1",
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: 10,
+    marginBottom: 10,
   },
   filaResumenLinea: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 3,
+    paddingVertical: 5,
     paddingHorizontal: 6,
   },
   labelResumenLinea: {
@@ -233,8 +239,8 @@ const styles = StyleSheet.create({
   separadorTotal: {
     borderBottomWidth: 2,
     borderBottomColor: "#1A3A5C",
-    marginTop: 6,
-    marginBottom: 8,
+    marginTop: 10,
+    marginBottom: 10,
   },
   filaTotalGeneral: {
     flexDirection: "row",
@@ -391,40 +397,49 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
           <BloqueCapitulo key={cap.id} capitulo={cap} esPrimero={i === 0} simbolo={simbolo} />
         ))}
 
+        {/* Subtotal de obra, antes de sumar Gastos Generales */}
+        <View style={styles.bloqueFinal} wrap={false}>
+          <View style={styles.separadorFinal} />
+          <View style={styles.filaResumenLinea}>
+            <Text style={styles.labelResumenLinea}>Subtotal</Text>
+            <Text style={styles.montoResumenLinea}>{fmtMonTotal(subtotalObra, simbolo)}</Text>
+          </View>
+        </View>
+
         {/* Capítulo de Gastos Generales — una sola línea, sin desglose interno */}
         <View style={styles.filaGastosGenerales} wrap={false}>
           <Text style={styles.textoCapitulo}>
             {codigoGastosGenerales} · GASTOS GENERALES
           </Text>
-          <Text style={styles.montoGastosGenerales}>{fmtMon(proyecto.gastosGenerales, simbolo)}</Text>
+          <Text style={styles.montoGastosGenerales}>{fmtMonTotal(proyecto.gastosGenerales, simbolo)}</Text>
         </View>
 
-        {/* Líneas finales — subtotal, IVA, leyes sociales, total */}
+        {/* Líneas finales — SUBTOTAL (obra + GG), IVA, leyes sociales, total */}
         <View style={styles.bloqueFinal} wrap={false}>
           <View style={styles.separadorFinal} />
           <View style={styles.filaResumenLinea}>
-            <Text style={styles.labelResumenLinea}>Subtotal</Text>
-            <Text style={styles.montoResumenLinea}>{fmtMon(subtotal, simbolo)}</Text>
+            <Text style={styles.labelResumenLinea}>SUBTOTAL</Text>
+            <Text style={styles.montoResumenLinea}>{fmtMonTotal(subtotal, simbolo)}</Text>
           </View>
 
           {proyecto.incluyeIVA && (
             <View style={styles.filaResumenLinea}>
               <Text style={styles.labelResumenLinea}>IVA (22%)</Text>
-              <Text style={styles.montoResumenLinea}>{fmtMon(montoIVA, simbolo)}</Text>
+              <Text style={styles.montoResumenLinea}>{fmtMonTotal(montoIVA, simbolo)}</Text>
             </View>
           )}
 
           {leyesSocialesPropietario != null && (
             <View style={styles.filaResumenLinea}>
               <Text style={styles.labelResumenLinea}>Leyes sociales — Aporte propietario</Text>
-              <Text style={styles.montoResumenLinea}>{fmtMon(leyesSocialesPropietario, simbolo)}</Text>
+              <Text style={styles.montoResumenLinea}>{fmtMonTotal(leyesSocialesPropietario, simbolo)}</Text>
             </View>
           )}
 
           <View style={styles.separadorTotal} />
           <View style={styles.filaTotalGeneral}>
             <Text style={styles.labelTotalGeneral}>Total presupuesto</Text>
-            <Text style={styles.montoTotalGeneral}>{fmtMon(totalGeneral, simbolo)}</Text>
+            <Text style={styles.montoTotalGeneral}>{fmtMonTotal(totalGeneral, simbolo)}</Text>
           </View>
         </View>
 

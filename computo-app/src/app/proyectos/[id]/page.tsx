@@ -2566,11 +2566,29 @@ export default function ProyectoPage() {
           })}
 
           {/* ── Total general ───────────────────────────── */}
-          <div className="border-t-2 border-slate-300 px-5 py-4 flex items-center justify-between bg-white">
-            <span className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Total general</span>
-            <span className="text-xl font-bold tabular-nums" style={{ color: "#1A3A5C" }}>
-              {fmtMoneda(totalGeneral, moneda)}
-            </span>
+          <div className="border-t-2 border-slate-300 px-5 py-4 bg-white">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Total general</span>
+              <span className="text-xl font-bold tabular-nums" style={{ color: "#1A3A5C" }}>
+                {fmtMoneda(totalGeneral, moneda)}
+              </span>
+            </div>
+            {proyecto?.incluyeIVA && (
+              <>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-xs font-medium text-slate-400">IVA (22%)</span>
+                  <span className="text-sm font-semibold tabular-nums text-slate-500">
+                    {fmtMoneda(totalGeneral * 0.22, moneda)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-slate-200">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total + IVA</span>
+                  <span className="text-base font-bold tabular-nums text-[#2563EB]">
+                    {fmtMoneda(totalGeneral * 1.22, moneda)}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
