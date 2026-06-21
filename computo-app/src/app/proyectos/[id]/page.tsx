@@ -1675,26 +1675,6 @@ export default function ProyectoPage() {
     }, 800);
   }, [proyectoId]);
 
-  // Para booleanos tipo checkbox no usamos debounce: el usuario puede
-  // hacer clic en "PDF" inmediatamente después de tildar, y ese PATCH
-  // debe haber terminado antes de que se genere el documento.
-  const guardarInmediato = useCallback(async (campo: string, valor: unknown) => {
-    try {
-      await fetch(`/api/proyectos/${proyectoId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [campo]: valor }),
-      });
-    } catch (err) {
-      console.error(`[auto-save proyecto:${campo}]`, err);
-    }
-  }, [proyectoId]);
-
-  const actualizarIncluyeIVA = useCallback((v: boolean) => {
-    setProyecto((prev) => prev ? { ...prev, incluyeIVA: v } : prev);
-    guardarInmediato("incluyeIVA", v);
-  }, [guardarInmediato]);
-
   const actualizarTimbresCJP = useCallback((v: number) => {
     setProyecto((prev) => prev ? { ...prev, timbresCJP: v } : prev);
     guardarCampoProyecto("timbresCJP", v);
@@ -2591,32 +2571,20 @@ export default function ProyectoPage() {
           </div>
         </div>
 
-        {/* ── IVA sobre el total — control inline ─────────── */}
+        {/* ── IVA sobre el total — siempre visible ──────────── */}
         <div className="mt-3 rounded-[10px] border border-slate-200 bg-slate-50 px-4 py-3">
-          <label className="flex items-center justify-between cursor-pointer">
-            <span className="flex items-center gap-2.5">
-              <input
-                type="checkbox"
-                checked={proyecto?.incluyeIVA ?? false}
-                onChange={(e) => actualizarIncluyeIVA(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30"
-              />
-              <span className="text-sm font-medium text-slate-600">Incluir IVA (22%)</span>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-600">IVA (22%)</span>
+            <span className="text-sm font-semibold tabular-nums text-slate-500">
+              + {fmtMoneda(totalGeneral * 0.22, moneda)}
             </span>
-            {proyecto?.incluyeIVA && (
-              <span className="text-sm font-semibold tabular-nums text-slate-500">
-                + {fmtMoneda(totalGeneral * 0.22, moneda)}
-              </span>
-            )}
-          </label>
-          {proyecto?.incluyeIVA && (
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total + IVA</span>
-              <span className="text-base font-bold tabular-nums text-[#2563EB]">
-                {fmtMoneda(totalGeneral * 1.22, moneda)}
-              </span>
-            </div>
-          )}
+          </div>
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total general + IVA</span>
+            <span className="text-base font-bold tabular-nums text-[#2563EB]">
+              {fmtMoneda(totalGeneral * 1.22, moneda)}
+            </span>
+          </div>
         </div>
 
         {/* Botón agregar capítulo */}
@@ -2647,10 +2615,8 @@ export default function ProyectoPage() {
           capitulos={capitulosConSubtotal}
           subtotalObra={totalGeneral}
           montoImponibleMO={leyesSociales ? leyesSociales.montoImponibleMO : null}
-          incluyeIVA={proyecto?.incluyeIVA ?? false}
           timbresCJP={proyecto?.timbresCJP ?? 0}
           gastosGeneralesItems={proyecto?.gastosGeneralesItems ?? []}
-          onChangeIncluyeIVA={actualizarIncluyeIVA}
           onChangeTimbresCJP={actualizarTimbresCJP}
           onChangeGastosGeneralesItems={actualizarGastosGeneralesItems}
         />

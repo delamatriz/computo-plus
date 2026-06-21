@@ -23,10 +23,8 @@ interface Props {
   capitulos: CapituloResumen[];
   subtotalObra: number;
   montoImponibleMO: number | null;
-  incluyeIVA: boolean;
   timbresCJP: number;
   gastosGeneralesItems: GastoGeneralItem[];
-  onChangeIncluyeIVA: (v: boolean) => void;
   onChangeTimbresCJP: (v: number) => void;
   onChangeGastosGeneralesItems: (items: GastoGeneralItem[]) => void;
 }
@@ -45,10 +43,8 @@ export default function SeccionResumenPresupuesto({
   capitulos,
   subtotalObra,
   montoImponibleMO,
-  incluyeIVA,
   timbresCJP,
   gastosGeneralesItems,
-  onChangeIncluyeIVA,
   onChangeTimbresCJP,
   onChangeGastosGeneralesItems,
 }: Props) {
@@ -61,7 +57,7 @@ export default function SeccionResumenPresupuesto({
   const subtotalGastosGenerales = (montoAUC ?? 0) + timbresCJP + sumaItemsExtras;
 
   const baseIVA = subtotalObra + subtotalGastosGenerales;
-  const montoIVA = incluyeIVA ? baseIVA * IVA_PCT : 0;
+  const montoIVA = baseIVA * IVA_PCT;
   const totalFinal = baseIVA + montoIVA;
 
   const agregarItem = () => {
@@ -215,38 +211,23 @@ export default function SeccionResumenPresupuesto({
                 </div>
               </div>
 
-              {/* D) IVA */}
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={incluyeIVA}
-                  onChange={(e) => onChangeIncluyeIVA(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30"
-                />
-                <span className="text-sm text-slate-700">Incluir IVA (22%)</span>
-              </label>
-
-              {/* E) Total final */}
+              {/* D) Total final — IVA siempre se muestra */}
               <div className="border-t border-slate-300 pt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-bold text-[#1A3A5C] uppercase tracking-wide">Total presupuesto</span>
                   <span className="text-2xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(baseIVA, moneda)}</span>
                 </div>
 
-                {incluyeIVA && (
-                  <>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-sm text-slate-600">IVA (22%)</span>
-                      <span className="text-sm font-semibold tabular-nums text-slate-600">
-                        {fmtMoneda(montoIVA, moneda)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t-2 border-slate-300">
-                      <span className="text-base font-bold text-[#1A3A5C] uppercase tracking-wide">Total con IVA</span>
-                      <span className="text-2xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(totalFinal, moneda)}</span>
-                    </div>
-                  </>
-                )}
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-sm text-slate-600">IVA (22%)</span>
+                  <span className="text-sm font-semibold tabular-nums text-slate-600">
+                    {fmtMoneda(montoIVA, moneda)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t-2 border-slate-300">
+                  <span className="text-base font-bold text-[#1A3A5C] uppercase tracking-wide">Total con IVA</span>
+                  <span className="text-2xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(totalFinal, moneda)}</span>
+                </div>
               </div>
             </div>
           </motion.div>

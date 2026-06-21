@@ -366,7 +366,7 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
     0
   );
   const subtotal = subtotalObra + proyecto.gastosGenerales;
-  const montoIVA = proyecto.incluyeIVA ? subtotal * 0.22 : 0;
+  const montoIVA = subtotal * 0.22;
   const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * 0.714 : null;
   const totalGeneral = subtotal + montoIVA + (leyesSocialesPropietario ?? 0);
   const codigoGastosGenerales = String(proyecto.capitulos.length + 1).padStart(2, "0");
@@ -422,12 +422,10 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
             <Text style={styles.montoResumenLinea}>{fmtMonTotal(subtotal, simbolo)}</Text>
           </View>
 
-          {proyecto.incluyeIVA && (
-            <View style={styles.filaResumenLinea}>
-              <Text style={styles.labelResumenLinea}>IVA (22%)</Text>
-              <Text style={styles.montoResumenLinea}>{fmtMonTotal(montoIVA, simbolo)}</Text>
-            </View>
-          )}
+          <View style={styles.filaResumenLinea}>
+            <Text style={styles.labelResumenLinea}>IVA (22%)</Text>
+            <Text style={styles.montoResumenLinea}>{fmtMonTotal(montoIVA, simbolo)}</Text>
+          </View>
 
           {leyesSocialesPropietario != null && (
             <View style={styles.filaResumenLinea}>
