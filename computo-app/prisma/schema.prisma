@@ -42,6 +42,9 @@ model Proyecto {
   generandoRubros    Boolean    @default(false)
   requierePlanSeguridad Boolean @default(false)
   modalidadAltura    String?    // "andamios" | "balancin" | "silleta" | "combinacion" | "grua" — pueden combinarse separados por coma
+  incluyeIVA            Boolean   @default(false)
+  timbresCJP            Float     @default(0)
+  gastosGeneralesItems  Json?     // [{ id: string, descripcion: string, monto: number }]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }

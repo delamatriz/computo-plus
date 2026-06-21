@@ -12,6 +12,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       where: { id },
       include: {
         empresa: true,
+        leyesSociales: true,
         capitulos: {
           orderBy: { orden: "asc" },
           include: {
@@ -27,6 +28,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
     }
 
+    const montoAUC = (proyecto.leyesSociales?.montoImponibleMO ?? 0) * 0.714;
+    const itemsExtras = Array.isArray(proyecto.gastosGeneralesItems)
+      ? (proyecto.gastosGeneralesItems as { id: string; descripcion: string; monto: number }[])
+      : [];
+    const sumaItemsExtras = itemsExtras.reduce((s, item) => s + (item.monto || 0), 0);
+    const gastosGenerales = montoAUC + proyecto.timbresCJP + sumaItemsExtras;
+
     const datos: ProyectoConCapitulos = {
       id: proyecto.id,
       nombre: proyecto.nombre,
@@ -36,6 +44,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       direccion: proyecto.direccion,
       moneda: proyecto.moneda,
       empresa: proyecto.empresa ? { nombre: proyecto.empresa.nombre } : null,
+      gastosGenerales,
+      incluyeIVA: proyecto.incluyeIVA,
       capitulos: proyecto.capitulos.map((cap) => ({
         id: cap.id,
         nombre: cap.nombre,

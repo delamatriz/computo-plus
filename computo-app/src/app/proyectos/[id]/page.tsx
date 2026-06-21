@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
+import SeccionResumenPresupuesto, { GastoGeneralItem } from "@/components/SeccionResumenPresupuesto";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
@@ -43,6 +44,9 @@ interface ProyectoData {
   fechaBaseIndice?: string | null;
   ultimaActualizacionIndice?: string | null;
   generandoRubros?: boolean;
+  incluyeIVA?: boolean;
+  timbresCJP?: number;
+  gastosGeneralesItems?: GastoGeneralItem[];
 }
 
 /* ─── Tipos base ──────────────────────────────────────────── */
@@ -1512,6 +1516,9 @@ export default function ProyectoPage() {
         fechaBaseIndice: data.fechaBaseIndice ?? null,
         ultimaActualizacionIndice: data.ultimaActualizacionIndice ?? null,
         generandoRubros: data.generandoRubros ?? false,
+        incluyeIVA: data.incluyeIVA ?? false,
+        timbresCJP: data.timbresCJP ?? 0,
+        gastosGeneralesItems: Array.isArray(data.gastosGeneralesItems) ? data.gastosGeneralesItems : [],
       });
 
       // Mapear capítulos y rubros
@@ -1651,10 +1658,48 @@ export default function ProyectoPage() {
     }
   }, [proyectoId, leyesSociales]);
 
+  // ─── Resumen del presupuesto — Gastos Generales / IVA ──────
+  const guardarCampoProyecto = useCallback((campo: string, valor: unknown) => {
+    const key = `proyecto:${campo}`;
+    clearTimeout(debounceTimers.current[key]);
+    debounceTimers.current[key] = setTimeout(async () => {
+      try {
+        await fetch(`/api/proyectos/${proyectoId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [campo]: valor }),
+        });
+      } catch (err) {
+        console.error(`[auto-save proyecto:${campo}]`, err);
+      }
+    }, 800);
+  }, [proyectoId]);
+
+  const actualizarIncluyeIVA = useCallback((v: boolean) => {
+    setProyecto((prev) => prev ? { ...prev, incluyeIVA: v } : prev);
+    guardarCampoProyecto("incluyeIVA", v);
+  }, [guardarCampoProyecto]);
+
+  const actualizarTimbresCJP = useCallback((v: number) => {
+    setProyecto((prev) => prev ? { ...prev, timbresCJP: v } : prev);
+    guardarCampoProyecto("timbresCJP", v);
+  }, [guardarCampoProyecto]);
+
+  const actualizarGastosGeneralesItems = useCallback((items: GastoGeneralItem[]) => {
+    setProyecto((prev) => prev ? { ...prev, gastosGeneralesItems: items } : prev);
+    guardarCampoProyecto("gastosGeneralesItems", items);
+  }, [guardarCampoProyecto]);
+
   const proyectoActivo = proyecto ?? PROYECTO;
   const moneda = proyectoActivo.moneda;
   const estado = ESTADOS[proyectoActivo.estado] ?? ESTADOS.BORRADOR;
   const totalGeneral = capitulos.reduce((s, c) => s + totalCapitulo(c), 0);
+  const capitulosConSubtotal = capitulos.map((c) => ({
+    id: c.id,
+    nombre: c.nombre,
+    codigo: c.codigo,
+    subtotal: totalCapitulo(c),
+  }));
 
   const { filas: filasMateriales, total: totalMateriales } = useMemo(
     () => computarMaterialesGlobales(capitulos, apuData),
@@ -2550,6 +2595,20 @@ export default function ProyectoPage() {
             metodoMontoImponible={metodoMontoImponible}
           />
         )}
+
+        {/* ── Resumen del Presupuesto ───────────────────────── */}
+        <SeccionResumenPresupuesto
+          moneda={moneda}
+          capitulos={capitulosConSubtotal}
+          subtotalObra={totalGeneral}
+          montoImponibleMO={leyesSociales ? leyesSociales.montoImponibleMO : null}
+          incluyeIVA={proyecto?.incluyeIVA ?? false}
+          timbresCJP={proyecto?.timbresCJP ?? 0}
+          gastosGeneralesItems={proyecto?.gastosGeneralesItems ?? []}
+          onChangeIncluyeIVA={actualizarIncluyeIVA}
+          onChangeTimbresCJP={actualizarTimbresCJP}
+          onChangeGastosGeneralesItems={actualizarGastosGeneralesItems}
+        />
 
         {/* ── Certificaciones ──────────────────────────────── */}
         <SeccionCertificaciones

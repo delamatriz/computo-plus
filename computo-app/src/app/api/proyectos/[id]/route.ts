@@ -98,6 +98,9 @@ export async function PATCH(
         ...(body.generandoRubros !== undefined && { generandoRubros: body.generandoRubros }),
         ...(body.requierePlanSeguridad !== undefined && { requierePlanSeguridad: !!body.requierePlanSeguridad }),
         ...(body.modalidadAltura !== undefined && { modalidadAltura: body.modalidadAltura || null }),
+        ...(body.incluyeIVA  !== undefined && { incluyeIVA: !!body.incluyeIVA }),
+        ...(body.timbresCJP  !== undefined && { timbresCJP: parseFloat(body.timbresCJP) || 0 }),
+        ...(body.gastosGeneralesItems !== undefined && { gastosGeneralesItems: body.gastosGeneralesItems }),
       },
     });
     return NextResponse.json(proyecto);

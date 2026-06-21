@@ -31,6 +31,8 @@ export interface ProyectoConCapitulos {
   moneda: string;
   empresa: EmpresaPDF | null;
   capitulos: CapituloPDF[];
+  gastosGenerales: number;
+  incluyeIVA: boolean;
 }
 
 /* ─── Formato de números ──────────────────────────────────── */
@@ -184,11 +186,61 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
   },
 
-  // Total general
+  // Resumen final
+  bloqueResumen: {
+    marginTop: 20,
+    borderTopWidth: 2,
+    borderTopColor: "#1A3A5C",
+    paddingTop: 10,
+  },
+  tituloResumen: {
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A3A5C",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  filaResumenCapitulo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 2.5,
+    paddingHorizontal: 6,
+  },
+  textoResumenCapitulo: {
+    fontSize: 8.5,
+    color: "#475569",
+  },
+  textoResumenMonto: {
+    fontSize: 8.5,
+    color: "#475569",
+  },
   separadorFinal: {
     borderBottomWidth: 1,
     borderBottomColor: "#CBD5E1",
-    marginTop: 18,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  filaResumenLinea: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+  },
+  labelResumenLinea: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A3A5C",
+  },
+  montoResumenLinea: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A3A5C",
+  },
+  separadorTotal: {
+    borderBottomWidth: 2,
+    borderBottomColor: "#1A3A5C",
+    marginTop: 6,
     marginBottom: 8,
   },
   filaTotalGeneral: {
@@ -310,10 +362,13 @@ function PiePagina({ nombreProyecto }: { nombreProyecto: string }) {
 /* ─── Documento principal ─────────────────────────────────── */
 export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos }) {
   const simbolo = simboloMoneda(proyecto.moneda);
-  const totalGeneral = proyecto.capitulos.reduce(
+  const subtotalObra = proyecto.capitulos.reduce(
     (acc, cap) => acc + cap.rubros.reduce((a, r) => a + r.cantidad * r.precioUnit, 0),
     0
   );
+  const baseIVA = subtotalObra + proyecto.gastosGenerales;
+  const montoIVA = proyecto.incluyeIVA ? baseIVA * 0.22 : 0;
+  const totalGeneral = baseIVA + montoIVA;
 
   const datosSubtitulo = [
     proyecto.cliente,
@@ -341,11 +396,46 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
           <BloqueCapitulo key={cap.id} capitulo={cap} esPrimero={i === 0} simbolo={simbolo} />
         ))}
 
-        {/* Total general */}
-        <View style={styles.separadorFinal} />
-        <View style={styles.filaTotalGeneral} wrap={false}>
-          <Text style={styles.labelTotalGeneral}>Total general</Text>
-          <Text style={styles.montoTotalGeneral}>{fmtMon(totalGeneral, simbolo)}</Text>
+        {/* Resumen */}
+        <View style={styles.bloqueResumen} wrap={false}>
+          <Text style={styles.tituloResumen}>Resumen</Text>
+
+          {proyecto.capitulos.map((cap) => {
+            const subtotalCap = cap.rubros.reduce((a, r) => a + r.cantidad * r.precioUnit, 0);
+            if (!subtotalCap) return null;
+            return (
+              <View key={cap.id} style={styles.filaResumenCapitulo}>
+                <Text style={styles.textoResumenCapitulo}>
+                  Cap. {cap.codigo} {cap.nombre}
+                </Text>
+                <Text style={styles.textoResumenMonto}>{fmtMon(subtotalCap, simbolo)}</Text>
+              </View>
+            );
+          })}
+
+          <View style={styles.separadorFinal} />
+          <View style={styles.filaResumenLinea}>
+            <Text style={styles.labelResumenLinea}>Subtotal obra</Text>
+            <Text style={styles.montoResumenLinea}>{fmtMon(subtotalObra, simbolo)}</Text>
+          </View>
+
+          <View style={styles.filaResumenLinea}>
+            <Text style={styles.labelResumenLinea}>Gastos generales</Text>
+            <Text style={styles.montoResumenLinea}>{fmtMon(proyecto.gastosGenerales, simbolo)}</Text>
+          </View>
+
+          {proyecto.incluyeIVA && (
+            <View style={styles.filaResumenLinea}>
+              <Text style={styles.labelResumenLinea}>IVA (22%)</Text>
+              <Text style={styles.montoResumenLinea}>{fmtMon(montoIVA, simbolo)}</Text>
+            </View>
+          )}
+
+          <View style={styles.separadorTotal} />
+          <View style={styles.filaTotalGeneral}>
+            <Text style={styles.labelTotalGeneral}>Total presupuesto</Text>
+            <Text style={styles.montoTotalGeneral}>{fmtMon(totalGeneral, simbolo)}</Text>
+          </View>
         </View>
 
         <PiePagina nombreProyecto={proyecto.nombre} />
