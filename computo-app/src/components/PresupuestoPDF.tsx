@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   montoTotalGeneral: {
     fontSize: 16,
     fontFamily: "Helvetica-Bold",
-    color: "#2563EB",
+    color: "#1A3A5C",
   },
 
   // Footer
