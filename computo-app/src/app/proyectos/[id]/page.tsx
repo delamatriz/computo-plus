@@ -2578,8 +2578,8 @@ export default function ProyectoPage() {
 
           {/* Tarjeta 3 - TOTAL + IVA */}
           <div className="bg-white border-2 border-[#1A3A5C] rounded-lg px-5 py-4 flex justify-between items-center">
-            <span className="text-sm font-semibold uppercase tracking-wide text-[#1A3A5C]">Total + IVA</span>
-            <span className="text-2xl font-bold text-[#1A3A5C]">{fmtMoneda(totalGeneral * 1.22, moneda)}</span>
+            <span className="text-sm font-semibold uppercase tracking-wide text-[#2563EB]">Total + IVA</span>
+            <span className="text-2xl font-bold text-[#2563EB]">{fmtMoneda(totalGeneral * 1.22, moneda)}</span>
           </div>
 
         </div>
