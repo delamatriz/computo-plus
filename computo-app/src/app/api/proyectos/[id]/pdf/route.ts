@@ -72,12 +72,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const nombreArchivoAscii = `Presupuesto-${nombreAscii}.pdf`;
     const nombreArchivoUtf8 = encodeURIComponent(`Presupuesto-${nombreBase}.pdf`);
 
-    return new NextResponse(new Uint8Array(buffer), {
+    const response = new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="${nombreArchivoAscii}"; filename*=UTF-8''${nombreArchivoUtf8}`,
       },
     });
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch (err) {
     console.error("[GET /api/proyectos/[id]/pdf]", err);
     return NextResponse.json({ error: "Error interno generando el PDF" }, { status: 500 });

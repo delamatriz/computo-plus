@@ -1675,10 +1675,25 @@ export default function ProyectoPage() {
     }, 800);
   }, [proyectoId]);
 
+  // Para booleanos tipo checkbox no usamos debounce: el usuario puede
+  // hacer clic en "PDF" inmediatamente después de tildar, y ese PATCH
+  // debe haber terminado antes de que se genere el documento.
+  const guardarInmediato = useCallback(async (campo: string, valor: unknown) => {
+    try {
+      await fetch(`/api/proyectos/${proyectoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [campo]: valor }),
+      });
+    } catch (err) {
+      console.error(`[auto-save proyecto:${campo}]`, err);
+    }
+  }, [proyectoId]);
+
   const actualizarIncluyeIVA = useCallback((v: boolean) => {
     setProyecto((prev) => prev ? { ...prev, incluyeIVA: v } : prev);
-    guardarCampoProyecto("incluyeIVA", v);
-  }, [guardarCampoProyecto]);
+    guardarInmediato("incluyeIVA", v);
+  }, [guardarInmediato]);
 
   const actualizarTimbresCJP = useCallback((v: number) => {
     setProyecto((prev) => prev ? { ...prev, timbresCJP: v } : prev);
