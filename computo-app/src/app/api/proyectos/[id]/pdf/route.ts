@@ -28,12 +28,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
     }
 
-    const montoAUC = (proyecto.leyesSociales?.montoImponibleMO ?? 0) * 0.714;
+    // El AUC propietario NO va en Gastos Generales — se muestra aparte en
+    // la línea "Leyes Sociales — Aporte Propietario" para evitar duplicarlo.
     const itemsExtras = Array.isArray(proyecto.gastosGeneralesItems)
       ? (proyecto.gastosGeneralesItems as { id: string; descripcion: string; monto: number }[])
       : [];
     const sumaItemsExtras = itemsExtras.reduce((s, item) => s + (item.monto || 0), 0);
-    const gastosGenerales = montoAUC + proyecto.timbresCJP + sumaItemsExtras;
+    const gastosGenerales = proyecto.timbresCJP + sumaItemsExtras;
 
     const datos: ProyectoConCapitulos = {
       id: proyecto.id,
