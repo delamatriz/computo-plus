@@ -2564,7 +2564,7 @@ export default function ProyectoPage() {
           <div className="border-t-2 border-slate-300 px-5 py-4 bg-white">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Total</span>
-              <span className="text-xl font-bold tabular-nums" style={{ color: "#1A3A5C" }}>
+              <span className="text-xl font-bold tabular-nums text-[#2563EB]">
                 {fmtMoneda(totalGeneral, moneda)}
               </span>
             </div>
