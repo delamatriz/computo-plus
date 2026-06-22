@@ -18,7 +18,6 @@ import {
   LayoutList,
   Trash2,
   Loader2,
-  TriangleAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
@@ -842,6 +841,7 @@ interface DrawerAPUProps {
   onClose: () => void;
   onApuChange: (apu: APU) => void;
   onAplicar: (precioUnit: number, apu: APU) => void;
+  onToggleTrabajoEnAltura: (actual: boolean) => void;
 }
 
 function SeccionAPU({
@@ -880,7 +880,7 @@ function SeccionAPU({
   );
 }
 
-function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: DrawerAPUProps) {
+function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura }: DrawerAPUProps) {
   const dragControls = useDragControls();
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [mostrarSelectorMO, setMostrarSelectorMO] = useState(false);
@@ -1066,6 +1066,24 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
         {/* Cuerpo scrollable */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
 
+          {/* Trabajo en altura */}
+          <div>
+            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!rubro.trabajoEnAltura}
+                onChange={() => onToggleTrabajoEnAltura(!!rubro.trabajoEnAltura)}
+                className="w-3.5 h-3.5 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/20"
+              />
+              Este rubro requiere trabajo en altura
+            </label>
+            {rubro.trabajoEnAltura && (
+              <div className="mt-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                Trabajo en altura activo — categoría Oficial trabajo en altura priorizada en Mano de Obra
+              </div>
+            )}
+          </div>
+
           {/* 1 — MATERIALES */}
           <SeccionAPU titulo="Materiales">
             <div className="pb-2">
@@ -1220,11 +1238,6 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar }: Draw
           {/* 2 — MANO DE OBRA */}
           <SeccionAPU titulo="Mano de obra">
             <div className="pb-2">
-              {rubro.trabajoEnAltura && (
-                <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
-                  Rubro en altura — considerar categoría Oficial trabajo en altura
-                </div>
-              )}
               <div className="overflow-x-auto -mx-4 px-4">
               <table className="w-full text-xs border-collapse min-w-[480px]">
                 <colgroup>
@@ -1729,6 +1742,9 @@ export default function ProyectoPage() {
   // Rubro activo en el drawer
   const drawerRubro = drawerRubroId
     ? capitulos.flatMap((c) => c.rubros).find((r) => r.id === drawerRubroId) ?? null
+    : null;
+  const drawerCapId = drawerRubroId
+    ? capitulos.find((c) => c.rubros.some((r) => r.id === drawerRubroId))?.id ?? null
     : null;
   const drawerAPU = drawerRubroId ? (apuData[drawerRubroId] ?? {
     materiales: [], manoObra: [], equipos: [], gastosGeneralesPct: 15, utilidadPct: 10,
@@ -2487,17 +2503,6 @@ export default function ProyectoPage() {
 
                                 {/* Descripción + badge APU */}
                                 <div className="flex-1 px-2 min-w-0 flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleTrabajoEnAltura(cap.id, rubro.id, !!rubro.trabajoEnAltura)}
-                                    title="Trabajo en altura"
-                                    className={cn(
-                                      "flex-shrink-0 flex items-center justify-center transition-colors",
-                                      rubro.trabajoEnAltura ? "text-amber-500" : "text-slate-300 hover:text-slate-400"
-                                    )}
-                                  >
-                                    <TriangleAlert className="w-3.5 h-3.5" />
-                                  </button>
                                   <input
                                     type="text"
                                     value={descripcionEnFoco === rubro.id ? rubro.descripcion : toTitleCase(rubro.descripcion)}
@@ -2800,7 +2805,7 @@ export default function ProyectoPage() {
 
       {/* ── Drawer APU ──────────────────────────────────── */}
       <AnimatePresence>
-        {drawerRubroId && drawerRubro && drawerAPU && (
+        {drawerRubroId && drawerRubro && drawerAPU && drawerCapId && (
           <DrawerAPU
             rubro={drawerRubro}
             apu={drawerAPU}
@@ -2808,6 +2813,7 @@ export default function ProyectoPage() {
             onClose={() => setDrawerRubroId(null)}
             onApuChange={(apu) => setApuData((prev) => ({ ...prev, [drawerRubroId]: apu }))}
             onAplicar={(precio, apuActual) => aplicarPrecioAPU(drawerRubroId, precio, apuActual)}
+            onToggleTrabajoEnAltura={(actual) => toggleTrabajoEnAltura(drawerCapId, drawerRubroId, actual)}
           />
         )}
       </AnimatePresence>
