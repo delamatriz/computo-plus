@@ -1078,8 +1078,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
               Este rubro requiere trabajo en altura
             </label>
             {rubro.trabajoEnAltura && (
-              <div className="mt-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
-                Trabajo en altura activo — categoría Oficial trabajo en altura priorizada en Mano de Obra
+              <div className="mt-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
+                Trabajo en altura activo — Categoría Oficial trabajo en altura
               </div>
             )}
           </div>
