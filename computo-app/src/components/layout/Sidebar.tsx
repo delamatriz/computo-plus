@@ -15,6 +15,7 @@ import {
   Plus,
   Wrench,
   Ruler,
+  Library,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,6 +40,7 @@ const navItems = [
     section: "Sistema",
     items: [
       { href: "/configuracion", icon: Settings, label: "Configuración" },
+      { href: "/referencias", icon: Library, label: "Referencias" },
     ],
   },
 ];
