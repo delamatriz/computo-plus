@@ -1,109 +1,83 @@
 "use client";
 
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { Header } from "@/components/layout/Header";
+import { useRouter } from "next/navigation";
 
-const MODES = [
-  {
-    id: "rapido",
-    title: "Cálculo Rápido",
-    description:
-      "Detallá las tareas a realizar de forma precisa y el tipo de obra. Tendrás un presupuesto orientativo en segundos.",
-    cta: "Calcular ahora",
-    href: "/calcular",
-  },
-  {
-    id: "obra",
-    title: "Nuevo Proyecto",
-    description:
-      "Creá tu presupuesto con capítulos y rubros. Presupuesto completo con descomposición de precios, mano de obra y metrajes.",
-    cta: "Crear proyecto",
-    href: "/proyectos/nuevo",
-  },
-];
+export default function SplashPage() {
+  const router = useRouter();
 
-export default function HomePage() {
   return (
-    <div className="min-h-full bg-slate-50 flex flex-col">
-      <Header />
+    <div className="relative w-screen h-screen overflow-hidden flex flex-col items-center justify-center">
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: "url('/obra-portada.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center 30%",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to bottom, rgba(10,20,35,0.35) 0%, rgba(10,20,35,0.55) 40%, rgba(10,20,35,0.80) 100%)",
+        }}
+      />
 
-      {/* Hero */}
-      <section className="max-w-4xl mx-auto w-full px-6 pt-16 pb-10 text-center">
-        <motion.h1
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="text-4xl md:text-5xl font-bold tracking-tight text-[#1A3A5C] mb-3"
+      <div
+        className="relative z-10 flex flex-col items-center gap-6 text-center px-8"
+        style={{ animation: "fadeIn 1.1s ease both" }}
+      >
+        <div
+          className="font-bold text-white leading-none"
+          style={{
+            fontSize: "clamp(2.8rem, 8vw, 5.5rem)",
+            letterSpacing: "-0.04em",
+          }}
         >
-          Presupuestá tu obra
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.08 }}
-          className="text-lg text-slate-500"
-        >
-          Desde el cálculo inicial hasta la certificación final, todo en un solo lugar.
-        </motion.p>
-        <motion.p
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.14 }}
-          className="text-sm text-slate-400 mt-2"
-        >
-          De la medición al presupuesto en minutos.
-        </motion.p>
-      </section>
-
-      {/* Tarjetas */}
-      <section className="max-w-3xl mx-auto w-full px-6 pt-6 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {MODES.map((mode, i) => (
-            <motion.div
-              key={mode.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: 0.12 + i * 0.07 }}
-            >
-              <Link href={mode.href} className="block h-full group">
-                <div className="h-full min-h-[200px] rounded-xl border border-slate-200 bg-white p-6 flex flex-col shadow-md transition-shadow duration-200 hover:shadow-lg">
-                  <h3 className="text-xl font-bold text-[#1A3A5C] mb-2">
-                    {mode.title}
-                  </h3>
-                  <p className="text-sm text-slate-500 leading-relaxed flex-1">
-                    {mode.description}
-                  </p>
-                  <div className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[#2563EB]">
-                    {mode.cta}
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
+          CÓMPUTO<span style={{ color: "#2563EB" }}>+</span>
         </div>
 
-        <motion.p
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.3 }}
-          className="text-slate-500 text-base max-w-2xl mx-auto mt-10 text-center"
-        >
-          Una herramienta completa para presupuestar y gestionar obras. Precios de
-          materiales, mano de obra y leyes sociales de nuestro mercado, análisis de
-          costos detallados, metrajes vinculados al presupuesto, certificaciones
-          mensuales de avance y cronograma de obra integrado.
-        </motion.p>
-      </section>
+        <div
+          className="w-[60px] h-[2px]"
+          style={{
+            background: "linear-gradient(90deg, transparent, #2563EB, transparent)",
+          }}
+        />
 
-      {/* Footer */}
-      <footer className="border-t border-slate-100 mt-auto">
-        <div className="max-w-4xl mx-auto px-6 py-6 text-center">
-          <p className="text-slate-400 text-xs">Presupuestación de Obra Premium · Uruguay</p>
-        </div>
-      </footer>
+        <p
+          className="font-light text-white/80 uppercase"
+          style={{
+            fontSize: "clamp(0.9rem, 2.5vw, 1.2rem)",
+            letterSpacing: "0.12em",
+          }}
+        >
+          De la medición al presupuesto en minutos
+        </p>
+
+        <button
+          onClick={() => router.push("/proyectos")}
+          className="mt-4 bg-transparent text-white rounded-full px-12 py-3.5 text-sm font-semibold uppercase tracking-widest border-[1.5px] border-white/60 transition-all duration-300 hover:bg-white/10 hover:border-white hover:-translate-y-0.5"
+        >
+          Entrar
+        </button>
+      </div>
+
+      <div className="absolute bottom-8 right-8 z-10 text-[0.72rem] font-medium text-white/35 tracking-wide">
+        v1.0 · Uruguay
+      </div>
+
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(16px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }
