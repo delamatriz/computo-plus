@@ -225,15 +225,16 @@ model CapituloEstandar {
 }
 
 model Configuracion {
-  id                  String   @id @default(cuid())
-  jornalBase          Float    @default(0)
-  aportesBPS          Float    @default(0.785)
-  margenEmpresa       Float    @default(0.20)
-  margenImprevistos   Float    @default(0.05)
-  iva                 Float    @default(0.22)
-  monedaDefault       String   @default("UYU")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                  String    @id @default(cuid())
+  jornalBase          Float     @default(0)
+  aportesBPS          Float     @default(0.785)
+  margenEmpresa       Float     @default(0.20)
+  margenImprevistos   Float     @default(0.05)
+  iva                 Float     @default(0.22)
+  monedaDefault       String    @default("UYU")
+  convenioFechaVigente DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
 
 model Certificacion {
