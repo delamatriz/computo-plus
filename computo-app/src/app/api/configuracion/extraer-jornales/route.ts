@@ -77,6 +77,8 @@ export async function POST(request: NextRequest) {
     const text =
       message.content[0].type === "text" ? message.content[0].text : "";
 
+    console.log("[configuracion/extraer-jornales] respuesta de Claude:", text);
+
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) {
       return NextResponse.json(
@@ -85,16 +87,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const resultado = JSON.parse(match[0]);
-
-    if (!Array.isArray(resultado.categorias) || resultado.categorias.length === 0) {
+    let resultado;
+    try {
+      resultado = JSON.parse(match[0]);
+    } catch (parseErr) {
+      console.error(
+        "[configuracion/extraer-jornales] no se pudo parsear el JSON:",
+        parseErr
+      );
       return NextResponse.json(
         { error: "lectura_incierta" },
         { status: 422 }
       );
     }
 
-    return NextResponse.json(resultado);
+    console.log(
+      "[configuracion/extraer-jornales] resultado parseado:",
+      JSON.stringify(resultado)
+    );
+
+    const categoriasValidas = Array.isArray(resultado.categorias)
+      ? resultado.categorias.filter(
+          (c: { nombre?: unknown; jornal?: unknown }) =>
+            typeof c?.nombre === "string" && typeof c?.jornal === "number"
+        )
+      : [];
+
+    if (categoriasValidas.length < 3) {
+      return NextResponse.json(
+        { error: "lectura_incierta" },
+        { status: 422 }
+      );
+    }
+
+    return NextResponse.json({ ...resultado, categorias: categoriasValidas });
   } catch (err) {
     console.error("[configuracion/extraer-jornales]", err);
     return NextResponse.json(
