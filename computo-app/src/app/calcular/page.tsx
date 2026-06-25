@@ -13,7 +13,6 @@ import {
   Camera,
   X,
 } from "lucide-react";
-import { Header } from "@/components/layout/Header";
 import { cn } from "@/lib/utils";
 
 /* ─── Datos de referencia ─────────────────────────────────── */
@@ -286,8 +285,6 @@ export default function CalcularPage() {
 
   return (
     <div className="min-h-full flex flex-col" style={{ background: "#F0F4F8" }}>
-      <Header />
-
       <div className="max-w-6xl mx-auto w-full px-6 py-10 flex-1">
         {/* Encabezado */}
         <motion.div
