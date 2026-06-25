@@ -55,7 +55,7 @@ export default function SplashPage() {
         </p>
 
         <button
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push("/inicio")}
           className="mt-4 bg-transparent text-white rounded-full px-12 py-3.5 text-sm font-semibold uppercase tracking-widest border-[1.5px] border-white/60 transition-all duration-300 hover:bg-white/10 hover:border-white hover:-translate-y-0.5"
         >
           Entrar

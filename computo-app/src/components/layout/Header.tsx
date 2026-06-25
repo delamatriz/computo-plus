@@ -15,7 +15,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  const isHome = pathname === "/";
+  const isHome = pathname === "/inicio";
 
   return (
     <header
@@ -38,7 +38,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
       )}
 
       {/* Logo */}
-      <Link href="/" className="flex items-center gap-2.5 select-none group min-w-0">
+      <Link href="/inicio" className="flex items-center gap-2.5 select-none group min-w-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/icon-delamatriz.png" alt="De La Matriz" height={32} style={{ height: 32, width: "auto" }} className="flex-shrink-0" />
         <div className="flex items-baseline gap-0.5 min-w-0">
