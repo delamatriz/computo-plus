@@ -24,6 +24,7 @@ interface FormData {
   area: string;
   fechaInicio: string;
   plazoObra: string;
+  diasLaborales: string;
   descripcion: string;
   requierePlanSeguridad: boolean;
   modalidadAltura: string[];
@@ -44,7 +45,7 @@ export default function EditarProyectoPage() {
 
   const [form, setForm] = useState<FormData>({
     nombre: "", cliente: "", tipo: "VIVIENDA", direccion: "",
-    moneda: "UYU", area: "", fechaInicio: "", plazoObra: "", descripcion: "",
+    moneda: "UYU", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", descripcion: "",
     requierePlanSeguridad: false, modalidadAltura: [],
   });
   const [cargando, setCargando] = useState(true);
@@ -66,6 +67,7 @@ export default function EditarProyectoPage() {
           area: data.area != null ? String(data.area) : "",
           fechaInicio: data.fechaInicio ? data.fechaInicio.slice(0, 10) : "",
           plazoObra: data.plazoObra != null ? String(data.plazoObra) : "",
+          diasLaborales: data.diasLaborales != null ? String(data.diasLaborales) : "",
           descripcion: data.descripcion ?? "",
           requierePlanSeguridad: !!data.requierePlanSeguridad,
           modalidadAltura: data.modalidadAltura ? data.modalidadAltura.split(",").filter(Boolean) : [],
@@ -104,6 +106,7 @@ export default function EditarProyectoPage() {
           area: form.area ? parseFloat(form.area) : null,
           fechaInicio: form.fechaInicio || null,
           plazoObra: form.plazoObra ? parseInt(form.plazoObra, 10) : null,
+          diasLaborales: form.diasLaborales ? parseInt(form.diasLaborales, 10) : null,
           descripcion: form.descripcion.trim() || null,
           requierePlanSeguridad: form.requierePlanSeguridad,
           modalidadAltura: form.requierePlanSeguridad && form.modalidadAltura.length > 0
@@ -254,6 +257,22 @@ export default function EditarProyectoPage() {
             />
             <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">días</span>
           </div>
+        </Field>
+
+        <Field label="Días laborales">
+          <div className="relative max-w-[160px]">
+            <input
+              type="number"
+              value={form.diasLaborales}
+              onChange={(e) => set("diasLaborales", e.target.value)}
+              placeholder="ej: 65"
+              min={1}
+              className={inputCls}
+            />
+          </div>
+          <p className="text-xs text-slate-400 mt-1.5">
+            Días hábiles de trabajo (distinto del plazo en días corridos)
+          </p>
         </Field>
 
         <Field label="Otros datos">

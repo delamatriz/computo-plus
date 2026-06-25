@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionResumenPresupuesto, { GastoGeneralItem } from "@/components/SeccionResumenPresupuesto";
+import SeccionGarantias from "@/components/SeccionGarantias";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
@@ -47,6 +48,11 @@ interface ProyectoData {
   incluyeIVA?: boolean;
   timbresCJP?: number;
   gastosGeneralesItems?: GastoGeneralItem[];
+  plazoObra?: number | null;
+  diasLaborales?: number | null;
+  garantiaFielCumplimiento?: string | null;
+  garantiaViciosOcultos?: string | null;
+  garantiaResponsabilidad?: string | null;
 }
 
 /* ─── Tipos base ──────────────────────────────────────────── */
@@ -211,6 +217,9 @@ const PROYECTO = {
   createdAt: null as string | null,
   fechaBaseIndice: null as string | null,
   ultimaActualizacionIndice: null as string | null,
+  garantiaFielCumplimiento: null as string | null,
+  garantiaViciosOcultos: null as string | null,
+  garantiaResponsabilidad: null as string | null,
 };
 
 const ESTADOS = {
@@ -1555,6 +1564,11 @@ export default function ProyectoPage() {
         incluyeIVA: data.incluyeIVA ?? false,
         timbresCJP: data.timbresCJP ?? 0,
         gastosGeneralesItems: Array.isArray(data.gastosGeneralesItems) ? data.gastosGeneralesItems : [],
+        plazoObra: data.plazoObra ?? null,
+        diasLaborales: data.diasLaborales ?? null,
+        garantiaFielCumplimiento: data.garantiaFielCumplimiento ?? null,
+        garantiaViciosOcultos: data.garantiaViciosOcultos ?? null,
+        garantiaResponsabilidad: data.garantiaResponsabilidad ?? null,
       });
 
       // Mapear capítulos y rubros
@@ -1721,6 +1735,22 @@ export default function ProyectoPage() {
   const actualizarGastosGeneralesItems = useCallback((items: GastoGeneralItem[]) => {
     setProyecto((prev) => prev ? { ...prev, gastosGeneralesItems: items } : prev);
     guardarCampoProyecto("gastosGeneralesItems", items);
+  }, [guardarCampoProyecto]);
+
+  // ─── Garantías ──────────────────────────────────────────────
+  const actualizarGarantiaFielCumplimiento = useCallback((v: string) => {
+    setProyecto((prev) => prev ? { ...prev, garantiaFielCumplimiento: v } : prev);
+    guardarCampoProyecto("garantiaFielCumplimiento", v);
+  }, [guardarCampoProyecto]);
+
+  const actualizarGarantiaViciosOcultos = useCallback((v: string) => {
+    setProyecto((prev) => prev ? { ...prev, garantiaViciosOcultos: v } : prev);
+    guardarCampoProyecto("garantiaViciosOcultos", v);
+  }, [guardarCampoProyecto]);
+
+  const actualizarGarantiaResponsabilidad = useCallback((v: string) => {
+    setProyecto((prev) => prev ? { ...prev, garantiaResponsabilidad: v } : prev);
+    guardarCampoProyecto("garantiaResponsabilidad", v);
   }, [guardarCampoProyecto]);
 
   const proyectoActivo = proyecto ?? PROYECTO;
@@ -2678,6 +2708,16 @@ export default function ProyectoPage() {
           gastosGeneralesItems={proyecto?.gastosGeneralesItems ?? []}
           onChangeTimbresCJP={actualizarTimbresCJP}
           onChangeGastosGeneralesItems={actualizarGastosGeneralesItems}
+        />
+
+        {/* ── Garantías ──────────────────────────────────────── */}
+        <SeccionGarantias
+          fielCumplimiento={proyectoActivo.garantiaFielCumplimiento ?? ""}
+          viciosOcultos={proyectoActivo.garantiaViciosOcultos ?? ""}
+          responsabilidad={proyectoActivo.garantiaResponsabilidad ?? ""}
+          onChangeFielCumplimiento={actualizarGarantiaFielCumplimiento}
+          onChangeViciosOcultos={actualizarGarantiaViciosOcultos}
+          onChangeResponsabilidad={actualizarGarantiaResponsabilidad}
         />
 
         {/* ── Certificaciones ──────────────────────────────── */}

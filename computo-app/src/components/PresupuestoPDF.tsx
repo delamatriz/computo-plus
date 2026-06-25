@@ -34,7 +34,17 @@ export interface ProyectoConCapitulos {
   gastosGenerales: number;
   incluyeIVA: boolean;
   montoImponibleMO: number | null;
+  plazoObra?: number | null;
+  diasLaborales?: number | null;
+  garantiaFielCumplimiento?: string | null;
+  garantiaViciosOcultos?: string | null;
+  garantiaResponsabilidad?: string | null;
 }
+
+export const TEXTO_LEGAL_RESPONSABILIDAD_DEFAULT =
+  "Conforme al artículo 1844 del Código Civil (Ley 19.726): 10 años por defectos estructurales, " +
+  "5 años por vicios de menor entidad y 2 años por defectos de terminación y acabado, contados " +
+  "desde la recepción de la obra.";
 
 /* ─── Formato de números ──────────────────────────────────── */
 function fmtNum(v: number): string {
@@ -261,6 +271,55 @@ const styles = StyleSheet.create({
     color: "#1A3A5C",
   },
 
+  // Plazo de obra
+  filaPlazo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+  },
+  labelPlazo: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#64748B",
+  },
+  montoPlazo: {
+    fontSize: 8.5,
+    color: "#334155",
+  },
+
+  // Garantías
+  bloqueGarantias: {
+    marginTop: 18,
+  },
+  separadorGarantias: {
+    borderTopWidth: 0.5,
+    borderTopColor: "#CBD5E1",
+    marginBottom: 10,
+  },
+  tituloGarantias: {
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A3A5C",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  itemGarantia: {
+    marginBottom: 8,
+  },
+  labelGarantia: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: "#64748B",
+    marginBottom: 2,
+  },
+  textoGarantia: {
+    fontSize: 8,
+    color: "#475569",
+    lineHeight: 1.4,
+  },
+
   // Footer
   footer: {
     position: "absolute",
@@ -438,6 +497,44 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
           <View style={styles.filaTotalGeneral}>
             <Text style={styles.labelTotalGeneral}>Total presupuesto</Text>
             <Text style={styles.montoTotalGeneral}>{fmtMonTotal(totalGeneral, simbolo)}</Text>
+          </View>
+
+          {proyecto.diasLaborales != null && (
+            <View style={styles.filaPlazo}>
+              <Text style={styles.labelPlazo}>Plazo de obra</Text>
+              <Text style={styles.montoPlazo}>
+                {proyecto.plazoObra != null ? `${fmtNum(proyecto.plazoObra)} días corridos / ` : ""}
+                {fmtNum(proyecto.diasLaborales)} días laborales
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.bloqueGarantias} wrap={false}>
+          <View style={styles.separadorGarantias} />
+          <Text style={styles.tituloGarantias}>Garantías</Text>
+
+          {proyecto.garantiaFielCumplimiento ? (
+            <View style={styles.itemGarantia}>
+              <Text style={styles.labelGarantia}>Garantía de fiel cumplimiento</Text>
+              <Text style={styles.textoGarantia}>{proyecto.garantiaFielCumplimiento}</Text>
+            </View>
+          ) : null}
+
+          {proyecto.garantiaViciosOcultos ? (
+            <View style={styles.itemGarantia}>
+              <Text style={styles.labelGarantia}>Garantía por vicios ocultos</Text>
+              <Text style={styles.textoGarantia}>{proyecto.garantiaViciosOcultos}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.itemGarantia}>
+            <Text style={styles.labelGarantia}>
+              Responsabilidad por defectos de construcción (Art. 1844)
+            </Text>
+            <Text style={styles.textoGarantia}>
+              {proyecto.garantiaResponsabilidad || TEXTO_LEGAL_RESPONSABILIDAD_DEFAULT}
+            </Text>
           </View>
         </View>
 

@@ -30,6 +30,7 @@ interface FormData {
   area: string;
   fechaInicio: string;
   plazoMeses: string;
+  diasLaborales: string;
   descripcion: string;
   capitulos: Capitulo[];
   fotos: FotoProyecto[];
@@ -177,6 +178,7 @@ function NuevoProyectoContent() {
     area: searchParams.get("area") ?? "",
     fechaInicio: "",
     plazoMeses: "",
+    diasLaborales: "",
     descripcion: "",
     capitulos: [],
     fotos: [],
@@ -404,6 +406,7 @@ function NuevoProyectoContent() {
           direccion: form.direccion,
           fechaInicio: form.fechaInicio,
           plazoObra: form.plazoMeses,
+          diasLaborales: form.diasLaborales ? parseInt(form.diasLaborales, 10) : null,
           requierePlanSeguridad: form.requierePlanSeguridad,
           modalidadAltura: form.requierePlanSeguridad && form.modalidadAltura.length > 0
             ? form.modalidadAltura.join(",")
@@ -809,6 +812,22 @@ function NuevoProyectoContent() {
                       días
                     </span>
                   </div>
+                </Field>
+
+                <Field label="Días laborales">
+                  <div className="relative max-w-[160px]">
+                    <input
+                      type="number"
+                      value={form.diasLaborales}
+                      onChange={(e) => set("diasLaborales", e.target.value)}
+                      placeholder="ej: 65"
+                      min={1}
+                      className={inputCls}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    Días hábiles de trabajo (distinto del plazo en días corridos)
+                  </p>
                 </Field>
 
                 {modoCompleto && (

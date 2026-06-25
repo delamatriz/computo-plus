@@ -45,6 +45,10 @@ model Proyecto {
   incluyeIVA            Boolean   @default(false)
   timbresCJP            Float     @default(0)
   gastosGeneralesItems  Json?     // [{ id: string, descripcion: string, monto: number }]
+  diasLaborales         Int?
+  garantiaFielCumplimiento String? @db.Text
+  garantiaViciosOcultos    String? @db.Text
+  garantiaResponsabilidad  String? @db.Text
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }
