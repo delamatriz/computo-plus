@@ -32,6 +32,26 @@ const referencias: Referencia[] = [
     descripcion: "Responsabilidad solidaria en subcontratación de obras",
     url: "https://www.impo.com.uy/bases/leyes/18251-2008",
   },
+  {
+    titulo: "Ley 14.411 — Industria de la Construcción",
+    descripcion: "Régimen de aportes y leyes sociales de la construcción",
+    url: "https://www.impo.com.uy/bases/leyes/14411-1975",
+  },
+  {
+    titulo: "Ley 19.996",
+    descripcion: "Modificaciones al régimen de la industria de la construcción",
+    url: "https://www.impo.com.uy/bases/leyes/19996-2021",
+  },
+  {
+    titulo: "Pequeñas Obras de Mantenimiento — BPS",
+    descripcion: "Condiciones y requisitos para obras de mantenimiento menores",
+    url: "https://www.bps.gub.uy/9037/",
+  },
+  {
+    titulo: "Artículo 1844 — Responsabilidad por Defectos de Construcción",
+    descripcion: "Código Civil uruguayo modificado por Ley 19.726 (2018) — plazos 10, 5 y 2 años",
+    url: "https://www.impo.com.uy/bases/codigo-civil/16603-1994/1844",
+  },
 ];
 
 export default function ReferenciasPage() {
