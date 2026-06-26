@@ -893,6 +893,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const dragControls = useDragControls();
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [mostrarSelectorMO, setMostrarSelectorMO] = useState(false);
+  const [nuevoMatId, setNuevoMatId] = useState<string | null>(null);
   const [categoriasLaborales, setCategoriasLaborales] = useState<CategoriaLaboral[]>([]);
   const { costoDirecto, precioFinal } = calcAPU(apu);
 
@@ -921,13 +922,14 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   // Auto-save del APU completo a la DB, debounced — se dispara al salir de
   // cualquier campo editable de Materiales, Mano de obra o Equipos.
   const guardarApuTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const guardarApuActual = useCallback(() => {
+  const guardarApuActual = useCallback((apuAGuardar?: APU) => {
+    const payload = apuAGuardar ?? apu;
     if (guardarApuTimer.current) clearTimeout(guardarApuTimer.current);
     guardarApuTimer.current = setTimeout(() => {
       fetch(`/api/rubros/${rubro.id}/apu`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(apu),
+        body: JSON.stringify(payload),
       }).catch((err) => console.error("[auto-save APU]", err));
     }, 600);
   }, [apu, rubro.id]);
@@ -957,28 +959,36 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
 
   // Seleccionar desde el buscador MTOP — agrega nueva fila precargada
   const agregarDesdeMTOP = (m: PrecioMTOPResult) => {
-    setMat([...apu.materiales, {
-      id:             `m${Date.now()}`,
+    const id = `m${Date.now()}`;
+    const nuevosMateriales = [...apu.materiales, {
+      id,
       descripcion:    m.descripcion,
       unidad:         m.unidad,
       rendimiento:    0,
       precioUnit:     m.precioUnitario,
       codigoMTOP:     m.codigo,
       precioMTOPOrig: m.precioUnitario,
-    }]);
+    }];
+    setMat(nuevosMateriales);
     setMostrarBuscador(false);
+    setNuevoMatId(id);
+    guardarApuActual({ ...apu, materiales: nuevosMateriales });
   };
 
   // Agregar fila vacía sin MTOP — pre-completa con el texto escrito en el buscador
   const agregarManual = (texto: string) => {
-    setMat([...apu.materiales, {
-      id: `m${Date.now()}`,
+    const id = `m${Date.now()}`;
+    const nuevosMateriales = [...apu.materiales, {
+      id,
       descripcion: texto.trim(),
       unidad: "",
       rendimiento: 0,
       precioUnit: 0,
-    }]);
+    }];
+    setMat(nuevosMateriales);
     setMostrarBuscador(false);
+    setNuevoMatId(id);
+    guardarApuActual({ ...apu, materiales: nuevosMateriales });
   };
 
   const updateMO = (id: string, field: keyof ManoObraAPU, val: string) =>
@@ -1139,23 +1149,26 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                               type="text"
                               value={m.descripcion}
                               onChange={(e) => updateMat(m.id, "descripcion", e.target.value)}
-                              onBlur={guardarApuActual}
+                              onBlur={() => guardarApuActual()}
                               placeholder="Descripción"
                               className={inputCls}
+                              autoFocus={m.id === nuevoMatId}
+                              ref={m.id === nuevoMatId ? (el) => el?.scrollIntoView({ block: "center" }) : undefined}
+                              onFocus={() => { if (m.id === nuevoMatId) setNuevoMatId(null); }}
                             />
                           </td>
                           <td className="text-center">
-                            <input type="text" value={m.dosificacion ?? ""} onChange={(e) => updateMat(m.id, "dosificacion", e.target.value)} onBlur={guardarApuActual} placeholder="—" className={cn(inputCls, "text-center text-slate-500")} />
+                            <input type="text" value={m.dosificacion ?? ""} onChange={(e) => updateMat(m.id, "dosificacion", e.target.value)} onBlur={() => guardarApuActual()} placeholder="—" className={cn(inputCls, "text-center text-slate-500")} />
                           </td>
                           <td className="text-center">
-                            <input type="text" value={m.unidad} onChange={(e) => updateMat(m.id, "unidad", e.target.value)} onBlur={guardarApuActual} placeholder="u" className={cn(inputCls, "text-center")} />
+                            <input type="text" value={m.unidad} onChange={(e) => updateMat(m.id, "unidad", e.target.value)} onBlur={() => guardarApuActual()} placeholder="u" className={cn(inputCls, "text-center")} />
                           </td>
                           <td className="text-right pr-2">
                             <input
                               type="number"
                               value={m.rendimiento === 0 ? "" : m.rendimiento}
                               onChange={(e) => updateMat(m.id, "rendimiento", e.target.value)}
-                              onBlur={guardarApuActual}
+                              onBlur={() => guardarApuActual()}
                               placeholder="0"
                               className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
                             />
@@ -1165,7 +1178,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                               type="number"
                               value={m.precioUnit === 0 ? "" : m.precioUnit}
                               onChange={(e) => updateMat(m.id, "precioUnit", e.target.value)}
-                              onBlur={guardarApuActual}
+                              onBlur={() => guardarApuActual()}
                               placeholder="0.00"
                               className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
                             />
@@ -1281,10 +1294,10 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     return (
                       <tr key={mo.id} className="border-b border-slate-50" style={{ height: 28 }}>
                         <td className="pl-4 pr-2">
-                          <input type="text" value={mo.categoria} onChange={(e) => updateMO(mo.id, "categoria", e.target.value)} onBlur={guardarApuActual} placeholder="Peón / Oficial" className={inputCls} />
+                          <input type="text" value={mo.categoria} onChange={(e) => updateMO(mo.id, "categoria", e.target.value)} onBlur={() => guardarApuActual()} placeholder="Peón / Oficial" className={inputCls} />
                         </td>
                         <td className="text-right pr-2">
-                          <input type="number" value={mo.jornadaHs || ""} onChange={(e) => updateMO(mo.id, "jornadaHs", e.target.value)} onBlur={guardarApuActual} placeholder="8" className={cn(inputCls, "text-right")} />
+                          <input type="number" value={mo.jornadaHs || ""} onChange={(e) => updateMO(mo.id, "jornadaHs", e.target.value)} onBlur={() => guardarApuActual()} placeholder="8" className={cn(inputCls, "text-right")} />
                         </td>
                         <td className="text-right pr-2 tabular-nums text-slate-700">
                           {hsPorUnidad > 0 ? fmtMon(hsPorUnidad) : "—"}
@@ -1293,7 +1306,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                           {hsTotales != null && hsTotales > 0 ? fmtMon(hsTotales) : "—"}
                         </td>
                         <td className="text-right pr-3">
-                          <input type="number" value={mo.jornalRef || ""} onChange={(e) => updateMO(mo.id, "jornalRef", e.target.value)} onBlur={guardarApuActual} placeholder="0" className={cn(inputCls, "text-right")} />
+                          <input type="number" value={mo.jornalRef || ""} onChange={(e) => updateMO(mo.id, "jornalRef", e.target.value)} onBlur={() => guardarApuActual()} placeholder="0" className={cn(inputCls, "text-right")} />
                           {catRef && (
                             <div className="text-[9px] text-slate-400 leading-tight">{catRef.categoria}</div>
                           )}

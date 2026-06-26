@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
 
-/** Normaliza tildes y convierte a minúsculas para búsqueda en SQLite */
+/** Normaliza tildes para que "hormigon" también encuentre "Hormigón" */
 function normalizar(s: string): string {
   return s
     .toLowerCase()
@@ -14,17 +13,6 @@ function normalizar(s: string): string {
     .replace(/ñ/g, "n");
 }
 
-type FilaMTOP = {
-  id: string;
-  codigo: string;
-  descripcion: string;
-  unidad: string;
-  precioUnitario: number;
-  precioConIva: number;
-  cantidadUnidad: string;
-  numeroLista: number;
-};
-
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
 
@@ -33,23 +21,28 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // SQLite no soporta mode:'insensitive' de Prisma (solo PostgreSQL).
-    // Usamos $queryRaw con LOWER() en ambos lados para case-insensitive.
-    // El término se normaliza (sin tildes) para cubrir "hormigon" → "Hormigón".
     const qNorm = normalizar(q);
-    const patron = `%${qNorm}%`;
 
-    const resultados = await db.$queryRaw<FilaMTOP[]>(
-      Prisma.sql`
-        SELECT id, codigo, descripcion, unidad,
-               precioUnitario, precioConIva, cantidadUnidad, numeroLista
-        FROM   PrecioMTOP
-        WHERE  LOWER(descripcion) LIKE ${patron}
-            OR LOWER(descripcion) LIKE ${"%" + q.toLowerCase() + "%"}
-        ORDER BY descripcion ASC
-        LIMIT 8
-      `
-    );
+    const resultados = await db.precioMTOP.findMany({
+      where: {
+        OR: [
+          { descripcion: { contains: qNorm, mode: "insensitive" } },
+          { descripcion: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select: {
+        id: true,
+        codigo: true,
+        descripcion: true,
+        unidad: true,
+        precioUnitario: true,
+        precioConIva: true,
+        cantidadUnidad: true,
+        numeroLista: true,
+      },
+      orderBy: { descripcion: "asc" },
+      take: 8,
+    });
 
     return NextResponse.json(resultados);
   } catch (err) {
