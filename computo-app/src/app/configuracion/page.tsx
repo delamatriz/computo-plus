@@ -20,6 +20,29 @@ interface CategoriaExtraida {
   jornal: number;
 }
 
+interface MaterialReferencia {
+  id: string;
+  codigo: string;
+  descripcion: string;
+  unidad: string;
+  precioUnitario: number;
+}
+
+const CODIGOS_MATERIALES_REFERENCIA = [
+  "TICH-0800",
+  "TICH-1200",
+  "TICH-1700",
+  "LAD-COMUN",
+  "LAD-PRIMERA",
+  "LAD-CHORIZO",
+  "BLOQUE-1219",
+  "BLOQUE-1919",
+  "CAL-HID",
+  "PIEDRA-BRUTA",
+  "MAD-ENCOFRADO",
+  "TEJA-COLONIAL",
+];
+
 interface ResultadoExtraccion {
   categorias: CategoriaExtraida[];
   fechaVigencia?: string;
@@ -70,6 +93,11 @@ export default function ConfiguracionPage() {
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
 
+  const [materialesRef, setMaterialesRef] = useState<MaterialReferencia[]>([]);
+  const [preciosRef, setPreciosRef] = useState<Record<string, string>>({});
+  const [guardandoMateriales, setGuardandoMateriales] = useState(false);
+  const [materialesGuardados, setMaterialesGuardados] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [extrayendo, setExtrayendo] = useState(false);
@@ -78,12 +106,14 @@ export default function ConfiguracionPage() {
 
   useEffect(() => {
     async function cargar() {
-      const [resCategorias, resConfig] = await Promise.all([
+      const [resCategorias, resConfig, resMateriales] = await Promise.all([
         fetch("/api/categorias-laborales"),
         fetch("/api/configuracion"),
+        fetch(`/api/precios-mtop?codigos=${CODIGOS_MATERIALES_REFERENCIA.join(",")}`),
       ]);
       const dataCategorias: CategoriaLaboral[] = await resCategorias.json();
       const dataConfig: Configuracion = await resConfig.json();
+      const dataMateriales: MaterialReferencia[] = await resMateriales.json();
 
       setCategorias(dataCategorias);
       setJornales(
@@ -95,10 +125,40 @@ export default function ConfiguracionPage() {
           ? dataConfig.convenioFechaVigente.slice(0, 10)
           : ""
       );
+      setMaterialesRef(dataMateriales);
+      setPreciosRef(
+        Object.fromEntries(dataMateriales.map((m) => [m.codigo, String(m.precioUnitario)]))
+      );
       setCargando(false);
     }
     cargar();
   }, []);
+
+  async function guardarMaterialesRef() {
+    setGuardandoMateriales(true);
+    setMaterialesGuardados(false);
+
+    const materiales = materialesRef
+      .map((m) => ({ codigo: m.codigo, precioUnitario: Number(preciosRef[m.codigo]) }))
+      .filter((m) => Number.isFinite(m.precioUnitario));
+
+    await fetch("/api/precios-mtop", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ materiales }),
+    });
+
+    setMaterialesRef((prev) =>
+      prev.map((m) => ({
+        ...m,
+        precioUnitario: Number(preciosRef[m.codigo] ?? m.precioUnitario),
+      }))
+    );
+
+    setGuardandoMateriales(false);
+    setMaterialesGuardados(true);
+    setTimeout(() => setMaterialesGuardados(false), 2500);
+  }
 
   async function guardarCambios() {
     setGuardando(true);
@@ -332,6 +392,57 @@ export default function ConfiguracionPage() {
             {guardando ? "Guardando..." : "Guardar cambios"}
           </button>
           {guardado && (
+            <span className="text-sm text-emerald-600">Cambios guardados</span>
+          )}
+        </div>
+      </section>
+
+      <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+        <h2 className="text-lg font-semibold text-[#1E293B] mb-1">
+          Precios de Referencia de Materiales
+        </h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Materiales de mampostería que no están en la Lista Oficial MTOP N°599 — precio de referencia editable.
+        </p>
+
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-slate-500 border-b border-slate-200">
+              <th className="py-2 font-medium">Descripción</th>
+              <th className="py-2 font-medium w-24">Unidad</th>
+              <th className="py-2 font-medium w-40">Precio (UYU)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {materialesRef.map((m) => (
+              <tr key={m.id} className="border-b border-slate-100 last:border-0">
+                <td className="py-2 text-[#1E293B]">{m.descripcion}</td>
+                <td className="py-2 text-slate-500">{m.unidad}</td>
+                <td className="py-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={preciosRef[m.codigo] ?? ""}
+                    onChange={(e) =>
+                      setPreciosRef((prev) => ({ ...prev, [m.codigo]: e.target.value }))
+                    }
+                    className="w-32 border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="flex items-center gap-3 mt-5">
+          <button
+            onClick={guardarMaterialesRef}
+            disabled={guardandoMateriales}
+            className="bg-[#2563EB] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-60 transition-colors"
+          >
+            {guardandoMateriales ? "Guardando..." : "Guardar cambios"}
+          </button>
+          {materialesGuardados && (
             <span className="text-sm text-emerald-600">Cambios guardados</span>
           )}
         </div>
