@@ -85,6 +85,7 @@ interface SubrubroEstandar {
   precioUY: number;
   fechaBase: string;
   aportesSociales: number;
+  tieneApuEstandar?: boolean;
 }
 
 type MapeoSAU = { alias: string[]; capitulos: string[]; subcapitulos?: string[] };
@@ -756,8 +757,19 @@ function PanelSubrubrosEstandar({
                 <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
                   {s.codigo} — {toTitleCase(s.descripcion)}
                 </span>
-                <span className="text-sm font-bold text-[#2563EB] whitespace-nowrap flex-shrink-0 tabular-nums">
-                  {fmtMonedaDecimal(precio, moneda)}/{s.unidad}
+                <span className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
+                  {s.tieneApuEstandar && (
+                    <span
+                      title="Tiene descompuesto (APU) pre-cargado"
+                      className="flex items-center gap-1 text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      APU
+                    </span>
+                  )}
+                  <span className="text-sm font-bold text-[#2563EB] tabular-nums">
+                    {fmtMonedaDecimal(precio, moneda)}/{s.unidad}
+                  </span>
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -2045,8 +2057,61 @@ export default function ProyectoPage() {
         }),
       });
 
-      // Subrubro sin precio base (precioUY === 0) — disparar sugerencia de APU automáticamente
-      if (sinPrecio) {
+      // Subrubro con APU estándar pre-cargado en la biblioteca — clonarlo al rubro real
+      if (sub.tieneApuEstandar) {
+        try {
+          const resClon = await fetch(`/api/subrubros-estandar/${sub.id}/clonar-apu`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rubroId }),
+          });
+          if (resClon.ok) {
+            const { apu: apuClonado, rubro: rubroActualizado } = await resClon.json();
+            const nuevoAPU: APU = {
+              gastosGeneralesPct: apuClonado.gastosGeneralesPct,
+              utilidadPct: apuClonado.utilidadPct,
+              materiales: apuClonado.materiales.map((m: InsumoAPU) => ({
+                id: m.id,
+                descripcion: m.descripcion,
+                unidad: m.unidad,
+                rendimiento: m.rendimiento,
+                precioUnit: m.precioUnit,
+                dosificacion: m.dosificacion,
+              })),
+              manoObra: apuClonado.manoObra.map((mo: ManoObraAPU) => ({
+                id: mo.id,
+                categoria: mo.categoria,
+                jornadaHs: mo.jornadaHs,
+                rendimiento: mo.rendimiento,
+                jornalRef: mo.jornalRef,
+              })),
+              equipos: apuClonado.equipos.map((eq: EquipoAPU) => ({
+                id: eq.id,
+                descripcion: eq.descripcion,
+                unidad: eq.unidad,
+                rendimiento: eq.rendimiento,
+                costoUnit: eq.costoUnit,
+              })),
+            };
+            setApuData((prev) => ({ ...prev, [rubroId]: nuevoAPU }));
+            setCapitulos((prev) =>
+              prev.map((c) =>
+                c.id !== capId ? c : {
+                  ...c,
+                  rubros: c.rubros.map((r) =>
+                    r.id !== rubroId ? r : { ...r, precioUnit: rubroActualizado.precioUnit }
+                  ),
+                }
+              )
+            );
+          }
+        } catch (err) {
+          console.error("[agregarRubroDesdeSubrubro clonarApu]", err);
+        }
+      }
+
+      // Subrubro sin precio base (precioUY === 0) y sin APU estándar — disparar sugerencia de APU con IA
+      if (sinPrecio && !sub.tieneApuEstandar) {
         setApuGenerando((prev) => new Set(prev).add(rubroId));
         fetch(`/api/rubros/${rubroId}/sugerir-apu`, {
           method: "POST",

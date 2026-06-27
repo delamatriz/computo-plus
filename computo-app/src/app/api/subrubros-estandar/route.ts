@@ -11,10 +11,16 @@ export async function GET(req: NextRequest) {
         activo: true,
         ...(capitulo ? { capitulo } : {}),
       },
+      include: { apuEstandar: { select: { id: true } } },
       orderBy: { codigo: "asc" },
     });
 
-    return NextResponse.json(subrubros);
+    const resultado = subrubros.map(({ apuEstandar, ...sub }) => ({
+      ...sub,
+      tieneApuEstandar: apuEstandar != null,
+    }));
+
+    return NextResponse.json(resultado);
   } catch (err) {
     console.error("[GET /api/subrubros-estandar]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });

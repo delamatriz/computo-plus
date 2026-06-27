@@ -275,20 +275,59 @@ model FotoCertificacionItem {
 }
 
 model SubrubroEstandar {
-  id              String   @id @default(cuid())
+  id              String       @id @default(cuid())
   codigo          String
   capitulo        String
   subcapitulo     String?
   descripcion     String
   unidad          String
   precioUY        Float
-  fechaBase       String   @default("2022-08")
-  aportesSociales Float    @default(0)
-  origen          String   @default("sau_ago2022")
-  activo          Boolean  @default(true)
-  createdAt       DateTime @default(now())
+  fechaBase       String       @default("2022-08")
+  aportesSociales Float        @default(0)
+  origen          String       @default("sau_ago2022")
+  activo          Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  apuEstandar     APUEstandar?
 
   @@unique([codigo])
+}
+
+model APUEstandar {
+  id                 String                @id @default(cuid())
+  subrubroId         String                @unique
+  subrubro           SubrubroEstandar      @relation(fields: [subrubroId], references: [id], onDelete: Cascade)
+  gastosGeneralesPct Float                 @default(15)
+  utilidadPct        Float                 @default(10)
+  materiales         MaterialAPUEstandar[]
+  manoObra           ManoObraAPUEstandar[]
+  equipos            EquipoAPUEstandar[]
+}
+
+model MaterialAPUEstandar {
+  id          String      @id @default(cuid())
+  descripcion String
+  unidad      String
+  rendimiento Float
+  apuId       String
+  apu         APUEstandar @relation(fields: [apuId], references: [id], onDelete: Cascade)
+}
+
+model ManoObraAPUEstandar {
+  id          String      @id @default(cuid())
+  categoria   String
+  jornadaHs   Float       @default(8)
+  rendimiento Float
+  apuId       String
+  apu         APUEstandar @relation(fields: [apuId], references: [id], onDelete: Cascade)
+}
+
+model EquipoAPUEstandar {
+  id          String      @id @default(cuid())
+  descripcion String
+  unidad      String
+  rendimiento Float
+  apuId       String
+  apu         APUEstandar @relation(fields: [apuId], references: [id], onDelete: Cascade)
 }
 
 model PrecioMTOP {
