@@ -54,16 +54,24 @@ export async function POST(
     await db.manoObraAPU.deleteMany({ where: { apuId } });
     await db.equipoAPU.deleteMany({ where: { apuId } });
 
-    // 2 — Materiales
+    // 2 — Materiales (precio desde la Lista MTOP N°599 por descripción, si hay match)
     for (let i = 0; i < apuEstandar.materiales.length; i++) {
       const m = apuEstandar.materiales[i];
+      const precioMTOP = await db.precioMTOP.findFirst({
+        where: {
+          descripcion: { contains: m.descripcion, mode: "insensitive" },
+        },
+        orderBy: { id: "asc" },
+      });
+      const precioUnit = precioMTOP?.precioUnitario ?? 0;
+
       await db.materialAPU.create({
         data: {
           apuId,
           descripcion: m.descripcion,
           unidad: m.unidad,
           rendimiento: m.rendimiento,
-          precioUnit: 0,
+          precioUnit,
           orden: i,
         },
       });
