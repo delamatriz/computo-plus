@@ -15,7 +15,7 @@ const referencias: Referencia[] = [
   {
     titulo: "Lista de Precios MTOP N°599",
     descripcion: "Precios de materiales de construcción — Ministerio de Transporte",
-    url: "https://www.mtop.gub.uy",
+    url: "https://www.gub.uy/ministerio-transporte-obras-publicas/tematica/precios-construccion",
   },
   {
     titulo: "Índice ICCV — INE",
