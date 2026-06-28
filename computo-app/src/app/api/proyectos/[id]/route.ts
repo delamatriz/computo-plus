@@ -86,6 +86,7 @@ export async function PATCH(
       where: { id },
       data: {
         ...(body.nombre     !== undefined && { nombre:     body.nombre }),
+        ...(body.subtitulo  !== undefined && { subtitulo:  body.subtitulo }),
         ...(body.cliente    !== undefined && { cliente:    body.cliente }),
         ...(body.tipo       !== undefined && { tipo:       body.tipo }),
         ...(body.estado     !== undefined && { estado:     body.estado }),

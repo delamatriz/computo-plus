@@ -39,6 +39,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const datos: ProyectoConCapitulos = {
       id: proyecto.id,
       nombre: proyecto.nombre,
+      subtitulo: proyecto.subtitulo,
       cliente: proyecto.cliente,
       tipo: proyecto.tipo,
       area: proyecto.area,

@@ -25,6 +25,7 @@ model Empresa {
 model Proyecto {
   id          String     @id @default(cuid())
   nombre      String
+  subtitulo   String?
   cliente     String?
   moneda      String     @default("UYU")
   tipo        String     @default("VIVIENDA")

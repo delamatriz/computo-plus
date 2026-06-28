@@ -30,6 +30,7 @@ interface EmpresaPDF {
 export interface ProyectoConCapitulos {
   id: string;
   nombre: string;
+  subtitulo: string | null;
   cliente: string | null;
   tipo: string;
   area: number | null;
@@ -394,6 +395,12 @@ const styles = StyleSheet.create({
     color: "#1E293B",
     flex: 1,
   },
+  portadaSubtitulo: {
+    fontSize: 9,
+    fontFamily: "Helvetica",
+    color: "#64748B",
+    marginTop: 2,
+  },
 
   // Footer
   footer: {
@@ -515,7 +522,13 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
       <View style={styles.portadaSeparadorFino} />
 
       <View style={styles.portadaTabla}>
-        <DatoPortada label="Proyecto" valor={proyecto.nombre} />
+        <View style={styles.portadaFilaDato}>
+          <Text style={styles.portadaLabelDato}>Proyecto</Text>
+          <View>
+            <Text style={styles.portadaValorDato}>{proyecto.nombre}</Text>
+            {proyecto.subtitulo ? <Text style={styles.portadaSubtitulo}>{proyecto.subtitulo}</Text> : null}
+          </View>
+        </View>
         <DatoPortada label="Cliente" valor={proyecto.cliente} />
         <DatoPortada label="Tipo" valor={proyecto.tipo} />
         <DatoPortada label="Área" valor={proyecto.area ? `${fmtNum(proyecto.area)} m²` : null} />

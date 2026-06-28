@@ -17,6 +17,7 @@ const TIPOS_OBRA = [
 
 interface FormData {
   nombre: string;
+  subtitulo: string;
   cliente: string;
   tipo: string;
   direccion: string;
@@ -44,7 +45,7 @@ export default function EditarProyectoPage() {
   const proyectoId = params?.id as string;
 
   const [form, setForm] = useState<FormData>({
-    nombre: "", cliente: "", tipo: "VIVIENDA", direccion: "",
+    nombre: "", subtitulo: "", cliente: "", tipo: "VIVIENDA", direccion: "",
     moneda: "UYU", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", descripcion: "",
     requierePlanSeguridad: false, modalidadAltura: [],
   });
@@ -60,6 +61,7 @@ export default function EditarProyectoPage() {
         if (cancelado) return;
         setForm({
           nombre: data.nombre ?? "",
+          subtitulo: data.subtitulo ?? "",
           cliente: data.cliente ?? "",
           tipo: data.tipo ?? "VIVIENDA",
           direccion: data.direccion ?? "",
@@ -99,6 +101,7 @@ export default function EditarProyectoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nombre: form.nombre.trim(),
+          subtitulo: form.subtitulo.trim() || null,
           cliente: form.cliente.trim() || null,
           tipo: form.tipo,
           direccion: form.direccion.trim() || null,
@@ -158,6 +161,19 @@ export default function EditarProyectoPage() {
             placeholder="ej: Vivienda unifamiliar — Pocitos"
             className={inputCls}
           />
+        </Field>
+
+        <Field label="Subtítulo de la obra">
+          <input
+            type="text"
+            value={form.subtitulo}
+            onChange={(e) => set("subtitulo", e.target.value)}
+            placeholder="ej: Reforma integral de baño y cocina"
+            className={inputCls}
+          />
+          <p className="text-xs text-slate-400 mt-1.5">
+            Aparece en el encabezado del presupuesto al cliente
+          </p>
         </Field>
 
         <Field label="Tipo de obra">

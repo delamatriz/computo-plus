@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 /* ─── Tipos ─────────────────────────────────────────────── */
 interface FormData {
   nombre: string;
+  subtitulo: string;
   cliente: string;
   tipo: string;
   rut: string;
@@ -166,6 +167,7 @@ function NuevoProyectoContent() {
 
   const [form, setForm] = useState<FormData>({
     nombre: "",
+    subtitulo: "",
     cliente: "",
     tipo: searchParams.get("tipo")?.toUpperCase() ?? "VIVIENDA",
     rut: "",
@@ -398,6 +400,7 @@ function NuevoProyectoContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nombre: form.nombre,
+          subtitulo: form.subtitulo || null,
           cliente: form.cliente,
           tipo: form.tipo,
           moneda: form.moneda,
@@ -531,6 +534,19 @@ function NuevoProyectoContent() {
                     placeholder="ej: Vivienda unifamiliar — Pocitos"
                     className={inputCls}
                   />
+                </Field>
+
+                <Field label="Subtítulo de la obra">
+                  <input
+                    type="text"
+                    value={form.subtitulo}
+                    onChange={(e) => set("subtitulo", e.target.value)}
+                    placeholder="ej: Reforma integral de baño y cocina"
+                    className={inputCls}
+                  />
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    Aparece en el encabezado del presupuesto al cliente
+                  </p>
                 </Field>
 
                 <Field label="Tipo de obra">

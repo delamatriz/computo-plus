@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       nombre,
+      subtitulo,
       cliente,
       tipo,
       moneda,
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
     const proyecto = await db.proyecto.create({
       data: {
         nombre,
+        subtitulo: subtitulo || null,
         cliente: cliente || "",
         tipo: tipo || "VIVIENDA",
         moneda: moneda || "USD",
