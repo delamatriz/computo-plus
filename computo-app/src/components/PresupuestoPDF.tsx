@@ -328,34 +328,44 @@ const styles = StyleSheet.create({
 
   // Portada
   portadaPage: {
-    paddingTop: 80,
-    paddingBottom: 56,
-    paddingHorizontal: 56,
+    paddingHorizontal: 64,
     fontFamily: "Helvetica",
     fontSize: 9,
     color: "#1E293B",
+    justifyContent: "center",
+  },
+  portadaEmpresaBloque: {
+    alignItems: "center",
   },
   portadaLogo: {
-    width: 120,
-    height: 120,
+    maxWidth: 150,
+    maxHeight: 80,
     objectFit: "contain",
-    marginBottom: 24,
+    marginBottom: 12,
   },
   portadaEmpresaNombre: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: "Helvetica-Bold",
     color: "#1A3A5C",
+    textAlign: "center",
   },
   portadaEmpresaDato: {
-    fontSize: 9.5,
+    fontSize: 10,
     color: "#64748B",
-    marginTop: 3,
+    textAlign: "center",
+    marginTop: 4,
   },
   portadaSeparador: {
-    borderBottomWidth: 1,
+    borderBottomWidth: 1.5,
+    borderBottomColor: "#1A3A5C",
+    marginTop: 18,
+    marginBottom: 18,
+  },
+  portadaSeparadorFino: {
+    borderBottomWidth: 0.75,
     borderBottomColor: "#CBD5E1",
-    marginTop: 28,
-    marginBottom: 28,
+    marginTop: 16,
+    marginBottom: 16,
   },
   portadaTituloDoc: {
     fontSize: 22,
@@ -363,25 +373,25 @@ const styles = StyleSheet.create({
     color: "#1A3A5C",
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    marginBottom: 24,
+    textAlign: "center",
+  },
+  portadaTabla: {
+    marginTop: 4,
   },
   portadaFilaDato: {
     flexDirection: "row",
-    marginBottom: 8,
+    marginBottom: 7,
   },
   portadaLabelDato: {
     width: 90,
-    fontSize: 9.5,
-    fontFamily: "Helvetica-Bold",
-    color: "#64748B",
+    fontSize: 10,
+    color: "#94A3B8",
   },
   portadaValorDato: {
-    fontSize: 9.5,
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
     color: "#1E293B",
     flex: 1,
-  },
-  portadaBloqueFecha: {
-    marginTop: 28,
   },
 
   // Footer
@@ -481,18 +491,19 @@ function DatoPortada({ label, valor }: { label: string; valor: string | null }) 
 function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
   const empresa = proyecto.empresa;
   const datosContacto = empresa
-    ? [empresa.direccion, empresa.telefono, empresa.email].filter(Boolean).join("  |  ")
+    ? [empresa.direccion, empresa.telefono, empresa.email, empresa.web].filter(Boolean).join("  |  ")
     : "";
+
+  const hayPlazo = proyecto.plazoObra != null || proyecto.diasLaborales != null;
 
   return (
     <Page size="A4" style={styles.portadaPage}>
       {empresa && (
-        <View>
+        <View style={styles.portadaEmpresaBloque}>
           {empresa.logo ? <Image style={styles.portadaLogo} src={empresa.logo} /> : null}
           <Text style={styles.portadaEmpresaNombre}>{empresa.nombre}</Text>
           {empresa.rut ? <Text style={styles.portadaEmpresaDato}>RUT: {empresa.rut}</Text> : null}
           {datosContacto ? <Text style={styles.portadaEmpresaDato}>{datosContacto}</Text> : null}
-          {empresa.web ? <Text style={styles.portadaEmpresaDato}>{empresa.web}</Text> : null}
         </View>
       )}
 
@@ -500,27 +511,33 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
 
       <Text style={styles.portadaTituloDoc}>Presupuesto de Obra</Text>
 
-      <DatoPortada label="Proyecto" valor={proyecto.nombre} />
-      <DatoPortada label="Cliente" valor={proyecto.cliente} />
-      <DatoPortada label="Tipo" valor={proyecto.tipo} />
-      <DatoPortada label="Área" valor={proyecto.area ? `${fmtNum(proyecto.area)} m²` : null} />
-      <DatoPortada label="Dirección" valor={proyecto.direccion} />
+      <View style={styles.portadaSeparadorFino} />
 
-      <View style={styles.portadaBloqueFecha}>
-        <DatoPortada label="Fecha" valor={`Generado el ${fechaHoy()}`} />
-        <DatoPortada
-          label="Plazo"
-          valor={
-            proyecto.plazoObra != null || proyecto.diasLaborales != null
-              ? [
-                  proyecto.plazoObra != null ? `${fmtNum(proyecto.plazoObra)} días corridos` : null,
-                  proyecto.diasLaborales != null ? `${fmtNum(proyecto.diasLaborales)} días laborales` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" / ")
-              : null
-          }
-        />
+      <View style={styles.portadaTabla}>
+        <DatoPortada label="Proyecto" valor={proyecto.nombre} />
+        <DatoPortada label="Cliente" valor={proyecto.cliente} />
+        <DatoPortada label="Tipo" valor={proyecto.tipo} />
+        <DatoPortada label="Área" valor={proyecto.area ? `${fmtNum(proyecto.area)} m²` : null} />
+        <DatoPortada label="Dirección" valor={proyecto.direccion} />
+      </View>
+
+      <View style={styles.portadaSeparadorFino} />
+
+      <View style={styles.portadaTabla}>
+        <DatoPortada label="Fecha" valor={fechaHoy()} />
+        {hayPlazo && (
+          <View style={styles.portadaFilaDato}>
+            <Text style={styles.portadaLabelDato}>Plazo</Text>
+            <View>
+              {proyecto.plazoObra != null && (
+                <Text style={styles.portadaValorDato}>{fmtNum(proyecto.plazoObra)} días corridos</Text>
+              )}
+              {proyecto.diasLaborales != null && (
+                <Text style={styles.portadaValorDato}>{fmtNum(proyecto.diasLaborales)} días laborales</Text>
+              )}
+            </View>
+          </View>
+        )}
       </View>
     </Page>
   );
