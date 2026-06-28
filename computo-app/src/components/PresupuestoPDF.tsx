@@ -113,6 +113,11 @@ const styles = StyleSheet.create({
     color: "#1A3A5C",
     marginTop: 8,
   },
+  subtituloProyecto: {
+    fontSize: 10,
+    color: "#64748B",
+    marginTop: 3,
+  },
   subtitulo: {
     fontSize: 9,
     color: "#64748B",
@@ -593,12 +598,7 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
   const totalGeneral = subtotal + montoIVA + (leyesSocialesPropietario ?? 0);
   const codigoGastosGenerales = String(proyecto.capitulos.length + 1).padStart(2, "0");
 
-  const datosSubtitulo = [
-    proyecto.cliente,
-    proyecto.tipo,
-    proyecto.area ? `${fmtNum(proyecto.area)} m²` : null,
-    proyecto.direccion,
-  ]
+  const datosSubtitulo = [proyecto.cliente, proyecto.tipo, proyecto.direccion]
     .filter(Boolean)
     .join("  ·  ");
 
@@ -613,6 +613,7 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
           <Text style={styles.fecha}>Generado el {fechaHoy()}</Text>
         </View>
         <Text style={styles.tituloProyecto}>{proyecto.nombre}</Text>
+        {proyecto.subtitulo ? <Text style={styles.subtituloProyecto}>{proyecto.subtitulo}</Text> : null}
         {datosSubtitulo ? <Text style={styles.subtitulo}>{datosSubtitulo}</Text> : null}
         <View style={styles.separador} />
 
