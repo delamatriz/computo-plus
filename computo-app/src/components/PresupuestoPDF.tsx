@@ -531,14 +531,17 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
       <View style={styles.portadaTabla}>
         <View style={styles.portadaFilaDato}>
           <Text style={styles.portadaLabelDato}>Proyecto</Text>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.portadaValorDato}>{proyecto.nombre}</Text>
-            {proyecto.subtitulo ? <Text style={styles.portadaSubtitulo}>{proyecto.subtitulo}</Text> : null}
+            {proyecto.subtitulo ? (
+              <Text style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>
+                {proyecto.subtitulo}
+              </Text>
+            ) : null}
           </View>
         </View>
         <DatoPortada label="Cliente" valor={proyecto.cliente} />
         <DatoPortada label="Tipo" valor={proyecto.tipo} />
-        <DatoPortada label="Área" valor={proyecto.area ? `${fmtNum(proyecto.area)} m²` : null} />
         <DatoPortada label="Dirección" valor={proyecto.direccion} />
       </View>
 
