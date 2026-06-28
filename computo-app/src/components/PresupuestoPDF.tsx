@@ -340,37 +340,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   portadaLogo: {
-    maxWidth: 150,
-    maxHeight: 80,
+    maxWidth: 120,
+    maxHeight: 60,
     objectFit: "contain",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   portadaEmpresaNombre: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: "Helvetica-Bold",
     color: "#1A3A5C",
     textAlign: "center",
   },
   portadaEmpresaDato: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#64748B",
     textAlign: "center",
     marginTop: 4,
   },
   portadaSeparador: {
-    borderBottomWidth: 1.5,
+    borderBottomWidth: 2,
     borderBottomColor: "#1A3A5C",
-    marginTop: 18,
-    marginBottom: 18,
+    marginTop: 12,
+    marginBottom: 12,
   },
   portadaSeparadorFino: {
     borderBottomWidth: 0.75,
     borderBottomColor: "#CBD5E1",
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: 18,
+    marginBottom: 18,
+  },
+  portadaBloqueTitulo: {
+    alignItems: "center",
   },
   portadaTituloDoc: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: "Helvetica-Bold",
     color: "#1A3A5C",
     textTransform: "uppercase",
@@ -382,24 +385,26 @@ const styles = StyleSheet.create({
   },
   portadaFilaDato: {
     flexDirection: "row",
-    marginBottom: 7,
+    marginBottom: 11,
+    alignItems: "flex-start",
   },
   portadaLabelDato: {
-    width: 90,
-    fontSize: 10,
+    width: 100,
+    fontSize: 11,
     color: "#94A3B8",
+    paddingTop: 1,
   },
   portadaValorDato: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: "Helvetica-Bold",
     color: "#1E293B",
     flex: 1,
   },
   portadaSubtitulo: {
-    fontSize: 9,
+    fontSize: 11,
     fontFamily: "Helvetica",
     color: "#64748B",
-    marginTop: 2,
+    marginTop: 3,
   },
 
   // Footer
@@ -517,7 +522,9 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
 
       <View style={styles.portadaSeparador} />
 
-      <Text style={styles.portadaTituloDoc}>Presupuesto de Obra</Text>
+      <View style={styles.portadaBloqueTitulo}>
+        <Text style={styles.portadaTituloDoc}>Presupuesto de Obra</Text>
+      </View>
 
       <View style={styles.portadaSeparadorFino} />
 
