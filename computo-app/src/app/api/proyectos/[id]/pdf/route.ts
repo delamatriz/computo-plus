@@ -44,7 +44,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       area: proyecto.area,
       direccion: proyecto.direccion,
       moneda: proyecto.moneda,
-      empresa: proyecto.empresa ? { nombre: proyecto.empresa.nombre } : null,
+      empresa: proyecto.empresa
+        ? {
+            nombre: proyecto.empresa.nombre,
+            rut: proyecto.empresa.rut,
+            direccion: proyecto.empresa.direccion,
+            telefono: proyecto.empresa.telefono,
+            email: proyecto.empresa.email,
+            web: proyecto.empresa.web,
+            logo: proyecto.empresa.logo,
+          }
+        : null,
       gastosGenerales,
       incluyeIVA: proyecto.incluyeIVA,
       montoImponibleMO: proyecto.leyesSociales?.montoImponibleMO ?? null,

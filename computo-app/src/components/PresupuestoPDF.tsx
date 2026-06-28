@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface RubroPDF {
@@ -19,6 +19,12 @@ interface CapituloPDF {
 
 interface EmpresaPDF {
   nombre: string;
+  rut: string | null;
+  direccion: string | null;
+  telefono: string | null;
+  email: string | null;
+  web: string | null;
+  logo: string | null;
 }
 
 export interface ProyectoConCapitulos {
@@ -320,6 +326,64 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
   },
 
+  // Portada
+  portadaPage: {
+    paddingTop: 80,
+    paddingBottom: 56,
+    paddingHorizontal: 56,
+    fontFamily: "Helvetica",
+    fontSize: 9,
+    color: "#1E293B",
+  },
+  portadaLogo: {
+    width: 120,
+    height: 120,
+    objectFit: "contain",
+    marginBottom: 24,
+  },
+  portadaEmpresaNombre: {
+    fontSize: 16,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A3A5C",
+  },
+  portadaEmpresaDato: {
+    fontSize: 9.5,
+    color: "#64748B",
+    marginTop: 3,
+  },
+  portadaSeparador: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#CBD5E1",
+    marginTop: 28,
+    marginBottom: 28,
+  },
+  portadaTituloDoc: {
+    fontSize: 22,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A3A5C",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 24,
+  },
+  portadaFilaDato: {
+    flexDirection: "row",
+    marginBottom: 8,
+  },
+  portadaLabelDato: {
+    width: 90,
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#64748B",
+  },
+  portadaValorDato: {
+    fontSize: 9.5,
+    color: "#1E293B",
+    flex: 1,
+  },
+  portadaBloqueFecha: {
+    marginTop: 28,
+  },
+
   // Footer
   footer: {
     position: "absolute",
@@ -404,6 +468,64 @@ function BloqueCapitulo({
   );
 }
 
+function DatoPortada({ label, valor }: { label: string; valor: string | null }) {
+  if (!valor) return null;
+  return (
+    <View style={styles.portadaFilaDato}>
+      <Text style={styles.portadaLabelDato}>{label}</Text>
+      <Text style={styles.portadaValorDato}>{valor}</Text>
+    </View>
+  );
+}
+
+function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
+  const empresa = proyecto.empresa;
+  const datosContacto = empresa
+    ? [empresa.direccion, empresa.telefono, empresa.email].filter(Boolean).join("  |  ")
+    : "";
+
+  return (
+    <Page size="A4" style={styles.portadaPage}>
+      {empresa && (
+        <View>
+          {empresa.logo ? <Image style={styles.portadaLogo} src={empresa.logo} /> : null}
+          <Text style={styles.portadaEmpresaNombre}>{empresa.nombre}</Text>
+          {empresa.rut ? <Text style={styles.portadaEmpresaDato}>RUT: {empresa.rut}</Text> : null}
+          {datosContacto ? <Text style={styles.portadaEmpresaDato}>{datosContacto}</Text> : null}
+          {empresa.web ? <Text style={styles.portadaEmpresaDato}>{empresa.web}</Text> : null}
+        </View>
+      )}
+
+      <View style={styles.portadaSeparador} />
+
+      <Text style={styles.portadaTituloDoc}>Presupuesto de Obra</Text>
+
+      <DatoPortada label="Proyecto" valor={proyecto.nombre} />
+      <DatoPortada label="Cliente" valor={proyecto.cliente} />
+      <DatoPortada label="Tipo" valor={proyecto.tipo} />
+      <DatoPortada label="Área" valor={proyecto.area ? `${fmtNum(proyecto.area)} m²` : null} />
+      <DatoPortada label="Dirección" valor={proyecto.direccion} />
+
+      <View style={styles.portadaBloqueFecha}>
+        <DatoPortada label="Fecha" valor={`Generado el ${fechaHoy()}`} />
+        <DatoPortada
+          label="Plazo"
+          valor={
+            proyecto.plazoObra != null || proyecto.diasLaborales != null
+              ? [
+                  proyecto.plazoObra != null ? `${fmtNum(proyecto.plazoObra)} días corridos` : null,
+                  proyecto.diasLaborales != null ? `${fmtNum(proyecto.diasLaborales)} días laborales` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" / ")
+              : null
+          }
+        />
+      </View>
+    </Page>
+  );
+}
+
 function PiePagina({ nombreProyecto }: { nombreProyecto: string }) {
   return (
     <View style={styles.footer} fixed>
@@ -441,6 +563,8 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
 
   return (
     <Document>
+      <Portada proyecto={proyecto} />
+
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.headerRow}>
