@@ -328,11 +328,12 @@ const styles = StyleSheet.create({
 
   // Portada
   portadaPage: {
+    paddingTop: 80,
     paddingHorizontal: 64,
     fontFamily: "Helvetica",
     fontSize: 9,
     color: "#1E293B",
-    justifyContent: "center",
+    justifyContent: "flex-start",
   },
   portadaEmpresaBloque: {
     alignItems: "center",
