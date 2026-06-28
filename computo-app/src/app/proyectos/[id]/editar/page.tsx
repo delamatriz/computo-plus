@@ -176,6 +176,16 @@ export default function EditarProyectoPage() {
           </p>
         </Field>
 
+        <Field label="Descripción / Trabajos a realizar">
+          <textarea
+            value={form.descripcion}
+            onChange={(e) => set("descripcion", e.target.value)}
+            placeholder="Describí los trabajos a realizar. La IA usará esta descripción para sugerir capítulos y rubros."
+            rows={4}
+            className={inputCls}
+          />
+        </Field>
+
         <Field label="Tipo de obra">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {TIPOS_OBRA.map((t) => (
