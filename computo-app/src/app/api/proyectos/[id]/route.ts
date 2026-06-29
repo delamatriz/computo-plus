@@ -94,6 +94,7 @@ export async function PATCH(
         ...(body.area       !== undefined && { area:       body.area }),
         ...(body.direccion  !== undefined && { direccion:  body.direccion }),
         ...(body.descripcion !== undefined && { descripcion: body.descripcion }),
+        ...(body.trabajos    !== undefined && { trabajos:    body.trabajos }),
         ...(body.fechaInicio !== undefined && { fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null }),
         ...(body.plazoObra   !== undefined && { plazoObra:   body.plazoObra }),
         ...(body.diasLaborales !== undefined && { diasLaborales: body.diasLaborales }),

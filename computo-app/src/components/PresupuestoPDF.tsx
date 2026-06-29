@@ -41,6 +41,7 @@ export interface ProyectoConCapitulos {
   gastosGenerales: number;
   incluyeIVA: boolean;
   montoImponibleMO: number | null;
+  fechaInicio?: string | Date | null;
   plazoObra?: number | null;
   diasLaborales?: number | null;
   garantiaFielCumplimiento?: string | null;
@@ -80,6 +81,13 @@ function fechaHoy(): string {
   return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+function fmtFecha(valor: string | Date | null | undefined): string | null {
+  if (!valor) return null;
+  const d = new Date(valor);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 /* ─── Estilos ─────────────────────────────────────────────── */
 const styles = StyleSheet.create({
   page: {
@@ -112,11 +120,6 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     color: "#1A3A5C",
     marginTop: 8,
-  },
-  subtituloProyecto: {
-    fontSize: 10,
-    color: "#64748B",
-    marginTop: 3,
   },
   subtitulo: {
     fontSize: 9,
@@ -547,7 +550,8 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
         </View>
         <DatoPortada label="Cliente" valor={proyecto.cliente} />
         <DatoPortada label="Tipo" valor={proyecto.tipo} />
-        <DatoPortada label="Dirección" valor={proyecto.direccion} />
+        <DatoPortada label="Ubicación" valor={proyecto.direccion} />
+        <DatoPortada label="Fecha inicio" valor={fmtFecha(proyecto.fechaInicio)} />
       </View>
 
       <View style={styles.portadaSeparadorFino} />
@@ -612,8 +616,12 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
           <Text style={styles.empresaNombre}>{proyecto.empresa?.nombre || "CÓMPUTO+"}</Text>
           <Text style={styles.fecha}>Generado el {fechaHoy()}</Text>
         </View>
-        <Text style={styles.tituloProyecto}>{proyecto.nombre}</Text>
-        {proyecto.subtitulo ? <Text style={styles.subtituloProyecto}>{proyecto.subtitulo}</Text> : null}
+        <View style={{ flexDirection: "column", flex: 1 }}>
+          <Text style={styles.tituloProyecto}>{proyecto.nombre}</Text>
+          {proyecto.subtitulo ? (
+            <Text style={{ fontSize: 10, color: "#64748B", marginTop: 6 }}>{proyecto.subtitulo}</Text>
+          ) : null}
+        </View>
         {datosSubtitulo ? <Text style={styles.subtitulo}>{datosSubtitulo}</Text> : null}
         <View style={styles.separador} />
 

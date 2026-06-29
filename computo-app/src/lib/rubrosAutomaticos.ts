@@ -43,7 +43,8 @@ async function generarRubrosAutomaticosInterno(
     include: { capitulos: true },
   });
 
-  if (!proyecto || !proyecto.descripcion?.trim() || proyecto.capitulos.length === 0) return;
+  const descripcionTrabajos = proyecto?.trabajos?.trim() || proyecto?.descripcion?.trim();
+  if (!proyecto || !descripcionTrabajos || proyecto.capitulos.length === 0) return;
 
   const listaCapitulos = proyecto.capitulos.map((c) => c.nombre).join(", ");
 
@@ -54,7 +55,7 @@ async function generarRubrosAutomaticosInterno(
           .join("\n")}\nUsá estos montos como referencia: el precio unitario × cantidad de los rubros que generes para cada capítulo debería aproximarse al monto indicado para ese capítulo.`
       : "";
 
-  const prompt = `Dado este presupuesto de obra tipo ${proyecto.tipo} con la siguiente descripción de trabajos: '${proyecto.descripcion}', y estos capítulos: ${listaCapitulos}, sugerí los 2-3 rubros más importantes para cada capítulo, con descripción y unidad de medida. Basate en prácticas constructivas uruguayas.${contextoMontos}
+  const prompt = `Dado este presupuesto de obra tipo ${proyecto.tipo} con la siguiente descripción de trabajos: '${descripcionTrabajos}', y estos capítulos: ${listaCapitulos}, sugerí los 2-3 rubros más importantes para cada capítulo, con descripción y unidad de medida. Basate en prácticas constructivas uruguayas.${contextoMontos}
 Para la unidad: si el rubro es de estimación global usá unidad "gl", si tiene medida clara (superficie, volumen, longitud) usá m², m³ o ml.
 Respondé SOLO con JSON:
 { "rubros": [{ "capitulo": string, "descripcion": string, "unidad": string }] }`;

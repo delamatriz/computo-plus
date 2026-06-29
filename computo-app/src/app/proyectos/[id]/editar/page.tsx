@@ -26,6 +26,7 @@ interface FormData {
   fechaInicio: string;
   plazoObra: string;
   diasLaborales: string;
+  trabajos: string;
   descripcion: string;
   requierePlanSeguridad: boolean;
   modalidadAltura: string[];
@@ -46,7 +47,7 @@ export default function EditarProyectoPage() {
 
   const [form, setForm] = useState<FormData>({
     nombre: "", subtitulo: "", cliente: "", tipo: "VIVIENDA", direccion: "",
-    moneda: "UYU", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", descripcion: "",
+    moneda: "UYU", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", trabajos: "", descripcion: "",
     requierePlanSeguridad: false, modalidadAltura: [],
   });
   const [cargando, setCargando] = useState(true);
@@ -70,6 +71,7 @@ export default function EditarProyectoPage() {
           fechaInicio: data.fechaInicio ? data.fechaInicio.slice(0, 10) : "",
           plazoObra: data.plazoObra != null ? String(data.plazoObra) : "",
           diasLaborales: data.diasLaborales != null ? String(data.diasLaborales) : "",
+          trabajos: data.trabajos ?? "",
           descripcion: data.descripcion ?? "",
           requierePlanSeguridad: !!data.requierePlanSeguridad,
           modalidadAltura: data.modalidadAltura ? data.modalidadAltura.split(",").filter(Boolean) : [],
@@ -110,6 +112,7 @@ export default function EditarProyectoPage() {
           fechaInicio: form.fechaInicio || null,
           plazoObra: form.plazoObra ? parseInt(form.plazoObra, 10) : null,
           diasLaborales: form.diasLaborales ? parseInt(form.diasLaborales, 10) : null,
+          trabajos: form.trabajos.trim() || null,
           descripcion: form.descripcion.trim() || null,
           requierePlanSeguridad: form.requierePlanSeguridad,
           modalidadAltura: form.requierePlanSeguridad && form.modalidadAltura.length > 0
@@ -178,8 +181,8 @@ export default function EditarProyectoPage() {
 
         <Field label="Descripción / Trabajos a realizar">
           <textarea
-            value={form.descripcion}
-            onChange={(e) => set("descripcion", e.target.value)}
+            value={form.trabajos}
+            onChange={(e) => set("trabajos", e.target.value)}
             placeholder="Describí los trabajos a realizar. La IA usará esta descripción para sugerir capítulos y rubros."
             rows={4}
             className={inputCls}

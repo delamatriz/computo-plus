@@ -59,6 +59,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       gastosGenerales,
       incluyeIVA: proyecto.incluyeIVA,
       montoImponibleMO: proyecto.leyesSociales?.montoImponibleMO ?? null,
+      fechaInicio: proyecto.fechaInicio,
       plazoObra: proyecto.plazoObra,
       diasLaborales: proyecto.diasLaborales,
       garantiaFielCumplimiento: proyecto.garantiaFielCumplimiento,
