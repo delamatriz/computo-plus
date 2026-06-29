@@ -344,76 +344,6 @@ const styles = StyleSheet.create({
     color: "#1E293B",
     justifyContent: "flex-start",
   },
-  portadaEmpresaBloque: {
-    alignItems: "center",
-  },
-  portadaLogo: {
-    maxWidth: 120,
-    maxHeight: 60,
-    objectFit: "contain",
-    marginBottom: 10,
-  },
-  portadaEmpresaNombre: {
-    fontSize: 16,
-    fontFamily: "Helvetica-Bold",
-    color: "#1A3A5C",
-    textAlign: "center",
-  },
-  portadaEmpresaDato: {
-    fontSize: 9,
-    color: "#64748B",
-    textAlign: "center",
-    marginTop: 4,
-  },
-  portadaSeparador: {
-    borderBottomWidth: 2,
-    borderBottomColor: "#1A3A5C",
-    marginTop: 12,
-    marginBottom: 12,
-  },
-  portadaSeparadorFino: {
-    borderBottomWidth: 0.75,
-    borderBottomColor: "#CBD5E1",
-    marginTop: 18,
-    marginBottom: 18,
-  },
-  portadaBloqueTitulo: {
-    alignItems: "center",
-  },
-  portadaTituloDoc: {
-    fontSize: 24,
-    fontFamily: "Helvetica-Bold",
-    color: "#1A3A5C",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    textAlign: "center",
-  },
-  portadaTabla: {
-    marginTop: 4,
-  },
-  portadaFilaDato: {
-    flexDirection: "row",
-    marginBottom: 11,
-    alignItems: "flex-start",
-  },
-  portadaLabelDato: {
-    width: 100,
-    fontSize: 11,
-    color: "#94A3B8",
-    paddingTop: 1,
-  },
-  portadaValorDato: {
-    fontSize: 12,
-    fontFamily: "Helvetica-Bold",
-    color: "#1E293B",
-    flex: 1,
-  },
-  portadaSubtitulo: {
-    fontSize: 11,
-    fontFamily: "Helvetica",
-    color: "#64748B",
-    marginTop: 3,
-  },
 
   // Footer
   footer: {
@@ -499,12 +429,37 @@ function BloqueCapitulo({
   );
 }
 
-function DatoPortada({ label, valor }: { label: string; valor: string | null }) {
+const TIPO_OBRA_LABELS: Record<string, string> = {
+  REPARACIONES: "Reparaciones",
+  REFORMA: "Reforma / Ampliación",
+  VIVIENDA: "Vivienda unifamiliar",
+  PH: "Propiedad Horizontal",
+  COMERCIAL: "Local comercial",
+  INDUSTRIAL: "Industrial",
+};
+
+function labelTipoObra(tipo: string): string {
+  return TIPO_OBRA_LABELS[tipo] || tipo;
+}
+
+function LabelSeccionPortada({ texto }: { texto: string }) {
+  return (
+    <Text style={{ fontSize: 8, color: "#94A3B8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 9 }}>
+      {texto}
+    </Text>
+  );
+}
+
+function SeparadorFinoPortada() {
+  return <View style={{ borderBottomWidth: 0.5, borderBottomColor: "#CBD5E1", marginTop: 18, marginBottom: 18 }} />;
+}
+
+function FilaDatoObra({ label, valor }: { label: string; valor: string | null | undefined }) {
   if (!valor) return null;
   return (
-    <View style={styles.portadaFilaDato}>
-      <Text style={styles.portadaLabelDato}>{label}</Text>
-      <Text style={styles.portadaValorDato}>{valor}</Text>
+    <View style={{ flexDirection: "row", marginBottom: 8 }}>
+      <Text style={{ fontSize: 9, color: "#94A3B8", width: 120 }}>{label}</Text>
+      <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#1E293B", flex: 1 }}>{valor}</Text>
     </View>
   );
 }
@@ -512,65 +467,93 @@ function DatoPortada({ label, valor }: { label: string; valor: string | null }) 
 function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
   const empresa = proyecto.empresa;
   const datosContacto = empresa
-    ? [empresa.direccion, empresa.telefono, empresa.email, empresa.web].filter(Boolean).join("  |  ")
+    ? [empresa.direccion, empresa.telefono, empresa.email, empresa.web].filter(Boolean).join("  ·  ")
     : "";
-
+  const fechaInicio = fmtFecha(proyecto.fechaInicio);
   const hayPlazo = proyecto.plazoObra != null || proyecto.diasLaborales != null;
 
   return (
     <Page size="A4" style={styles.portadaPage}>
       {empresa && (
-        <View style={styles.portadaEmpresaBloque}>
-          {empresa.logo ? <Image style={styles.portadaLogo} src={empresa.logo} /> : null}
-          <Text style={styles.portadaEmpresaNombre}>{empresa.nombre}</Text>
-          {empresa.rut ? <Text style={styles.portadaEmpresaDato}>RUT: {empresa.rut}</Text> : null}
-          {datosContacto ? <Text style={styles.portadaEmpresaDato}>{datosContacto}</Text> : null}
+        <View style={{ alignItems: "center" }}>
+          {empresa.logo ? (
+            <Image
+              style={{ maxWidth: 120, maxHeight: 60, objectFit: "contain", marginTop: 40, marginBottom: 10 }}
+              src={empresa.logo}
+            />
+          ) : (
+            <View style={{ marginTop: 40 }} />
+          )}
+          <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: "#1A3A5C", textAlign: "center" }}>
+            {empresa.nombre}
+          </Text>
+          {empresa.rut ? (
+            <Text style={{ fontSize: 10, color: "#64748B", textAlign: "center", marginTop: 4 }}>
+              RUT: {empresa.rut}
+            </Text>
+          ) : null}
+          {datosContacto ? (
+            <Text style={{ fontSize: 9, color: "#94A3B8", textAlign: "center", marginTop: 4 }}>
+              {datosContacto}
+            </Text>
+          ) : null}
         </View>
       )}
 
-      <View style={styles.portadaSeparador} />
+      <View style={{ borderBottomWidth: 2, borderBottomColor: "#1A3A5C", marginTop: 16, marginBottom: 16 }} />
 
-      <View style={styles.portadaBloqueTitulo}>
-        <Text style={styles.portadaTituloDoc}>Presupuesto de Obra</Text>
-      </View>
+      <Text style={{ fontSize: 20, fontFamily: "Helvetica-Bold", color: "#1A3A5C", textAlign: "center" }}>
+        PRESUPUESTO DE OBRA
+      </Text>
 
-      <View style={styles.portadaSeparadorFino} />
+      <SeparadorFinoPortada />
 
-      <View style={styles.portadaTabla}>
-        <View style={{ flexDirection: "row", marginBottom: 6 }}>
-          <Text style={{ fontSize: 11, color: "#94A3B8", width: 80 }}>
-            Proyecto
+      <View>
+        <LabelSeccionPortada texto="Proyecto" />
+        <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold", color: "#1E293B" }}>
+          {proyecto.nombre}
+        </Text>
+        {proyecto.subtitulo ? (
+          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Oblique", color: "#64748B", marginTop: 4 }}>
+            {proyecto.subtitulo}
           </Text>
-          <View style={{ flexDirection: "column", flex: 1 }}>
-            <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#1E293B" }}>
-              {proyecto.nombre}
-            </Text>
-            {proyecto.subtitulo ? (
-              <Text style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>
-                {proyecto.subtitulo}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-        <DatoPortada label="Cliente" valor={proyecto.cliente} />
-        <DatoPortada label="Tipo" valor={proyecto.tipo} />
-        <DatoPortada label="Ubicación" valor={proyecto.direccion} />
-        <DatoPortada label="Fecha inicio" valor={fmtFecha(proyecto.fechaInicio)} />
+        ) : null}
       </View>
 
-      <View style={styles.portadaSeparadorFino} />
+      <SeparadorFinoPortada />
 
-      <View style={styles.portadaTabla}>
-        <DatoPortada label="Fecha" valor={fechaHoy()} />
+      <View>
+        <LabelSeccionPortada texto="Datos de la obra" />
+        <FilaDatoObra label="Cliente" valor={proyecto.cliente} />
+        <FilaDatoObra label="Tipo de obra" valor={labelTipoObra(proyecto.tipo)} />
+        <FilaDatoObra label="Ubicación" valor={proyecto.direccion} />
+        <FilaDatoObra label="Fecha de inicio" valor={fechaInicio} />
+      </View>
+
+      <SeparadorFinoPortada />
+
+      <View>
+        <FilaDatoObra label="Fecha de emisión" valor={fechaHoy()} />
         {hayPlazo && (
-          <View style={styles.portadaFilaDato}>
-            <Text style={styles.portadaLabelDato}>Plazo</Text>
-            <View>
+          <View style={{ flexDirection: "row", marginBottom: 8 }}>
+            <Text style={{ fontSize: 9, color: "#94A3B8", width: 120 }}>Plazo de ejecución</Text>
+            <View style={{ flex: 1 }}>
               {proyecto.plazoObra != null && (
-                <Text style={styles.portadaValorDato}>{fmtNum(proyecto.plazoObra)} días corridos</Text>
+                <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#1E293B" }}>
+                  {fmtNum(proyecto.plazoObra)} días corridos
+                </Text>
               )}
               {proyecto.diasLaborales != null && (
-                <Text style={styles.portadaValorDato}>{fmtNum(proyecto.diasLaborales)} días laborales</Text>
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontFamily: "Helvetica-Bold",
+                    color: "#1E293B",
+                    marginTop: proyecto.plazoObra != null ? 2 : 0,
+                  }}
+                >
+                  {fmtNum(proyecto.diasLaborales)} días laborales
+                </Text>
               )}
             </View>
           </View>
