@@ -2191,7 +2191,7 @@ export default function ProyectoPage() {
             r.id !== rubroId ? r : {
               ...r,
               [field]: field === "cantidad" || field === "precioUnit"
-                ? value === "" ? null : parseFloat(value)
+                ? value === "" ? null : field === "precioUnit" ? Math.round(parseFloat(value) * 100) / 100 : parseFloat(value)
                 : value,
             }
           ),
@@ -2206,7 +2206,7 @@ export default function ProyectoPage() {
     debounceTimers.current[key] = setTimeout(async () => {
       try {
         const parsedValue = field === "cantidad" || field === "precioUnit"
-          ? value === "" ? 0 : parseFloat(value)
+          ? value === "" ? 0 : field === "precioUnit" ? Math.round(parseFloat(value) * 100) / 100 : parseFloat(value)
           : value;
         await fetch(`/api/rubros/${rubroId}`, {
           method: "PATCH",
@@ -2650,7 +2650,7 @@ export default function ProyectoPage() {
                                 <div style={{ width: 116, flexShrink: 0 }} className="px-2">
                                   <input
                                     type="number"
-                                    value={rubro.precioUnit ?? ""}
+                                    value={rubro.precioUnit != null ? Math.round(rubro.precioUnit * 100) / 100 : ""}
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "precioUnit", e.target.value)}
                                     onBlur={() => {
                                       if (rubro.precioUnit && rubro.precioUnit > 0) {
