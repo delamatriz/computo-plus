@@ -537,10 +537,14 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
       <View style={styles.portadaSeparadorFino} />
 
       <View style={styles.portadaTabla}>
-        <View style={styles.portadaFilaDato}>
-          <Text style={styles.portadaLabelDato}>Proyecto</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.portadaValorDato}>{proyecto.nombre}</Text>
+        <View style={{ flexDirection: "row", marginBottom: 6 }}>
+          <Text style={{ fontSize: 11, color: "#94A3B8", width: 80 }}>
+            Proyecto
+          </Text>
+          <View style={{ flexDirection: "column", flex: 1 }}>
+            <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#1E293B" }}>
+              {proyecto.nombre}
+            </Text>
             {proyecto.subtitulo ? (
               <Text style={{ fontSize: 10, color: "#64748B", marginTop: 4 }}>
                 {proyecto.subtitulo}
