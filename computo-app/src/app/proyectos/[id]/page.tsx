@@ -729,6 +729,51 @@ function PanelSubrubrosEstandar({
   onSeleccionar: (s: SubrubroEstandar) => void;
   onCerrar: () => void;
 }) {
+  const esImplantacion = subrubros.some((s) => s.capitulo === "Implantación y Replanteo");
+  const normales = esImplantacion ? subrubros.filter((s) => !s.codigo.startsWith("impl-eq-")) : subrubros;
+  const equipos = esImplantacion ? subrubros.filter((s) => s.codigo.startsWith("impl-eq-")) : [];
+
+  const renderFila = (s: SubrubroEstandar) => {
+    const precio = precioDesdeSubrubro(s, moneda);
+    return (
+      <button
+        key={s.id}
+        type="button"
+        onClick={() => onSeleccionar(s)}
+        title={`Precio base ${s.fechaBase} — actualizar con ICCV`}
+        className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-0"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
+            {s.codigo} — {toTitleCase(s.descripcion)}
+          </span>
+          <span className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
+            {s.tieneApuEstandar && (
+              <span
+                title="Tiene descompuesto (APU) pre-cargado"
+                className="flex items-center gap-1 text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                APU
+              </span>
+            )}
+            <span className="text-sm font-bold text-[#2563EB] tabular-nums">
+              {fmtMonedaDecimal(precio, moneda)}/{s.unidad}
+            </span>
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {s.subcapitulo && (
+            <span className="text-[10px] text-slate-400">{s.subcapitulo}</span>
+          )}
+          <span className="text-[9px] font-medium text-slate-300">
+            precio base {s.fechaBase} — actualizar con ICCV
+          </span>
+        </div>
+      </button>
+    );
+  };
+
   return (
     <div className="mx-4 my-2 rounded-lg border border-blue-100 bg-[#F0F7FF] p-2 space-y-1.5">
       <div className="flex items-center justify-end">
@@ -743,46 +788,17 @@ function PanelSubrubrosEstandar({
         {!cargando && subrubros.length === 0 && (
           <div className="px-3 py-2 text-xs text-slate-400 italic">No hay subrubros típicos para este capítulo</div>
         )}
-        {!cargando && subrubros.map((s) => {
-          const precio = precioDesdeSubrubro(s, moneda);
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => onSeleccionar(s)}
-              title={`Precio base ${s.fechaBase} — actualizar con ICCV`}
-              className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-0"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
-                  {s.codigo} — {toTitleCase(s.descripcion)}
-                </span>
-                <span className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
-                  {s.tieneApuEstandar && (
-                    <span
-                      title="Tiene descompuesto (APU) pre-cargado"
-                      className="flex items-center gap-1 text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      APU
-                    </span>
-                  )}
-                  <span className="text-sm font-bold text-[#2563EB] tabular-nums">
-                    {fmtMonedaDecimal(precio, moneda)}/{s.unidad}
-                  </span>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {s.subcapitulo && (
-                  <span className="text-[10px] text-slate-400">{s.subcapitulo}</span>
-                )}
-                <span className="text-[9px] font-medium text-slate-300">
-                  precio base {s.fechaBase} — actualizar con ICCV
-                </span>
-              </div>
-            </button>
-          );
-        })}
+        {!cargando && normales.map(renderFila)}
+        {!cargando && equipos.length > 0 && (
+          <div className="flex items-center gap-2 px-3" style={{ margin: "8px 0" }}>
+            <div className="flex-1 h-px" style={{ backgroundColor: "#CBD5E1" }} />
+            <span className="text-xs uppercase text-slate-400 whitespace-nowrap">
+              Equipos y Maquinaria de Obra
+            </span>
+            <div className="flex-1 h-px" style={{ backgroundColor: "#CBD5E1" }} />
+          </div>
+        )}
+        {!cargando && equipos.map(renderFila)}
       </div>
     </div>
   );
