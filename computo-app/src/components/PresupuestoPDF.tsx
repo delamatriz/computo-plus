@@ -66,6 +66,17 @@ function fmtMon(v: number, simbolo: string): string {
   return `${simbolo} ${fmtNum(v)}`;
 }
 
+/** Precio unitario: 2 decimales fijos, separador de miles (.) y decimales (,) */
+function fmtNumDecimal(v: number): string {
+  const [entero, decimales] = v.toFixed(2).split(".");
+  return `${entero.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${decimales}`;
+}
+
+function fmtMonDecimal(v: number, simbolo: string): string {
+  if (!v) return "—";
+  return `${simbolo} ${fmtNumDecimal(v)}`;
+}
+
 /** Igual que fmtMon pero sin el fallback "—" — para líneas de totales/resumen
  *  donde un monto en cero es un valor real (ej. Gastos Generales sin cargar). */
 function fmtMonTotal(v: number, simbolo: string): string {
@@ -387,7 +398,7 @@ function FilaRubro({ rubro, index, simbolo }: { rubro: RubroPDF; index: number; 
       <Text style={[styles.textoCelda, styles.colUnidad]}>{rubro.unidad || "—"}</Text>
       <Text style={[styles.textoCelda, styles.colCantidad]}>{fmtNum(rubro.cantidad)}</Text>
       <Text style={[sinPrecio ? styles.textoCeldaMuted : styles.textoCelda, styles.colPrecio]}>
-        {sinPrecio ? "—" : fmtMon(rubro.precioUnit, simbolo)}
+        {sinPrecio ? "—" : fmtMonDecimal(rubro.precioUnit, simbolo)}
       </Text>
       <Text style={[sinPrecio ? styles.textoCeldaMuted : styles.textoCelda, styles.colTotal]}>
         {sinPrecio ? "—" : fmtMon(total, simbolo)}

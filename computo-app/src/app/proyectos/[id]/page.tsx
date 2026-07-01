@@ -1551,6 +1551,8 @@ export default function ProyectoPage() {
   const [eliminando, setEliminando] = useState(false);
   // Rubro cuya descripción está siendo editada — mientras tanto se muestra el valor real, no toTitleCase
   const [descripcionEnFoco, setDescripcionEnFoco] = useState<string | null>(null);
+  // Rubro cuyo precio unitario está siendo editado — mientras tanto se muestra sin separador de miles
+  const [precioUnitEnFoco, setPrecioUnitEnFoco] = useState<string | null>(null);
   const [capitulos, setCapitulos] = useState<Capitulo[]>([]);
   // Ref para leer siempre el estado más reciente de capitulos desde callbacks async
   const capitulosRef = useRef<Capitulo[]>([]);
@@ -2665,10 +2667,17 @@ export default function ProyectoPage() {
                                 </div>
                                 <div style={{ width: 116, flexShrink: 0 }} className="px-2">
                                   <input
-                                    type="number"
-                                    value={rubro.precioUnit != null ? Math.round(rubro.precioUnit * 100) / 100 : ""}
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={
+                                      precioUnitEnFoco === rubro.id
+                                        ? (rubro.precioUnit != null ? String(Math.round(rubro.precioUnit * 100) / 100) : "")
+                                        : (rubro.precioUnit != null && rubro.precioUnit > 0 ? fmtMon(rubro.precioUnit) : "")
+                                    }
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "precioUnit", e.target.value)}
+                                    onFocus={() => setPrecioUnitEnFoco(rubro.id)}
                                     onBlur={() => {
+                                      setPrecioUnitEnFoco(null);
                                       if (rubro.precioUnit && rubro.precioUnit > 0) {
                                         guardarEnBibliotecaGlobal(rubro.descripcion, rubro.unidad, cap.nombre, rubro.precioUnit, moneda);
                                       }
