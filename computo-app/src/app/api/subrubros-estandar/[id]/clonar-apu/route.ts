@@ -92,16 +92,23 @@ export async function POST(
       });
     }
 
-    // 4 — Equipos
+    // 4 — Equipos (precio desde el catálogo de alquiler por descripción, si hay match)
     for (let i = 0; i < apuEstandar.equipos.length; i++) {
       const eq = apuEstandar.equipos[i];
+      const precioEquipo = await db.precioEquipo.findFirst({
+        where: {
+          descripcion: { contains: eq.descripcion, mode: "insensitive" },
+        },
+      });
+      const costoUnit = precioEquipo?.precioHora ?? 0;
+
       await db.equipoAPU.create({
         data: {
           apuId,
           descripcion: eq.descripcion,
           unidad: eq.unidad,
           rendimiento: eq.rendimiento,
-          costoUnit: 0,
+          costoUnit,
           orden: i,
         },
       });

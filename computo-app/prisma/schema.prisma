@@ -350,3 +350,14 @@ model PrecioMTOP {
   creadoEn       DateTime @default(now())
   actualizadoEn  DateTime @updatedAt
 }
+
+model PrecioEquipo {
+  id            String   @id @default(cuid())
+  codigo        String   @unique
+  descripcion   String
+  unidad        String
+  precioHora    Float
+  fuente        String   @default("referencia_mercado_UY_2025")
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+}
