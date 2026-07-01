@@ -883,9 +883,11 @@ interface DrawerAPUProps {
 
 function SeccionAPU({
   titulo,
+  headerExtra,
   children,
 }: {
   titulo: string;
+  headerExtra?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [abierta, setAbierta] = useState(true);
@@ -896,9 +898,12 @@ function SeccionAPU({
         className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
       >
         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{titulo}</span>
-        {abierta
-          ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-          : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+        <div className="flex items-center gap-2">
+          {headerExtra}
+          {abierta
+            ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+        </div>
       </button>
       <AnimatePresence initial={false}>
         {abierta && (
@@ -1486,45 +1491,56 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
 
         {/* Resumen APU — pie fijo */}
         <div className="flex-shrink-0 border-t border-slate-200 bg-[#F8FAFC] px-5 py-4 space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-500">Costo directo</span>
-            <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500">Gastos generales</span>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  value={apu.gastosGeneralesPct}
-                  onChange={(e) => onApuChange({ ...apu, gastosGeneralesPct: parseFloat(e.target.value) || 0 })}
-                  className="w-10 text-center text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
-                />
-                <span className="text-xs text-slate-400">%</span>
+          <SeccionAPU
+            titulo="Resumen y Precio"
+            headerExtra={
+              <span className="text-sm font-bold tabular-nums text-[#2563EB]">
+                {fmtMoneda(precioFinal, moneda)}
+              </span>
+            }
+          >
+            <div className="px-4 pt-3 pb-3 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">Costo directo</span>
+                <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto)}</span>
               </div>
-            </div>
-            <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto * apu.gastosGeneralesPct / 100)}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500">Utilidad</span>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  value={apu.utilidadPct}
-                  onChange={(e) => onApuChange({ ...apu, utilidadPct: parseFloat(e.target.value) || 0 })}
-                  className="w-10 text-center text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
-                />
-                <span className="text-xs text-slate-400">%</span>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">Gastos generales</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={apu.gastosGeneralesPct}
+                      onChange={(e) => onApuChange({ ...apu, gastosGeneralesPct: parseFloat(e.target.value) || 0 })}
+                      className="w-10 text-center text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                    />
+                    <span className="text-xs text-slate-400">%</span>
+                  </div>
+                </div>
+                <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto * apu.gastosGeneralesPct / 100)}</span>
               </div>
-            </div>
-            <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto * (1 + apu.gastosGeneralesPct / 100) * apu.utilidadPct / 100)}</span>
-          </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">Utilidad</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={apu.utilidadPct}
+                      onChange={(e) => onApuChange({ ...apu, utilidadPct: parseFloat(e.target.value) || 0 })}
+                      className="w-10 text-center text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                    />
+                    <span className="text-xs text-slate-400">%</span>
+                  </div>
+                </div>
+                <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto * (1 + apu.gastosGeneralesPct / 100) * apu.utilidadPct / 100)}</span>
+              </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-            <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Precio unitario</span>
-            <span className="text-xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(precioFinal, moneda)}</span>
-          </div>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Precio unitario</span>
+                <span className="text-xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(precioFinal, moneda)}</span>
+              </div>
+            </div>
+          </SeccionAPU>
 
           <button
             onClick={() => onAplicar(precioFinal, apu)}
