@@ -881,13 +881,15 @@ interface DrawerAPUProps {
 function SeccionAPU({
   titulo,
   headerExtra,
+  defaultAbierta = true,
   children,
 }: {
   titulo: string;
   headerExtra?: React.ReactNode;
+  defaultAbierta?: boolean;
   children: React.ReactNode;
 }) {
-  const [abierta, setAbierta] = useState(true);
+  const [abierta, setAbierta] = useState(defaultAbierta);
   return (
     <div className="border border-slate-200 rounded-[10px] overflow-hidden">
       <button
@@ -1154,7 +1156,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <th className="text-center font-semibold text-slate-400 uppercase tracking-wider">Unidad</th>
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap" title="Cantidad por unidad de rubro">Cant/U</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">P. unit.</th>
-                    <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">Subtotal</th>
+                    <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">Subtotal p.unit</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">Costo tot.</th>
                   </tr>
                 </thead>
@@ -1296,8 +1298,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                   <col style={{ width: "auto" }} />
                   <col style={{ width: "64px" }} />
                   <col style={{ width: "72px" }} />
-                  <col style={{ width: "80px" }} />
                   <col style={{ width: "84px" }} />
+                  <col style={{ width: "80px" }} />
                   <col style={{ width: "80px" }} />
                 </colgroup>
                 <thead>
@@ -1305,8 +1307,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <th className="text-left pl-4 font-semibold text-slate-400 uppercase tracking-wider">Categoría</th>
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title="Horas de la jornada laboral">Jornada</th>
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title={`Horas necesarias por ${rubro.unidad || "unidad"} de rubro`}>Hs/{rubro.unidad || "u"}</th>
-                    <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title="Horas totales para el rubro completo">Hs totales</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider" title="Jornal de referencia por jornada de 8hs (UYU)">Jornal ref.</th>
+                    <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title="Horas totales para el rubro completo">Hs totales</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">Subtotal</th>
                   </tr>
                 </thead>
@@ -1318,9 +1320,6 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     const hsPorUnidad = mo.rendimiento > 0 ? mo.jornadaHs / mo.rendimiento : 0;
                     const hsTotales  = rubro.cantidad != null ? hsPorUnidad * rubro.cantidad : null;
                     const sub        = hsPorUnidad / mo.jornadaHs * mo.jornalRef * (rubro.cantidad ?? 1);
-                    const catRef = categoriasLaborales.find(
-                      (c) => c.nombre.trim().toLowerCase() === mo.categoria.trim().toLowerCase()
-                    );
                     return (
                       <tr key={mo.id} className="border-b border-slate-50" style={{ height: 28 }}>
                         <td className="pl-4 pr-2">
@@ -1332,14 +1331,11 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                         <td className="text-right pr-2 tabular-nums text-slate-700">
                           {hsPorUnidad > 0 ? fmtMon(hsPorUnidad) : "—"}
                         </td>
-                        <td className="text-right pr-2 tabular-nums text-slate-700">
-                          {hsTotales != null && hsTotales > 0 ? fmtMon(hsTotales) : "—"}
-                        </td>
                         <td className="text-right pr-3">
                           <input type="number" value={mo.jornalRef || ""} onChange={(e) => updateMO(mo.id, "jornalRef", e.target.value)} onBlur={() => guardarApuActual()} placeholder="0" className={cn(inputCls, "text-right")} />
-                          {catRef && (
-                            <div className="text-[9px] text-slate-400 leading-tight">{catRef.categoria}</div>
-                          )}
+                        </td>
+                        <td className="text-right pr-2 tabular-nums text-slate-700">
+                          {hsTotales != null && hsTotales > 0 ? fmtMon(hsTotales) : "—"}
                         </td>
                         <td className="text-right pr-3 font-semibold tabular-nums text-[#2563EB]">
                           {sub > 0 ? fmtMon(sub) : "—"}
@@ -1490,6 +1486,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
         <div className="flex-shrink-0 border-t border-slate-200 bg-[#F8FAFC] px-5 py-4 space-y-2">
           <SeccionAPU
             titulo="Resumen y Precio"
+            defaultAbierta={false}
             headerExtra={
               <span className="text-sm font-bold tabular-nums text-[#2563EB]">
                 {fmtMoneda(precioFinal, moneda)}
@@ -1498,7 +1495,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
           >
             <div className="px-4 pt-3 pb-3 space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">Costo directo</span>
+                <span className="text-slate-500">Costo directo (Mat + MO + Equipos)</span>
                 <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
