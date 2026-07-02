@@ -319,9 +319,9 @@ function totalCapitulo(cap: Capitulo): number {
   return cap.rubros.reduce((s, r) => s + totalRubro(r), 0);
 }
 
-/** Un capítulo se considera "vacío" si no tiene rubros o todos están sin descripción */
+/** Un capítulo se considera "vacío" si no tiene ningún rubro cargado */
 function capituloVacio(cap: Capitulo): boolean {
-  return cap.rubros.every((r) => !r.descripcion?.trim());
+  return cap.rubros.length === 0;
 }
 
 type FilaMaterialGlobal = { descripcion: string; unidad: string; dosificacion?: string; cantidadTotal: number; precioUnit?: number };
@@ -751,11 +751,8 @@ function PanelSubrubrosEstandar({
             {s.tieneApuEstandar && (
               <span
                 title="Tiene descompuesto (APU) pre-cargado"
-                className="flex items-center gap-1 text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                APU
-              </span>
+                className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400"
+              />
             )}
             <span className="text-sm font-bold text-[#2563EB] tabular-nums">
               {fmtMonedaDecimal(precio, moneda)}/{s.unidad}
