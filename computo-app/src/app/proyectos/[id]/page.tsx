@@ -161,6 +161,7 @@ interface InsumoAPU {
   componentes?: ComponenteInsumo[];
   codigoMTOP?: string;       // código de la lista oficial si fue seleccionado
   precioMTOPOrig?: number;   // precio original MTOP para detectar modificaciones
+  precioEstimadoIA?: boolean; // precio recién estimado por IA, aún no confirmado por el usuario
 }
 
 interface PrecioMTOPResult {
@@ -927,6 +928,10 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const [mostrarSelectorMO, setMostrarSelectorMO] = useState(false);
   const [nuevoMatId, setNuevoMatId] = useState<string | null>(null);
   const [categoriasLaborales, setCategoriasLaborales] = useState<CategoriaLaboral[]>([]);
+  // Material cuyo precio unitario está en edición inline (click-to-edit)
+  const [precioEditId, setPrecioEditId] = useState<string | null>(null);
+  // Material cuyo precio se está estimando con IA (loading del botón "Estimar")
+  const [estimandoPrecioId, setEstimandoPrecioId] = useState<string | null>(null);
   const { costoDirecto, precioFinal } = calcAPU(apu);
 
   const totalMateriales = apu.materiales.reduce((acc, m) => {
@@ -987,7 +992,44 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
         ? val
         : (val === "" ? 0 : parseFloat(val)),
       ...(field === "descripcion" ? { codigoMTOP: undefined, precioMTOPOrig: undefined } : {}),
+      ...(field === "precioUnit" ? { precioEstimadoIA: undefined } : {}),
     }));
+
+  // Actualiza PrecioMTOP si existe un registro cuya descripción coincide
+  // con la del material editado — mantiene el catálogo alineado con lo
+  // que el usuario corrige a mano en el APU.
+  const sincronizarPrecioMTOP = (m: InsumoAPU) => {
+    if (!m.descripcion.trim() || m.precioUnit <= 0) return;
+    fetch("/api/precios-mtop", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ descripcion: m.descripcion, precioUnitario: m.precioUnit }),
+    }).catch((err) => console.error("[sync precio MTOP]", err));
+  };
+
+  // Estima el precio unitario de un material con IA cuando no tiene precio cargado
+  const estimarPrecioMaterial = async (m: InsumoAPU) => {
+    setEstimandoPrecioId(m.id);
+    try {
+      const res = await fetch("/api/materiales/estimar-precio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descripcion: m.descripcion, unidad: m.unidad }),
+      });
+      if (!res.ok) throw new Error("Error al estimar precio");
+      const { precio } = await res.json();
+      setMat(apu.materiales.map((mat) => mat.id !== m.id ? mat : {
+        ...mat,
+        precioUnit: precio,
+        precioEstimadoIA: true,
+      }));
+      setPrecioEditId(m.id);
+    } catch (err) {
+      console.error("[estimar precio IA]", err);
+    } finally {
+      setEstimandoPrecioId(null);
+    }
+  };
 
   // Seleccionar desde el buscador MTOP — agrega nueva fila precargada
   const agregarDesdeMTOP = (m: PrecioMTOPResult) => {
@@ -1206,14 +1248,52 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                             />
                           </td>
                           <td className="text-right pr-3 py-0.5">
-                            <input
-                              type="number"
-                              value={m.precioUnit === 0 ? "" : m.precioUnit}
-                              onChange={(e) => updateMat(m.id, "precioUnit", e.target.value)}
-                              onBlur={() => guardarApuActual()}
-                              placeholder="0.00"
-                              className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
-                            />
+                            {(m.precioUnit === 0 || precioEditId === m.id) ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <input
+                                  type="number"
+                                  autoFocus={precioEditId === m.id}
+                                  value={m.precioUnit === 0 ? "" : m.precioUnit}
+                                  onChange={(e) => updateMat(m.id, "precioUnit", e.target.value)}
+                                  onBlur={() => {
+                                    setPrecioEditId(null);
+                                    guardarApuActual();
+                                    sincronizarPrecioMTOP(m);
+                                  }}
+                                  placeholder="0.00"
+                                  className={cn(
+                                    inputCls,
+                                    "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                    m.precioEstimadoIA && "text-amber-600 bg-amber-50 rounded px-1"
+                                  )}
+                                />
+                                {m.precioUnit === 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => estimarPrecioMaterial(m)}
+                                    disabled={estimandoPrecioId === m.id}
+                                    title="Estimar precio unitario con IA"
+                                    className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[3px] uppercase tracking-wide whitespace-nowrap bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                                  >
+                                    {estimandoPrecioId === m.id
+                                      ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                      : "Estimar"}
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="group flex items-center justify-end gap-1">
+                                <span className="tabular-nums text-slate-700">{fmtMon(m.precioUnit)}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setPrecioEditId(m.id)}
+                                  title="Editar precio"
+                                  className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-[#2563EB] transition-opacity"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
                             {m.codigoMTOP && (
                               <span className={cn(
                                 "text-[9px] font-bold px-1 py-0.5 rounded-[3px] uppercase tracking-wide whitespace-nowrap",

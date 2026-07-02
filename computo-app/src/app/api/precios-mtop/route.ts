@@ -81,9 +81,31 @@ export async function GET(req: NextRequest) {
 // PATCH — actualiza precioUnitario (y precioConIva) de materiales existentes
 // por código. Usado por la sección "Precios de Referencia de Materiales" en
 // Configuración para materiales que no están en la Lista MTOP N°599.
+//
+// También acepta { descripcion, precioUnitario } para actualizar por
+// coincidencia de descripción (contains, insensitive) — usado al editar
+// inline el precio de un material en el APU de un rubro, para mantener
+// el catálogo alineado con lo que el usuario corrige a mano.
 export async function PATCH(req: NextRequest) {
   try {
-    const { materiales } = await req.json();
+    const body = await req.json();
+
+    if (typeof body?.descripcion === "string" && Number.isFinite(body?.precioUnitario)) {
+      const match = await db.precioMTOP.findFirst({
+        where: { descripcion: { contains: body.descripcion, mode: "insensitive" } },
+        orderBy: { id: "asc" },
+      });
+      if (!match) {
+        return NextResponse.json({ ok: true, actualizado: false });
+      }
+      await db.precioMTOP.update({
+        where: { id: match.id },
+        data: { precioUnitario: body.precioUnitario, precioConIva: body.precioUnitario },
+      });
+      return NextResponse.json({ ok: true, actualizado: true, codigo: match.codigo });
+    }
+
+    const { materiales } = body;
 
     if (!Array.isArray(materiales)) {
       return NextResponse.json({ error: "Falta el array de materiales" }, { status: 400 });
