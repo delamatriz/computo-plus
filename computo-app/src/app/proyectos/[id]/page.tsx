@@ -613,7 +613,10 @@ function fmtMonedaDecimal(v: number, moneda: string): string {
 
 function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
   const sumMat = apu.materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
-  const sumMO  = apu.manoObra.reduce((s, mo) => s + (mo.jornadaHs / mo.rendimiento) * mo.jornalRef, 0);
+  // Costo de MO por unidad de rubro = jornalRef (costo de la jornada completa) / rendimiento
+  // (unidades de rubro producidas por jornada). jornadaHs no participa: el jornal ya
+  // representa el costo de la jornada completa, sin importar su duración en horas.
+  const sumMO  = apu.manoObra.reduce((s, mo) => s + mo.jornalRef / mo.rendimiento, 0);
   const sumEq  = apu.equipos.reduce((s, e) => s + e.rendimiento * e.costoUnit, 0);
   const costoDirecto = sumMat + sumMO + sumEq;
   const precioFinal  = costoDirecto * (1 + apu.gastosGeneralesPct / 100) * (1 + apu.utilidadPct / 100);
@@ -948,11 +951,17 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
     return acc + costoTotalPadre;
   }, 0);
 
+  // Suma de la columna "Subtotal p.unit" — costo de materiales por unidad de rubro
+  const totalMaterialesPUnit = apu.materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
+
   const totalManoObra = apu.manoObra.reduce((acc, mo) => {
     const hsPorUnidad = mo.rendimiento > 0 ? mo.jornadaHs / mo.rendimiento : 0;
     const sub = hsPorUnidad / mo.jornadaHs * mo.jornalRef * (rubro.cantidad ?? 1);
     return acc + (Number.isFinite(sub) ? sub : 0);
   }, 0);
+
+  // Costo de mano de obra por unidad de rubro (jornalRef / rendimiento, sin cantidad)
+  const totalManoObraPUnit = apu.manoObra.reduce((s, mo) => s + mo.jornalRef / mo.rendimiento, 0);
 
   const totalEquipos = apu.equipos.reduce((acc, eq) => acc + eq.rendimiento * eq.costoUnit, 0);
 
@@ -1146,6 +1155,11 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
             <p className="text-xs text-slate-400 mt-0.5">
               Análisis de Precio Unitario
               {rubro.unidad && <span className="ml-1 font-medium text-slate-500">({rubro.unidad})</span>}
+              {rubro.cantidad != null && (
+                <span className="ml-2 pl-2 border-l border-slate-200 font-medium text-slate-500">
+                  Cantidad total del rubro: {fmtRendimiento(rubro.cantidad)} {rubro.unidad}
+                </span>
+              )}
             </p>
           </div>
           <button
@@ -1341,7 +1355,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                 {apu.materiales.length > 0 && (
                   <tfoot>
                     <tr style={{ background: "#F1F5F9", height: 28 }} className="border-t border-slate-200">
-                      <td colSpan={6} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MATERIALES</td>
+                      <td colSpan={5} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MATERIALES</td>
+                      <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalMaterialesPUnit)}</td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalMateriales)}</td>
                     </tr>
                   </tfoot>
@@ -1379,6 +1394,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                   <col style={{ width: "64px" }} />
                   <col style={{ width: "72px" }} />
                   <col style={{ width: "84px" }} />
+                  <col style={{ width: "84px" }} />
                   <col style={{ width: "80px" }} />
                   <col style={{ width: "80px" }} />
                 </colgroup>
@@ -1388,18 +1404,20 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title="Horas de la jornada laboral">Jornada</th>
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title={`Horas necesarias por ${rubro.unidad || "unidad"} de rubro`}>Hs/{rubro.unidad || "u"}</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider" title="Jornal de referencia por jornada de 8hs (UYU)">Jornal ref.</th>
+                    <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap" title={`Costo por ${rubro.unidad || "unidad"} de rubro (jornal ref. / rendimiento)`}>Subtotal p.unit</th>
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title="Horas totales para el rubro completo">Hs totales</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
                   {apu.manoObra.length === 0 && (
-                    <tr><td colSpan={6} className="pl-4 py-2 text-slate-400 italic">Sin mano de obra</td></tr>
+                    <tr><td colSpan={7} className="pl-4 py-2 text-slate-400 italic">Sin mano de obra</td></tr>
                   )}
                   {apu.manoObra.map((mo) => {
                     const hsPorUnidad = mo.rendimiento > 0 ? mo.jornadaHs / mo.rendimiento : 0;
                     const hsTotales  = rubro.cantidad != null ? hsPorUnidad * rubro.cantidad : null;
-                    const sub        = hsPorUnidad / mo.jornadaHs * mo.jornalRef * (rubro.cantidad ?? 1);
+                    const subPUnit   = mo.rendimiento > 0 ? mo.jornalRef / mo.rendimiento : 0;
+                    const sub        = subPUnit * (rubro.cantidad ?? 1);
                     return (
                       <tr key={mo.id} className="border-b border-slate-50" style={{ height: 28 }}>
                         <td className="pl-4 pr-2">
@@ -1414,10 +1432,13 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                         <td className="text-right pr-3">
                           <input type="number" value={mo.jornalRef || ""} onChange={(e) => updateMO(mo.id, "jornalRef", e.target.value)} onBlur={() => guardarApuActual()} placeholder="0" className={cn(inputCls, "text-right")} />
                         </td>
+                        <td className="text-right pr-3 font-semibold tabular-nums text-[#2563EB]">
+                          {subPUnit > 0 ? fmtMon(subPUnit) : "—"}
+                        </td>
                         <td className="text-right pr-2 tabular-nums text-slate-700">
                           {hsTotales != null && hsTotales > 0 ? fmtMon(hsTotales) : "—"}
                         </td>
-                        <td className="text-right pr-3 font-semibold tabular-nums text-[#2563EB]">
+                        <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">
                           {sub > 0 ? fmtMon(sub) : "—"}
                         </td>
                       </tr>
@@ -1427,7 +1448,14 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                 {apu.manoObra.length > 0 && (
                   <tfoot>
                     <tr style={{ background: "#F1F5F9", height: 28 }} className="border-t border-slate-200">
-                      <td colSpan={5} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MANO DE OBRA</td>
+                      <td colSpan={4} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide whitespace-nowrap">
+                        TOTAL POR {(rubro.unidad || "UNIDAD").toUpperCase()}
+                      </td>
+                      <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalManoObraPUnit)}</td>
+                      <td colSpan={2} />
+                    </tr>
+                    <tr style={{ background: "#F1F5F9", height: 28 }} className="border-t border-slate-200">
+                      <td colSpan={6} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MANO DE OBRA</td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalManoObra)}</td>
                     </tr>
                   </tfoot>
@@ -1613,6 +1641,23 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                 <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Precio unitario</span>
                 <span className="text-xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(precioFinal, moneda)}</span>
               </div>
+
+              {rubro.cantidad != null && (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Cantidad total del rubro</span>
+                    <span className="font-semibold tabular-nums text-slate-700">
+                      {fmtRendimiento(rubro.cantidad)} {rubro.unidad}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                    <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Costo total del rubro</span>
+                    <span className="text-lg font-bold tabular-nums text-[#2563EB]">
+                      {fmtMoneda(precioFinal * rubro.cantidad, moneda)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </SeccionAPU>
 

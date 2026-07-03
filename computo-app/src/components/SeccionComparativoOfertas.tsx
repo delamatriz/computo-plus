@@ -97,8 +97,9 @@ export default function SeccionComparativoOfertas({ proyectoId, moneda }: Props)
         caps.push({ id: cap.id, nombre: cap.nombre, codigo: cap.codigo });
         for (const r of cap.rubros ?? []) {
           const manoObra: ManoObraAPU[] = r.apu?.manoObra ?? [];
+          // jornalRef ya es el costo de la jornada completa — jornadaHs no participa.
           const moCostoPorUnidad = manoObra.reduce(
-            (acc, mo) => acc + (mo.jornadaHs / mo.rendimiento) * mo.jornalRef,
+            (acc, mo) => acc + mo.jornalRef / mo.rendimiento,
             0
           );
           rubs.push({

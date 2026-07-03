@@ -121,8 +121,10 @@ export async function POST(
     });
 
     const sumMat = apuCompleto!.materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
+    // Costo de MO por unidad = jornalRef (costo de la jornada completa) / rendimiento
+    // (unidades de rubro producidas por jornada) — jornadaHs no participa.
     const sumMO = apuCompleto!.manoObra.reduce(
-      (s, mo) => s + (mo.jornadaHs / mo.rendimiento) * mo.jornalRef,
+      (s, mo) => s + mo.jornalRef / mo.rendimiento,
       0
     );
     const sumEq = apuCompleto!.equipos.reduce((s, e) => s + e.rendimiento * e.costoUnit, 0);

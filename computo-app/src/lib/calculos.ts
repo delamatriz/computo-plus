@@ -38,7 +38,8 @@ export async function calcularMOTotal(proyectoId: string): Promise<ResultadoMOTo
 
       if (rubro.apu?.manoObra && rubro.apu.manoObra.length > 0) {
         for (const mo of rubro.apu.manoObra) {
-          const costoPorUnidad = (mo.jornadaHs / mo.rendimiento) * mo.jornalRef;
+          // jornalRef ya es el costo de la jornada completa — jornadaHs no participa.
+          const costoPorUnidad = mo.jornalRef / mo.rendimiento;
           total += costoPorUnidad * cantidadEfectiva;
         }
       } else if (rubro.precioUnit > 0) {
