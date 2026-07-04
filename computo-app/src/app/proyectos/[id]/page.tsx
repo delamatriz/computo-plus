@@ -819,11 +819,14 @@ function SelectorCategoriaMO({
   onCancelar: () => void;
   destacarAltura?: boolean;
 }) {
-  const categoriaAltura = destacarAltura
-    ? categorias.find((c) => c.categoria === "oficial_altura")
-    : undefined;
+  // Categorías con recargo por trabajo en altura (10% sobre Oficial y
+  // Medio Oficial) — Peón no tiene variante de altura, nunca se recomienda.
+  const categoriasAltura = destacarAltura
+    ? categorias.filter((c) => c.categoria === "oficial_altura" || c.categoria === "medio_oficial_altura")
+    : [];
+  const idsAltura = new Set(categoriasAltura.map((c) => c.id));
   const resto = [...categorias]
-    .filter((c) => c.id !== categoriaAltura?.id)
+    .filter((c) => !idsAltura.has(c.id))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
   return (
@@ -843,11 +846,13 @@ function SelectorCategoriaMO({
         className="w-full px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] text-slate-700"
       >
         <option value="" disabled>Seleccionar categoría…</option>
-        {categoriaAltura && (
+        {categoriasAltura.length > 0 && (
           <>
-            <option value={categoriaAltura.id}>
-              {categoriaAltura.nombre} — jornal ref: U$S {fmtMon(categoriaAltura.jornal)} (recomendado)
-            </option>
+            {categoriasAltura.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.nombre} — jornal ref: U$S {fmtMon(cat.jornal)} (recomendado)
+              </option>
+            ))}
             <option value="" disabled>──────────</option>
           </>
         )}
@@ -1186,7 +1191,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
             </label>
             {rubro.trabajoEnAltura && (
               <div className="mt-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                Trabajo en altura activo — Categoría Oficial trabajo en altura
+                Trabajo en altura activo — al agregar mano de obra se recomiendan las categorías
+                Oficial y Medio oficial trabajo en altura (10% de recargo). Peón no tiene variante de altura.
               </div>
             )}
           </div>
