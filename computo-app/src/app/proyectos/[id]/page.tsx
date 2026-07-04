@@ -18,6 +18,7 @@ import {
   LayoutList,
   Trash2,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
@@ -89,6 +90,16 @@ interface SubrubroEstandar {
 }
 
 type MapeoSAU = { alias: string[]; capitulos: string[]; subcapitulos?: string[] };
+
+// Unidades estándar para el selector de unidad del rubro — evita texto
+// libre que termine con la misma unidad escrita distinto (ej. "m²" vs "M2").
+const UNIDADES_ESTANDAR = ["M2", "M3", "ML", "KG", "TN", "GL", "U", "JORNADA"];
+
+// toUpperCase() no convierte "²"/"³" (no son letras) — se reemplazan
+// explícitamente para reconocer "m²" como "M2".
+function normalizarUnidad(unidad: string): string {
+  return unidad.toUpperCase().replace(/²/g, "2").replace(/³/g, "3");
+}
 
 const MUROS_SUBCAPS = [
   "Elevación de Muros — Ladrillo de Campo",
@@ -959,6 +970,10 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   // Suma de la columna "Subtotal p.unit" — costo de materiales por unidad de rubro
   const totalMaterialesPUnit = apu.materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
 
+  // Materiales sin precio de referencia — su costo se computa como $0 y se
+  // arrastra silenciosamente al Costo Directo si no se avisa explícitamente.
+  const materialesSinPrecio = apu.materiales.filter((m) => m.precioUnit === 0).length;
+
   const totalManoObra = apu.manoObra.reduce((acc, mo) => {
     const hsPorUnidad = mo.rendimiento > 0 ? mo.jornadaHs / mo.rendimiento : 0;
     const sub = hsPorUnidad / mo.jornadaHs * mo.jornalRef * (rubro.cantidad ?? 1);
@@ -1154,9 +1169,20 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
           style={{ cursor: "grab" }}
         >
           <div>
-            <h2 className="text-base font-bold text-[#1A3A5C] leading-tight">
-              {rubro.descripcion || "Rubro sin nombre"}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-[#1A3A5C] leading-tight">
+                {rubro.descripcion || "Rubro sin nombre"}
+              </h2>
+              {materialesSinPrecio > 0 && (
+                <span
+                  title={`Precio incompleto — ${materialesSinPrecio} insumo(s) sin costo de referencia`}
+                  className="flex-shrink-0 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap"
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  Precio incompleto
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-400 mt-0.5">
               Análisis de Precio Unitario
               {rubro.unidad && <span className="ml-1 font-medium text-slate-500">({rubro.unidad})</span>}
@@ -1602,8 +1628,9 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
             titulo="Resumen y Precio"
             defaultAbierta={false}
             headerExtra={
-              <span className="text-sm font-bold tabular-nums text-[#2563EB]">
+              <span className="text-sm font-bold tabular-nums text-[#2563EB] whitespace-nowrap">
                 {fmtMoneda(precioFinal, moneda)}
+                <span className="font-normal text-slate-400">/unidad</span>
               </span>
             }
           >
@@ -2738,6 +2765,9 @@ export default function ProyectoPage() {
                           {cap.rubros.map((rubro, rubroIdx) => {
                             const tieneAPU = !!apuData[rubro.id];
                             const apuPrecio = tieneAPU ? calcAPU(apuData[rubro.id]).precioFinal : 0;
+                            const materialesSinPrecioRubro = tieneAPU
+                              ? apuData[rubro.id].materiales.filter((m) => m.precioUnit === 0).length
+                              : 0;
 
                             return (
                               <div
@@ -2785,17 +2815,43 @@ export default function ProyectoPage() {
                                   {!apuGenerando.has(rubro.id) && tieneAPU && apuPrecio > 0 && (
                                     <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" title="Precio estimado por IA" />
                                   )}
+                                  {materialesSinPrecioRubro > 0 && (
+                                    <span
+                                      className="flex-shrink-0"
+                                      title={`Precio incompleto — ${materialesSinPrecioRubro} insumo(s) sin costo de referencia`}
+                                    >
+                                      <AlertTriangle className="w-3 h-3 text-amber-500" />
+                                    </span>
+                                  )}
                                 </div>
 
                                 <div style={{ width: 76, flexShrink: 0 }} className="px-2">
-                                  <input
-                                    type="text"
-                                    value={rubro.unidad}
-                                    onChange={(e) => actualizarRubro(cap.id, rubro.id, "unidad", e.target.value)}
-                                    onBlur={() => sugerirAPU(cap.id, rubro.id)}
-                                    placeholder="m²"
-                                    className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center placeholder:text-slate-300"
-                                  />
+                                  {rubro.unidad === "" || UNIDADES_ESTANDAR.includes(normalizarUnidad(rubro.unidad)) ? (
+                                    <select
+                                      value={normalizarUnidad(rubro.unidad)}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        actualizarRubro(cap.id, rubro.id, "unidad", val === "__otra__" ? "" : val);
+                                        sugerirAPU(cap.id, rubro.id);
+                                      }}
+                                      className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center"
+                                    >
+                                      <option value="" disabled>—</option>
+                                      {UNIDADES_ESTANDAR.map((u) => (
+                                        <option key={u} value={u}>{u}</option>
+                                      ))}
+                                      <option value="__otra__">Otra…</option>
+                                    </select>
+                                  ) : (
+                                    <input
+                                      type="text"
+                                      value={rubro.unidad}
+                                      onChange={(e) => actualizarRubro(cap.id, rubro.id, "unidad", e.target.value)}
+                                      onBlur={() => sugerirAPU(cap.id, rubro.id)}
+                                      placeholder="m²"
+                                      className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center placeholder:text-slate-300"
+                                    />
+                                  )}
                                 </div>
                                 <div style={{ width: 96, flexShrink: 0 }} className="px-2">
                                   <input

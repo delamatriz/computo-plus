@@ -5,11 +5,11 @@
 // se cargó la mano de obra al rubro — no es una referencia viva a
 // CategoriaLaboral. Por eso actualizar la tabla de categorías no alcanza:
 // hay que encontrar, dentro de cada rubro, las líneas de MO cuya categoría
-// es Peón / Medio oficial / Oficial / Oficial especializado / Capataz (por
-// nombre, excluyendo variantes como "Oficial trabajo en altura" o "Capataz
-// general") y actualizar su jornalRef al valor correcto, y con eso
-// recalcular el precioUnit del rubro con la fórmula de Costo Directo ya
-// corregida.
+// es Peón / Medio oficial / Oficial / Oficial especializado / Capataz /
+// Oficial trabajo en altura / Medio oficial trabajo en altura (por nombre,
+// excluyendo variantes como "Capataz general") y actualizar su jornalRef
+// al valor correcto, y con eso recalcular el precioUnit del rubro con la
+// fórmula de Costo Directo ya corregida.
 //
 // Modo dry-run (default): solo muestra qué cambiaría, no escribe nada.
 // Modo aplicar: agregar --apply para escribir jornalRef y precioUnit en DB.
@@ -27,24 +27,35 @@ const p = new PrismaClient({ adapter });
 
 const modoAplicar = process.argv.includes("--apply");
 
-// Nuevos jornales SUNCA 2025 — 3 categorías del flujo simplificado más las
-// 2 categorías extendidas que tenían el mismo tipo de corrimiento.
-const NUEVO_JORNAL: Record<"peon" | "medio_oficial" | "oficial" | "oficial_especializado" | "capataz", number> = {
+// Nuevos jornales SUNCA 2025 — 3 categorías del flujo simplificado, las
+// 2 categorías extendidas que tenían el mismo tipo de corrimiento, y las
+// 2 categorías de compensación por trabajo en altura (10%).
+const NUEVO_JORNAL: Record<
+  "peon" | "medio_oficial" | "oficial" | "oficial_especializado" | "capataz" | "oficial_altura" | "medio_oficial_altura",
+  number
+> = {
   peon: 1554.29,
   medio_oficial: 2069.21,
   oficial: 2412.65,
   oficial_especializado: 2767.81, // Cat. VIII — antes tenía el de Cat. IX (Capataz, 2949.45)
   capataz: 2949.45,               // Cat. IX — antes tenía el de Cat. XII (Maestro mayor de obra, 3310.21)
+  oficial_altura: 2653.92,        // Oficial (Cat. VII) + 10%
+  medio_oficial_altura: 2276.13,  // Medio oficial (Cat. V) + 10%
 };
 
 // Nombres de categoría que NO deben tratarse como ninguna de las de arriba,
 // aunque contengan esas palabras como substring (oficios nivelados a un
 // grado fijo a propósito, y "capataz general"/"general superior" son Cat.
 // X/XI, no Cat. IX).
-const EXCLUIR = ["maquinista", "escalerista", "altura", "electricista", "plomero", "pintor"];
+const EXCLUIR = ["maquinista", "escalerista", "electricista", "plomero", "pintor"];
 
 function categoriaSimplificada(nombreMO: string): keyof typeof NUEVO_JORNAL | null {
   const n = nombreMO.trim().toLowerCase();
+  if (n.includes("altura")) {
+    if (n.includes("medio oficial")) return "medio_oficial_altura";
+    if (n.includes("oficial")) return "oficial_altura";
+    return null; // no existe variante de altura para Peón
+  }
   if (EXCLUIR.some((x) => n.includes(x))) return null;
   if (n.includes("capataz")) {
     if (n.includes("general")) return null; // Cat. X/XI — no forman parte de este ajuste
