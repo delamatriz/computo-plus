@@ -77,6 +77,13 @@ function fmtMonDecimal(v: number, simbolo: string): string {
   return `${simbolo} ${fmtNumDecimal(v)}`;
 }
 
+/** % de incidencia de un monto sobre el subtotal de obra — "—" si el subtotal es 0 (evita división por cero) */
+function fmtPctIncidencia(monto: number, subtotalObra: number): string {
+  if (subtotalObra <= 0) return "—";
+  const [entero, decimal] = ((monto / subtotalObra) * 100).toFixed(1).split(".");
+  return `${entero},${decimal}%`;
+}
+
 /** Igual que fmtMon pero sin el fallback "—" — para líneas de totales/resumen
  *  donde un monto en cero es un valor real (ej. Gastos Generales sin cargar). */
 function fmtMonTotal(v: number, simbolo: string): string {
@@ -213,12 +220,13 @@ const styles = StyleSheet.create({
   },
 
   // Columnas
-  colNum: { width: "6%" },
-  colDescripcion: { width: "40%" },
-  colUnidad: { width: "12%", textAlign: "center" },
-  colCantidad: { width: "14%", textAlign: "right" },
-  colPrecio: { width: "14%", textAlign: "right" },
-  colTotal: { width: "14%", textAlign: "right" },
+  colNum: { width: "5%" },
+  colDescripcion: { width: "33%" },
+  colUnidad: { width: "10%", textAlign: "center" },
+  colCantidad: { width: "13%", textAlign: "right" },
+  colPrecio: { width: "13%", textAlign: "right" },
+  colTotal: { width: "13%", textAlign: "right" },
+  colIncidencia: { width: "13%", textAlign: "right" },
 
   textoCelda: {
     fontSize: 8.5,
@@ -384,11 +392,22 @@ function EncabezadoColumnas() {
       <Text style={[styles.textoEncabezado, styles.colCantidad]}>Cantidad</Text>
       <Text style={[styles.textoEncabezado, styles.colPrecio]}>Precio unit.</Text>
       <Text style={[styles.textoEncabezado, styles.colTotal]}>Total</Text>
+      <Text style={[styles.textoEncabezado, styles.colIncidencia]}>% Incid.</Text>
     </View>
   );
 }
 
-function FilaRubro({ rubro, index, simbolo }: { rubro: RubroPDF; index: number; simbolo: string }) {
+function FilaRubro({
+  rubro,
+  index,
+  simbolo,
+  subtotalObra,
+}: {
+  rubro: RubroPDF;
+  index: number;
+  simbolo: string;
+  subtotalObra: number;
+}) {
   const total = rubro.cantidad * rubro.precioUnit;
   const sinPrecio = !rubro.precioUnit;
   return (
@@ -403,6 +422,9 @@ function FilaRubro({ rubro, index, simbolo }: { rubro: RubroPDF; index: number; 
       <Text style={[sinPrecio ? styles.textoCeldaMuted : styles.textoCelda, styles.colTotal]}>
         {sinPrecio ? "—" : fmtMon(total, simbolo)}
       </Text>
+      <Text style={[sinPrecio ? styles.textoCeldaMuted : styles.textoCelda, styles.colIncidencia]}>
+        {sinPrecio ? "—" : fmtPctIncidencia(total, subtotalObra)}
+      </Text>
     </View>
   );
 }
@@ -411,10 +433,12 @@ function BloqueCapitulo({
   capitulo,
   esPrimero,
   simbolo,
+  subtotalObra,
 }: {
   capitulo: CapituloPDF;
   esPrimero: boolean;
   simbolo: string;
+  subtotalObra: number;
 }) {
   const subtotal = capitulo.rubros.reduce((acc, r) => acc + r.cantidad * r.precioUnit, 0);
   return (
@@ -430,11 +454,16 @@ function BloqueCapitulo({
           <Text style={styles.textoCeldaMuted}>Sin rubros cargados en este capítulo</Text>
         </View>
       ) : (
-        capitulo.rubros.map((r, i) => <FilaRubro key={r.id} rubro={r} index={i} simbolo={simbolo} />)
+        capitulo.rubros.map((r, i) => (
+          <FilaRubro key={r.id} rubro={r} index={i} simbolo={simbolo} subtotalObra={subtotalObra} />
+        ))
       )}
       <View style={styles.filaSubtotal} wrap={false}>
         <Text style={styles.textoSubtotalLabel}>SUBTOTAL {capitulo.nombre.toUpperCase()}</Text>
         <Text style={styles.textoSubtotalMonto}>{fmtMon(subtotal, simbolo)}</Text>
+        <Text style={[styles.textoSubtotalMonto, { width: 50, marginLeft: 12, textAlign: "right" }]}>
+          {fmtPctIncidencia(subtotal, subtotalObra)}
+        </Text>
       </View>
     </View>
   );
@@ -625,7 +654,7 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
 
         {/* Cuerpo — capítulos */}
         {proyecto.capitulos.map((cap, i) => (
-          <BloqueCapitulo key={cap.id} capitulo={cap} esPrimero={i === 0} simbolo={simbolo} />
+          <BloqueCapitulo key={cap.id} capitulo={cap} esPrimero={i === 0} simbolo={simbolo} subtotalObra={subtotalObra} />
         ))}
 
         {/* Subtotal de obra, antes de sumar Gastos Generales */}

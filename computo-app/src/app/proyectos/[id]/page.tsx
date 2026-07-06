@@ -623,6 +623,17 @@ function fmtMonedaDecimal(v: number, moneda: string): string {
   return moneda === "USD" ? `U$S ${fmtMon(v)}` : `$ ${fmtMon(v)}`;
 }
 
+/** % de incidencia de un monto sobre el total general del proyecto — null si el total es 0 (evita división por cero) */
+function pctIncidencia(monto: number, totalGeneral: number): number | null {
+  if (totalGeneral <= 0) return null;
+  return (monto / totalGeneral) * 100;
+}
+
+function fmtPct(v: number | null): string {
+  if (v == null) return "—";
+  return `${v.toLocaleString("es-UY", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+}
+
 function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
   const sumMat = apu.materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
   // Costo de MO por unidad de rubro = jornalRef (costo de la jornada completa) / rendimiento
@@ -2700,9 +2711,10 @@ export default function ProyectoPage() {
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 
           {/* Cabecera de la tabla */}
-          <div className="grid grid-cols-[2fr_1fr] border-b border-slate-200 px-5 py-2.5">
+          <div className="grid grid-cols-[2fr_1fr_70px] border-b border-slate-200 px-5 py-2.5">
             <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Capítulo</span>
             <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Total</span>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">% Incid.</span>
           </div>
 
           {/* Lista de capítulos */}
@@ -2732,6 +2744,12 @@ export default function ProyectoPage() {
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <span className="text-sm font-bold tabular-nums" style={{ color: totalCap > 0 ? "#2563EB" : "#CBD5E1" }}>
                       {totalCap > 0 ? fmtMoneda(totalCap, moneda) : "—"}
+                    </span>
+                    <span
+                      className="text-xs font-medium tabular-nums text-slate-400 w-12 text-right"
+                      title="% de incidencia sobre el Total General del proyecto"
+                    >
+                      {fmtPct(pctIncidencia(totalCap, totalGeneral))}
                     </span>
                     <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
                       {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -2783,6 +2801,7 @@ export default function ProyectoPage() {
                           <div style={{ width: 96,  flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
                           <div style={{ width: 116, flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Precio unit.</div>
                           <div style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Total</div>
+                          <div style={{ width: 64, flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">% Incid.</div>
                           <div style={{ width: 28, flexShrink: 0 }} />
                         </div>
 
@@ -2914,6 +2933,11 @@ export default function ProyectoPage() {
                                     {totalRubro(rubro) > 0 ? fmtMoneda(totalRubro(rubro), moneda) : "—"}
                                   </span>
                                 </div>
+                                <div style={{ width: 64, flexShrink: 0 }} className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
+                                  <span className="text-xs font-medium tabular-nums text-slate-400">
+                                    {fmtPct(pctIncidencia(totalRubro(rubro), totalGeneral))}
+                                  </span>
+                                </div>
                                 <div style={{ width: 28, flexShrink: 0 }} className="flex items-center justify-center">
                                   <button
                                     onClick={() => eliminarRubro(cap.id, rubro.id, rubro.descripcion)}
@@ -2937,6 +2961,10 @@ export default function ProyectoPage() {
                           <div style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-sm font-bold tabular-nums text-right text-[#2563EB]">
                             {fmtMoneda(totalCap, moneda)}
                           </div>
+                          <div style={{ width: 64, flexShrink: 0 }} className="px-2 text-xs font-bold tabular-nums text-right text-[#2563EB]">
+                            {fmtPct(pctIncidencia(totalCap, totalGeneral))}
+                          </div>
+                          <div style={{ width: 28, flexShrink: 0 }} />
                         </div>
 
                         {/* Botón agregar rubro */}
