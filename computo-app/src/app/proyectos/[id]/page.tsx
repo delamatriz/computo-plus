@@ -2749,7 +2749,10 @@ export default function ProyectoPage() {
 
           {/* Cabecera de la tabla — usa GRID_CAPITULO, la misma plantilla de columnas que la fila de Capítulo más abajo y que comparte Total/% Incid. con GRID_RUBRO */}
           <div className="grid border-b border-slate-200 px-5 py-2.5" style={{ gridTemplateColumns: GRID_CAPITULO }}>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center">Capítulo</span>
+            <div className="flex items-center gap-3">
+              <span className="w-6 flex-shrink-0" />
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Capítulo</span>
+            </div>
             <span className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center">Total</span>
             <span className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center whitespace-nowrap">% Incid.</span>
             <span />
