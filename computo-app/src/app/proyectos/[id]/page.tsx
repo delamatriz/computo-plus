@@ -1758,6 +1758,8 @@ export default function ProyectoPage() {
   const [descripcionEnFoco, setDescripcionEnFoco] = useState<string | null>(null);
   // Rubro cuyo precio unitario está siendo editado — mientras tanto se muestra sin separador de miles
   const [precioUnitEnFoco, setPrecioUnitEnFoco] = useState<string | null>(null);
+  // Rubro cuya cantidad está siendo editada — mientras tanto se muestra el valor crudo, no formateado
+  const [cantidadEnFoco, setCantidadEnFoco] = useState<string | null>(null);
   const [capitulos, setCapitulos] = useState<Capitulo[]>([]);
   // Ref para leer siempre el estado más reciente de capitulos desde callbacks async
   const capitulosRef = useRef<Capitulo[]>([]);
@@ -2710,11 +2712,12 @@ export default function ProyectoPage() {
       <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 
-          {/* Cabecera de la tabla */}
-          <div className="grid grid-cols-[2fr_1fr_70px] border-b border-slate-200 px-5 py-2.5">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Capítulo</span>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Total</span>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">% Incid.</span>
+          {/* Cabecera de la tabla — mismos anchos fijos que el header de rubro, para que Total y % Incid. queden alineados verticalmente entre ambos niveles */}
+          <div className="flex items-center border-b border-slate-200 px-5 py-2.5">
+            <span className="flex-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Capítulo</span>
+            <span style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Total</span>
+            <span style={{ width: 80, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">% Incid.</span>
+            <span style={{ width: 28, flexShrink: 0 }} />
           </div>
 
           {/* Lista de capítulos */}
@@ -2728,9 +2731,9 @@ export default function ProyectoPage() {
                 {/* Fila del capítulo */}
                 <button
                   onClick={() => toggleCapituloConSubrubros(cap)}
-                  className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors text-left group"
+                  className="w-full flex items-center px-5 py-3 hover:bg-slate-50 transition-colors text-left group"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: "#2563EB" }}>
                       {String(capIdx + 1).padStart(2, "0")}
                     </span>
@@ -2741,19 +2744,22 @@ export default function ProyectoPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-right">
                     <span className="text-sm font-bold tabular-nums" style={{ color: totalCap > 0 ? "#2563EB" : "#CBD5E1" }}>
                       {totalCap > 0 ? fmtMoneda(totalCap, moneda) : "—"}
                     </span>
-                    <span
-                      className="text-xs font-medium tabular-nums text-slate-400 w-12 text-right"
-                      title="% de incidencia sobre el Total General del proyecto"
-                    >
+                  </div>
+                  <div
+                    style={{ width: 80, flexShrink: 0 }}
+                    className="px-2 text-right"
+                    title="% de incidencia sobre el Total General del proyecto"
+                  >
+                    <span className="text-xs font-medium tabular-nums text-slate-400 whitespace-nowrap">
                       {fmtPct(pctIncidencia(totalCap, totalGeneral))}
                     </span>
-                    <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
-                      {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                    </span>
+                  </div>
+                  <div style={{ width: 28, flexShrink: 0 }} className="flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
+                    {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </div>
                 </button>
 
@@ -2800,9 +2806,10 @@ export default function ProyectoPage() {
                           <div style={{ width: 76,  flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Unidad</div>
                           <div style={{ width: 96,  flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
                           <div style={{ width: 116, flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Precio unit.</div>
-                          <div style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Total</div>
-                          <div style={{ width: 64, flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">% Incid.</div>
+                          <div style={{ width: 116, flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Total</div>
+                          <div style={{ width: 80, flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">% Incid.</div>
                           <div style={{ width: 28, flexShrink: 0 }} />
+                          <div style={{ width: 20, flexShrink: 0 }} />
                         </div>
 
                         {/* Filas */}
@@ -2900,11 +2907,18 @@ export default function ProyectoPage() {
                                 </div>
                                 <div style={{ width: 96, flexShrink: 0 }} className="px-2">
                                   <input
-                                    type="number"
-                                    value={rubro.cantidad ?? ""}
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={
+                                      cantidadEnFoco === rubro.id
+                                        ? (rubro.cantidad != null ? String(rubro.cantidad) : "")
+                                        : (rubro.cantidad != null ? fmtRendimiento(rubro.cantidad) : "")
+                                    }
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "cantidad", e.target.value)}
+                                    onFocus={() => setCantidadEnFoco(rubro.id)}
+                                    onBlur={() => setCantidadEnFoco(null)}
                                     placeholder="0"
-                                    className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300"
                                   />
                                 </div>
                                 <div style={{ width: 116, flexShrink: 0 }} className="px-2">
@@ -2928,13 +2942,13 @@ export default function ProyectoPage() {
                                     className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />
                                 </div>
-                                <div style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-right">
+                                <div style={{ width: 116, flexShrink: 0 }} className="px-2 text-right">
                                   <span className={cn("text-sm font-semibold tabular-nums", totalRubro(rubro) > 0 ? "text-[#2563EB]" : "text-slate-300")}>
                                     {totalRubro(rubro) > 0 ? fmtMoneda(totalRubro(rubro), moneda) : "—"}
                                   </span>
                                 </div>
-                                <div style={{ width: 64, flexShrink: 0 }} className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
-                                  <span className="text-xs font-medium tabular-nums text-slate-400">
+                                <div style={{ width: 80, flexShrink: 0 }} className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
+                                  <span className="text-xs font-medium tabular-nums text-slate-400 whitespace-nowrap">
                                     {fmtPct(pctIncidencia(totalRubro(rubro), totalGeneral))}
                                   </span>
                                 </div>
@@ -2948,6 +2962,7 @@ export default function ProyectoPage() {
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
+                                <div style={{ width: 20, flexShrink: 0 }} />
                               </div>
                             );
                           })}
@@ -2958,13 +2973,14 @@ export default function ProyectoPage() {
                           <div className="flex-1 pl-6 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                             Subtotal {cap.nombre}
                           </div>
-                          <div style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-sm font-bold tabular-nums text-right text-[#2563EB]">
+                          <div style={{ width: 116, flexShrink: 0 }} className="px-2 text-sm font-bold tabular-nums text-right text-[#2563EB]">
                             {fmtMoneda(totalCap, moneda)}
                           </div>
-                          <div style={{ width: 64, flexShrink: 0 }} className="px-2 text-xs font-bold tabular-nums text-right text-[#2563EB]">
+                          <div style={{ width: 80, flexShrink: 0 }} className="px-2 text-xs font-bold tabular-nums text-right text-[#2563EB] whitespace-nowrap">
                             {fmtPct(pctIncidencia(totalCap, totalGeneral))}
                           </div>
                           <div style={{ width: 28, flexShrink: 0 }} />
+                          <div style={{ width: 20, flexShrink: 0 }} />
                         </div>
 
                         {/* Botón agregar rubro */}

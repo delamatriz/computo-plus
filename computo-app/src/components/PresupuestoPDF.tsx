@@ -72,6 +72,15 @@ function fmtNumDecimal(v: number): string {
   return `${entero.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${decimales}`;
 }
 
+/** Cantidad: hasta 2 decimales sin ceros de más (2.5 -> "2,5", 600 -> "600") — a diferencia de
+ *  fmtNum, no redondea al entero, para no perder la cantidad real cargada en el rubro. */
+function fmtNumCantidad(v: number): string {
+  const redondeado = Math.round(v * 100) / 100;
+  const [entero, decimales] = redondeado.toString().split(".");
+  const enteroConMiles = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return decimales ? `${enteroConMiles},${decimales}` : enteroConMiles;
+}
+
 function fmtMonDecimal(v: number, simbolo: string): string {
   if (!v) return "—";
   return `${simbolo} ${fmtNumDecimal(v)}`;
@@ -415,7 +424,7 @@ function FilaRubro({
       <Text style={[styles.textoCelda, styles.colNum]}>{index + 1}</Text>
       <Text style={[styles.textoCelda, styles.colDescripcion]}>{rubro.descripcion || "—"}</Text>
       <Text style={[styles.textoCelda, styles.colUnidad]}>{rubro.unidad || "—"}</Text>
-      <Text style={[styles.textoCelda, styles.colCantidad]}>{fmtNum(rubro.cantidad)}</Text>
+      <Text style={[styles.textoCelda, styles.colCantidad]}>{fmtNumCantidad(rubro.cantidad)}</Text>
       <Text style={[sinPrecio ? styles.textoCeldaMuted : styles.textoCelda, styles.colPrecio]}>
         {sinPrecio ? "—" : fmtMonDecimal(rubro.precioUnit, simbolo)}
       </Text>
