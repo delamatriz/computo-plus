@@ -1466,9 +1466,9 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <th className="text-left pl-4 font-semibold text-slate-400 uppercase tracking-wider">Categoría</th>
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title="Horas de la jornada laboral">Jornada</th>
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title={`Horas necesarias por ${rubro.unidad || "unidad"} de rubro`}>Hs/{rubro.unidad || "u"}</th>
-                    <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider" title="Jornal de referencia por jornada de 8hs (UYU)">Jornal ref.</th>
+                    <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap" title="Jornal de referencia por jornada de 8hs (UYU)">Jornal ref.</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap" title={`Costo por ${rubro.unidad || "unidad"} de rubro (jornal ref. / rendimiento)`}>Subtotal p.unit</th>
-                    <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title="Horas totales para el rubro completo">Hs totales</th>
+                    <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap" title="Horas totales para el rubro completo">Hs totales</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">Subtotal</th>
                   </tr>
                 </thead>
