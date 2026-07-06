@@ -21,6 +21,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionResumenPresupuesto, { GastoGeneralItem } from "@/components/SeccionResumenPresupuesto";
 import SeccionGarantias from "@/components/SeccionGarantias";
@@ -947,6 +948,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const [mostrarSelectorMO, setMostrarSelectorMO] = useState(false);
   const [nuevoMatId, setNuevoMatId] = useState<string | null>(null);
   const [categoriasLaborales, setCategoriasLaborales] = useState<CategoriaLaboral[]>([]);
+  const [convenioFechaVigente, setConvenioFechaVigente] = useState<string | null>(null);
   // Material cuyo precio unitario está en edición inline (click-to-edit)
   const [precioEditId, setPrecioEditId] = useState<string | null>(null);
   // Material cuyo precio se está estimando con IA (loading del botón "Estimar")
@@ -1000,15 +1002,23 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
     }, 600);
   }, [apu, rubro.id]);
 
-  // Cargar categorías laborales SUNCA al montar
+  // Cargar categorías laborales SUNCA y fecha de vigencia del convenio al montar
   useEffect(() => {
     let cancelado = false;
     fetch("/api/categorias-laborales")
       .then((res) => res.json())
       .then((data: CategoriaLaboral[]) => { if (!cancelado) setCategoriasLaborales(Array.isArray(data) ? data : []); })
       .catch((err) => console.error("[categorías laborales]", err));
+    fetch("/api/configuracion")
+      .then((res) => res.json())
+      .then((data: { convenioFechaVigente?: string | null }) => {
+        if (!cancelado) setConvenioFechaVigente(data.convenioFechaVigente ?? null);
+      })
+      .catch((err) => console.error("[configuración — fecha convenio]", err));
     return () => { cancelado = true; };
   }, []);
+
+  const jornalesPosiblementeDesactualizados = convenioPosiblementeDesactualizado(convenioFechaVigente);
 
   const setMat = (materiales: InsumoAPU[]) => onApuChange({ ...apu, materiales });
   const setMO  = (manoObra: ManoObraAPU[]) => onApuChange({ ...apu, manoObra });
@@ -1417,7 +1427,17 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
           </SeccionAPU>
 
           {/* 2 — MANO DE OBRA */}
-          <SeccionAPU titulo="Mano de obra">
+          <SeccionAPU
+            titulo="Mano de obra"
+            headerExtra={
+              jornalesPosiblementeDesactualizados && convenioFechaVigente ? (
+                <span title={mensajeAvisoConvenio(convenioFechaVigente)}>
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                </span>
+              ) : undefined
+            }
+          >
+
             <div className="pb-2">
               <div className="overflow-x-auto -mx-4 px-4">
               <table className="w-full text-xs border-collapse min-w-[480px]">
@@ -1625,12 +1645,18 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
         {/* Resumen APU — pie fijo */}
         <div className="flex-shrink-0 border-t border-slate-200 bg-[#F8FAFC] px-5 py-4 space-y-2">
           <SeccionAPU
-            titulo="Resumen y Precio"
+            titulo="Resumen y Precio Total"
             defaultAbierta={false}
             headerExtra={
               <span className="text-sm font-bold tabular-nums text-[#2563EB] whitespace-nowrap">
-                {fmtMoneda(precioFinal, moneda)}
-                <span className="font-normal text-slate-400">/unidad</span>
+                {rubro.cantidad != null ? (
+                  fmtMoneda(precioFinal * rubro.cantidad, moneda)
+                ) : (
+                  <>
+                    {fmtMoneda(precioFinal, moneda)}
+                    <span className="font-normal text-slate-400">/unidad</span>
+                  </>
+                )}
               </span>
             }
           >
