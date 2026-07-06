@@ -634,6 +634,18 @@ function fmtPct(v: number | null): string {
   return `${v.toLocaleString("es-UY", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
 
+// Anchos de columna compartidos entre la fila de Capítulo y la fila de Rubro
+// de la tabla del proyecto. Total y % Incid. existen en ambos niveles y tienen
+// que quedar alineados verticalmente — en vez de repetir los mismos anchos en
+// dos lugares (y tener que acordarse de tocar los dos si cambian), ambas filas
+// usan CSS Grid con una plantilla de columnas que comparte estos mismos
+// valores, así solo hay un lugar para ajustar.
+const COL_TOTAL = "116px";
+const COL_PCT = "80px";
+const COL_ACCION = "28px";
+const GRID_CAPITULO = `minmax(0,1fr) ${COL_TOTAL} ${COL_PCT} ${COL_ACCION}`;
+const GRID_RUBRO = `64px minmax(0,1fr) 76px 96px 116px ${COL_TOTAL} ${COL_PCT} ${COL_ACCION}`;
+
 function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
   const sumMat = apu.materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
   // Costo de MO por unidad de rubro = jornalRef (costo de la jornada completa) / rendimiento
@@ -2712,12 +2724,12 @@ export default function ProyectoPage() {
       <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 
-          {/* Cabecera de la tabla — mismos anchos fijos que el header de rubro, para que Total y % Incid. queden alineados verticalmente entre ambos niveles */}
-          <div className="flex items-center border-b border-slate-200 px-5 py-2.5">
-            <span className="flex-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Capítulo</span>
-            <span style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Total</span>
-            <span style={{ width: 80, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">% Incid.</span>
-            <span style={{ width: 28, flexShrink: 0 }} />
+          {/* Cabecera de la tabla — usa GRID_CAPITULO, la misma plantilla de columnas que la fila de Capítulo más abajo y que comparte Total/% Incid. con GRID_RUBRO */}
+          <div className="grid border-b border-slate-200 px-5 py-2.5" style={{ gridTemplateColumns: GRID_CAPITULO }}>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Capítulo</span>
+            <span className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Total</span>
+            <span className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">% Incid.</span>
+            <span />
           </div>
 
           {/* Lista de capítulos */}
@@ -2731,9 +2743,10 @@ export default function ProyectoPage() {
                 {/* Fila del capítulo */}
                 <button
                   onClick={() => toggleCapituloConSubrubros(cap)}
-                  className="w-full flex items-center px-5 py-3 hover:bg-slate-50 transition-colors text-left group"
+                  className="w-full grid items-center px-5 py-3 hover:bg-slate-50 transition-colors text-left group"
+                  style={{ gridTemplateColumns: GRID_CAPITULO }}
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex items-center gap-3 min-w-0">
                     <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: "#2563EB" }}>
                       {String(capIdx + 1).padStart(2, "0")}
                     </span>
@@ -2744,21 +2757,17 @@ export default function ProyectoPage() {
                       </span>
                     )}
                   </div>
-                  <div style={{ width: 116, flexShrink: 0 }} className="pl-2 pr-5 text-right">
+                  <div className="px-2 text-right">
                     <span className="text-sm font-bold tabular-nums" style={{ color: totalCap > 0 ? "#2563EB" : "#CBD5E1" }}>
                       {totalCap > 0 ? fmtMoneda(totalCap, moneda) : "—"}
                     </span>
                   </div>
-                  <div
-                    style={{ width: 80, flexShrink: 0 }}
-                    className="px-2 text-right"
-                    title="% de incidencia sobre el Total General del proyecto"
-                  >
+                  <div className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
                     <span className="text-xs font-medium tabular-nums text-slate-400 whitespace-nowrap">
                       {fmtPct(pctIncidencia(totalCap, totalGeneral))}
                     </span>
                   </div>
-                  <div style={{ width: 28, flexShrink: 0 }} className="flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
+                  <div className="flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
                     {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </div>
                 </button>
@@ -2798,18 +2807,16 @@ export default function ProyectoPage() {
                           </>
                         ) : (
                         <>
-                        {/* Header de columnas */}
-                        <div className="flex items-center bg-slate-50 border-b border-slate-200" style={{ height: 28 }}>
-                          {/* espacio botón APU + número */}
-                          <div style={{ width: 64, flexShrink: 0 }} />
-                          <div className="flex-1 px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Descripción</div>
-                          <div style={{ width: 76,  flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Unidad</div>
-                          <div style={{ width: 96,  flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
-                          <div style={{ width: 116, flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Precio unit.</div>
-                          <div style={{ width: 116, flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Total</div>
-                          <div style={{ width: 80, flexShrink: 0 }} className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">% Incid.</div>
-                          <div style={{ width: 28, flexShrink: 0 }} />
-                          <div style={{ width: 20, flexShrink: 0 }} />
+                        {/* Header de columnas — usa GRID_RUBRO, comparte Total/% Incid. con GRID_CAPITULO */}
+                        <div className="grid items-center bg-slate-50 border-b border-slate-200 px-5" style={{ height: 28, gridTemplateColumns: GRID_RUBRO }}>
+                          <div />
+                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Descripción</div>
+                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Unidad</div>
+                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
+                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Precio unit.</div>
+                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Total</div>
+                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">% Incid.</div>
+                          <div />
                         </div>
 
                         {/* Filas */}
@@ -2825,13 +2832,13 @@ export default function ProyectoPage() {
                               <div
                                 key={rubro.id}
                                 className={cn(
-                                  "group flex items-center hover:bg-blue-50/20 transition-colors",
+                                  "group grid items-center hover:bg-blue-50/20 transition-colors px-5",
                                   rubroIdx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white"
                                 )}
-                                style={{ height: 28, borderBottom: "1px solid #F1F5F9" }}
+                                style={{ height: 28, borderBottom: "1px solid #F1F5F9", gridTemplateColumns: GRID_RUBRO }}
                               >
                                 {/* Botón APU + número */}
-                                <div style={{ width: 64, flexShrink: 0 }} className="flex items-center justify-end gap-1 pr-1 pl-3">
+                                <div className="flex items-center justify-end gap-1 pr-1">
                                   <button
                                     onClick={() => setDrawerRubroId(rubro.id)}
                                     title="Abrir descompuesto (APU)"
@@ -2851,7 +2858,7 @@ export default function ProyectoPage() {
                                 </div>
 
                                 {/* Descripción + badge APU */}
-                                <div className="flex-1 px-2 min-w-0 flex items-center gap-1.5">
+                                <div className="px-2 min-w-0 flex items-center gap-1.5">
                                   <input
                                     type="text"
                                     value={descripcionEnFoco === rubro.id ? rubro.descripcion : toTitleCase(rubro.descripcion)}
@@ -2877,7 +2884,7 @@ export default function ProyectoPage() {
                                   )}
                                 </div>
 
-                                <div style={{ width: 76, flexShrink: 0 }} className="px-2">
+                                <div className="px-2">
                                   {rubro.unidad === "" || UNIDADES_ESTANDAR.includes(normalizarUnidad(rubro.unidad)) ? (
                                     <select
                                       value={normalizarUnidad(rubro.unidad)}
@@ -2905,7 +2912,7 @@ export default function ProyectoPage() {
                                     />
                                   )}
                                 </div>
-                                <div style={{ width: 96, flexShrink: 0 }} className="px-2">
+                                <div className="px-2">
                                   <input
                                     type="text"
                                     inputMode="decimal"
@@ -2921,7 +2928,7 @@ export default function ProyectoPage() {
                                     className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300"
                                   />
                                 </div>
-                                <div style={{ width: 116, flexShrink: 0 }} className="px-2">
+                                <div className="px-2">
                                   <input
                                     type="text"
                                     inputMode="decimal"
@@ -2942,17 +2949,17 @@ export default function ProyectoPage() {
                                     className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />
                                 </div>
-                                <div style={{ width: 116, flexShrink: 0 }} className="px-2 text-right">
+                                <div className="px-2 text-right">
                                   <span className={cn("text-sm font-semibold tabular-nums", totalRubro(rubro) > 0 ? "text-[#2563EB]" : "text-slate-300")}>
                                     {totalRubro(rubro) > 0 ? fmtMoneda(totalRubro(rubro), moneda) : "—"}
                                   </span>
                                 </div>
-                                <div style={{ width: 80, flexShrink: 0 }} className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
+                                <div className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
                                   <span className="text-xs font-medium tabular-nums text-slate-400 whitespace-nowrap">
                                     {fmtPct(pctIncidencia(totalRubro(rubro), totalGeneral))}
                                   </span>
                                 </div>
-                                <div style={{ width: 28, flexShrink: 0 }} className="flex items-center justify-center">
+                                <div className="flex items-center justify-center">
                                   <button
                                     onClick={() => eliminarRubro(cap.id, rubro.id, rubro.descripcion)}
                                     title="Eliminar rubro"
@@ -2962,25 +2969,23 @@ export default function ProyectoPage() {
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
-                                <div style={{ width: 20, flexShrink: 0 }} />
                               </div>
                             );
                           })}
                         </div>
 
-                        {/* Subtotal */}
-                        <div className="flex items-center bg-slate-50 border-t border-slate-200" style={{ height: 26 }}>
-                          <div className="flex-1 pl-6 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        {/* Subtotal — mismo GRID_RUBRO; la etiqueta ocupa las columnas de icono+descripción+unidad+cantidad+precio */}
+                        <div className="grid items-center bg-slate-50 border-t border-slate-200 px-5" style={{ height: 26, gridTemplateColumns: GRID_RUBRO }}>
+                          <div className="pl-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider" style={{ gridColumn: "span 5" }}>
                             Subtotal {cap.nombre}
                           </div>
-                          <div style={{ width: 116, flexShrink: 0 }} className="px-2 text-sm font-bold tabular-nums text-right text-[#2563EB]">
+                          <div className="px-2 text-sm font-bold tabular-nums text-right text-[#2563EB]">
                             {fmtMoneda(totalCap, moneda)}
                           </div>
-                          <div style={{ width: 80, flexShrink: 0 }} className="px-2 text-xs font-bold tabular-nums text-right text-[#2563EB] whitespace-nowrap">
+                          <div className="px-2 text-xs font-bold tabular-nums text-right text-[#2563EB] whitespace-nowrap">
                             {fmtPct(pctIncidencia(totalCap, totalGeneral))}
                           </div>
-                          <div style={{ width: 28, flexShrink: 0 }} />
-                          <div style={{ width: 20, flexShrink: 0 }} />
+                          <div />
                         </div>
 
                         {/* Botón agregar rubro */}
