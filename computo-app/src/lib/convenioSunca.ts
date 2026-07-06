@@ -23,13 +23,24 @@ export function convenioPosiblementeDesactualizado(
 // que devuelve la API representan la misma fecha calendario en UTC. Si se
 // formateara en huso horario local (Uruguay UTC-3), esa fecha calendario se
 // corre un día para atrás.
-export function mensajeAvisoConvenio(fechaVigenciaDesde: string | Date): string {
-  const fecha = new Date(fechaVigenciaDesde);
-  const fechaFormateada = new Intl.DateTimeFormat("es-UY", {
+function formatearFechaUTC(fecha: Date): string {
+  return new Intl.DateTimeFormat("es-UY", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     timeZone: "UTC",
   }).format(fecha);
-  return `Jornales vigentes desde ${fechaFormateada} — verificá si hay convenio más reciente antes de usar en presupuestos definitivos.`;
+}
+
+// El convenio SUNCA se ajusta una vez al año — la vigencia mostrada abarca
+// los 12 meses desde fechaVigenciaDesde hasta el día previo a su aniversario.
+function fechaFinVigencia(fechaVigenciaDesde: string | Date): Date {
+  const inicio = new Date(fechaVigenciaDesde);
+  return new Date(Date.UTC(inicio.getUTCFullYear() + 1, inicio.getUTCMonth(), inicio.getUTCDate() - 1));
+}
+
+export function mensajeAvisoConvenio(fechaVigenciaDesde: string | Date): string {
+  const desde = formatearFechaUTC(new Date(fechaVigenciaDesde));
+  const hasta = formatearFechaUTC(fechaFinVigencia(fechaVigenciaDesde));
+  return `Convenio ${desde} al ${hasta} — verificá si hay convenio más reciente antes de usar en presupuestos definitivos.`;
 }
