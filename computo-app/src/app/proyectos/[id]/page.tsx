@@ -976,6 +976,10 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const [precioEditId, setPrecioEditId] = useState<string | null>(null);
   // Material cuyo precio se está estimando con IA (loading del botón "Estimar")
   const [estimandoPrecioId, setEstimandoPrecioId] = useState<string | null>(null);
+  // Fila de mano de obra cuyo jornal de referencia está siendo editado — mientras tanto se muestra el valor crudo, no formateado
+  const [jornalRefEnFoco, setJornalRefEnFoco] = useState<string | null>(null);
+  // Fila de equipo cuyo precio unitario está siendo editado — mismo criterio
+  const [costoUnitEnFoco, setCostoUnitEnFoco] = useState<string | null>(null);
   const { costoDirecto, precioFinal } = calcAPU(apu);
 
   const totalMateriales = apu.materiales.reduce((acc, m) => {
@@ -1351,7 +1355,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                     type="button"
                                     onClick={() => estimarPrecioMaterial(m)}
                                     disabled={estimandoPrecioId === m.id}
-                                    title="Estimar precio unitario con IA"
+                                    title="Estimar precio de referencia — requiere verificación"
                                     className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[3px] uppercase tracking-wide whitespace-nowrap bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors disabled:opacity-50"
                                   >
                                     {estimandoPrecioId === m.id
@@ -1361,13 +1365,13 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                 )}
                               </div>
                             ) : (
-                              <div className="group flex items-center justify-end gap-1">
+                              <div className="relative group">
                                 <span className="tabular-nums text-slate-700">{fmtMon(m.precioUnit)}</span>
                                 <button
                                   type="button"
                                   onClick={() => setPrecioEditId(m.id)}
                                   title="Editar precio"
-                                  className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-[#2563EB] transition-opacity"
+                                  className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-[#2563EB] transition-opacity"
                                 >
                                   <Pencil className="w-3 h-3" />
                                 </button>
@@ -1505,7 +1509,20 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                           {hsPorUnidad > 0 ? fmtMon(hsPorUnidad) : "—"}
                         </td>
                         <td className="text-right pr-3">
-                          <input type="number" value={mo.jornalRef || ""} onChange={(e) => updateMO(mo.id, "jornalRef", e.target.value)} onBlur={() => guardarApuActual()} placeholder="0" className={cn(inputCls, "text-right")} />
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={
+                              jornalRefEnFoco === mo.id
+                                ? (mo.jornalRef ? String(mo.jornalRef) : "")
+                                : (mo.jornalRef ? fmtMon(mo.jornalRef) : "")
+                            }
+                            onChange={(e) => updateMO(mo.id, "jornalRef", e.target.value)}
+                            onFocus={() => setJornalRefEnFoco(mo.id)}
+                            onBlur={() => { setJornalRefEnFoco(null); guardarApuActual(); }}
+                            placeholder="0"
+                            className={cn(inputCls, "text-right")}
+                          />
                         </td>
                         <td className="text-right pr-3 font-semibold tabular-nums text-[#2563EB]">
                           {subPUnit > 0 ? fmtMon(subPUnit) : "—"}
@@ -1631,12 +1648,18 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                         </td>
                         <td className="text-right pr-3">
                           <input
-                            type="number"
-                            value={eq.costoUnit || ""}
+                            type="text"
+                            inputMode="decimal"
+                            value={
+                              costoUnitEnFoco === eq.id
+                                ? (eq.costoUnit ? String(eq.costoUnit) : "")
+                                : (eq.costoUnit ? fmtMon(eq.costoUnit) : "")
+                            }
                             onChange={(e) => updateEq(eq.id, "costoUnit", e.target.value)}
-                            onBlur={() => guardarApuActual()}
+                            onFocus={() => setCostoUnitEnFoco(eq.id)}
+                            onBlur={() => { setCostoUnitEnFoco(null); guardarApuActual(); }}
                             placeholder="0.00"
-                            className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                            className={cn(inputCls, "text-right")}
                           />
                         </td>
                         <td className="text-right pr-3 font-semibold tabular-nums text-[#2563EB]">
@@ -2872,7 +2895,7 @@ export default function ProyectoPage() {
                                     <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Generando APU…" />
                                   )}
                                   {!apuGenerando.has(rubro.id) && tieneAPU && apuPrecio > 0 && (
-                                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" title="Precio estimado por IA" />
+                                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" title="Precio de referencia — requiere verificación" />
                                   )}
                                   {materialesSinPrecioRubro > 0 && (
                                     <span
