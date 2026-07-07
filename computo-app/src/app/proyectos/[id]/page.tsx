@@ -1220,15 +1220,17 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Análisis de Precio Unitario
-              {rubro.unidad && <span className="ml-1 font-medium text-slate-500">({rubro.unidad})</span>}
+            <div className="mt-0.5">
+              <p className="text-xs text-slate-400">
+                Análisis de Precio Unitario
+                {rubro.unidad && <span className="ml-1 font-medium text-slate-500">({rubro.unidad})</span>}
+              </p>
               {rubro.cantidad != null && (
-                <span className="ml-2 pl-2 border-l border-slate-200 font-medium text-slate-500">
+                <p className="text-sm font-bold text-[#2563EB] mt-0.5">
                   Cantidad total del rubro: {fmtRendimiento(rubro.cantidad)} {rubro.unidad}
-                </span>
+                </p>
               )}
-            </p>
+            </div>
           </div>
           <button
             onClick={onClose}
