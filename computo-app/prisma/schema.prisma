@@ -181,6 +181,12 @@ model ManoObraAPU {
   orden       Int    @default(0)
   apuId       String
   apu         APU    @relation(fields: [apuId], references: [id], onDelete: Cascade)
+
+  // Vincula esta línea a una línea de Equipo cuando representa su mano de obra
+  // de armado/desarme — permite incluirla o excluirla del Costo Directo según
+  // el modo de costeo del equipo (ver EquipoAPU.modoCosteo).
+  equipoRelacionadoId String?
+  equipoRelacionado   EquipoAPU? @relation("ArmadoDeEquipo", fields: [equipoRelacionadoId], references: [id], onDelete: SetNull)
 }
 
 model EquipoAPU {
@@ -188,10 +194,15 @@ model EquipoAPU {
   descripcion String
   unidad      String
   rendimiento Float
-  costoUnit   Float
+  costoUnit   Float // precio de alquiler de mercado — no se pisa al pasar a modo Propio
   orden       Int    @default(0)
   apuId       String
   apu         APU    @relation(fields: [apuId], references: [id], onDelete: Cascade)
+
+  // "ALQUILADO" (default) | "PROPIO_CON_COSTO" | "PROPIO_SIN_COSTO"
+  modoCosteo      String       @default("ALQUILADO")
+  costoUnitPropio Float? // costo propio cargado a mano, solo usado en PROPIO_CON_COSTO
+  manoObraRelacionada ManoObraAPU[] @relation("ArmadoDeEquipo")
 }
 
 model Receta {
@@ -325,6 +336,11 @@ model ManoObraAPUEstandar {
   rendimiento Float
   apuId       String
   apu         APUEstandar @relation(fields: [apuId], references: [id], onDelete: Cascade)
+
+  // Mismo vínculo que ManoObraAPU.equipoRelacionadoId, a nivel de biblioteca
+  // estándar — se propaga al clonar hacia un APU real (ver clonar-apu route).
+  equipoRelacionadoId String?
+  equipoRelacionado   EquipoAPUEstandar? @relation("ArmadoDeEquipoEstandar", fields: [equipoRelacionadoId], references: [id], onDelete: SetNull)
 }
 
 model EquipoAPUEstandar {
@@ -334,6 +350,7 @@ model EquipoAPUEstandar {
   rendimiento Float
   apuId       String
   apu         APUEstandar @relation(fields: [apuId], references: [id], onDelete: Cascade)
+  manoObraRelacionada ManoObraAPUEstandar[] @relation("ArmadoDeEquipoEstandar")
 }
 
 model PrecioMTOP {

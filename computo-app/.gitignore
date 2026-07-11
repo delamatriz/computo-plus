@@ -45,3 +45,6 @@ next-env.d.ts
 # bases de datos locales SQLite (la app ya migró a PostgreSQL)
 *.db
 *.db-journal
+
+# dumps de backup manual (scripts/backup-db.ts) — no se versionan
+/backups/
