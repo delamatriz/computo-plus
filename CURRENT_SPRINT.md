@@ -136,10 +136,20 @@ son referencia para no tener que re-investigar de cero.
       según relevamiento de Luis, hoy casi no se arma la mezcla en obra;
       se compra premezclada aunque sea por capas separadas.
 
-- [ ] Puentes de adherencia químicos (ej. SikaTop Modul) — para unir
+- [x] ✅ Puentes de adherencia químicos (ej. SikaTop Modul) — para unir
       revoque/mortero nuevo sobre superficie vieja o poco porosa.
       Insumo líquido, consumo bajo (referencias de productos similares
       Sika rondan 0,15-0,175 kg/m2).
+      **Agregado a biblioteca (11/07/2026)**: dos códigos distintos, no
+      variantes de lo mismo — 6.8.1 PUENTE DE ADHERENCIA PARA MORTERO
+      (SikaTop Modul, $133,07/m2) y 6.8.2 PUENTE DE ADHERENCIA PARA
+      HORMIGÓN (Sikadur 32 Gel, $1.324,12/m2 — uso acotado a
+      reparaciones puntuales, no superficies grandes). Nuevo subcapítulo
+      "Puentes de Adherencia" en Albañilería.
+      **Pendiente**: SikaTop Modul también puede usarse como aditivo en
+      el agua de amasado del mortero (dosificación por volumen de
+      mezcla, no por m2) — no cubierto por el código actual, evaluar
+      como ítem aparte si se necesita.
 
 - [ ] Puentes de impermeabilización cementicios (ej. SikaTop Seal-107) —
       revestimiento impermeable bicomponente, bolsa 25kg + líquido.
