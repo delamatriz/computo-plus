@@ -115,9 +115,22 @@ en un proyecto real cuando una obra concreta lo requiera (mismo patrón
 que "Mortero común" en proyecto HOGAR) — no son pendientes de desarrollo,
 son referencia para no tener que re-investigar de cero.
 
-- [ ] Revoques premezclados 2 en 1 / 3 en 1 (URUMIX, Weber Promex E,
+- [x] ✅ Revoques premezclados 2 en 1 / 3 en 1 (URUMIX, Weber Promex E,
       Ultramix, etc.) — reemplazan grueso+fino(+hidrófugo) en una sola
       aplicación de ~15mm. Consumo real relevado: 25-30 kg/m2 exterior.
+      **Agregado a biblioteca (11/07/2026)**: códigos 6.2.5b (REVOQUE
+      MONOCAPA INTERIOR 2 EN 1, junto a 6.2.4/6.2.5) y 6.2.10b (REVOQUE
+      MONOCAPA EXTERIOR 3 EN 1, junto a 6.2.10) — conviven con los
+      tradicionales, no los reemplazan. Mano de obra: reducción del 33%
+      (dato de fábrica confirmado solo para el 3en1, extrapolado por
+      analogía al 2en1 — estimación, no dato de fabricante para ese
+      producto puntual) sobre la mano de obra combinada grueso+fino ya
+      validada en biblioteca.
+      **Pendiente de decisión de diseño**: malla de fibra de vidrio — se
+      usa en encuentros entre materiales distintos (mampostería-hormigón),
+      no en toda la superficie. Falta decidir si se modela como línea
+      opcional dentro del mismo código o como subrubro aparte — no
+      incluida en el código base actual.
 
 - [ ] Revoque grueso y fino premezclados por separado (no combinado) —
       según relevamiento de Luis, hoy casi no se arma la mezcla en obra;
