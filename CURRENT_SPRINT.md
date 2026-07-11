@@ -146,3 +146,28 @@ son referencia para no tener que re-investigar de cero.
   no como descomposición cemento/arena/cal. Precio de referencia: no está
   en Lista MTOP N°599, requiere relevamiento de precio de mercado real al
   momento de cargarlos.
+
+## Pendientes técnicos
+
+### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
+
+Cuando se edita un APU (materiales, mano de obra, modo de costeo de
+equipos, etc.) sin volver a apretar "Aplicar al rubro", el precio
+guardado en Rubro.precioUnit queda desactualizado respecto a lo que el
+APU actual calcularía. Confirmado como patrón general: 2 de 30 rubros
+con APU en toda la base (todos los proyectos) presentan esta
+desincronización al momento de este chequeo (11/07/2026):
+- HOGAR / GRÚA TORRE — ALQUILER MENSUAL: 44,7% de diferencia
+  (probablemente por cambio de modo de costeo Alquilado/Propio sin
+  reaplicar)
+- HOGAR / Revoque fino muro exterior: 1,7% de diferencia
+
+Estado: no urgente (todos los proyectos actuales son de prueba, ninguno
+entregado a cliente todavía), pero debe resolverse antes de tener
+proyectos reales en producción.
+
+Propuesta de solución (a definir, no implementada): badge visual tipo
+"⚠️ APU modificado — precio desactualizado" en el rubro cuando se
+detecte la diferencia, sin necesariamente automatizar el recálculo
+(podría no ser deseable forzar el recálculo si alguien edita el APU a
+propósito para comparar escenarios antes de decidir).
