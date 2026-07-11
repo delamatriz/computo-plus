@@ -60,3 +60,27 @@ equipos.
      corresponde) para que apunte a esa base.
    - Verificar en la app que los datos se vean correctos antes de dar
      por terminada la restauración.
+
+## Pendientes de producto (sin definir modelo — no bloqueantes)
+
+### Ensayos de laboratorio en obras de gran porte
+
+Para obras de mayor escala, incorporar al presupuesto el costo de ensayos
+de control de calidad:
+- Ensayo de probetas de hormigón a compresión (UNIT-NM 101) — por lote de
+  hormigonado, edades típicas 7 y 28 días, cobrado por laboratorio (LATU
+  u otros)
+- Eventualmente: control de acero (tracción de barras), ensayo de suelos
+  (ya está listado en capítulos pendientes)
+
+Nota de modelado: estos costos no escalan linealmente por m3 de hormigón —
+escalan por cantidad de lotes/elementos críticos. Se parecen más a un ítem
+global/por lote que a un rendimiento por unidad de rubro.
+
+Decisión de producto pendiente: ¿se carga como rubro editable manual
+(el arquitecto lo agrega si la obra lo amerita), o se sugiere
+automáticamente cuando el volumen de hormigón estructural supera un
+umbral? Definir umbral de "gran porte" si se va por la segunda opción.
+
+Estado: 🔲 Anotado, sin definir modelo. No es bloqueante para el sprint
+actual.
