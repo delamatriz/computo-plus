@@ -20,6 +20,7 @@ import {
   Loader2,
   AlertTriangle,
   Info,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra } from "@/lib/apu-calc";
@@ -670,6 +671,19 @@ function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
   return { costoDirecto, precioFinal };
 }
 
+// Un rubro queda desincronizado cuando su precioUnit guardado no refleja
+// más lo que el APU actual calcularía — pasa al editar materiales, mano de
+// obra, modo de costeo de equipos, %Piedra, etc. sin volver a apretar
+// "Aplicar al rubro". Tolerancia de $1 y 0,5% para no marcar ruido de
+// redondeo — mismo criterio usado para relevar el patrón en toda la base.
+function precioAPUDesincronizado(precioGuardado: number | null | undefined, precioCalculado: number): boolean {
+  if (precioCalculado <= 0) return false;
+  const guardado = precioGuardado ?? 0;
+  const diff = Math.abs(guardado - precioCalculado);
+  const diffPct = guardado > 0 ? (diff / guardado) * 100 : 100;
+  return diff > 1 && diffPct > 0.5;
+}
+
 /* ─── Buscador MTOP inline ────────────────────────────────── */
 function BuscadorMTOP({
   onSeleccionar,
@@ -1286,6 +1300,17 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                   <AlertTriangle className="w-3 h-3" />
                   Precio incompleto
                 </span>
+              )}
+              {precioAPUDesincronizado(rubro.precioUnit, precioFinal) && (
+                <button
+                  type="button"
+                  onClick={() => onAplicar(precioFinal, apu)}
+                  title={`APU modificado — precio desactualizado (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(precioFinal)}). Click para aplicar y sincronizar.`}
+                  className="flex-shrink-0 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap hover:bg-amber-100 transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  APU modificado
+                </button>
               )}
             </div>
             <div className="mt-0.5">
@@ -3031,6 +3056,7 @@ export default function ProyectoPage() {
                             const materialesSinPrecioRubro = tieneAPU
                               ? apuData[rubro.id].materiales.filter((m) => m.precioUnit === 0).length
                               : 0;
+                            const precioDesactualizado = tieneAPU && precioAPUDesincronizado(rubro.precioUnit, apuPrecio);
 
                             return (
                               <div
@@ -3085,6 +3111,19 @@ export default function ProyectoPage() {
                                     >
                                       <AlertTriangle className="w-3 h-3 text-amber-500" />
                                     </span>
+                                  )}
+                                  {precioDesactualizado && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        aplicarPrecioAPU(rubro.id, apuPrecio, apuData[rubro.id]);
+                                      }}
+                                      title={`APU modificado — precio desactualizado (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(apuPrecio)}). Click para aplicar y sincronizar.`}
+                                      className="flex-shrink-0 hover:opacity-70 transition-opacity"
+                                    >
+                                      <RefreshCw className="w-3 h-3 text-amber-500" />
+                                    </button>
                                   )}
                                 </div>
 
