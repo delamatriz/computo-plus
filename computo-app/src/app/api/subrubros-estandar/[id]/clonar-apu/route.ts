@@ -38,6 +38,7 @@ export async function POST(
           data: {
             gastosGeneralesPct: apuEstandar.gastosGeneralesPct,
             utilidadPct: apuEstandar.utilidadPct,
+            porcentajePiedra: apuEstandar.porcentajePiedra,
           },
         })
       : await db.aPU.create({
@@ -45,6 +46,7 @@ export async function POST(
             rubroId,
             gastosGeneralesPct: apuEstandar.gastosGeneralesPct,
             utilidadPct: apuEstandar.utilidadPct,
+            porcentajePiedra: apuEstandar.porcentajePiedra,
           },
         });
 

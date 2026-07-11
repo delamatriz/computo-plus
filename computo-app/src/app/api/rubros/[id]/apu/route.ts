@@ -13,6 +13,7 @@ export async function PUT(
     const {
       gastosGeneralesPct = 15,
       utilidadPct = 10,
+      porcentajePiedra = 0.30,
       materiales = [],
       manoObra = [],
       equipos = [],
@@ -24,10 +25,10 @@ export async function PUT(
     const apu = apuExistente
       ? await db.aPU.update({
           where: { rubroId },
-          data: { gastosGeneralesPct, utilidadPct },
+          data: { gastosGeneralesPct, utilidadPct, porcentajePiedra },
         })
       : await db.aPU.create({
-          data: { rubroId, gastosGeneralesPct, utilidadPct },
+          data: { rubroId, gastosGeneralesPct, utilidadPct, porcentajePiedra },
         });
 
     const apuId = apu.id;

@@ -139,6 +139,9 @@ model APU {
   id                 String        @id @default(cuid())
   gastosGeneralesPct Float         @default(15)
   utilidadPct        Float         @default(10)
+  // % de piedra bruta sobre 1 m3, para hormigón ciclópeo — desplaza volumen
+  // de hormigón simple (cemento+arena+balasto) al recalcular en vivo.
+  porcentajePiedra   Float         @default(0.30)
   rubroId            String        @unique
   rubro              Rubro         @relation(fields: [rubroId], references: [id], onDelete: Cascade)
   materiales         MaterialAPU[]
@@ -315,6 +318,8 @@ model APUEstandar {
   subrubro           SubrubroEstandar      @relation(fields: [subrubroId], references: [id], onDelete: Cascade)
   gastosGeneralesPct Float                 @default(15)
   utilidadPct        Float                 @default(10)
+  // Ver APU.porcentajePiedra — mismo campo a nivel de biblioteca estándar.
+  porcentajePiedra   Float                 @default(0.30)
   materiales         MaterialAPUEstandar[]
   manoObra           ManoObraAPUEstandar[]
   equipos            EquipoAPUEstandar[]

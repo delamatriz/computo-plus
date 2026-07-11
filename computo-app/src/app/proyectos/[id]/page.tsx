@@ -19,9 +19,10 @@ import {
   Trash2,
   Loader2,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra } from "@/lib/apu-calc";
+import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra } from "@/lib/apu-calc";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionResumenPresupuesto, { GastoGeneralItem } from "@/components/SeccionResumenPresupuesto";
@@ -221,6 +222,9 @@ interface APU {
   equipos: EquipoAPU[];
   gastosGeneralesPct: number;
   utilidadPct: number;
+  // % de piedra bruta sobre 1 m3 en hormigón ciclópeo — solo relevante si
+  // hay un material "Piedra bruta" en la lista (ver tieneMaterialPiedra).
+  porcentajePiedra?: number;
 }
 
 /* ─── Datos de prueba ─────────────────────────────────────── */
@@ -1196,6 +1200,16 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
     guardarApuActual({ ...apu, equipos: nuevosEquipos });
   };
 
+  // Recalcula en vivo Piedra bruta, Cemento, Arena gruesa y Balasto al
+  // cambiar el % de piedra de un hormigón ciclópeo — ver apu-calc.ts.
+  const setPctPiedra = (nuevoPct: number) => {
+    const pctViejo = apu.porcentajePiedra ?? 0.30;
+    const nuevosMateriales = recalcularMaterialesPorPiedra(apu.materiales, pctViejo, nuevoPct);
+    const nuevoApu = { ...apu, materiales: nuevosMateriales, porcentajePiedra: nuevoPct };
+    onApuChange(nuevoApu);
+    guardarApuActual(nuevoApu);
+  };
+
   // Agregar fila de MO precargada desde una categoría laboral SUNCA seleccionada
   const agregarMODesdeCategoria = (cat: CategoriaLaboral) => {
     setMO([...apu.manoObra, {
@@ -1318,6 +1332,51 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
           {/* 1 — MATERIALES */}
           <SeccionAPU titulo="Materiales">
             <div className="pb-2">
+              {tieneMaterialPiedra(apu.materiales) && (
+                <div className="flex items-center gap-2 flex-wrap px-1 pb-2.5 mb-2 border-b border-slate-100">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">% Piedra</span>
+                  <div className="inline-flex border border-slate-200 rounded-[5px] overflow-hidden">
+                    {[0.30, 0.50].map((preset, i) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setPctPiedra(preset)}
+                        className={cn(
+                          "px-2 py-[3px] text-[10px] font-semibold whitespace-nowrap transition-colors",
+                          i > 0 && "border-l border-slate-200",
+                          Math.abs((apu.porcentajePiedra ?? 0.30) - preset) < 0.001
+                            ? "bg-[#2563EB] text-white"
+                            : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                        )}
+                      >
+                        {Math.round(preset * 100)}%
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={90}
+                      value={Math.round((apu.porcentajePiedra ?? 0.30) * 100)}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (!Number.isFinite(v)) return;
+                        setPctPiedra(Math.min(90, Math.max(0, v)) / 100);
+                      }}
+                      className="w-12 text-right text-xs bg-white border border-slate-200 rounded-[5px] px-1.5 py-[3px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-[10px] text-slate-400">%</span>
+                  </div>
+                  <span
+                    title="MTOP 2006 (Pliego de condiciones generales para obras de arquitectura) recomienda partes iguales — 50% piedra, 50% hormigón simple — para la dosificación de hormigón ciclópeo"
+                    className="flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[3px] uppercase tracking-wide whitespace-nowrap bg-blue-50 text-[#2563EB] border border-blue-200"
+                  >
+                    <Info className="w-2.5 h-2.5" />
+                    Nota MTOP
+                  </span>
+                </div>
+              )}
               <div className="overflow-x-auto -mx-4 px-4">
               <table className="w-full text-xs border-collapse min-w-[480px]">
                 <colgroup>
@@ -2014,6 +2073,7 @@ export default function ProyectoPage() {
               equipos:            rubro.apu.equipos    ?? [],
               gastosGeneralesPct: rubro.apu.gastosGeneralesPct ?? 15,
               utilidadPct:        rubro.apu.utilidadPct        ?? 10,
+              porcentajePiedra:   rubro.apu.porcentajePiedra   ?? 0.30,
             };
           }
         }
@@ -2175,7 +2235,7 @@ export default function ProyectoPage() {
     ? capitulos.find((c) => c.rubros.some((r) => r.id === drawerRubroId))?.id ?? null
     : null;
   const drawerAPU = drawerRubroId ? (apuData[drawerRubroId] ?? {
-    materiales: [], manoObra: [], equipos: [], gastosGeneralesPct: 15, utilidadPct: 10,
+    materiales: [], manoObra: [], equipos: [], gastosGeneralesPct: 15, utilidadPct: 10, porcentajePiedra: 0.30,
   }) : null;
 
   const toggleCapitulo = (id: string) => {
@@ -2284,6 +2344,7 @@ export default function ProyectoPage() {
             const nuevoAPU: APU = {
               gastosGeneralesPct: 15,
               utilidadPct: 10,
+              porcentajePiedra: 0.30,
               materiales: data.materiales.map((m: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }, i: number) => ({
                 id: `ai-mat-${i}`,
                 descripcion: m.descripcion,
@@ -2443,6 +2504,7 @@ export default function ProyectoPage() {
             const nuevoAPU: APU = {
               gastosGeneralesPct: apuClonado.gastosGeneralesPct,
               utilidadPct: apuClonado.utilidadPct,
+              porcentajePiedra: apuClonado.porcentajePiedra ?? 0.30,
               materiales: apuClonado.materiales.map((m: InsumoAPU) => ({
                 id: m.id,
                 descripcion: m.descripcion,
@@ -2502,6 +2564,7 @@ export default function ProyectoPage() {
             const nuevoAPU: APU = {
               gastosGeneralesPct: 15,
               utilidadPct: 10,
+              porcentajePiedra: 0.30,
               materiales: data.materiales.map((m: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }, i: number) => ({
                 id: `ai-mat-${i}`,
                 descripcion: m.descripcion,
@@ -2665,6 +2728,7 @@ export default function ProyectoPage() {
       const nuevoAPU: APU = {
         gastosGeneralesPct: 15,
         utilidadPct: 10,
+        porcentajePiedra: 0.30,
         materiales: data.materiales.map((m, i) => ({
           id: `ai-mat-${i}`,
           descripcion: m.descripcion,

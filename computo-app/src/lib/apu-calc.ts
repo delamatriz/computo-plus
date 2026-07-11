@@ -46,3 +46,35 @@ export function sumManoObra(manoObra: ManoObraCalc[], equipos: EquipoCalc[]): nu
     return s + (Number.isFinite(aporte) ? aporte : 0);
   }, 0);
 }
+
+// ── % Piedra en hormigón ciclópeo ───────────────────────────────────────
+// La piedra desplaza volumen de hormigón simple completo (cemento + arena
+// gruesa + balasto, escalando parejo) — no volumen de un agregado en
+// particular. Piedra bruta (m3) = %piedra × 1 m3; los demás insumos del
+// hormigón simple se reescalan por (1 − %nuevo) / (1 − %viejo), donde
+// %viejo es el porcentajePiedra actualmente guardado en el APU (siempre
+// mutuamente consistente con las cantidades guardadas, porque ambos se
+// actualizan juntos cada vez que cambia el selector).
+const RE_PIEDRA_BRUTA = /piedra bruta/i;
+const RE_HORMIGON_SIMPLE = /cemento|arena gruesa|balasto/i;
+
+export function tieneMaterialPiedra(materiales: { descripcion: string }[]): boolean {
+  return materiales.some((m) => RE_PIEDRA_BRUTA.test(m.descripcion));
+}
+
+export function recalcularMaterialesPorPiedra<T extends { descripcion: string; rendimiento: number }>(
+  materiales: T[],
+  pctViejo: number,
+  pctNuevo: number
+): T[] {
+  const factor = (1 - pctNuevo) / (1 - pctViejo);
+  return materiales.map((m) => {
+    if (RE_PIEDRA_BRUTA.test(m.descripcion)) {
+      return { ...m, rendimiento: pctNuevo };
+    }
+    if (RE_HORMIGON_SIMPLE.test(m.descripcion) && Number.isFinite(factor)) {
+      return { ...m, rendimiento: m.rendimiento * factor };
+    }
+    return m;
+  });
+}
