@@ -1552,8 +1552,9 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     const hsTotales  = rubro.cantidad != null ? hsPorUnidad * rubro.cantidad : null;
                     const subPUnit   = mo.rendimiento > 0 ? mo.jornalRef / mo.rendimiento : 0;
                     const sub        = subPUnit * (rubro.cantidad ?? 1);
+                    const incluida   = manoObraIncluida(mo, apu.equipos);
                     return (
-                      <tr key={mo.id} className="border-b border-slate-50" style={{ height: 28 }}>
+                      <tr key={mo.id} className={cn("border-b border-slate-50", !incluida && "opacity-40")} style={{ height: 28 }} title={!incluida ? "Incluida en el alquiler del equipo — no suma al Costo Directo" : undefined}>
                         <td className="pl-4 pr-2">
                           <input type="text" value={mo.categoria} onChange={(e) => updateMO(mo.id, "categoria", e.target.value)} onBlur={() => guardarApuActual()} placeholder="Peón / Oficial" className={inputCls} />
                         </td>
@@ -1579,13 +1580,13 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                             className={cn(inputCls, "text-right")}
                           />
                         </td>
-                        <td className="text-right pr-3 font-semibold tabular-nums text-[#2563EB]">
+                        <td className={cn("text-right pr-3 font-semibold tabular-nums text-[#2563EB]", !incluida && "line-through")}>
                           {subPUnit > 0 ? fmtMon(subPUnit) : "—"}
                         </td>
                         <td className="text-right pr-2 tabular-nums text-slate-700">
                           {hsTotales != null && hsTotales > 0 ? fmtMon(hsTotales) : "—"}
                         </td>
-                        <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">
+                        <td className={cn("text-right pr-3 font-bold tabular-nums text-[#2563EB]", !incluida && "line-through")}>
                           {sub > 0 ? fmtMon(sub) : "—"}
                         </td>
                       </tr>
