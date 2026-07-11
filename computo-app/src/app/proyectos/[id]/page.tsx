@@ -117,6 +117,7 @@ const REVOQUES_SUBCAPS = [
   "Revoques — Otros",
 ];
 const PISOS_SUBCAPS = ["Pisos, Zócalos y Otros", "Revestimientos", "Contrapisos"];
+const ABERTURAS_SUBCAPS = ["Colocación de Aberturas"];
 
 /**
  * Mapeo entre nombres de capítulo del proyecto y capítulos/subcapítulos del rubrado SAU ago. 2022.
@@ -130,8 +131,8 @@ const CAPITULOS_SAU: MapeoSAU[] = [
   { alias: ["Demoliciones y Picados", "Picado de mamposteria", "Picado de mampostería"], capitulos: ["Demoliciones"] },
   { alias: ["Cimentaciones"], capitulos: ["Cimentaciones"] },
   { alias: ["Estructura de Hormigón Armado", "Estructura"], capitulos: ["Estructura"] },
-  // Albañilería completa: muros + revoques (excluye pisos/revestimientos e impermeabilizaciones, que tienen capítulo propio)
-  { alias: ["Albañilería"], capitulos: ["Albañilería"], subcapitulos: [...MUROS_SUBCAPS, ...REVOQUES_SUBCAPS] },
+  // Albañilería completa: muros + revoques + colocación de aberturas (excluye pisos/revestimientos e impermeabilizaciones, que tienen capítulo propio)
+  { alias: ["Albañilería"], capitulos: ["Albañilería"], subcapitulos: [...MUROS_SUBCAPS, ...REVOQUES_SUBCAPS, ...ABERTURAS_SUBCAPS] },
   { alias: ["Mampostería y muros"], capitulos: ["Albañilería"], subcapitulos: MUROS_SUBCAPS },
   { alias: ["Revoques y enlucidos"], capitulos: ["Albañilería"], subcapitulos: REVOQUES_SUBCAPS },
   { alias: ["Pisos, Zócalos y Revestimientos", "Revestimientos y pisos"], capitulos: ["Albañilería"], subcapitulos: PISOS_SUBCAPS },
