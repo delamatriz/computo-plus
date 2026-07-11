@@ -85,6 +85,28 @@ umbral? Definir umbral de "gran porte" si se va por la segunda opción.
 Estado: 🔲 Anotado, sin definir modelo. No es bloqueante para el sprint
 actual.
 
+## Jornales SUNCA — RESUELTO
+
+Los 5 jornales base (Peón, Medio oficial, Oficial, Oficial especializado,
+Capataz) y todas las categorías extendidas (Ayudante, Peón práctico,
+trabajo en altura, oficios especializados, etc.) están actualizados según
+el convenio Grupo 9 Subgrupo 01, ajuste 1° abril 2025 (+5,95%), vigencia
+abril 2025 - marzo 2026. Aplicado en commit 4eaec8b (4 de julio de 2026),
+incluyendo recálculo de jornalRef en 22 rubros de proyectos reales ya
+existentes. Configuracion.convenioFechaVigente = 2025-04-01.
+
+Fuente verificada por dos caminos independientes: Acta de ajuste salarial
+Grupo 9.01 (MTSS) y fuentes secundarias cruzadas, ambas coincidentes en
+los valores de Cat. V y VII.
+
+⚠️ Pendiente de seguimiento (no bloqueante): el convenio 2023-2026 venció
+el 31 de marzo de 2026. El SUNCA aprobó su plataforma reivindicativa el
+27 de mayo de 2026; las negociaciones con las cámaras empresariales
+(CCU, APPCU, Liga de la Construcción, CICE) siguen en curso ante la
+Dinatra/MTSS. Hasta que se firme un nuevo convenio, los valores de abril
+2025 siguen vigentes. Revisar y actualizar en cuanto se cierre el
+convenio 2026.
+
 ## Radar de materiales nuevos y tendencias de mercado
 
 Productos/técnicas que están ganando terreno en obra y que la biblioteca
