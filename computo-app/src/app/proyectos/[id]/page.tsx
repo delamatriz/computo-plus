@@ -21,6 +21,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra } from "@/lib/apu-calc";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionResumenPresupuesto, { GastoGeneralItem } from "@/components/SeccionResumenPresupuesto";
@@ -191,6 +192,7 @@ interface ManoObraAPU {
   jornadaHs: number;
   rendimiento: number;
   jornalRef: number;
+  equipoRelacionadoId?: string | null; // vincula esta línea al armado/desarme de un equipo
 }
 
 /* ─── Categoría laboral SUNCA ─────────────────────────────── */
@@ -201,12 +203,16 @@ interface CategoriaLaboral {
   jornal: number;
 }
 
+type ModoCosteoEquipo = "ALQUILADO" | "PROPIO_CON_COSTO" | "PROPIO_SIN_COSTO";
+
 interface EquipoAPU {
   id: string;
   descripcion: string;
   unidad: string;
   rendimiento: number;
   costoUnit: number;
+  modoCosteo?: ModoCosteoEquipo;
+  costoUnitPropio?: number | null;
 }
 
 interface APU {
@@ -651,8 +657,9 @@ function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
   // Costo de MO por unidad de rubro = jornalRef (costo de la jornada completa) / rendimiento
   // (unidades de rubro producidas por jornada). jornadaHs no participa: el jornal ya
   // representa el costo de la jornada completa, sin importar su duración en horas.
-  const sumMO  = apu.manoObra.reduce((s, mo) => s + mo.jornalRef / mo.rendimiento, 0);
-  const sumEq  = apu.equipos.reduce((s, e) => s + e.rendimiento * e.costoUnit, 0);
+  // La mano de obra de armado vinculada a un equipo Alquilado se excluye — ver apu-calc.ts.
+  const sumMO  = sumManoObra(apu.manoObra, apu.equipos);
+  const sumEq  = sumEquipos(apu.equipos);
   const costoDirecto = sumMat + sumMO + sumEq;
   const precioFinal  = costoDirecto * (1 + apu.gastosGeneralesPct / 100) * (1 + apu.utilidadPct / 100);
   return { costoDirecto, precioFinal };
@@ -965,6 +972,43 @@ function SeccionAPU({
   );
 }
 
+/* ─── Selector de modo de costeo de un equipo (Alquilado/Propio) ──── */
+const OPCIONES_MODO_COSTEO: { valor: ModoCosteoEquipo; label: string }[] = [
+  { valor: "ALQUILADO", label: "Alquilado" },
+  { valor: "PROPIO_CON_COSTO", label: "Propio" },
+  { valor: "PROPIO_SIN_COSTO", label: "Propio $0" },
+];
+
+function SelectorModoCosteo({ modo, onChange }: { modo: ModoCosteoEquipo; onChange: (modo: ModoCosteoEquipo) => void }) {
+  return (
+    <div className="inline-flex border border-slate-200 rounded-[5px] overflow-hidden mt-1">
+      {OPCIONES_MODO_COSTEO.map((o, i) => (
+        <button
+          key={o.valor}
+          type="button"
+          onClick={() => onChange(o.valor)}
+          title={
+            o.valor === "ALQUILADO" ? "Precio de alquiler de mercado"
+            : o.valor === "PROPIO_CON_COSTO" ? "Equipo propio — cargá tu costo real"
+            : "Equipo propio ya amortizado — no suma al Costo Directo"
+          }
+          className={cn(
+            "px-1.5 py-[3px] text-[10px] font-semibold whitespace-nowrap transition-colors",
+            i > 0 && "border-l border-slate-200",
+            modo === o.valor
+              ? o.valor === "ALQUILADO" ? "bg-[#2563EB] text-white"
+                : o.valor === "PROPIO_CON_COSTO" ? "bg-amber-500 text-white"
+                : "bg-slate-400 text-white"
+              : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura }: DrawerAPUProps) {
   const dragControls = useDragControls();
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
@@ -980,6 +1024,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const [jornalRefEnFoco, setJornalRefEnFoco] = useState<string | null>(null);
   // Fila de equipo cuyo precio unitario está siendo editado — mismo criterio
   const [costoUnitEnFoco, setCostoUnitEnFoco] = useState<string | null>(null);
+  // Fila de equipo cuyo costo propio (modo Propio con costo) está siendo editado
+  const [costoUnitPropioEnFoco, setCostoUnitPropioEnFoco] = useState<string | null>(null);
   const { costoDirecto, precioFinal } = calcAPU(apu);
 
   const totalMateriales = apu.materiales.reduce((acc, m) => {
@@ -1004,15 +1050,16 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const materialesSinPrecio = apu.materiales.filter((m) => m.precioUnit === 0).length;
 
   const totalManoObra = apu.manoObra.reduce((acc, mo) => {
+    if (!manoObraIncluida(mo, apu.equipos)) return acc;
     const hsPorUnidad = mo.rendimiento > 0 ? mo.jornadaHs / mo.rendimiento : 0;
     const sub = hsPorUnidad / mo.jornadaHs * mo.jornalRef * (rubro.cantidad ?? 1);
     return acc + (Number.isFinite(sub) ? sub : 0);
   }, 0);
 
   // Costo de mano de obra por unidad de rubro (jornalRef / rendimiento, sin cantidad)
-  const totalManoObraPUnit = apu.manoObra.reduce((s, mo) => s + mo.jornalRef / mo.rendimiento, 0);
+  const totalManoObraPUnit = sumManoObra(apu.manoObra, apu.equipos);
 
-  const totalEquipos = apu.equipos.reduce((acc, eq) => acc + eq.rendimiento * eq.costoUnit, 0);
+  const totalEquipos = sumEquipos(apu.equipos);
 
   // Auto-save del APU completo a la DB, debounced — se dispara al salir de
   // cualquier campo editable de Materiales, Mano de obra o Equipos.
@@ -1143,6 +1190,12 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
       [field]: field === "descripcion" || field === "unidad" ? val : (val === "" ? 0 : parseFloat(val)),
     }));
 
+  const setModoCosteoEq = (id: string, modo: ModoCosteoEquipo) => {
+    const nuevosEquipos = apu.equipos.map((e) => e.id !== id ? e : { ...e, modoCosteo: modo });
+    setEq(nuevosEquipos);
+    guardarApuActual({ ...apu, equipos: nuevosEquipos });
+  };
+
   // Agregar fila de MO precargada desde una categoría laboral SUNCA seleccionada
   const agregarMODesdeCategoria = (cat: CategoriaLaboral) => {
     setMO([...apu.manoObra, {
@@ -1160,7 +1213,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
     setMO([...apu.manoObra, { id: `mo${Date.now()}`, categoria: "", jornadaHs: 8, rendimiento: 1, jornalRef: 0 }]);
     setMostrarSelectorMO(false);
   };
-  const addEq  = () => setEq([...apu.equipos,    { id: `e${Date.now()}`,  descripcion: "", unidad: "", rendimiento: 0, costoUnit: 0 }]);
+  const addEq  = () => setEq([...apu.equipos,    { id: `e${Date.now()}`,  descripcion: "", unidad: "", rendimiento: 0, costoUnit: 0, modoCosteo: "ALQUILADO" as ModoCosteoEquipo }]);
 
   const inputCls = "w-full bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-sm text-slate-700 placeholder:text-slate-300";
 
@@ -1615,18 +1668,22 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <tr><td colSpan={5} className="pl-4 py-2 text-slate-400 italic">Sin equipos</td></tr>
                   )}
                   {apu.equipos.map((eq) => {
-                    const sub = eq.rendimiento * eq.costoUnit;
+                    const modo = eq.modoCosteo ?? "ALQUILADO";
+                    const sub = eq.rendimiento * costoUnitEfectivo(eq);
+                    const manoObraVinculada = apu.manoObra.filter((mo) => mo.equipoRelacionadoId === eq.id);
                     return (
-                      <tr key={eq.id} className="border-b border-slate-50" style={{ height: 28 }}>
-                        <td className="pl-4 pr-2">
+                      <React.Fragment key={eq.id}>
+                      <tr className={cn("border-b border-slate-50", modo === "PROPIO_SIN_COSTO" && "opacity-50")}>
+                        <td className="pl-4 pr-2 py-1.5">
                           <input
                             type="text"
                             value={eq.descripcion}
                             onChange={(e) => updateEq(eq.id, "descripcion", e.target.value)}
                             onBlur={() => guardarApuActual()}
                             placeholder="Descripción"
-                            className={inputCls}
+                            className={cn(inputCls, modo === "PROPIO_SIN_COSTO" && "italic")}
                           />
+                          <SelectorModoCosteo modo={modo} onChange={(m) => setModoCosteoEq(eq.id, m)} />
                         </td>
                         <td className="text-center">
                           <input
@@ -1649,25 +1706,78 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                           />
                         </td>
                         <td className="text-right pr-3">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={
-                              costoUnitEnFoco === eq.id
-                                ? (eq.costoUnit ? String(eq.costoUnit) : "")
-                                : (eq.costoUnit ? fmtMon(eq.costoUnit) : "")
-                            }
-                            onChange={(e) => updateEq(eq.id, "costoUnit", e.target.value)}
-                            onFocus={() => setCostoUnitEnFoco(eq.id)}
-                            onBlur={() => { setCostoUnitEnFoco(null); guardarApuActual(); }}
-                            placeholder="0.00"
-                            className={cn(inputCls, "text-right")}
-                          />
+                          {modo === "ALQUILADO" && (
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={
+                                costoUnitEnFoco === eq.id
+                                  ? (eq.costoUnit ? String(eq.costoUnit) : "")
+                                  : (eq.costoUnit ? fmtMon(eq.costoUnit) : "")
+                              }
+                              onChange={(e) => updateEq(eq.id, "costoUnit", e.target.value)}
+                              onFocus={() => setCostoUnitEnFoco(eq.id)}
+                              onBlur={() => { setCostoUnitEnFoco(null); guardarApuActual(); }}
+                              placeholder="0.00"
+                              className={cn(inputCls, "text-right")}
+                            />
+                          )}
+                          {modo === "PROPIO_CON_COSTO" && (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={
+                                  costoUnitPropioEnFoco === eq.id
+                                    ? (eq.costoUnitPropio ? String(eq.costoUnitPropio) : "")
+                                    : (eq.costoUnitPropio ? fmtMon(eq.costoUnitPropio) : "")
+                                }
+                                onChange={(e) => updateEq(eq.id, "costoUnitPropio", e.target.value)}
+                                onFocus={() => setCostoUnitPropioEnFoco(eq.id)}
+                                onBlur={() => { setCostoUnitPropioEnFoco(null); guardarApuActual(); }}
+                                placeholder="0.00"
+                                className={cn(inputCls, "text-right bg-amber-50 rounded px-1")}
+                              />
+                              <span className="text-[9px] font-bold px-1 py-0.5 rounded-[3px] uppercase tracking-wide whitespace-nowrap bg-amber-50 text-amber-600 border border-amber-200">
+                                Editado a mano
+                              </span>
+                            </div>
+                          )}
+                          {modo === "PROPIO_SIN_COSTO" && (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="text-slate-400 tabular-nums">0.00</span>
+                              <span className="text-[9px] font-bold px-1 py-0.5 rounded-[3px] uppercase tracking-wide whitespace-nowrap bg-slate-100 text-slate-500 border border-slate-200">
+                                Sin costo
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td className="text-right pr-3 font-semibold tabular-nums text-[#2563EB]">
                           {sub > 0 ? fmtMon(sub) : "—"}
                         </td>
                       </tr>
+                      {manoObraVinculada.map((mo) => {
+                        const incluida = modo !== "ALQUILADO";
+                        return (
+                          <tr key={`link-${mo.id}`} className="border-b border-slate-50">
+                            <td colSpan={5} className="pl-6 pr-3 pb-1.5">
+                              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                                <span className="text-slate-300">↳</span>
+                                <span>Armado — <span className="text-slate-500">{mo.categoria || "mano de obra"}</span></span>
+                                <span className={cn(
+                                  "text-[9px] font-bold px-1 py-0.5 rounded-[3px] uppercase tracking-wide whitespace-nowrap",
+                                  incluida
+                                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                                    : "bg-slate-100 text-slate-500 border border-slate-200"
+                                )}>
+                                  {incluida ? "Se suma al costo directo" : "Incluida en el alquiler"}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>

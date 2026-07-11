@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sumEquipos, sumManoObra } from "@/lib/apu-calc";
 
 // POST — clona el APUEstandar de un subrubro de biblioteca al APU real de un rubro
 export async function POST(
@@ -77,7 +78,34 @@ export async function POST(
       });
     }
 
-    // 3 — Mano de obra (jornalRef desde CategoriaLaboral por nombre)
+    // 3 — Equipos (precio desde el catálogo de alquiler por descripción, si
+    // hay match). Se clonan antes que la mano de obra para poder mapear el
+    // id de equipo estándar al id real recién creado, y así propagar
+    // equipoRelacionadoId (ver paso 4).
+    const equipoIdMap = new Map<string, string>();
+    for (let i = 0; i < apuEstandar.equipos.length; i++) {
+      const eq = apuEstandar.equipos[i];
+      const precioEquipo = await db.precioEquipo.findFirst({
+        where: {
+          descripcion: { contains: eq.descripcion, mode: "insensitive" },
+        },
+      });
+      const costoUnit = precioEquipo?.precioHora ?? 0;
+
+      const creado = await db.equipoAPU.create({
+        data: {
+          apuId,
+          descripcion: eq.descripcion,
+          unidad: eq.unidad,
+          rendimiento: eq.rendimiento,
+          costoUnit,
+          orden: i,
+        },
+      });
+      equipoIdMap.set(eq.id, creado.id);
+    }
+
+    // 4 — Mano de obra (jornalRef desde CategoriaLaboral por nombre)
     for (let i = 0; i < apuEstandar.manoObra.length; i++) {
       const mo = apuEstandar.manoObra[i];
       await db.manoObraAPU.create({
@@ -88,28 +116,9 @@ export async function POST(
           rendimiento: mo.rendimiento,
           jornalRef: jornalPorNombre(mo.categoria),
           orden: i,
-        },
-      });
-    }
-
-    // 4 — Equipos (precio desde el catálogo de alquiler por descripción, si hay match)
-    for (let i = 0; i < apuEstandar.equipos.length; i++) {
-      const eq = apuEstandar.equipos[i];
-      const precioEquipo = await db.precioEquipo.findFirst({
-        where: {
-          descripcion: { contains: eq.descripcion, mode: "insensitive" },
-        },
-      });
-      const costoUnit = precioEquipo?.precioHora ?? 0;
-
-      await db.equipoAPU.create({
-        data: {
-          apuId,
-          descripcion: eq.descripcion,
-          unidad: eq.unidad,
-          rendimiento: eq.rendimiento,
-          costoUnit,
-          orden: i,
+          equipoRelacionadoId: mo.equipoRelacionadoId
+            ? equipoIdMap.get(mo.equipoRelacionadoId) ?? null
+            : null,
         },
       });
     }
@@ -121,14 +130,9 @@ export async function POST(
     });
 
     const sumMat = apuCompleto!.materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
-    // Costo de MO por unidad = jornalRef (costo de la jornada completa) / rendimiento
-    // (unidades de rubro producidas por jornada) — jornadaHs no participa.
-    const sumMO = apuCompleto!.manoObra.reduce(
-      (s, mo) => s + mo.jornalRef / mo.rendimiento,
-      0
-    );
-    const sumEq = apuCompleto!.equipos.reduce((s, e) => s + e.rendimiento * e.costoUnit, 0);
-    const costoDirecto = sumMat + (Number.isFinite(sumMO) ? sumMO : 0) + sumEq;
+    const sumMO = sumManoObra(apuCompleto!.manoObra, apuCompleto!.equipos);
+    const sumEq = sumEquipos(apuCompleto!.equipos);
+    const costoDirecto = sumMat + sumMO + sumEq;
     const precioUnit =
       costoDirecto * (1 + apuCompleto!.gastosGeneralesPct / 100) * (1 + apuCompleto!.utilidadPct / 100);
 

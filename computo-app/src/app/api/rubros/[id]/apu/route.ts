@@ -64,8 +64,32 @@ export async function PUT(
       }
     }
 
-    // Recrear mano de obra
+    // Recrear mano de obra y equipos — se borran ambos primero (mano de obra
+    // antes que equipos, por la FK equipoRelacionadoId) y se recrean en el
+    // orden inverso: equipos primero, para poder mapear el id de equipo que
+    // el front manda (que puede ser temporal) al id real recién creado, y
+    // así resolver equipoRelacionadoId de cada línea de mano de obra.
     await db.manoObraAPU.deleteMany({ where: { apuId } });
+    await db.equipoAPU.deleteMany({ where: { apuId } });
+
+    const equipoIdMap = new Map<string, string>();
+    for (let i = 0; i < equipos.length; i++) {
+      const eq = equipos[i];
+      const creado = await db.equipoAPU.create({
+        data: {
+          apuId,
+          descripcion:     eq.descripcion     ?? "",
+          unidad:          eq.unidad          ?? "",
+          rendimiento:     eq.rendimiento     ?? 0,
+          costoUnit:       eq.costoUnit       ?? 0,
+          modoCosteo:      eq.modoCosteo      ?? "ALQUILADO",
+          costoUnitPropio: eq.costoUnitPropio ?? null,
+          orden:           i,
+        },
+      });
+      if (eq.id) equipoIdMap.set(eq.id, creado.id);
+    }
+
     for (let i = 0; i < manoObra.length; i++) {
       const mo = manoObra[i];
       await db.manoObraAPU.create({
@@ -76,22 +100,9 @@ export async function PUT(
           rendimiento: mo.rendimiento ?? 1,
           jornalRef:   mo.jornalRef   ?? 0,
           orden:       i,
-        },
-      });
-    }
-
-    // Recrear equipos
-    await db.equipoAPU.deleteMany({ where: { apuId } });
-    for (let i = 0; i < equipos.length; i++) {
-      const eq = equipos[i];
-      await db.equipoAPU.create({
-        data: {
-          apuId,
-          descripcion: eq.descripcion ?? "",
-          unidad:      eq.unidad      ?? "",
-          rendimiento: eq.rendimiento ?? 0,
-          costoUnit:   eq.costoUnit   ?? 0,
-          orden:       i,
+          equipoRelacionadoId: mo.equipoRelacionadoId
+            ? equipoIdMap.get(mo.equipoRelacionadoId) ?? null
+            : null,
         },
       });
     }
