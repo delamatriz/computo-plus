@@ -84,3 +84,43 @@ umbral? Definir umbral de "gran porte" si se va por la segunda opción.
 
 Estado: 🔲 Anotado, sin definir modelo. No es bloqueante para el sprint
 actual.
+
+## Radar de materiales nuevos y tendencias de mercado
+
+Productos/técnicas que están ganando terreno en obra y que la biblioteca
+todavía no cubre como subrubro estándar. Se agregan como subrubro puntual
+en un proyecto real cuando una obra concreta lo requiera (mismo patrón
+que "Mortero común" en proyecto HOGAR) — no son pendientes de desarrollo,
+son referencia para no tener que re-investigar de cero.
+
+- [ ] Revoques premezclados 2 en 1 / 3 en 1 (URUMIX, Weber Promex E,
+      Ultramix, etc.) — reemplazan grueso+fino(+hidrófugo) en una sola
+      aplicación de ~15mm. Consumo real relevado: 25-30 kg/m2 exterior.
+
+- [ ] Revoque grueso y fino premezclados por separado (no combinado) —
+      según relevamiento de Luis, hoy casi no se arma la mezcla en obra;
+      se compra premezclada aunque sea por capas separadas.
+
+- [ ] Puentes de adherencia químicos (ej. SikaTop Modul) — para unir
+      revoque/mortero nuevo sobre superficie vieja o poco porosa.
+      Insumo líquido, consumo bajo (referencias de productos similares
+      Sika rondan 0,15-0,175 kg/m2).
+
+- [ ] Puentes de impermeabilización cementicios (ej. SikaTop Seal-107) —
+      revestimiento impermeable bicomponente, bolsa 25kg + líquido.
+      Uso: subsuelos, muros de contención, fosos de ascensor, piscinas,
+      cubiertas con agua. Se cruza con capítulos pendientes de
+      Impermeabilizaciones y Ascensor.
+
+- [ ] Membranas líquidas impermeabilizantes (ej. SikaFill-100/Elástico/400,
+      Sikalastic-560) — impermeabilización de techos/terrazas, aplicación
+      en frío, monocomponente. Rendimiento: 0,8-1,5 kg/m2 sin refuerzo,
+      2,8-3 kg/m2 con malla de refuerzo (fisuras/detalles). Cruza directo
+      con el capítulo pendiente de Impermeabilizaciones.
+
+  Nota general: ninguno de estos productos tiene dosificación en el MTOP
+  2006 (son productos de marca posteriores/no contemplados). Se modelan
+  como insumo único (producto comercial) + rendimiento de ficha técnica,
+  no como descomposición cemento/arena/cal. Precio de referencia: no está
+  en Lista MTOP N°599, requiere relevamiento de precio de mercado real al
+  momento de cargarlos.
