@@ -27,6 +27,11 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Capítulo fijo para rubros cuyo capítulo de proyecto no coincide con ningún
+// capítulo activo real de biblioteca — evita crear capítulos fantasma nuevos
+// (ver caso "Demoliciones y Picados", auditoría 12/07/2026).
+const CAPITULO_SIN_CLASIFICAR = "Sin clasificar";
+
 /**
  * Guarda un nuevo rubro creado por el usuario en la biblioteca global de subrubros
  * típicos, para que esté disponible como sugerencia en futuros proyectos.
@@ -41,12 +46,33 @@ export async function POST(req: NextRequest) {
     }
 
     const descripcionLimpia = descripcion.trim();
-    const capituloLimpio = capitulo.trim();
+    const capituloTipeado = capitulo.trim();
     const unidadLimpia = unidad.trim();
+
+    // El capítulo llega como texto libre desde el nombre de capítulo del
+    // proyecto — nunca se valida contra la biblioteca real. Así nació
+    // "Demoliciones y Picados": un capítulo de proyecto que no coincidía con
+    // ningún capítulo de SubrubroEstandar terminó creando uno nuevo con datos
+    // duplicados y sin control de calidad. Mapeamos contra los capítulos
+    // activos que YA organizan la biblioteca (no contra CapituloEstandar: esa
+    // tabla es un catálogo de nombres para crear proyectos nuevos, con
+    // nombres que en su mayoría no coinciden textualmente con
+    // SubrubroEstandar.capitulo — usarla acá mandaría la mayoría de los
+    // guardados legítimos a "Sin clasificar". Ver auditoría 12/07/2026).
+    const capitulosActivos = await db.subrubroEstandar.findMany({
+      where: { activo: true },
+      distinct: ["capitulo"],
+      select: { capitulo: true },
+    });
+    const capituloValido = capitulosActivos.find(
+      (c) => c.capitulo.toLowerCase() === capituloTipeado.toLowerCase()
+    )?.capitulo;
+    const capituloFinal = capituloValido ?? CAPITULO_SIN_CLASIFICAR;
 
     const existente = await db.subrubroEstandar.findFirst({
       where: {
-        capitulo: capituloLimpio,
+        activo: true,
+        capitulo: capituloFinal,
         descripcion: { equals: descripcionLimpia, mode: "insensitive" },
         unidad: { equals: unidadLimpia, mode: "insensitive" },
       },
@@ -64,7 +90,7 @@ export async function POST(req: NextRequest) {
     const nuevo = await db.subrubroEstandar.create({
       data: {
         codigo: `manual-${randomUUID()}`,
-        capitulo: capituloLimpio,
+        capitulo: capituloFinal,
         descripcion: descripcionLimpia,
         unidad: unidadLimpia,
         precioUY,
