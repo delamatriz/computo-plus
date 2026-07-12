@@ -126,11 +126,8 @@ son referencia para no tener que re-investigar de cero.
       analogía al 2en1 — estimación, no dato de fabricante para ese
       producto puntual) sobre la mano de obra combinada grueso+fino ya
       validada en biblioteca.
-      **Pendiente de decisión de diseño**: malla de fibra de vidrio — se
-      usa en encuentros entre materiales distintos (mampostería-hormigón),
-      no en toda la superficie. Falta decidir si se modela como línea
-      opcional dentro del mismo código o como subrubro aparte — no
-      incluida en el código base actual.
+      Malla de fibra de vidrio: ver nota consolidada de mallas pendientes
+      más abajo, junto a la de 6.8.3.
 
 - [ ] Revoque grueso y fino premezclados por separado (no combinado) —
       según relevamiento de Luis, hoy casi no se arma la mezcla en obra;
@@ -151,11 +148,34 @@ son referencia para no tener que re-investigar de cero.
       mezcla, no por m2) — no cubierto por el código actual, evaluar
       como ítem aparte si se necesita.
 
-- [ ] Puentes de impermeabilización cementicios (ej. SikaTop Seal-107) —
+- [x] ✅ Puentes de impermeabilización cementicios (ej. SikaTop Seal-107) —
       revestimiento impermeable bicomponente, bolsa 25kg + líquido.
       Uso: subsuelos, muros de contención, fosos de ascensor, piscinas,
       cubiertas con agua. Se cruza con capítulos pendientes de
       Impermeabilizaciones y Ascensor.
+      **Agregado a biblioteca (11/07/2026)**: 6.8.3 PUENTE DE
+      IMPERMEABILIZACIÓN (SikaTop Seal-107, $911,80/m2) — aplicación a
+      llana (2 capas, dentada + lisa), presión normal de agua (fosos de
+      ascensor, muros de contención, subsuelos residenciales — no
+      tanques bajo alta columna de agua). Agrupado junto a 6.8.1/6.8.2
+      en el subcapítulo "Puentes de Adherencia". Aplicación con
+      pinceleta es alternativa válida para superficies chicas o
+      retoques (mismo consumo de material por fórmula, mano de obra
+      distinta) — no modelada como código aparte.
+
+**Pendiente de decisión de diseño (consolidado) — mallas de refuerzo
+puntuales**: dos casos con el mismo tipo de decisión repetida, para
+resolver juntos en vez de por separado:
+- Malla de fibra de vidrio (revoque monocapa 3en1, código 6.2.10b) —
+  se usa en encuentros entre materiales distintos (mampostería-hormigón),
+  no en toda la superficie.
+- Malla Tejido-107 (puente de impermeabilización SikaTop Seal-107,
+  código 6.8.3) — se usa en encuentros de planos (bandas de 30-40cm),
+  no en toda la superficie. Sin precio de referencia relevado.
+
+En ambos casos falta decidir si se modelan como línea opcional dentro
+del mismo código o como subrubro aparte — ninguno de los dos está
+incluido en su código base actual.
 
 - [ ] Membranas líquidas impermeabilizantes (ej. SikaFill-100/Elástico/400,
       Sikalastic-560) — impermeabilización de techos/terrazas, aplicación
