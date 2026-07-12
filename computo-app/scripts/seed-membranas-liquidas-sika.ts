@@ -14,10 +14,10 @@
 // PUNTUAL en encuentros de materiales, ésta es parte del sistema
 // estándar recomendado oficialmente por Sika para el 560 — por eso SÍ
 // se incluye como línea de material en este código (no como pendiente
-// aparte). Tanto el precio como el rendimiento (consumo real de rollo
-// por m2) quedan en 0 — pendientes de relevar ficha técnica de
-// consumo y precio de mercado — mismo patrón que un insumo recién
-// agregado sin completar (no se inventa ningún valor).
+// aparte). Rendimiento: 1,1 m2/m2 (1 m2 de malla por m2 de superficie,
+// + 10% de margen por solape entre tiras — mismo criterio conservador
+// usado en el resto de la sesión). El PRECIO sigue en 0 — pendiente de
+// relevar precio de mercado (no se inventa ningún valor).
 //
 // Idempotente vía upsert.
 //
@@ -62,7 +62,7 @@ const CODIGOS: {
     descripcion: "MEMBRANA LÍQUIDA SIKALASTIC-560 SISTEMA COMPLETO (CON REFUERZO SIKA TEX-TRAMA)",
     materiales: [
       { descripcion: "Sikalastic-560 (balde 20kg)", unidad: "kg", rendimiento: 2.8 },
-      { descripcion: "Sika Tex-TRAMA (rollo, refuerzo de malla)", unidad: "rollo", rendimiento: 0 },
+      { descripcion: "Sika Tex-TRAMA (rollo, refuerzo de malla)", unidad: "m2", rendimiento: 1.1 },
     ],
     manoObra: [
       { categoria: "Oficial albañil", jornadaHs: 8, rendimiento: 8 / 0.4 },
