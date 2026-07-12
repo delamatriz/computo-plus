@@ -109,11 +109,14 @@ convenio 2026.
 
 ## Radar de materiales nuevos y tendencias de mercado
 
-Productos/técnicas que están ganando terreno en obra y que la biblioteca
-todavía no cubre como subrubro estándar. Se agregan como subrubro puntual
-en un proyecto real cuando una obra concreta lo requiera (mismo patrón
-que "Mortero común" en proyecto HOGAR) — no son pendientes de desarrollo,
-son referencia para no tener que re-investigar de cero.
+**✅ COMPLETADO — 5 de 5 items agregados a biblioteca (11/07/2026)**
+
+Productos/técnicas que estaban ganando terreno en obra y que la
+biblioteca no cubría como subrubro estándar — los 5 items relevados ya
+están cargados. Quedan solo dos pendientes menores (mallas de refuerzo
+puntuales, ver nota consolidada más abajo) y un ítem fuera de alcance
+del radar original (revoque grueso/fino premezclados por separado, sin
+combinar).
 
 - [x] ✅ Revoques premezclados 2 en 1 / 3 en 1 (URUMIX, Weber Promex E,
       Ultramix, etc.) — reemplazan grueso+fino(+hidrófugo) en una sola
@@ -177,11 +180,23 @@ En ambos casos falta decidir si se modelan como línea opcional dentro
 del mismo código o como subrubro aparte — ninguno de los dos está
 incluido en su código base actual.
 
-- [ ] Membranas líquidas impermeabilizantes (ej. SikaFill-100/Elástico/400,
+- [x] ✅ Membranas líquidas impermeabilizantes (ej. SikaFill-100/Elástico/400,
       Sikalastic-560) — impermeabilización de techos/terrazas, aplicación
       en frío, monocomponente. Rendimiento: 0,8-1,5 kg/m2 sin refuerzo,
       2,8-3 kg/m2 con malla de refuerzo (fisuras/detalles). Cruza directo
       con el capítulo pendiente de Impermeabilizaciones.
+      **Agregado a biblioteca (11/07/2026)**: tres códigos nuevos, nuevo
+      subcapítulo "Membranas Líquidas" en Albañilería —
+      6.9.1 MEMBRANA LÍQUIDA SIKAFILL ELÁSTICO (techos/terrazas,
+      $1.017,28/m2), 6.9.2 MEMBRANA LÍQUIDA SIKALASTIC-560 SISTEMA
+      COMPLETO con refuerzo Sika Tex-TRAMA ($1.091,05/m2, sin contar el
+      costo real de la malla — ver nota abajo) y 6.9.3 MEMBRANA LÍQUIDA
+      SIKALASTIC-560 BÁSICO sin refuerzo ($784,77/m2).
+      Sika Tex-TRAMA sí se incluyó como línea de material en 6.9.2 (a
+      diferencia de las mallas puntuales de abajo) porque es parte del
+      sistema estándar recomendado oficialmente por Sika para el 560 —
+      pero su precio y su rendimiento real (consumo de rollo por m2)
+      quedan en 0, pendientes de relevar.
 
   Nota general: ninguno de estos productos tiene dosificación en el MTOP
   2006 (son productos de marca posteriores/no contemplados). Se modelan
