@@ -189,14 +189,14 @@ incluido en su código base actual.
       subcapítulo "Membranas Líquidas" en Albañilería —
       6.9.1 MEMBRANA LÍQUIDA SIKAFILL ELÁSTICO (techos/terrazas,
       $1.017,28/m2), 6.9.2 MEMBRANA LÍQUIDA SIKALASTIC-560 SISTEMA
-      COMPLETO con refuerzo Sika Tex-TRAMA ($1.091,05/m2, sin contar el
-      costo real de la malla — ver nota abajo) y 6.9.3 MEMBRANA LÍQUIDA
-      SIKALASTIC-560 BÁSICO sin refuerzo ($784,77/m2).
-      Sika Tex-TRAMA sí se incluyó como línea de material en 6.9.2 (a
+      COMPLETO con refuerzo Sika Tex-TRAMA ($1.248,97/m2) y 6.9.3
+      MEMBRANA LÍQUIDA SIKALASTIC-560 BÁSICO sin refuerzo ($784,77/m2).
+      Sika Tex-TRAMA se incluyó como línea de material en 6.9.2 (a
       diferencia de las mallas puntuales de abajo) porque es parte del
-      sistema estándar recomendado oficialmente por Sika para el 560 —
-      pero su precio y su rendimiento real (consumo de rollo por m2)
-      quedan en 0, pendientes de relevar.
+      sistema estándar recomendado oficialmente por Sika para el 560.
+      **Precio completado (12/07/2026)**: $2.979/rollo (25m x 1,05m,
+      26,25 m2 de cobertura) → $113,49/m2 de malla, cargado en
+      PrecioMTOP (código MAT-SIKA-TEXTRAMA).
 
   Nota general: ninguno de estos productos tiene dosificación en el MTOP
   2006 (son productos de marca posteriores/no contemplados). Se modelan
