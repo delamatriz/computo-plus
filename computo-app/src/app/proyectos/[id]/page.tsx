@@ -3184,12 +3184,7 @@ export default function ProyectoPage() {
                                     }
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "precioUnit", e.target.value)}
                                     onFocus={() => setPrecioUnitEnFoco(rubro.id)}
-                                    onBlur={() => {
-                                      setPrecioUnitEnFoco(null);
-                                      if (rubro.precioUnit && rubro.precioUnit > 0) {
-                                        guardarEnBibliotecaGlobal(rubro.descripcion, rubro.unidad, cap.nombre, rubro.precioUnit, moneda);
-                                      }
-                                    }}
+                                    onBlur={() => setPrecioUnitEnFoco(null)}
                                     placeholder="0.00"
                                     className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />
