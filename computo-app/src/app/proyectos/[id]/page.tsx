@@ -191,6 +191,14 @@ interface PrecioMTOPResult {
   numeroLista: number;
 }
 
+interface PrecioEquipoResult {
+  id: string;
+  codigo: string;
+  descripcion: string;
+  unidad: string;
+  precioHora: number;
+}
+
 interface ManoObraAPU {
   id: string;
   categoria: string;
@@ -686,18 +694,35 @@ function precioAPUDesincronizado(precioGuardado: number | null | undefined, prec
   return diff > 1 && diffPct > 0.5;
 }
 
-/* ─── Buscador MTOP inline ────────────────────────────────── */
-function BuscadorMTOP({
+/* ─── Buscador de catálogo inline (MTOP materiales / equipos) ──────
+   Genérico sobre T para poder apuntar a distintos endpoints
+   (/api/precios-mtop, /api/precios-equipos) sin duplicar el patrón. ── */
+interface BuscadorCatalogoResultBase {
+  id: string;
+  descripcion: string;
+  unidad: string;
+  numeroLista?: number;
+}
+
+function BuscadorCatalogo<T extends BuscadorCatalogoResultBase>({
+  endpoint,
+  campoPrecio,
+  mostrarBadgeLista = false,
+  placeholder,
   onSeleccionar,
   onManual,
   onCancelar,
 }: {
-  onSeleccionar: (m: PrecioMTOPResult) => void;
+  endpoint: string;
+  campoPrecio: keyof T;
+  mostrarBadgeLista?: boolean;
+  placeholder: string;
+  onSeleccionar: (r: T) => void;
   onManual: (textoActual: string) => void;
   onCancelar: () => void;
 }) {
   const [q, setQ]             = useState("");
-  const [resultados, setResultados] = useState<PrecioMTOPResult[]>([]);
+  const [resultados, setResultados] = useState<T[]>([]);
   const [buscando, setBuscando]     = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -708,8 +733,8 @@ function BuscadorMTOP({
     setBuscando(true);
     timerRef.current = setTimeout(async () => {
       try {
-        const res  = await fetch(`/api/precios-mtop?q=${encodeURIComponent(texto)}`);
-        const data: PrecioMTOPResult[] = await res.json();
+        const res  = await fetch(`${endpoint}?q=${encodeURIComponent(texto)}`);
+        const data: T[] = await res.json();
         setResultados(Array.isArray(data) ? data : []);
       } catch { setResultados([]); }
       finally { setBuscando(false); }
@@ -724,7 +749,7 @@ function BuscadorMTOP({
         type="text"
         value={q}
         onChange={(e) => buscar(e.target.value)}
-        placeholder="Buscar material... (ej: cemento, arena, hierro)"
+        placeholder={placeholder}
         className="w-full px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] text-slate-700 placeholder:text-slate-400"
       />
 
@@ -747,14 +772,16 @@ function BuscadorMTOP({
               <div className="flex items-start justify-between gap-2">
                 <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">{r.descripcion}</span>
                 <span className="text-[10px] font-bold text-[#2563EB] whitespace-nowrap flex-shrink-0 tabular-nums">
-                  $ {fmtMon(r.precioUnitario)}/{r.unidad}
+                  $ {fmtMon(r[campoPrecio] as number)}/{r.unidad}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] text-slate-400">{r.unidad}</span>
-                <span className="text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide">
-                  Lista {r.numeroLista}
-                </span>
+                {mostrarBadgeLista && r.numeroLista != null && (
+                  <span className="text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide">
+                    Lista {r.numeroLista}
+                  </span>
+                )}
               </div>
             </button>
           ))}
@@ -1033,6 +1060,7 @@ function SelectorModoCosteo({ modo, onChange }: { modo: ModoCosteoEquipo; onChan
 function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura }: DrawerAPUProps) {
   const dragControls = useDragControls();
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
+  const [mostrarBuscadorEquipo, setMostrarBuscadorEquipo] = useState(false);
   const [mostrarSelectorMO, setMostrarSelectorMO] = useState(false);
   const [nuevoMatId, setNuevoMatId] = useState<string | null>(null);
   const [categoriasLaborales, setCategoriasLaborales] = useState<CategoriaLaboral[]>([]);
@@ -1244,7 +1272,35 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
     setMO([...apu.manoObra, { id: `mo${Date.now()}`, categoria: "", jornadaHs: 8, rendimiento: 1, jornalRef: 0 }]);
     setMostrarSelectorMO(false);
   };
-  const addEq  = () => setEq([...apu.equipos,    { id: `e${Date.now()}`,  descripcion: "", unidad: "", rendimiento: 0, costoUnit: 0, modoCosteo: "ALQUILADO" as ModoCosteoEquipo }]);
+  // Seleccionar desde el buscador de equipos — agrega nueva fila precargada
+  const agregarDesdeEquipo = (r: PrecioEquipoResult) => {
+    const nuevosEquipos = [...apu.equipos, {
+      id: `e${Date.now()}`,
+      descripcion: r.descripcion,
+      unidad: r.unidad,
+      rendimiento: 0,
+      costoUnit: r.precioHora,
+      modoCosteo: "ALQUILADO" as ModoCosteoEquipo,
+    }];
+    setEq(nuevosEquipos);
+    setMostrarBuscadorEquipo(false);
+    guardarApuActual({ ...apu, equipos: nuevosEquipos });
+  };
+
+  // Agregar fila vacía sin catálogo — pre-completa con el texto escrito en el buscador
+  const agregarEquipoManual = (texto: string) => {
+    const nuevosEquipos = [...apu.equipos, {
+      id: `e${Date.now()}`,
+      descripcion: texto.trim(),
+      unidad: "",
+      rendimiento: 0,
+      costoUnit: 0,
+      modoCosteo: "ALQUILADO" as ModoCosteoEquipo,
+    }];
+    setEq(nuevosEquipos);
+    setMostrarBuscadorEquipo(false);
+    guardarApuActual({ ...apu, equipos: nuevosEquipos });
+  };
 
   const inputCls = "w-full bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-sm text-slate-700 placeholder:text-slate-300";
 
@@ -1576,7 +1632,11 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
               </div>
               {/* Buscador MTOP inline */}
               {mostrarBuscador && (
-                <BuscadorMTOP
+                <BuscadorCatalogo<PrecioMTOPResult>
+                  endpoint="/api/precios-mtop"
+                  campoPrecio="precioUnitario"
+                  mostrarBadgeLista
+                  placeholder="Buscar material... (ej: cemento, arena, hierro)"
                   onSeleccionar={agregarDesdeMTOP}
                   onManual={agregarManual}
                   onCancelar={() => setMostrarBuscador(false)}
@@ -1879,11 +1939,24 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                 )}
               </table>
               </div>
-              <div className="pl-4 pt-1.5">
-                <button onClick={addEq} className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">
-                  <Plus className="w-3 h-3" /> Agregar equipo
-                </button>
-              </div>
+              {/* Buscador de equipos inline */}
+              {mostrarBuscadorEquipo && (
+                <BuscadorCatalogo<PrecioEquipoResult>
+                  endpoint="/api/precios-equipos"
+                  campoPrecio="precioHora"
+                  placeholder="Buscar equipo... (ej: andamio, hormigonera, grúa)"
+                  onSeleccionar={agregarDesdeEquipo}
+                  onManual={agregarEquipoManual}
+                  onCancelar={() => setMostrarBuscadorEquipo(false)}
+                />
+              )}
+              {!mostrarBuscadorEquipo && (
+                <div className="pl-4 pt-1.5">
+                  <button onClick={() => setMostrarBuscadorEquipo(true)} className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">
+                    <Plus className="w-3 h-3" /> Agregar equipo
+                  </button>
+                </div>
+              )}
             </div>
           </SeccionAPU>
         </div>
