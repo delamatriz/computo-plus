@@ -1157,6 +1157,14 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
       ...(field === "precioUnit" ? { precioEstimadoIA: undefined } : {}),
     }));
 
+  // Quita un insumo del APU y persiste de inmediato — mismo patrón que
+  // agregarDesdeMTOP/agregarManual, sin esperar al onBlur de ningún campo.
+  const quitarMat = (id: string) => {
+    const nuevosMateriales = apu.materiales.filter((m) => m.id !== id);
+    setMat(nuevosMateriales);
+    guardarApuActual({ ...apu, materiales: nuevosMateriales });
+  };
+
   // Actualiza PrecioMTOP si existe un registro cuya descripción coincide
   // con la del material editado — mantiene el catálogo alineado con lo
   // que el usuario corrige a mano en el APU.
@@ -1233,11 +1241,29 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
       [field]: field === "categoria" ? val : (val === "" ? 0 : parseFloat(val)),
     }));
 
+  // Quita una línea de mano de obra y persiste de inmediato. Si estaba
+  // vinculada a un equipo (armado/desarme), manoObraIncluida ya tolera
+  // referencias a equipos ausentes — no hace falta limpiar nada más.
+  const quitarMO = (id: string) => {
+    const nuevaManoObra = apu.manoObra.filter((mo) => mo.id !== id);
+    setMO(nuevaManoObra);
+    guardarApuActual({ ...apu, manoObra: nuevaManoObra });
+  };
+
   const updateEq = (id: string, field: keyof EquipoAPU, val: string) =>
     setEq(apu.equipos.map((e) => e.id !== id ? e : {
       ...e,
       [field]: field === "descripcion" || field === "unidad" ? val : (val === "" ? 0 : parseFloat(val)),
     }));
+
+  // Quita un equipo y persiste de inmediato. Cualquier mano de obra
+  // vinculada (armado/desarme) queda huérfana pero sigue funcionando —
+  // manoObraIncluida trata un equipoRelacionadoId inexistente como "incluida".
+  const quitarEq = (id: string) => {
+    const nuevosEquipos = apu.equipos.filter((e) => e.id !== id);
+    setEq(nuevosEquipos);
+    guardarApuActual({ ...apu, equipos: nuevosEquipos });
+  };
 
   const setModoCosteoEq = (id: string, modo: ModoCosteoEquipo) => {
     const nuevosEquipos = apu.equipos.map((e) => e.id !== id ? e : { ...e, modoCosteo: modo });
@@ -1471,6 +1497,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                   <col style={{ width: "72px" }} />
                   <col style={{ width: "80px" }} />
                   <col style={{ width: "90px" }} />
+                  <col style={{ width: "28px" }} />
                 </colgroup>
                 <thead>
                   <tr style={{ background: "#F8FAFC", height: 28 }} className="border-b border-slate-100">
@@ -1481,12 +1508,13 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">P. unit.</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">Subtotal p.unit</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">Costo tot.</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
                   {apu.materiales.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="pl-4 py-2 text-slate-400 italic">Sin materiales</td>
+                      <td colSpan={8} className="pl-4 py-2 text-slate-400 italic">Sin materiales</td>
                     </tr>
                   )}
                   {apu.materiales.map((m) => {
@@ -1498,7 +1526,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     return (
                       <React.Fragment key={m.id}>
                         {/* Fila principal del insumo */}
-                        <tr className="border-b border-slate-50" style={{ height: 28 }}>
+                        <tr className="group/fila border-b border-slate-50" style={{ height: 28 }}>
                           <td className="pl-4 pr-2">
                             <input
                               type="text"
@@ -1592,6 +1620,17 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                           <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">
                             {costoTotalPadre != null && costoTotalPadre > 0 ? fmtMon(costoTotalPadre) : tieneComponentes ? "" : "—"}
                           </td>
+                          <td className="text-center">
+                            <button
+                              type="button"
+                              onClick={() => quitarMat(m.id)}
+                              title="Quitar material"
+                              className="opacity-0 group-hover/fila:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors mx-auto"
+                              style={{ width: 20, height: 20 }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
                         </tr>
                         {/* Filas secundarias — componentes */}
                         {m.componentes?.map((comp) => {
@@ -1612,6 +1651,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                               <td className="text-[11px] text-slate-400 text-right pr-3 tabular-nums">{comp.precioUnit != null ? fmtMon(comp.precioUnit) : "—"}</td>
                               <td className="text-[11px] font-semibold tabular-nums text-[#2563EB] text-right pr-3">{subComp != null && subComp > 0 ? fmtMon(subComp) : "—"}</td>
                               <td className="text-[11px] font-bold tabular-nums text-[#2563EB] text-right pr-3">{costoTotalComp != null && costoTotalComp > 0 ? fmtMon(costoTotalComp) : "—"}</td>
+                              <td />
                             </tr>
                           );
                         })}
@@ -1625,6 +1665,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                       <td colSpan={5} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MATERIALES</td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalMaterialesPUnit)}</td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalMateriales)}</td>
+                      <td />
                     </tr>
                   </tfoot>
                 )}
@@ -1678,6 +1719,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                   <col style={{ width: "84px" }} />
                   <col style={{ width: "80px" }} />
                   <col style={{ width: "80px" }} />
+                  <col style={{ width: "28px" }} />
                 </colgroup>
                 <thead>
                   <tr style={{ background: "#F8FAFC", height: 28 }} className="border-b border-slate-100">
@@ -1688,11 +1730,12 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap" title={`Costo por ${rubro.unidad || "unidad"} de rubro (jornal ref. / rendimiento)`}>Subtotal p.unit</th>
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap" title="Horas totales para el rubro completo">Hs totales</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">Subtotal</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
                   {apu.manoObra.length === 0 && (
-                    <tr><td colSpan={7} className="pl-4 py-2 text-slate-400 italic">Sin mano de obra</td></tr>
+                    <tr><td colSpan={8} className="pl-4 py-2 text-slate-400 italic">Sin mano de obra</td></tr>
                   )}
                   {apu.manoObra.map((mo) => {
                     const hsPorUnidad = mo.rendimiento > 0 ? mo.jornadaHs / mo.rendimiento : 0;
@@ -1701,7 +1744,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     const sub        = subPUnit * (rubro.cantidad ?? 1);
                     const incluida   = manoObraIncluida(mo, apu.equipos);
                     return (
-                      <tr key={mo.id} className={cn("border-b border-slate-50", !incluida && "opacity-40")} style={{ height: 28 }} title={!incluida ? "Incluida en el alquiler del equipo — no suma al Costo Directo" : undefined}>
+                      <tr key={mo.id} className={cn("group/fila border-b border-slate-50", !incluida && "opacity-40")} style={{ height: 28 }} title={!incluida ? "Incluida en el alquiler del equipo — no suma al Costo Directo" : undefined}>
                         <td className="pl-4 pr-2">
                           <input type="text" value={mo.categoria} onChange={(e) => updateMO(mo.id, "categoria", e.target.value)} onBlur={() => guardarApuActual()} placeholder="Peón / Oficial" className={inputCls} />
                         </td>
@@ -1736,6 +1779,17 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                         <td className={cn("text-right pr-3 font-bold tabular-nums text-[#2563EB]", !incluida && "line-through")}>
                           {sub > 0 ? fmtMon(sub) : "—"}
                         </td>
+                        <td className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => quitarMO(mo.id)}
+                            title="Quitar mano de obra"
+                            className="opacity-0 group-hover/fila:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors mx-auto"
+                            style={{ width: 20, height: 20 }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1747,11 +1801,12 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                         TOTAL POR {(rubro.unidad || "UNIDAD").toUpperCase()}
                       </td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalManoObraPUnit)}</td>
-                      <td colSpan={2} />
+                      <td colSpan={3} />
                     </tr>
                     <tr style={{ background: "#F1F5F9", height: 28 }} className="border-t border-slate-200">
                       <td colSpan={6} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MANO DE OBRA</td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalManoObra)}</td>
+                      <td />
                     </tr>
                   </tfoot>
                 )}
@@ -1801,6 +1856,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                   <col style={{ width: "80px" }} />
                   <col style={{ width: "84px" }} />
                   <col style={{ width: "80px" }} />
+                  <col style={{ width: "28px" }} />
                 </colgroup>
                 <thead>
                   <tr style={{ background: "#F8FAFC", height: 28 }} className="border-b border-slate-100">
@@ -1809,11 +1865,12 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider" title="Cantidad por unidad de rubro">Cant/U</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">P. unit.</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">Subtotal</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
                   {apu.equipos.length === 0 && (
-                    <tr><td colSpan={5} className="pl-4 py-2 text-slate-400 italic">Sin equipos</td></tr>
+                    <tr><td colSpan={6} className="pl-4 py-2 text-slate-400 italic">Sin equipos</td></tr>
                   )}
                   {apu.equipos.map((eq) => {
                     const modo = eq.modoCosteo ?? "ALQUILADO";
@@ -1821,7 +1878,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     const manoObraVinculada = apu.manoObra.filter((mo) => mo.equipoRelacionadoId === eq.id);
                     return (
                       <React.Fragment key={eq.id}>
-                      <tr className={cn("border-b border-slate-50", modo === "PROPIO_SIN_COSTO" && "opacity-50")}>
+                      <tr className={cn("group/fila border-b border-slate-50", modo === "PROPIO_SIN_COSTO" && "opacity-50")}>
                         <td className="pl-4 pr-2 py-1.5">
                           <input
                             type="text"
@@ -1903,12 +1960,23 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                         <td className="text-right pr-3 font-semibold tabular-nums text-[#2563EB]">
                           {sub > 0 ? fmtMon(sub) : "—"}
                         </td>
+                        <td className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => quitarEq(eq.id)}
+                            title="Quitar equipo"
+                            className="opacity-0 group-hover/fila:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors mx-auto"
+                            style={{ width: 20, height: 20 }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
                       </tr>
                       {manoObraVinculada.map((mo) => {
                         const incluida = modo !== "ALQUILADO";
                         return (
                           <tr key={`link-${mo.id}`} className="border-b border-slate-50">
-                            <td colSpan={5} className="pl-6 pr-3 pb-1.5">
+                            <td colSpan={6} className="pl-6 pr-3 pb-1.5">
                               <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
                                 <span className="text-slate-300">↳</span>
                                 <span>Armado — <span className="text-slate-500">{mo.categoria || "mano de obra"}</span></span>
@@ -1934,6 +2002,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <tr style={{ background: "#F1F5F9", height: 28 }} className="border-t border-slate-200">
                       <td colSpan={4} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL EQUIPOS</td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalEquipos)}</td>
+                      <td />
                     </tr>
                   </tfoot>
                 )}
