@@ -355,12 +355,23 @@ proyectos reales):
 - 7.2.30, 7.2.31 (Ascensores) → Ascensor (primer subrubro que existe bajo
   ese capítulo — no tenía ninguno antes)
 
-⚠️ Nota de posible duplicado, sin resolver: 7.2.8 "CÁMARA DE INSPECCIÓN
-CON TAPA Y CONTRATAPA 60x60cm" quedó en Instalación Sanitaria junto a
-`sanitaria-014` ("Cámara de inspección 60x60cm con sifón desconector")
-y `sanitaria-015` ("...sin sifón") — parecen solapar. No se tocó
-(estaba fuera del alcance de este pedido), pero conviene revisar si son
-el mismo producto con precio/fuente distinta o si hay que fusionar.
+✅ **Duplicado detectado — RESUELTO (15/07/2026).** 7.2.8 "CÁMARA DE
+INSPECCIÓN CON TAPA Y CONTRATAPA 60x60cm" quedó en Instalación
+Sanitaria junto a `sanitaria-014` ("...con sifón desconector") y
+`sanitaria-015` ("...sin sifón"). Comparé los tres APUEstandar
+completos: **7.2.8 y sanitaria-015 son el mismo producto** (mismos 4
+materiales con los mismos rendimientos exactos, misma mano de obra
+0,5/0,5 — la única diferencia era cosmética: unidad "GL" vs "U" y que
+sanitaria-015 nunca tuvo precio calculado). `sanitaria-014` (con sifón
+desconector) es un producto distinto y legítimo (material extra real +
+mano de obra más lenta, 0,4) — no se toca. Ninguno de los tres estaba
+en uso en Rubros reales de HOGAR ni Matisse Monet.
+
+Se desactivó `sanitaria-015` (`activo: false`, no se borró — mismo
+criterio que los duplicados de contrapiso/demolición de sesiones
+anteriores). 7.2.8 queda como única fuente de verdad activa para la
+cámara sin sifón. Script:
+[`computo-app/scripts/desactivar-duplicado-camara-inspeccion.ts`](computo-app/scripts/desactivar-duplicado-camara-inspeccion.ts).
 
 **PASO B — subcapitulo dentro de "Subcontratos - Acondicionamientos"**
 (26 códigos restantes): "Equipamiento" (19) y "Obra Exterior / Jardín"
