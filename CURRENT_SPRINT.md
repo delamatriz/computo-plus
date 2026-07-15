@@ -308,13 +308,29 @@ enlucidos=18). Probado también agregando un subcapítulo de prueba
 temporal a la base — apareció solo en el paraguas sin cambios de código,
 y se borró después.
 
-## Hallazgos sin resolver (anotados durante la auditoría de capítulos, 15/07/2026)
+## Botón "Agregar capítulo" — RESUELTO (15/07/2026)
 
-- **Botón "Agregar capítulo" muerto**: el botón al pie del presupuesto
-  ([page.tsx:3451](computo-app/src/app/proyectos/[id]/page.tsx:3451))
-  no tiene `onClick` — no hace nada al clickearlo. Hoy los capítulos de
-  un proyecto solo se definen al crearlo (`/proyectos/nuevo`); no hay
-  forma de agregar uno nuevo desde un proyecto ya existente.
+**✅ COMPLETADO.** El botón al pie del presupuesto
+([page.tsx:3464](computo-app/src/app/proyectos/[id]/page.tsx:3464)) no
+tenía `onClick` — no hacía nada al clickearlo. Se cableó reusando el
+patrón ya existente en `SeccionPartidasFaltantes.tsx` (mismo endpoint
+`POST /api/proyectos/[id]/capitulos`, sin tocar el backend): pide el
+nombre con `window.prompt()` (sin modal nuevo — arreglo acotado, no
+amerita más), si se cancela o queda vacío no hace nada, si hay texto
+crea el capítulo y hace `window.location.reload()`. Verificado en HOGAR:
+cancelar no crea nada, con nombre se creó al final (orden correcto) y
+se confirmó visualmente antes de borrarlo.
+
+⚠️ **Hallazgo nuevo detectado al verificar**: no existe ningún endpoint
+`DELETE` para capítulos (`/api/capitulos/[id]/route.ts` solo tiene
+`PATCH` para fechaInicio/fechaFin) — tuve que borrar el capítulo de
+prueba directo en la base con un script. Si se crea un capítulo por
+error (nombre mal tipeado, etc.) hoy no hay forma de eliminarlo desde
+la UI. Ya estaba anotado que tampoco se puede renombrar uno después de
+creado — juntando ambos: la única forma de "arreglar" un capítulo mal
+creado hoy es manualmente en la base.
+
+## Hallazgos sin resolver
 
 - **"Equipamiento" y "Obra Exterior / Jardín" muestran lo mismo**:
   ambos capítulos de proyecto mapean al mismo capítulo de biblioteca

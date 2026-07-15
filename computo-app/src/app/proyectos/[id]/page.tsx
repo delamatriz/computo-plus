@@ -3463,7 +3463,19 @@ export default function ProyectoPage() {
 
         {/* Botón agregar capítulo */}
         <div className="mt-4 flex justify-start">
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] border border-dashed border-slate-300 text-sm font-medium text-slate-400 hover:text-[#2563EB] hover:border-[#2563EB]/40 transition-colors bg-white">
+          <button
+            onClick={async () => {
+              const nombre = window.prompt("Nombre del capítulo nuevo:");
+              if (!nombre || !nombre.trim()) return;
+              await fetch(`/api/proyectos/${proyectoActivo.id}/capitulos`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nombre: nombre.trim() }),
+              });
+              window.location.reload();
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] border border-dashed border-slate-300 text-sm font-medium text-slate-400 hover:text-[#2563EB] hover:border-[#2563EB]/40 transition-colors bg-white"
+          >
             <Plus className="w-4 h-4" /> Agregar capítulo
           </button>
         </div>
