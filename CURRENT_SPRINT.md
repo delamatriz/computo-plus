@@ -249,13 +249,80 @@ cruzadas con fichas técnicas/precios de mercado, no datos de la Lista
 MTOP (no existen en ese documento) — mismo criterio que los productos
 Sika de sesiones anteriores.
 
-**Cambio de código acompañante**: el whitelist de subcapítulos visibles
-en "Ver subrubros típicos" para el capítulo de proyecto "Albañilería"
-([page.tsx:139](computo-app/src/app/proyectos/[id]/page.tsx:139)) tuvo
-que actualizarse para incluir "Patología de Fachada" — si no, los 4
-códigos quedan invisibles en esa pantalla aunque existan correctamente
-en la biblioteca (mismo paso que ya había hecho falta para Aberturas,
-Puentes de Adherencia y Membranas Líquidas al agregarlos).
+**Cambio de código acompañante (15/07/2026, ya resuelto de raíz — ver
+sección siguiente)**: en su momento hubo que sumar "Patología de
+Fachada" a mano al whitelist de subcapítulos de la entrada paraguas de
+Albañilería en `page.tsx` — mismo paso manual que ya había hecho falta
+para Aberturas, Puentes de Adherencia y Membranas Líquidas. Se dinamizó
+ese mismo día para que no vuelva a hacer falta (ver abajo).
+
+## Subcapítulos de Albañilería en "Ver subrubros típicos" — dinamizado (15/07/2026)
+
+**✅ COMPLETADO.** `CAPITULOS_SAU` en
+[page.tsx:96-156](computo-app/src/app/proyectos/[id]/page.tsx:96) es un
+mapeo hardcodeado entre el nombre de capítulo del proyecto y
+`SubrubroEstandar.capitulo`/`subcapitulo`. Cada vez que se agregaba un
+subcapítulo nuevo a la biblioteca de Albañilería (Aberturas, Adherencia,
+Membranas, Patología de Fachada — las 4 veces de esta sesión), había que
+acordarse de sumarlo a mano a la lista fija de la entrada paraguas
+"Albañilería", o quedaba invisible en "Ver subrubros típicos".
+
+Diagnóstico previo (antes de tocar código): de los 30 capítulos del
+catálogo estándar (`CapituloEstandar`), solo 7 (23%) coinciden textualmente
+con `SubrubroEstandar.capitulo`; 12 requieren el alias de `CAPITULOS_SAU`
+para resolver mismatches de texto (ej. "Estructura de Hormigón Armado"
+vs. "Estructura"), y 11 todavía no tienen biblioteca cargada. Además el
+nombre de capítulo de proyecto es texto libre (`registrarCapituloManual`
+en `/proyectos/nuevo`) — confirmado con variantes reales en los dos
+proyectos existentes (HOGAR, Matisse Monet): "Trabajos preliminares",
+"Instalación sanitaria" en minúscula, "Mampostería y muros", "Herrería y
+metálica", "Revoques y enlucidos", "Pintura". Por eso **el array de
+alias (`capitulos: string[]`) se dejó intacto** — resuelve un problema
+real de datos sucios que una consulta dinámica por nombre exacto no
+resolvería.
+
+Lo que sí se dinamizó es la lista `subcapitulos` de la entrada paraguas
+de Albañilería ([page.tsx:135-142](computo-app/src/app/proyectos/[id]/page.tsx:135)):
+en vez de listar a mano qué subcapítulos mostrar, ahora se calcula
+`excluirSubcapitulos` — Pisos/Revestimientos e Impermeabilizaciones,
+los únicos dos recortes angostos que **coexisten** con "Albañilería"
+como capítulo de proyecto aparte dentro de un mismo proyecto (HOGAR
+tiene los tres capítulos a la vez). Todo lo demás (Muros, Revoques,
+Aberturas, Adherencia, Membranas, Patología de Fachada, y cualquier
+subcapítulo nuevo que se agregue a futuro) pasa automáticamente por el
+paraguas sin tocar código.
+
+⚠️ Ojo con esto si se toca de nuevo: en un primer intento se excluyeron
+también Muros y Revoques (por tener sus propias entradas "Mampostería y
+muros"/"Revoques y enlucidos" en `CAPITULOS_SAU`), pero se detectó que
+esos dos alias son usados por Matisse Monet, que **no** tiene un
+capítulo "Albañilería" combinado — mientras que HOGAR sí lo tiene y no
+tiene capítulos separados de Muros/Revoques. Cada proyecto usa un
+esquema de nombres u otro, nunca los dos a la vez, así que no hay
+duplicación real que evitar ahí — excluirlos del paraguas rompía HOGAR
+(pasaba de mostrar ~54 códigos a 12, perdiendo Muros y Revoques sin que
+ningún otro capítulo los mostrara). Verificado con los dos proyectos
+reales: HOGAR (paraguas=48, Pisos=34, Impermeabilizaciones=15, sin
+duplicados) y Matisse Monet (Mampostería y muros=18, Revoques y
+enlucidos=18). Probado también agregando un subcapítulo de prueba
+temporal a la base — apareció solo en el paraguas sin cambios de código,
+y se borró después.
+
+## Hallazgos sin resolver (anotados durante la auditoría de capítulos, 15/07/2026)
+
+- **Botón "Agregar capítulo" muerto**: el botón al pie del presupuesto
+  ([page.tsx:3451](computo-app/src/app/proyectos/[id]/page.tsx:3451))
+  no tiene `onClick` — no hace nada al clickearlo. Hoy los capítulos de
+  un proyecto solo se definen al crearlo (`/proyectos/nuevo`); no hay
+  forma de agregar uno nuevo desde un proyecto ya existente.
+
+- **"Equipamiento" y "Obra Exterior / Jardín" muestran lo mismo**:
+  ambos capítulos de proyecto mapean al mismo capítulo de biblioteca
+  ("Subcontratos - Acondicionamientos") sin ningún recorte por
+  subcapítulo ([page.tsx:149-150](computo-app/src/app/proyectos/[id]/page.tsx:149)).
+  Hoy "Ver subrubros típicos" muestra exactamente la misma lista completa
+  en los dos, aunque son cosas distintas (equipamiento de baño/cocina vs.
+  jardín/exterior).
 
 ## Pendientes técnicos
 
