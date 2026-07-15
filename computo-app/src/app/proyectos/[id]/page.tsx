@@ -121,6 +121,7 @@ const PISOS_SUBCAPS = ["Pisos, Zócalos y Otros", "Revestimientos", "Contrapisos
 const ABERTURAS_SUBCAPS = ["Colocación de Aberturas"];
 const ADHERENCIA_SUBCAPS = ["Puentes de Adherencia"];
 const MEMBRANAS_SUBCAPS = ["Membranas Líquidas"];
+const PATOLOGIA_FACHADA_SUBCAPS = ["Patología de Fachada"];
 
 /**
  * Mapeo entre nombres de capítulo del proyecto y capítulos/subcapítulos del rubrado SAU ago. 2022.
@@ -134,8 +135,8 @@ const CAPITULOS_SAU: MapeoSAU[] = [
   { alias: ["Demoliciones y Picados", "Picado de mamposteria", "Picado de mampostería"], capitulos: ["Demoliciones"] },
   { alias: ["Cimentaciones"], capitulos: ["Cimentaciones"] },
   { alias: ["Estructura de Hormigón Armado", "Estructura"], capitulos: ["Estructura"] },
-  // Albañilería completa: muros + revoques + colocación de aberturas + puentes de adherencia + membranas líquidas (excluye pisos/revestimientos e impermeabilizaciones, que tienen capítulo propio)
-  { alias: ["Albañilería"], capitulos: ["Albañilería"], subcapitulos: [...MUROS_SUBCAPS, ...REVOQUES_SUBCAPS, ...ABERTURAS_SUBCAPS, ...ADHERENCIA_SUBCAPS, ...MEMBRANAS_SUBCAPS] },
+  // Albañilería completa: muros + revoques + colocación de aberturas + puentes de adherencia + membranas líquidas + patología de fachada (excluye pisos/revestimientos e impermeabilizaciones, que tienen capítulo propio)
+  { alias: ["Albañilería"], capitulos: ["Albañilería"], subcapitulos: [...MUROS_SUBCAPS, ...REVOQUES_SUBCAPS, ...ABERTURAS_SUBCAPS, ...ADHERENCIA_SUBCAPS, ...MEMBRANAS_SUBCAPS, ...PATOLOGIA_FACHADA_SUBCAPS] },
   { alias: ["Mampostería y muros"], capitulos: ["Albañilería"], subcapitulos: MUROS_SUBCAPS },
   { alias: ["Revoques y enlucidos"], capitulos: ["Albañilería"], subcapitulos: REVOQUES_SUBCAPS },
   { alias: ["Pisos, Zócalos y Revestimientos", "Revestimientos y pisos"], capitulos: ["Albañilería"], subcapitulos: PISOS_SUBCAPS },

@@ -205,6 +205,58 @@ incluido en su código base actual.
   en Lista MTOP N°599, requiere relevamiento de precio de mercado real al
   momento de cargarlos.
 
+## Patología de fachada — nuevo subcapítulo en Albañilería (15/07/2026)
+
+**✅ COMPLETADO** — flujo completo de patología de fachada: Hidrolavado
+(diagnóstico/limpieza previa) → Saneado (retiro de partes flojas) →
+Tratamiento de hierros expuestos → Limpieza final de obra. Nuevo
+subcapítulo "Patología de Fachada" en Albañilería (siguiente numeración
+libre después de 6.9 Membranas Líquidas). Script:
+[`computo-app/scripts/seed-patologia-fachada.ts`](computo-app/scripts/seed-patologia-fachada.ts).
+
+- **Equipo nuevo en catálogo**: Hidrolavadora — $1.200/día (referencia
+  UY, equipo semi-profesional tipo Karcher HD 6/15). Código
+  `EQ-HIDROLAVADORA`, unidad "día" (mismo criterio que "Andamio
+  tubular", que ya usa "m2/mes" en vez de horas).
+
+- **6.10.1 HIDROLAVADO DE FACHADA** (M2) — sin materiales. Equipo:
+  Hidrolavadora, 1 día cada 110 m2. Mano de obra: Oficial albañil y
+  Peón, 0,0727 hs/m2 cada uno (coincide con el rendimiento del equipo:
+  ambos trabajan al ritmo de ~110 m2/día). $59,40/m2.
+
+- **6.10.2 SANEADO DE REVOQUES Y HORMIGONES EN FACHADA** (M2) — sin
+  materiales ni equipos cargados en el código base (silleta con
+  arnés/andamio/balancín se agregan aparte según la obra, vía el
+  buscador de equipos ya disponible en el catálogo). Mano de obra:
+  Oficial trabajo en altura y Peón, 0,4571 hs/m2 cada uno. La línea de
+  Peón usa la categoría "Peón" (jornal normal, sin recargo) — el
+  convenio SUNCA no tiene variante de altura para Peón (ver
+  seed-jornales-sunca-2025.ts), solo Oficial y Medio oficial reciben el
+  10%. La nota del código aclara que la tarea es en altura. $304,16/m2.
+
+- **6.10.3 TRATAMIENTO DE HIERROS EXPUESTOS (SikaTop Armatec-108)** (ML)
+  — material 0,17 kg/ml (kit 5kg, $810/kg). Mano de obra: Oficial
+  albañil, 0,175 hs/ml. $240,95/ml.
+
+- **6.10.4 LIMPIEZA FINAL DE OBRA (entrega)** (M2) — insumos cargados
+  como una sola línea genérica "Insumos de limpieza final" ($17,50/m2,
+  punto medio del rango $15-20 — bolsas de residuos + líquido
+  limpiavidrios + paños sin desglosar). Mano de obra: Peón, 0,1778
+  hs/m2. No incluye retiro de escombros (tarea aparte). $65,84/m2.
+
+Todos los rendimientos de mano de obra y equipos son estimaciones
+cruzadas con fichas técnicas/precios de mercado, no datos de la Lista
+MTOP (no existen en ese documento) — mismo criterio que los productos
+Sika de sesiones anteriores.
+
+**Cambio de código acompañante**: el whitelist de subcapítulos visibles
+en "Ver subrubros típicos" para el capítulo de proyecto "Albañilería"
+([page.tsx:139](computo-app/src/app/proyectos/[id]/page.tsx:139)) tuvo
+que actualizarse para incluir "Patología de Fachada" — si no, los 4
+códigos quedan invisibles en esa pantalla aunque existan correctamente
+en la biblioteca (mismo paso que ya había hecho falta para Aberturas,
+Puentes de Adherencia y Membranas Líquidas al agregarlos).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
