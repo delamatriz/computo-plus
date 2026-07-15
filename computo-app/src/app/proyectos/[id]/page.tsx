@@ -682,7 +682,7 @@ function fmtPct(v: number | null): string {
 const COL_TOTAL = "116px";
 const COL_PCT = "80px";
 const COL_ACCION = "28px";
-const GRID_CAPITULO = `minmax(0,1fr) ${COL_TOTAL} ${COL_PCT} ${COL_ACCION}`;
+const GRID_CAPITULO = `minmax(0,1fr) ${COL_TOTAL} ${COL_PCT} ${COL_ACCION} ${COL_ACCION}`;
 const GRID_RUBRO = `64px minmax(0,1fr) 76px 96px 116px ${COL_TOTAL} ${COL_PCT} ${COL_ACCION}`;
 
 function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
@@ -2901,6 +2901,56 @@ export default function ProyectoPage() {
     );
   }, []);
 
+  // Edición inline del nombre de capítulo — mismo patrón que actualizarRubro:
+  // update optimista + debounce 800ms + PATCH. No persiste si queda vacío.
+  const actualizarNombreCapitulo = useCallback((capId: string, nombre: string) => {
+    setCapitulos((prev) =>
+      prev.map((c) => (c.id !== capId ? c : { ...c, nombre }))
+    );
+
+    const key = `capitulo-nombre:${capId}`;
+    clearTimeout(debounceTimers.current[key]);
+    debounceTimers.current[key] = setTimeout(async () => {
+      const limpio = nombre.trim();
+      if (!limpio) return; // no guardar nombre vacío
+      try {
+        await fetch(`/api/capitulos/${capId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre: limpio }),
+        });
+      } catch (err) {
+        console.error("[actualizarNombreCapitulo]", err);
+      }
+    }, 800);
+  }, []);
+
+  // A diferencia de eliminarRubro, acá NO se borra optimistamente antes de
+  // preguntarle al servidor: si el capítulo tiene rubros con certificaciones
+  // de avance cargadas, el DELETE responde 409 y no se debe tocar el estado
+  // local — ver nota de bloqueo estricto en /api/capitulos/[id]/route.ts.
+  const eliminarCapitulo = useCallback(async (cap: Capitulo) => {
+    const ok = window.confirm(
+      cap.rubros.length > 0
+        ? `¿Eliminar el capítulo "${cap.nombre}" y sus ${cap.rubros.length} rubro${cap.rubros.length !== 1 ? "s" : ""}?`
+        : `¿Eliminar el capítulo "${cap.nombre}"?`
+    );
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/capitulos/${cap.id}`, { method: "DELETE" });
+      if (res.status === 409) {
+        const data = await res.json();
+        window.alert(data.mensaje ?? "No se puede eliminar este capítulo.");
+        return;
+      }
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      setCapitulos((prev) => prev.filter((c) => c.id !== cap.id));
+    } catch (err) {
+      console.error("[eliminarCapitulo]", err);
+    }
+  }, []);
+
   const sugerirAPU = useCallback(async (capId: string, rubroId: string) => {
     if (rubroId.startsWith("temp-")) return;
     const cap = capitulos.find((c) => c.id === capId);
@@ -3136,6 +3186,7 @@ export default function ProyectoPage() {
             <span className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Total</span>
             <span className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center whitespace-nowrap">% Incid.</span>
             <span />
+            <span />
           </div>
 
           {/* Lista de capítulos */}
@@ -3146,17 +3197,32 @@ export default function ProyectoPage() {
             return (
               <div key={cap.id} className="border-b border-slate-200 last:border-0">
 
-                {/* Fila del capítulo */}
-                <button
+                {/* Fila del capítulo — antes era un solo <button> (no se puede anidar
+                    el input de nombre ni el botón de borrar dentro de otro botón),
+                    ahora es un <div> con el toggle de expandir/colapsar en el click
+                    del fondo de la fila; el input y el botón de borrar cortan la
+                    propagación para no disparar el toggle al usarlos. */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => toggleCapituloConSubrubros(cap)}
-                  className="w-full grid items-center px-5 py-3 hover:bg-slate-50 transition-colors text-left group"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") toggleCapituloConSubrubros(cap);
+                  }}
+                  className="w-full grid items-center px-5 py-3 hover:bg-slate-50 transition-colors text-left group cursor-pointer"
                   style={{ gridTemplateColumns: GRID_CAPITULO }}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: "#2563EB" }}>
                       {String(capIdx + 1).padStart(2, "0")}
                     </span>
-                    <span className="text-sm font-semibold text-[#1A3A5C] truncate">{cap.nombre}</span>
+                    <input
+                      type="text"
+                      value={cap.nombre}
+                      onChange={(e) => actualizarNombreCapitulo(cap.id, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 min-w-0 text-sm font-semibold text-[#1A3A5C] bg-transparent truncate focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20"
+                    />
                     {cap.rubros.length > 0 && (
                       <span className="text-[11px] text-slate-400 flex-shrink-0">
                         {cap.rubros.length} rubro{cap.rubros.length !== 1 ? "s" : ""}
@@ -3173,10 +3239,24 @@ export default function ProyectoPage() {
                       {fmtPct(pctIncidencia(totalCap, totalGeneral))}
                     </span>
                   </div>
+                  <div className="flex items-center justify-center">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        eliminarCapitulo(cap);
+                      }}
+                      title="Eliminar capítulo"
+                      className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
+                      style={{ width: 20, height: 20 }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                   <div className="flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
                     {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </div>
-                </button>
+                </div>
 
                 {/* Panel expandido — rubros */}
                 <AnimatePresence initial={false}>
