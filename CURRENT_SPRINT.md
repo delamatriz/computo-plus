@@ -330,15 +330,58 @@ la UI. Ya estaba anotado que tampoco se puede renombrar uno después de
 creado — juntando ambos: la única forma de "arreglar" un capítulo mal
 creado hoy es manualmente en la base.
 
-## Hallazgos sin resolver
+## "Equipamiento" vs. "Obra Exterior / Jardín" — RESUELTO (15/07/2026)
 
-- **"Equipamiento" y "Obra Exterior / Jardín" muestran lo mismo**:
-  ambos capítulos de proyecto mapean al mismo capítulo de biblioteca
-  ("Subcontratos - Acondicionamientos") sin ningún recorte por
-  subcapítulo ([page.tsx:149-150](computo-app/src/app/proyectos/[id]/page.tsx:149)).
-  Hoy "Ver subrubros típicos" muestra exactamente la misma lista completa
-  en los dos, aunque son cosas distintas (equipamiento de baño/cocina vs.
-  jardín/exterior).
+**✅ COMPLETADO.** Ambos capítulos de proyecto mapeaban al mismo capítulo
+de biblioteca ("Subcontratos - Acondicionamientos") sin ningún recorte
+por subcapítulo — mostraban exactamente la misma lista completa de 32
+códigos, mezclando equipamiento de baño/cocina con césped/piscina/deck.
+Luis confirmó que el problema era de contenido, no solo de mapeo: no
+había ninguna separación limpia esperando ser aprovechada. Script:
+[`computo-app/scripts/reclasificar-acondicionamientos.ts`](computo-app/scripts/reclasificar-acondicionamientos.ts).
+
+Diagnóstico de los 32 códigos: 16 claramente Equipamiento (baño, cocina,
+mesadas, grifería), 7 claramente Obra Exterior/Jardín (césped, deck,
+piscina, toldo, etc.), 3 limítrofes de interior (piso técnico, cortinas
+blackout/veneciana — se optó por Equipamiento) y **6 que no eran ni una
+cosa ni la otra**: estaban en el capítulo equivocado por completo.
+
+**PASO A — movidos a su capítulo real** (verificado antes: ninguno
+estaba clonado en un Rubro de HOGAR ni Matisse Monet, cero impacto en
+proyectos reales):
+- 7.2.8 (Cámara de inspección) → Instalación Sanitaria
+- 7.2.17 (Puesta eléctrica/datos) → Instalación Eléctrica
+- 7.2.19, 7.2.20 (Equipos Split) → Instalación Térmica / Aire Acondicionado
+- 7.2.30, 7.2.31 (Ascensores) → Ascensor (primer subrubro que existe bajo
+  ese capítulo — no tenía ninguno antes)
+
+⚠️ Nota de posible duplicado, sin resolver: 7.2.8 "CÁMARA DE INSPECCIÓN
+CON TAPA Y CONTRATAPA 60x60cm" quedó en Instalación Sanitaria junto a
+`sanitaria-014` ("Cámara de inspección 60x60cm con sifón desconector")
+y `sanitaria-015` ("...sin sifón") — parecen solapar. No se tocó
+(estaba fuera del alcance de este pedido), pero conviene revisar si son
+el mismo producto con precio/fuente distinta o si hay que fusionar.
+
+**PASO B — subcapitulo dentro de "Subcontratos - Acondicionamientos"**
+(26 códigos restantes): "Equipamiento" (19) y "Obra Exterior / Jardín"
+(7) — antes 0 de los 32 tenían subcapitulo cargado.
+
+**PASO C — `CAPITULOS_SAU`** ([page.tsx:159-166](computo-app/src/app/proyectos/[id]/page.tsx:159)):
+se agregó `subcapitulos: ["Equipamiento"]` y `subcapitulos: ["Obra
+Exterior / Jardín"]` a las entradas existentes (mismo patrón liviano que
+Pisos/Impermeabilizaciones), y una entrada nueva `{ alias: ["Ascensor"],
+capitulos: ["Ascensor"] }` que no existía — sin ella, los 2 ascensores
+movidos hubiesen quedado bien guardados pero invisibles en "Ver
+subrubros típicos" (mismo problema resuelto antes para Patología de
+Fachada).
+
+Verificado en HOGAR: "Equipamiento" = 19 códigos (todos con subcapítulo
+"Equipamiento", sin mezcla), "Obra Exterior / Jardín" = 7 códigos (todos
+"Obra Exterior / Jardín"), Instalación Sanitaria pasó de 20 a 21 códigos
+sin romper los existentes, Instalación Eléctrica y Térmica igual.
+Probado también creando un capítulo "Ascensor" temporal en HOGAR (con el
+botón recién arreglado) — mostró los 2 códigos correctamente — y se
+borró después.
 
 ## Pendientes técnicos
 
