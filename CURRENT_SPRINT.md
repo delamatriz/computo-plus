@@ -409,6 +409,22 @@ para el diseño completo (Etapas 1-7). Etapas 1 y 2 (catálogo canónico
   (seed-subrubros-sau.ts, seed-subrubros-faltantes.ts) para resolver
   capituloId/subcapituloId automáticamente al crear. Los 10 scripts
   históricos de biblioteca no se tocaron (ya cumplieron su función).
+- [x] Fase 2 — Etapa 4: capituloCatalogoId (nullable) agregado a Capitulo
+  real + lados inversos en CapituloCatalogo/SubcapituloCatalogo + modelo
+  ParticionSubcapitulo creado (con FK reales, corregido respecto al boceto
+  original del documento de diseño — ver nota abajo). Backfill aplicado:
+  25/30 capítulos reales matcheados (19 HOGAR + 6 Matisse Monet), 5 en null
+  sin forzar (Imprevistos x2, Conexiones de Servicios, Seguridad y Trabajos
+  en Altura, Gastos Generales de Obra). Cero cambio de comportamiento en
+  runtime — puramente aditivo. Commit 056e8a5.
+
+- [ ] Brecha de biblioteca detectada durante Etapa 4: la biblioteca hoy solo
+  tiene capítulo de catálogo para carpintería metálica (dentro de
+  "Subcontratos - Carpinterías"). No existe capítulo separado para Herrería
+  Estructural ni Herrería de Obra (hierro estructural — pilares, vigas,
+  pórticos / varillas y estribos de hormigón armado). Sumar a la lista de
+  brechas de biblioteca pendientes (Gas, Contra incendio, Ascensor, etc.)
+  cuando se retome esa expansión.
 
 Diagnóstico previo a este cierre (solo lectura, contra producción):
 0 de 311 filas activas de `SubrubroEstandar` sin `capituloId` — cero
