@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { crearSubrubroEstandar } from "@/lib/subrubroEstandar";
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
@@ -85,14 +86,9 @@ async function main() {
   let omitidos = 0;
 
   for (const s of SUBRUBROS) {
-    const existente = await prisma.subrubroEstandar.findUnique({ where: { codigo: s.codigo } });
-    if (existente) {
-      console.log(`  [omitido] ${s.codigo} ya existe`);
-      omitidos++;
-      continue;
-    }
-    await prisma.subrubroEstandar.create({
-      data: {
+    const { creado } = await crearSubrubroEstandar(
+      prisma,
+      {
         codigo: s.codigo,
         capitulo: s.capitulo,
         descripcion: s.descripcion,
@@ -102,7 +98,13 @@ async function main() {
         origen: ORIGEN,
         activo: true,
       },
-    });
+      { skipIfExists: true }
+    );
+    if (!creado) {
+      console.log(`  [omitido] ${s.codigo} ya existe`);
+      omitidos++;
+      continue;
+    }
     console.log(`  [creado] ${s.codigo} — ${s.descripcion}`);
     creados++;
   }

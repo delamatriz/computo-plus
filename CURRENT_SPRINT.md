@@ -394,6 +394,31 @@ Probado también creando un capítulo "Ascensor" temporal en HOGAR (con el
 botón recién arreglado) — mostró los 2 códigos correctamente — y se
 borró después.
 
+## Fase 2 — Unificación de taxonomías de capítulo (16/07/2026)
+
+Ver [`FASE2-DISENO-UNIFICACION-TAXONOMIAS.md`](FASE2-DISENO-UNIFICACION-TAXONOMIAS.md)
+para el diseño completo (Etapas 1-7). Etapas 1 y 2 (catálogo canónico
+`CapituloCatalogo`/`SubcapituloCatalogo` + backfill de FK en
+`SubrubroEstandar`) ya cerradas en sesiones anteriores.
+
+- [x] Fase 2 — Etapa 3: filtro server-side por capituloId/subcapituloId en
+  /api/subrubros-estandar y abrirSubrubrosPanel, con fallback a string
+  (commit ec8e8d5)
+- [x] Deuda técnica — helper crearSubrubroEstandar() centralizado en
+  src/lib/subrubroEstandar.ts; migrados los 2 bulk loaders reusables
+  (seed-subrubros-sau.ts, seed-subrubros-faltantes.ts) para resolver
+  capituloId/subcapituloId automáticamente al crear. Los 10 scripts
+  históricos de biblioteca no se tocaron (ya cumplieron su función).
+
+Diagnóstico previo a este cierre (solo lectura, contra producción):
+0 de 311 filas activas de `SubrubroEstandar` sin `capituloId` — cero
+deuda real hoy, sin drift desde el backfill de la Etapa 2. Ninguno de
+los 12 scripts que crean filas usaba un helper compartido antes de
+este cambio; ahora los 2 reusables sí. Etapas 4-7 (backfill de
+`Capitulo` real, migrar `CAPITULOS_SAU` a FK + `ParticionSubcapitulo`,
+borrar columnas string viejas, unificar `sugerir-capitulos`/
+`seguridadAltura.ts`) siguen sin arrancar.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
