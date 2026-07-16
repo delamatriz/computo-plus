@@ -248,6 +248,35 @@ model CapituloEstandar {
   @@unique([nombre])
 }
 
+// Fase 2 — catálogo canónico de capítulo/subcapítulo (unificación de las
+// taxonomías paralelas: CapituloEstandar, SubrubroEstandar.capitulo/
+// subcapitulo como strings sueltos, y CAPITULOS_SAU hardcodeado en
+// page.tsx). Ver FASE2-DISENO-UNIFICACION-TAXONOMIAS.md.
+//
+// Etapa 1 (esta): tablas puramente aditivas, sembradas desde los valores
+// reales de SubrubroEstandar. Nada en la app las consume todavía — eso
+// llega en la Etapa 2 (SubrubroEstandar referencia por FK) y Etapa 4/5
+// (Capitulo real referencia por FK, CAPITULOS_SAU se reduce).
+model CapituloCatalogo {
+  id           String                @id @default(cuid())
+  nombre       String                @unique
+  orden        Int                   @default(0)
+  activo       Boolean               @default(true)
+  subcapitulos SubcapituloCatalogo[]
+  createdAt    DateTime              @default(now())
+}
+
+model SubcapituloCatalogo {
+  id                 String           @id @default(cuid())
+  capituloCatalogoId String
+  capituloCatalogo   CapituloCatalogo @relation(fields: [capituloCatalogoId], references: [id], onDelete: Cascade)
+  nombre             String
+  orden              Int              @default(0)
+  createdAt          DateTime         @default(now())
+
+  @@unique([capituloCatalogoId, nombre])
+}
+
 model Configuracion {
   id                  String    @id @default(cuid())
   jornalBase          Float     @default(0)
