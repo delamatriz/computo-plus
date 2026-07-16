@@ -263,6 +263,7 @@ model CapituloCatalogo {
   orden        Int                   @default(0)
   activo       Boolean               @default(true)
   subcapitulos SubcapituloCatalogo[]
+  subrubros    SubrubroEstandar[]
   createdAt    DateTime              @default(now())
 }
 
@@ -272,6 +273,7 @@ model SubcapituloCatalogo {
   capituloCatalogo   CapituloCatalogo @relation(fields: [capituloCatalogoId], references: [id], onDelete: Cascade)
   nombre             String
   orden              Int              @default(0)
+  subrubros          SubrubroEstandar[]
   createdAt          DateTime         @default(now())
 
   @@unique([capituloCatalogoId, nombre])
@@ -337,6 +339,16 @@ model SubrubroEstandar {
   activo          Boolean      @default(true)
   createdAt       DateTime     @default(now())
   apuEstandar     APUEstandar?
+
+  // Fase 2, Etapa 2 — FK al catálogo canónico, en paralelo con los
+  // strings viejos (capitulo/subcapitulo) de arriba. Nullable a
+  // propósito: conviven ambos hasta que todo el runtime lea por acá
+  // (Etapa 3) y se confirme estable antes de borrar los strings
+  // (Etapa 6). Ver FASE2-DISENO-UNIFICACION-TAXONOMIAS.md.
+  capituloId          String?
+  capituloCatalogo    CapituloCatalogo?    @relation(fields: [capituloId], references: [id])
+  subcapituloId       String?
+  subcapituloCatalogo SubcapituloCatalogo? @relation(fields: [subcapituloId], references: [id])
 
   @@unique([codigo])
 }
