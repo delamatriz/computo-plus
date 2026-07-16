@@ -91,6 +91,21 @@ interface SubrubroEstandar {
   fechaBase: string;
   aportesSociales: number;
   tieneApuEstandar?: boolean;
+  // Fase 2 — FK al catálogo canónico (ver FASE2-DISENO-UNIFICACION-TAXONOMIAS.md)
+  capituloId?: string | null;
+  subcapituloId?: string | null;
+}
+
+// Fase 2 — catálogo canónico (CapituloCatalogo/SubcapituloCatalogo),
+// tal como lo devuelve /api/catalogo-capitulos.
+interface SubcapituloCatalogoInfo {
+  id: string;
+  nombre: string;
+}
+interface CapituloCatalogoInfo {
+  id: string;
+  nombre: string;
+  subcapitulos: SubcapituloCatalogoInfo[];
 }
 
 type MapeoSAU = { alias: string[]; capitulos: string[]; subcapitulos?: string[]; excluirSubcapitulos?: string[] };
@@ -2186,6 +2201,12 @@ export default function ProyectoPage() {
   // Refs para debounce de auto-save por rubro
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  // Fase 2, Etapa 3 — cache en memoria del catálogo canónico (nombre →
+  // id), para resolver capituloId/subcapituloId sin pegarle a la DB en
+  // cada apertura del panel de subrubros típicos. Se carga una sola vez.
+  const catalogoCapitulosRef = useRef<Map<string, { id: string; subcapitulos: Map<string, string> }> | null>(null);
+  const catalogoCapitulosPromiseRef = useRef<Promise<void> | null>(null);
+
   // ─── Carga inicial desde la DB ─────────────────────────────
   const cargar = useCallback(async () => {
     try {
@@ -2597,6 +2618,27 @@ export default function ProyectoPage() {
     }
   }, [moneda]);
 
+  // Fase 2, Etapa 3 — carga (una sola vez) el catálogo canónico completo
+  // y lo indexa por nombre para resolución O(1) de capituloId/subcapituloId.
+  const cargarCatalogoCapitulos = useCallback(async () => {
+    if (catalogoCapitulosRef.current) return;
+    if (!catalogoCapitulosPromiseRef.current) {
+      catalogoCapitulosPromiseRef.current = fetch("/api/catalogo-capitulos")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((data: CapituloCatalogoInfo[]) => {
+          const mapa = new Map<string, { id: string; subcapitulos: Map<string, string> }>();
+          data.forEach((c) => {
+            mapa.set(c.nombre, { id: c.id, subcapitulos: new Map(c.subcapitulos.map((s) => [s.nombre, s.id])) });
+          });
+          catalogoCapitulosRef.current = mapa;
+        })
+        .catch((err) => {
+          console.error("[cargarCatalogoCapitulos]", err);
+        });
+    }
+    await catalogoCapitulosPromiseRef.current;
+  }, []);
+
   const abrirSubrubrosPanel = useCallback(async (cap: Capitulo) => {
     setPanelSubrubrosCapId(cap.id);
     if (subrubrosPorCapitulo[cap.id]) return;
@@ -2604,21 +2646,63 @@ export default function ProyectoPage() {
     const mapeo = obtenerMapeoSAU(cap.nombre) ?? { capitulos: [cap.nombre] };
     setCargandoSubrubros(true);
     try {
-      const resultados = await Promise.all(
-        mapeo.capitulos.map((capSAU) =>
-          fetch(`/api/subrubros-estandar?capitulo=${encodeURIComponent(capSAU)}`).then((r) =>
-            r.ok ? r.json() : []
+      await cargarCatalogoCapitulos();
+      const catalogo = catalogoCapitulosRef.current;
+
+      // Resolvemos capituloId por cada capítulo SAU del mapeo. Si falta
+      // alguno (catálogo no cargó, o ese capítulo todavía no está dado de
+      // alta ahí), NO mezclamos IDs con strings — todo el mapeo cae al
+      // fallback por string, para no arriesgar un filtro por ID parcial
+      // que termine devolviendo una lista vacía en vez de la real.
+      const capituloIds = mapeo.capitulos.map((capSAU) => catalogo?.get(capSAU)?.id);
+      const todosResueltos = capituloIds.every((id): id is string => !!id);
+
+      let resultados: SubrubroEstandar[][];
+      if (todosResueltos) {
+        resultados = await Promise.all(
+          (capituloIds as string[]).map((id) =>
+            fetch(`/api/subrubros-estandar?capituloId=${id}`).then((r) => (r.ok ? r.json() : []))
           )
-        )
-      );
+        );
+      } else {
+        console.warn(`[abrirSubrubrosPanel] Sin CapituloCatalogo para uno o más de: ${mapeo.capitulos.join(", ")} — fallback por string`);
+        resultados = await Promise.all(
+          mapeo.capitulos.map((capSAU) =>
+            fetch(`/api/subrubros-estandar?capitulo=${encodeURIComponent(capSAU)}`).then((r) =>
+              r.ok ? r.json() : []
+            )
+          )
+        );
+      }
+
       let lista: SubrubroEstandar[] = resultados.flat();
+
       if (mapeo.subcapitulos) {
-        lista = lista.filter((s) => s.subcapitulo && mapeo.subcapitulos!.includes(s.subcapitulo));
+        if (todosResueltos) {
+          const idsPermitidos = new Set(
+            mapeo.capitulos.flatMap((capSAU) =>
+              mapeo.subcapitulos!.map((n) => catalogo?.get(capSAU)?.subcapitulos.get(n)).filter((id): id is string => !!id)
+            )
+          );
+          lista = lista.filter((s) => s.subcapituloId && idsPermitidos.has(s.subcapituloId));
+        } else {
+          lista = lista.filter((s) => s.subcapitulo && mapeo.subcapitulos!.includes(s.subcapitulo));
+        }
       } else if (mapeo.excluirSubcapitulos) {
         // Entrada "paraguas": todo lo que no esté reclamado por un recorte
         // angosto pasa — así un subcapítulo nuevo aparece acá sin tocar código.
-        lista = lista.filter((s) => !s.subcapitulo || !mapeo.excluirSubcapitulos!.includes(s.subcapitulo));
+        if (todosResueltos) {
+          const idsExcluidos = new Set(
+            mapeo.capitulos.flatMap((capSAU) =>
+              mapeo.excluirSubcapitulos!.map((n) => catalogo?.get(capSAU)?.subcapitulos.get(n)).filter((id): id is string => !!id)
+            )
+          );
+          lista = lista.filter((s) => !s.subcapituloId || !idsExcluidos.has(s.subcapituloId));
+        } else {
+          lista = lista.filter((s) => !s.subcapitulo || !mapeo.excluirSubcapitulos!.includes(s.subcapitulo));
+        }
       }
+
       setSubrubrosPorCapitulo((prev) => ({ ...prev, [cap.id]: lista }));
     } catch (err) {
       console.error("[abrirSubrubrosPanel]", err);
@@ -2626,7 +2710,7 @@ export default function ProyectoPage() {
     } finally {
       setCargandoSubrubros(false);
     }
-  }, [subrubrosPorCapitulo]);
+  }, [subrubrosPorCapitulo, cargarCatalogoCapitulos]);
 
   const toggleSubrubrosPanel = useCallback((cap: Capitulo) => {
     if (panelSubrubrosCapId === cap.id) {

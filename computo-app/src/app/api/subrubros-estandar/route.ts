@@ -3,13 +3,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
+  const capituloId = req.nextUrl.searchParams.get("capituloId")?.trim();
+  const subcapituloId = req.nextUrl.searchParams.get("subcapituloId")?.trim();
+  // Fallback de compatibilidad — se mantiene mientras existan llamadores
+  // que todavía resuelvan por nombre en vez de capituloId (ver
+  // FASE2-DISENO-UNIFICACION-TAXONOMIAS.md, Etapa 3).
   const capitulo = req.nextUrl.searchParams.get("capitulo")?.trim();
 
   try {
     const subrubros = await db.subrubroEstandar.findMany({
       where: {
         activo: true,
-        ...(capitulo ? { capitulo } : {}),
+        ...(capituloId
+          ? { capituloId, ...(subcapituloId ? { subcapituloId } : {}) }
+          : capitulo
+            ? { capitulo }
+            : {}),
       },
       include: { apuEstandar: { select: { id: true } } },
       orderBy: { codigo: "asc" },
@@ -87,6 +96,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(existente);
     }
 
+    // Fase 2, Etapa 3 — resolver capituloId contra el catálogo canónico
+    // para que el subrubro nuevo no quede huérfano de FK. Si el capítulo
+    // no está dado de alta ahí (caso borde — hoy no debería pasar, ya que
+    // capituloFinal viene de capitulosActivos ya validado contra la
+    // biblioteca real, salvo el fallback "Sin clasificar", que nunca
+    // tiene entrada de catálogo), no bloquea la creación: se guarda igual
+    // con capitulo (string) y capituloId nulo, y queda pendiente de alta
+    // manual en el catálogo.
+    const capituloCatalogo = await db.capituloCatalogo.findUnique({
+      where: { nombre: capituloFinal },
+    });
+    if (!capituloCatalogo) {
+      console.warn(`[POST /api/subrubros-estandar] Sin CapituloCatalogo para "${capituloFinal}" — se guarda sin capituloId`);
+    }
+
     const nuevo = await db.subrubroEstandar.create({
       data: {
         codigo: `manual-${randomUUID()}`,
@@ -96,6 +120,7 @@ export async function POST(req: NextRequest) {
         precioUY,
         fechaBase: new Date().toISOString().slice(0, 7),
         origen: "manual",
+        capituloId: capituloCatalogo?.id,
       },
     });
     return NextResponse.json(nuevo);
