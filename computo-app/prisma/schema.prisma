@@ -101,6 +101,14 @@ model Capitulo {
   rubros      Rubro[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  // Fase 2, Etapa 4 — FK opcional al catálogo canónico. Nullable a
+  // propósito: un capítulo de proyecto sin match limpio (nombre inventado
+  // por el usuario) simplemente no tiene catálogo — mismo comportamiento
+  // que hoy tiene obtenerMapeoSAU cuando no encuentra alias, no es una
+  // regresión. Ver FASE2-DISENO-UNIFICACION-TAXONOMIAS.md.
+  capituloCatalogoId String?
+  capituloCatalogo   CapituloCatalogo? @relation(fields: [capituloCatalogoId], references: [id])
 }
 
 model Rubro {
@@ -258,13 +266,20 @@ model CapituloEstandar {
 // llega en la Etapa 2 (SubrubroEstandar referencia por FK) y Etapa 4/5
 // (Capitulo real referencia por FK, CAPITULOS_SAU se reduce).
 model CapituloCatalogo {
-  id           String                @id @default(cuid())
-  nombre       String                @unique
-  orden        Int                   @default(0)
-  activo       Boolean               @default(true)
-  subcapitulos SubcapituloCatalogo[]
-  subrubros    SubrubroEstandar[]
-  createdAt    DateTime              @default(now())
+  id                 String                 @id @default(cuid())
+  nombre             String                 @unique
+  orden              Int                    @default(0)
+  activo             Boolean                @default(true)
+  subcapitulos       SubcapituloCatalogo[]
+  subrubros          SubrubroEstandar[]
+  createdAt          DateTime               @default(now())
+
+  // Fase 2, Etapa 4 — lado inverso de Capitulo.capituloCatalogoId (capítulos
+  // reales de proyecto que se linkearon a esta entrada del catálogo).
+  capitulosReales    Capitulo[]
+  // Fase 2, Etapa 4 — lado inverso de ParticionSubcapitulo.capituloCatalogoDestinoId
+  // (tabla creada vacía en esta etapa, se puebla recién en la Etapa 5).
+  particionesDestino ParticionSubcapitulo[]
 }
 
 model SubcapituloCatalogo {
@@ -276,7 +291,26 @@ model SubcapituloCatalogo {
   subrubros          SubrubroEstandar[]
   createdAt          DateTime         @default(now())
 
+  // Fase 2, Etapa 4 — lado inverso de ParticionSubcapitulo.subcapituloId.
+  particion          ParticionSubcapitulo?
+
   @@unique([capituloCatalogoId, nombre])
+}
+
+// Fase 2, Etapa 4 — tabla creada vacía en esta etapa (solo el schema).
+// Se puebla recién en la Etapa 5, cuando se decida qué subcapítulos de
+// Albañilería/Subcontratos-Acondicionamientos van a cada capítulo de
+// proyecto "partido" (Pisos, Impermeabilizaciones, Equipamiento, Obra
+// Exterior/Jardín). FKs reales a SubcapituloCatalogo/CapituloCatalogo
+// (no strings sueltos) — corrección al boceto original del documento de
+// diseño, que usaba subcapituloId/capituloCatalogoDestinoNombre como
+// strings sin @relation.
+model ParticionSubcapitulo {
+  id                        String              @id @default(cuid())
+  subcapituloId             String              @unique
+  subcapitulo               SubcapituloCatalogo @relation(fields: [subcapituloId], references: [id])
+  capituloCatalogoDestinoId String
+  capituloCatalogoDestino   CapituloCatalogo    @relation(fields: [capituloCatalogoDestinoId], references: [id])
 }
 
 model Configuracion {
