@@ -473,6 +473,41 @@ para el diseño completo (Etapas 1-7). Etapas 1 y 2 (catálogo canónico
   confirmar a mano en un navegador real si `/proyectos/nuevo` carga en
   producción o se cuelga igual que en dev, para decidir si es prioridad.
 
+- [x] Fase 2 — Etapa 6a: migradas las 3 dependencias ACTIVAS (no fallback,
+  no históricas) que un diagnóstico previo encontró leyendo/escribiendo
+  `SubrubroEstandar.capitulo`/`.subcapitulo` (string) como campo de
+  negocio real, paso previo obligatorio antes de poder borrar esas
+  columnas en la Etapa 6b:
+  - `POST /api/subrubros-estandar` (guarda en background los rubros que
+    el usuario crea, vía `guardarEnBibliotecaGlobal`): la validación
+    contra la biblioteca, el fallback "Sin clasificar" y el dedup pasan a
+    basarse en `capituloId` (resuelto con el mismo
+    `resolverCapituloCatalogoId()` de la Etapa 5), no en comparar strings
+    a mano. Dos rubros sin match siguen dedupeando entre sí — mismo
+    bucket `capituloId: null` que antes compartía el string "Sin
+    clasificar", mismo comportamiento de siempre.
+  - `esImplantacion` (separa equipos de obra en su propia sección dentro
+    del panel de "Implantación y Replanteo"): compara `capituloId` contra
+    el id de ese capítulo resuelto una vez desde el catálogo ya cacheado,
+    con fallback silencioso al string si no se pudiera resolver.
+  - Label de subcapítulo bajo cada subrubro en el panel: ahora muestra
+    `subcapituloNombre`, resuelto vía la relación `subcapituloCatalogo`
+    en el GET, no el string directo.
+  Las columnas `capitulo`/`subcapitulo` de `SubrubroEstandar` **siguen
+  existiendo** — se siguen escribiendo igual que siempre, en paralelo. Se
+  eliminan recién en la Etapa 6b (sesión aparte). Verificado en vivo:
+  POST directo (match con capituloId resuelto, dedup por capituloId,
+  no-match sin bloquear con warning logueado), panel de Implantación y
+  Replanteo (separación de equipos intacta), labels de subcapítulo en
+  Pisos (Contrapisos / Pisos, Zócalos y Otros). `tsc`/build limpios.
+  Commit b3c1f27.
+
+  Nota para la Etapa 6b: el diagnóstico previo a la 6a también encontró
+  que borrar las columnas string va a romper la compilación de ~50
+  scripts históricos en `scripts/`/`prisma/` que las leen (sobre todo
+  para `console.log` informativo) — hay que decidir si se borran, se
+  excluyen del build, o se corrigen antes de tocar el schema.
+
 Diagnóstico previo a este cierre (solo lectura, contra producción):
 0 de 311 filas activas de `SubrubroEstandar` sin `capituloId` — cero
 deuda real hoy, sin drift desde el backfill de la Etapa 2. Ninguno de
