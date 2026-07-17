@@ -511,10 +511,7 @@ para el diseño completo (Etapas 1-7). Etapas 1 y 2 (catálogo canónico
 - [x] Fase 2 — Etapa 6b: eliminadas `SubrubroEstandar.capitulo`/
   `.subcapitulo` (String) del schema — `capituloId`/`subcapituloId` (FK a
   `CapituloCatalogo`/`SubcapituloCatalogo`) quedan como única fuente de
-  verdad. Con esto, **Fase 2 (unificación de taxonomías de capítulo) queda
-  cerrada de la Etapa 1 a la 6b** — solo resta la Etapa 7 (unificar
-  `sugerir-capitulos`/`seguridadAltura.ts` contra el catálogo), acordada
-  para el final, sin fecha definida.
+  verdad.
   - `crearSubrubroEstandar()` ya no escribe `capitulo`/`subcapitulo` en el
     upsert (solo las FK, ya resueltas ahí mismo).
   - Los 3 fallbacks por string que quedaban (GET `?capitulo=`, la rama
@@ -544,14 +541,49 @@ para el diseño completo (Etapas 1-7). Etapas 1 y 2 (catálogo canónico
   funcionando end-to-end sin columnas string. `tsc`/build limpios. Commit
   e5b0a14.
 
-Diagnóstico previo a este cierre (solo lectura, contra producción):
-0 de 311 filas activas de `SubrubroEstandar` sin `capituloId` — cero
-deuda real hoy, sin drift desde el backfill de la Etapa 2. Ninguno de
-los 12 scripts que crean filas usaba un helper compartido antes de
-este cambio; ahora los 2 reusables sí. Etapas 4-7 (backfill de
-`Capitulo` real, migrar `CAPITULOS_SAU` a FK + `ParticionSubcapitulo`,
-borrar columnas string viejas, unificar `sugerir-capitulos`/
-`seguridadAltura.ts`) siguen sin arrancar.
+- [x] Fase 2 — Etapa 7 (última etapa): unificadas las dos piezas que
+  quedaban con lista/lógica propia separada del catálogo canónico.
+  - `CapituloCatalogo` pasa de 18 a **19 filas** — se agregó "Seguridad y
+    Trabajos en Altura" (`scripts/seed-capitulo-catalogo-seguridad-altura.ts`),
+    un capítulo que nunca tuvo biblioteca de subrubros propia (sus rubros
+    siempre se arman a mano según la modalidad de altura declarada) — la
+    fila existe solo para que pueda resolver `capituloCatalogoId`.
+  - `lib/seguridadAltura.ts` (`generarCapituloSeguridad()`): ahora resuelve
+    y setea `capituloCatalogoId` al crear el capítulo. La idempotencia
+    quedó chequeando **las dos señales** (FK O nombre string), no solo la
+    FK — necesario para no duplicar el capítulo en proyectos ya existentes
+    (HOGAR) que lo tienen creado desde antes de esta migración, con
+    `capituloCatalogoId: null`.
+  - `api/sugerir-capitulos/route.ts`: la lista de 19 nombres que la IA usa
+    para sugerir capítulos se reemplazó por sus canónicos exactos del
+    catálogo. Variantes que apuntaban al mismo capítulo real se colapsaron
+    en una sola entrada ("Mampostería y muros"/"Revoques y
+    enlucidos"/"Revestimientos y pisos" → "Albañilería"; "Carpintería"/
+    "Herrería y metálica" → "Subcontratos - Carpinterías") para que la IA
+    no sugiera el mismo capítulo repetido dentro de la misma lista. El
+    caso ambiguo ("Movimiento de tierra y fundaciones", que antes resolvía
+    a `null` por apuntar a 2 capítulos a la vez) se separó en sus 2
+    capítulos reales ("Excavaciones y Movimientos de Tierra" +
+    "Cimentaciones"). Las 5 categorías sin biblioteca (Instalación de gas,
+    Instalaciones embutidas, Calefacción, Honorarios profesionales,
+    Imprevistos) quedan igual — correcto que resuelvan
+    `capituloCatalogoId: null`, no tienen subrubros clasificables.
+  - `CAPITULOS_SAU`/`obtenerMapeoSAU` (`src/lib/capitulosSau.ts`) **no se
+    tocó** — queda como fallback silencioso sin uso activo en el camino
+    feliz, disponible por si aparece un caso borde futuro.
+  Backup de producción antes de aplicar. Verificado en vivo: 19 filas en
+  `CapituloCatalogo`, plan de seguridad en proyecto de prueba resuelve
+  `capituloCatalogoId` sin duplicar en una 2da corrida, `sugerir-capitulos`
+  probado con 3 descripciones de obra distintas sin duplicados de
+  "Albañilería"/"Subcontratos - Carpinterías", proyecto de prueba completo
+  con los 15 capítulos sugeridos resolvió 12/15 automáticamente (los 3
+  restantes son las categorías sin biblioteca, correctos en `null`).
+  `tsc`/build limpios. Commit ef39317.
+
+**Fase 2 (unificación de taxonomías de capítulo) queda completa —
+Etapas 1 a 7 cerradas.** Ver
+[`FASE2-DISENO-UNIFICACION-TAXONOMIAS.md`](FASE2-DISENO-UNIFICACION-TAXONOMIAS.md)
+para el diseño original completo.
 
 ## Pendientes técnicos
 
