@@ -63,8 +63,6 @@ export async function crearSubrubroEstandar(
 
   const data: Prisma.SubrubroEstandarUncheckedCreateInput = {
     codigo: input.codigo,
-    capitulo: input.capitulo,
-    subcapitulo: input.subcapitulo,
     descripcion: input.descripcion,
     unidad: input.unidad,
     precioUY: input.precioUY,

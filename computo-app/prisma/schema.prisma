@@ -362,8 +362,6 @@ model FotoCertificacionItem {
 model SubrubroEstandar {
   id              String       @id @default(cuid())
   codigo          String
-  capitulo        String
-  subcapitulo     String?
   descripcion     String
   unidad          String
   precioUY        Float
@@ -374,11 +372,9 @@ model SubrubroEstandar {
   createdAt       DateTime     @default(now())
   apuEstandar     APUEstandar?
 
-  // Fase 2, Etapa 2 — FK al catálogo canónico, en paralelo con los
-  // strings viejos (capitulo/subcapitulo) de arriba. Nullable a
-  // propósito: conviven ambos hasta que todo el runtime lea por acá
-  // (Etapa 3) y se confirme estable antes de borrar los strings
-  // (Etapa 6). Ver FASE2-DISENO-UNIFICACION-TAXONOMIAS.md.
+  // Fase 2, Etapa 6b — capitulo/subcapitulo (String) eliminados. El
+  // catálogo canónico vía FK es ahora la única fuente de verdad. Ver
+  // FASE2-DISENO-UNIFICACION-TAXONOMIAS.md.
   capituloId          String?
   capituloCatalogo    CapituloCatalogo?    @relation(fields: [capituloId], references: [id])
   subcapituloId       String?
