@@ -99,6 +99,9 @@ interface SubrubroEstandar {
   // Fase 2 — FK al catálogo canónico (ver FASE2-DISENO-UNIFICACION-TAXONOMIAS.md)
   capituloId?: string | null;
   subcapituloId?: string | null;
+  // Fase 2, Etapa 6a — nombre del subcapítulo resuelto vía subcapituloId
+  // (relación), en vez de leer el string subcapitulo directo.
+  subcapituloNombre?: string | null;
 }
 
 // Fase 2 — catálogo canónico (CapituloCatalogo/SubcapituloCatalogo),
@@ -783,16 +786,23 @@ function PanelSubrubrosEstandar({
   subrubros,
   cargando,
   moneda,
+  capituloIdImplantacion,
   onSeleccionar,
   onCerrar,
 }: {
   subrubros: SubrubroEstandar[];
   cargando: boolean;
   moneda: string;
+  // Fase 2, Etapa 6a — id de "Implantación y Replanteo" en CapituloCatalogo,
+  // resuelto una vez por el padre. Si no se pudo resolver (no debería pasar),
+  // cae al string como fallback silencioso.
+  capituloIdImplantacion?: string;
   onSeleccionar: (s: SubrubroEstandar) => void;
   onCerrar: () => void;
 }) {
-  const esImplantacion = subrubros.some((s) => s.capitulo === "Implantación y Replanteo");
+  const esImplantacion = capituloIdImplantacion
+    ? subrubros.some((s) => s.capituloId === capituloIdImplantacion)
+    : subrubros.some((s) => s.capitulo === "Implantación y Replanteo");
   const normales = esImplantacion ? subrubros.filter((s) => !s.codigo.startsWith("impl-eq-")) : subrubros;
   const equipos = esImplantacion ? subrubros.filter((s) => s.codigo.startsWith("impl-eq-")) : [];
 
@@ -823,8 +833,8 @@ function PanelSubrubrosEstandar({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {s.subcapitulo && (
-            <span className="text-[10px] text-slate-400">{s.subcapitulo}</span>
+          {s.subcapituloNombre && (
+            <span className="text-[10px] text-slate-400">{s.subcapituloNombre}</span>
           )}
           <span className="text-[9px] font-medium text-slate-300">
             precio base {s.fechaBase} — actualizar con ICCV
@@ -2616,6 +2626,11 @@ export default function ProyectoPage() {
         const [subrubros] = await Promise.all([
           fetch(`/api/subrubros-estandar?capituloId=${cap.capituloCatalogoId}`).then((r) => (r.ok ? r.json() : [])),
           cargarParticiones(),
+          // Fase 2, Etapa 6a — también en el camino primario, para poder
+          // resolver el id de "Implantación y Replanteo" (esImplantacion en
+          // PanelSubrubrosEstandar) sin depender de CAPITULOS_SAU. Cacheado,
+          // solo pega a la red la primera vez que se abre cualquier panel.
+          cargarCatalogoCapitulos(),
         ]);
         let lista: SubrubroEstandar[] = subrubros;
 
@@ -3377,6 +3392,7 @@ export default function ProyectoPage() {
                                 subrubros={subrubrosPorCapitulo[cap.id] ?? []}
                                 cargando={cargandoSubrubros}
                                 moneda={moneda}
+                                capituloIdImplantacion={catalogoCapitulosRef.current?.get("Implantación y Replanteo")?.id}
                                 onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
                                 onCerrar={() => setPanelSubrubrosCapId(null)}
                               />
@@ -3606,6 +3622,7 @@ export default function ProyectoPage() {
                             subrubros={subrubrosPorCapitulo[cap.id] ?? []}
                             cargando={cargandoSubrubros}
                             moneda={moneda}
+                            capituloIdImplantacion={catalogoCapitulosRef.current?.get("Implantación y Replanteo")?.id}
                             onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
                             onCerrar={() => setPanelSubrubrosCapId(null)}
                           />

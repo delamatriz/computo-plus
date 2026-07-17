@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 
 export async function GET(req: NextRequest) {
   const capituloId = req.nextUrl.searchParams.get("capituloId")?.trim();
@@ -20,13 +21,19 @@ export async function GET(req: NextRequest) {
             ? { capitulo }
             : {}),
       },
-      include: { apuEstandar: { select: { id: true } } },
+      include: {
+        apuEstandar: { select: { id: true } },
+        // Fase 2, Etapa 6a — nombre del subcapítulo vía relación, para que
+        // el cliente ya no dependa de SubrubroEstandar.subcapitulo (string).
+        subcapituloCatalogo: { select: { nombre: true } },
+      },
       orderBy: { codigo: "asc" },
     });
 
-    const resultado = subrubros.map(({ apuEstandar, ...sub }) => ({
+    const resultado = subrubros.map(({ apuEstandar, subcapituloCatalogo, ...sub }) => ({
       ...sub,
       tieneApuEstandar: apuEstandar != null,
+      subcapituloNombre: subcapituloCatalogo?.nombre ?? null,
     }));
 
     return NextResponse.json(resultado);
@@ -58,30 +65,30 @@ export async function POST(req: NextRequest) {
     const capituloTipeado = capitulo.trim();
     const unidadLimpia = unidad.trim();
 
-    // El capítulo llega como texto libre desde el nombre de capítulo del
-    // proyecto — nunca se valida contra la biblioteca real. Así nació
-    // "Demoliciones y Picados": un capítulo de proyecto que no coincidía con
-    // ningún capítulo de SubrubroEstandar terminó creando uno nuevo con datos
-    // duplicados y sin control de calidad. Mapeamos contra los capítulos
-    // activos que YA organizan la biblioteca (no contra CapituloEstandar: esa
-    // tabla es un catálogo de nombres para crear proyectos nuevos, con
-    // nombres que en su mayoría no coinciden textualmente con
-    // SubrubroEstandar.capitulo — usarla acá mandaría la mayoría de los
-    // guardados legítimos a "Sin clasificar". Ver auditoría 12/07/2026).
-    const capitulosActivos = await db.subrubroEstandar.findMany({
-      where: { activo: true },
-      distinct: ["capitulo"],
-      select: { capitulo: true },
-    });
-    const capituloValido = capitulosActivos.find(
-      (c) => c.capitulo.toLowerCase() === capituloTipeado.toLowerCase()
-    )?.capitulo;
-    const capituloFinal = capituloValido ?? CAPITULO_SIN_CLASIFICAR;
+    // Fase 2, Etapa 6a — la validación/dedup ya no compara el string a mano
+    // contra la biblioteca: se resuelve capituloId con el mismo criterio
+    // que usa la creación de capítulos reales (Etapa 5, mismo
+    // resolverCapituloCatalogoId — alias de CAPITULOS_SAU + CapituloCatalogo).
+    // El string "capitulo" se sigue persistiendo (Etapa 6b lo elimina), pero
+    // ya no es la fuente de verdad para decidir a qué capítulo pertenece ni
+    // para el dedup. Si no matchea, capituloId queda null — mismo bucket
+    // para el dedup que el viejo "Sin clasificar" (dos rubros sin match
+    // siguen dedupeando entre sí si coinciden en descripcion+unidad, igual
+    // que hacía el string compartido antes).
+    const capituloId = await resolverCapituloCatalogoId(db, capituloTipeado);
+    let capituloFinal = CAPITULO_SIN_CLASIFICAR;
+    if (capituloId) {
+      const capituloCatalogo = await db.capituloCatalogo.findUnique({
+        where: { id: capituloId },
+        select: { nombre: true },
+      });
+      capituloFinal = capituloCatalogo?.nombre ?? CAPITULO_SIN_CLASIFICAR;
+    }
 
     const existente = await db.subrubroEstandar.findFirst({
       where: {
         activo: true,
-        capitulo: capituloFinal,
+        capituloId: capituloId ?? null,
         descripcion: { equals: descripcionLimpia, mode: "insensitive" },
         unidad: { equals: unidadLimpia, mode: "insensitive" },
       },
@@ -96,21 +103,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(existente);
     }
 
-    // Fase 2, Etapa 3 — resolver capituloId contra el catálogo canónico
-    // para que el subrubro nuevo no quede huérfano de FK. Si el capítulo
-    // no está dado de alta ahí (caso borde — hoy no debería pasar, ya que
-    // capituloFinal viene de capitulosActivos ya validado contra la
-    // biblioteca real, salvo el fallback "Sin clasificar", que nunca
-    // tiene entrada de catálogo), no bloquea la creación: se guarda igual
-    // con capitulo (string) y capituloId nulo, y queda pendiente de alta
-    // manual en el catálogo.
-    const capituloCatalogo = await db.capituloCatalogo.findUnique({
-      where: { nombre: capituloFinal },
-    });
-    if (!capituloCatalogo) {
-      console.warn(`[POST /api/subrubros-estandar] Sin CapituloCatalogo para "${capituloFinal}" — se guarda sin capituloId`);
-    }
-
     const nuevo = await db.subrubroEstandar.create({
       data: {
         codigo: `manual-${randomUUID()}`,
@@ -120,7 +112,7 @@ export async function POST(req: NextRequest) {
         precioUY,
         fechaBase: new Date().toISOString().slice(0, 7),
         origen: "manual",
-        capituloId: capituloCatalogo?.id,
+        capituloId,
       },
     });
     return NextResponse.json(nuevo);
