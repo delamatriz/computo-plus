@@ -422,9 +422,8 @@ para el diseño completo (Etapas 1-7). Etapas 1 y 2 (catálogo canónico
   tiene capítulo de catálogo para carpintería metálica (dentro de
   "Subcontratos - Carpinterías"). No existe capítulo separado para Herrería
   Estructural ni Herrería de Obra (hierro estructural — pilares, vigas,
-  pórticos / varillas y estribos de hormigón armado). Sumar a la lista de
-  brechas de biblioteca pendientes (Gas, Contra incendio, Ascensor, etc.)
-  cuando se retome esa expansión.
+  pórticos / varillas y estribos de hormigón armado). Sigue pendiente
+  (Instalación de Gas y Contra Incendio ya se sembraron — ver más abajo).
 
 - [x] Fase 2 — Etapa 5: switch de runtime en abrirSubrubrosPanel — resuelve
   por Capitulo.capituloCatalogoId + ParticionSubcapitulo en vez de alias de
@@ -584,6 +583,50 @@ para el diseño completo (Etapas 1-7). Etapas 1 y 2 (catálogo canónico
 Etapas 1 a 7 cerradas.** Ver
 [`FASE2-DISENO-UNIFICACION-TAXONOMIAS.md`](FASE2-DISENO-UNIFICACION-TAXONOMIAS.md)
 para el diseño original completo.
+
+## Expansión de biblioteca — Instalación de Gas y Contra Incendio (17/07/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/seed-gas-incendio.ts`](computo-app/scripts/seed-gas-incendio.ts).
+
+- **2 `CapituloCatalogo` nuevos**: "Instalación de Gas" (orden 19) y
+  "Contra Incendio" (orden 20) — `CapituloCatalogo` pasa de 19 a 21 filas.
+- **Instalación de Gas — 8 códigos** (gas-001 a gas-008): puntos de gas,
+  cañería de cobre 1/2"/3/4", llave de paso, medidor (caja + regulador,
+  no incluye el medidor que provee la compañía), soporte de tanque de
+  supergás, ventilación reglamentaria, prueba de hermeticidad y
+  habilitación (requiere técnico matriculado).
+- **Contra Incendio — 9 códigos** (incendio-001 a incendio-009):
+  extintores PQS/CO2, BIE completa, detector de humo, central de
+  detección, sirena, señalética de evacuación, puerta cortafuego,
+  rociador automático (sprinkler).
+- Los 17 códigos con `APUEstandar` completo (materiales + mano de obra).
+  `precioUY` calculado con la misma fórmula que usa `clonar-apu`
+  (costoDirecto × 1.15 × 1.10) — el script histórico que hacía este
+  recálculo por separado se había borrado en la Etapa 6b, así que se
+  resuelve acá directamente para no dejar precios en 0.
+- **Categoría laboral nueva**: "Oficial Gasista" — mismo jornal que
+  Electricista oficial/Plomero oficial ($2.767,81, tarifa de oficial
+  especializado del convenio SUNCA ya parametrizada, no se inventó un
+  número nuevo).
+- **28 `PrecioMTOP` nuevos** — materiales de gas/incendio no cubiertos
+  por la Lista MTOP N°599, con precios de referencia de mercado uruguayo
+  2026-07. Quedan marcados como precio a verificar por el mismo mecanismo
+  que ya usa toda la biblioteca (`fechaBase`/`fechaLista` → "actualizar
+  con ICCV" en la UI), sin flag nuevo.
+- `aportesSociales` queda en 0 (default) en los 17 — campo heredado de la
+  importación SAU original, no usado en ningún cálculo real, mismo
+  criterio que el resto de altas manuales de esta sesión.
+- Verificado en vivo: dry-run revisado antes de aplicar (incluyendo
+  recálculo manual puntual de gas-008, que dio $7.002,56/GL — confirmado
+  sin error de fórmula, solo refleja 2 jornadas completas de Oficial
+  Gasista matriculado para la prueba de hermeticidad + habilitación).
+  Post-aplicación: 21 filas en `CapituloCatalogo` (sin duplicados), 17
+  `SubrubroEstandar` con `APUEstandar` asociado, "Ver subrubros típicos"
+  probado en proyecto de prueba — 8 códigos en Instalación de Gas, 9 en
+  Contra Incendio, ambos con `capituloCatalogoId` resuelto automáticamente
+  al crear el capítulo (Etapa 5). Proyecto de prueba borrado. `tsc`/build
+  limpios.
 
 ## Pendientes técnicos
 
