@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 
 export async function POST(
   req: NextRequest,
@@ -8,20 +9,25 @@ export async function POST(
   try {
     const { id: proyectoId } = await params;
     const body = await req.json();
+    const nombre = body.nombre ?? "Nuevo capítulo";
 
-    const ultimo = await db.capitulo.findFirst({
-      where: { proyectoId },
-      orderBy: { orden: "desc" },
-      select: { orden: true },
-    });
+    const [ultimo, capituloCatalogoId] = await Promise.all([
+      db.capitulo.findFirst({
+        where: { proyectoId },
+        orderBy: { orden: "desc" },
+        select: { orden: true },
+      }),
+      resolverCapituloCatalogoId(db, nombre),
+    ]);
 
     const capitulo = await db.capitulo.create({
       data: {
         proyectoId,
-        nombre:  body.nombre  ?? "Nuevo capítulo",
+        nombre,
         codigo:  body.codigo  ?? `C${Date.now()}`,
         color:   body.color   ?? "#2563EB",
         orden:   (ultimo?.orden ?? -1) + 1,
+        capituloCatalogoId,
       },
       include: { rubros: true },
     });

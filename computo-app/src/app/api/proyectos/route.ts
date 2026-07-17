@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 
 export async function GET() {
   try {
@@ -46,6 +47,22 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Fase 2, Etapa 5 — resolver capituloCatalogoId de cada capítulo ANTES
+    // de crearlo, para que no dependa de un backfill posterior (ver
+    // capituloCatalogoResolver.ts). Nunca bloquea: si no matchea, queda
+    // undefined/null.
+    const capitulosConCatalogo = await Promise.all(
+      (capitulos ?? []).map(
+        async (cap: { nombre: string; codigo?: string; color?: string; orden: number }, i: number) => ({
+          nombre: cap.nombre,
+          codigo: cap.codigo || String(i + 1).padStart(2, "0"),
+          color: cap.color || "#2563EB",
+          orden: cap.orden ?? i + 1,
+          capituloCatalogoId: await resolverCapituloCatalogoId(db, cap.nombre),
+        })
+      )
+    );
+
     const proyecto = await db.proyecto.create({
       data: {
         nombre,
@@ -64,14 +81,7 @@ export async function POST(req: NextRequest) {
         estado: "EN_CURSO",
         empresaId: empresa.id,
         capitulos: {
-          create: (capitulos ?? []).map(
-            (cap: { nombre: string; codigo?: string; color?: string; orden: number }, i: number) => ({
-              nombre: cap.nombre,
-              codigo: cap.codigo || String(i + 1).padStart(2, "0"),
-              color: cap.color || "#2563EB",
-              orden: cap.orden ?? i + 1,
-            })
-          ),
+          create: capitulosConCatalogo,
         },
       },
       include: { capitulos: true },

@@ -34,6 +34,7 @@ import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
 import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
 import SeccionActualizacionPrecios from "@/components/SeccionActualizacionPrecios";
+import { obtenerMapeoSAU } from "@/lib/capitulosSau";
 
 /* ─── Tipo Proyecto ───────────────────────────────────────── */
 interface ProyectoData {
@@ -78,6 +79,10 @@ interface Capitulo {
   fechaInicio?: string | null;
   fechaFin?: string | null;
   rubros: Rubro[];
+  // Fase 2, Etapa 4/5 — FK al catálogo canónico. Ya viene en la respuesta
+  // de /api/proyectos/[id] hoy (Prisma incluye todos los escalares), solo
+  // faltaba declararlo acá para poder leerlo.
+  capituloCatalogoId?: string | null;
 }
 
 interface SubrubroEstandar {
@@ -108,8 +113,6 @@ interface CapituloCatalogoInfo {
   subcapitulos: SubcapituloCatalogoInfo[];
 }
 
-type MapeoSAU = { alias: string[]; capitulos: string[]; subcapitulos?: string[]; excluirSubcapitulos?: string[] };
-
 // Unidades estándar para el selector de unidad del rubro — evita texto
 // libre que termine con la misma unidad escrita distinto (ej. "m²" vs "M2").
 const UNIDADES_ESTANDAR = ["M2", "M3", "ML", "KG", "TN", "GL", "U", "JORNADA"];
@@ -120,77 +123,11 @@ function normalizarUnidad(unidad: string): string {
   return unidad.toUpperCase().replace(/²/g, "2").replace(/³/g, "3");
 }
 
-const MUROS_SUBCAPS = [
-  "Elevación de Muros — Ladrillo de Campo",
-  "Elevación de Muros — Ticholos",
-  "Elevación de Muros — Bloque Hormigón",
-  "Elevación de Muros — Ladrillo de Vidrio",
-];
-const REVOQUES_SUBCAPS = [
-  "Revoques — Cielorraso",
-  "Revoques — Muros Interiores",
-  "Revoques — Muros Exteriores",
-  "Revoques — Otros",
-];
-const PISOS_SUBCAPS = ["Pisos, Zócalos y Otros", "Revestimientos", "Contrapisos"];
-const IMPERMEABILIZACIONES_SUBCAPS = ["Impermeabilizaciones y Aislaciones"];
-
-/**
- * Mapeo entre nombres de capítulo del proyecto y capítulos/subcapítulos del rubrado SAU ago. 2022.
- * Cada entrada admite varios alias porque distintos proyectos nombran los capítulos de forma distinta
- * (ej: "Pisos, Zócalos y Revestimientos" vs "Revestimientos y pisos").
- */
-const CAPITULOS_SAU: MapeoSAU[] = [
-  { alias: ["Implantación y Replanteo", "Trabajos preliminares"], capitulos: ["Implantación y Replanteo"] },
-  { alias: ["Excavaciones y Movimiento de Tierra"], capitulos: ["Excavaciones y Movimientos de Tierra"] },
-  { alias: ["Movimiento de tierra y fundaciones"], capitulos: ["Excavaciones y Movimientos de Tierra", "Cimentaciones"] },
-  { alias: ["Demoliciones y Picados", "Picado de mamposteria", "Picado de mampostería"], capitulos: ["Demoliciones"] },
-  { alias: ["Cimentaciones"], capitulos: ["Cimentaciones"] },
-  { alias: ["Estructura de Hormigón Armado", "Estructura"], capitulos: ["Estructura"] },
-  // Albañilería "paraguas": todo lo que NO esté reclamado por Pisos/
-  // Revestimientos o Impermeabilizaciones — los únicos dos recortes que
-  // coexisten con "Albañilería" como capítulo de proyecto aparte dentro
-  // de un mismo proyecto (ver HOGAR: tiene los 3 capítulos a la vez).
-  // Muros y Revoques NO se excluyen acá: "Mampostería y muros"/"Revoques
-  // y enlucidos" son nombres alternativos que usan proyectos que NO usan
-  // "Albañilería" combinado (nunca coexisten los dos en un mismo
-  // proyecto), así que deben seguir viéndose en el paraguas para los
-  // proyectos que sí usan el capítulo combinado.
-  // subcapitulos NO se lista a mano acá — se resuelve dinámicamente contra
-  // lo que exista en SubrubroEstandar (ver obtenerMapeoSAU/abrirSubrubrosPanel)
-  // para que un subcapítulo nuevo (ej. Aberturas, Adherencia, Membranas,
-  // Patología de Fachada) aparezca solo sin tener que tocar este archivo.
-  { alias: ["Albañilería"], capitulos: ["Albañilería"], excluirSubcapitulos: [...PISOS_SUBCAPS, ...IMPERMEABILIZACIONES_SUBCAPS] },
-  { alias: ["Mampostería y muros"], capitulos: ["Albañilería"], subcapitulos: MUROS_SUBCAPS },
-  { alias: ["Revoques y enlucidos"], capitulos: ["Albañilería"], subcapitulos: REVOQUES_SUBCAPS },
-  { alias: ["Pisos, Zócalos y Revestimientos", "Revestimientos y pisos"], capitulos: ["Albañilería"], subcapitulos: PISOS_SUBCAPS },
-  { alias: ["Impermeabilizaciones y Aislaciones"], capitulos: ["Albañilería"], subcapitulos: IMPERMEABILIZACIONES_SUBCAPS },
-  { alias: ["Pinturas", "Pintura"], capitulos: ["Subcontratos - Pinturas"] },
-  { alias: ["Carpintería"], capitulos: ["Subcontratos - Carpinterías"] },
-  { alias: ["Herrería y metálica", "Herrería y metalica"], capitulos: ["Subcontratos - Carpinterías"], subcapitulos: ["Hierro"] },
-  { alias: ["Vidrios y Espejos", "Vidriería"], capitulos: ["Subcontratos - Vidrios"] },
-  { alias: ["Yeso y Cielorrasos"], capitulos: ["Subcontratos - Yeso"] },
-  { alias: ["Sistemas Constructivos No Tradicionales"], capitulos: ["Sistemas No Tradicionales"] },
-  // "Subcontratos - Acondicionamientos" se reparte por subcapítulo entre
-  // dos capítulos de proyecto distintos — antes mostraban el balde
-  // completo mezclado (equipamiento de baño/cocina junto con césped/
-  // piscina/deck), ver auditoría 15/07/2026.
-  { alias: ["Equipamiento"], capitulos: ["Subcontratos - Acondicionamientos"], subcapitulos: ["Equipamiento"] },
-  { alias: ["Obras exteriores y paisajismo", "Obra Exterior / Jardín", "Obra Exterior y Jardín"], capitulos: ["Subcontratos - Acondicionamientos"], subcapitulos: ["Obra Exterior / Jardín"] },
-  { alias: ["Cubierta / Techos", "Cubierta"], capitulos: ["Cubierta / Techos"] },
-  { alias: ["Instalación Sanitaria"], capitulos: ["Instalación Sanitaria"] },
-  { alias: ["Instalación Eléctrica"], capitulos: ["Instalación Eléctrica"] },
-  { alias: ["Instalación Térmica / Aire Acondicionado", "Instalación Térmica"], capitulos: ["Instalación Térmica / Aire Acondicionado"] },
-  { alias: ["Ascensor"], capitulos: ["Ascensor"] },
-];
-
-function obtenerMapeoSAU(nombreCapitulo: string): { capitulos: string[]; subcapitulos?: string[]; excluirSubcapitulos?: string[] } | undefined {
-  const norm = nombreCapitulo.trim().toLowerCase();
-  const entrada = CAPITULOS_SAU.find((m) => m.alias.some((a) => a.toLowerCase() === norm));
-  return entrada
-    ? { capitulos: entrada.capitulos, subcapitulos: entrada.subcapitulos, excluirSubcapitulos: entrada.excluirSubcapitulos }
-    : undefined;
-}
+// CAPITULOS_SAU/obtenerMapeoSAU viven en src/lib/capitulosSau.ts (Fase 2,
+// Etapa 5) — mismo módulo que usa el servidor para resolver
+// capituloCatalogoId al crear un capítulo. Acá solo quedan como red de
+// seguridad para cuando Capitulo.capituloCatalogoId es null (ver
+// abrirSubrubrosPanel).
 
 /* ─── Tipos APU ───────────────────────────────────────────── */
 interface ComponenteInsumo {
@@ -2207,6 +2144,12 @@ export default function ProyectoPage() {
   const catalogoCapitulosRef = useRef<Map<string, { id: string; subcapitulos: Map<string, string> }> | null>(null);
   const catalogoCapitulosPromiseRef = useRef<Promise<void> | null>(null);
 
+  // Fase 2, Etapa 5 — cache en memoria de ParticionSubcapitulo (qué
+  // subcapítulos de un CapituloCatalogo le corresponden a qué capítulo
+  // real de proyecto). Se carga una sola vez, igual que el catálogo.
+  const particionesRef = useRef<{ subcapituloId: string; capituloRealDestino: string; capituloCatalogoId: string }[] | null>(null);
+  const particionesPromiseRef = useRef<Promise<void> | null>(null);
+
   // ─── Carga inicial desde la DB ─────────────────────────────
   const cargar = useCallback(async () => {
     try {
@@ -2252,6 +2195,7 @@ export default function ProyectoPage() {
       const caps: Capitulo[] = (data.capitulos ?? []).map((cap: {
         id: string; nombre: string; codigo?: string; color?: string;
         fechaInicio?: string | null; fechaFin?: string | null;
+        capituloCatalogoId?: string | null;
         rubros: {
           id: string; descripcion: string; unidad: string;
           cantidad: number; precioUnit: number; apu: unknown;
@@ -2264,6 +2208,7 @@ export default function ProyectoPage() {
         color:       cap.color,
         fechaInicio: cap.fechaInicio,
         fechaFin:    cap.fechaFin,
+        capituloCatalogoId: cap.capituloCatalogoId,
         rubros: (cap.rubros ?? []).map((r) => ({
           id:          r.id,
           descripcion: r.descripcion,
@@ -2639,13 +2584,83 @@ export default function ProyectoPage() {
     await catalogoCapitulosPromiseRef.current;
   }, []);
 
+  // Fase 2, Etapa 5 — carga (una sola vez) todas las filas de
+  // ParticionSubcapitulo, para resolver el filtro de partición del
+  // capítulo real actual sin pegarle a la DB en cada apertura del panel.
+  const cargarParticiones = useCallback(async () => {
+    if (particionesRef.current) return;
+    if (!particionesPromiseRef.current) {
+      particionesPromiseRef.current = fetch("/api/particion-subcapitulo")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((data: { subcapituloId: string; capituloRealDestino: string; capituloCatalogoId: string }[]) => {
+          particionesRef.current = data;
+        })
+        .catch((err) => {
+          console.error("[cargarParticiones]", err);
+        });
+    }
+    await particionesPromiseRef.current;
+  }, []);
+
   const abrirSubrubrosPanel = useCallback(async (cap: Capitulo) => {
     setPanelSubrubrosCapId(cap.id);
     if (subrubrosPorCapitulo[cap.id]) return;
 
-    const mapeo = obtenerMapeoSAU(cap.nombre) ?? { capitulos: [cap.nombre] };
     setCargandoSubrubros(true);
     try {
+      // Fase 2, Etapa 5 — camino primario: el capítulo real ya tiene
+      // capituloCatalogoId resuelto (al crearlo, o por el backfill de la
+      // Etapa 4). Filtra por FK directo + ParticionSubcapitulo, sin tocar
+      // CAPITULOS_SAU para nada.
+      if (cap.capituloCatalogoId) {
+        const [subrubros] = await Promise.all([
+          fetch(`/api/subrubros-estandar?capituloId=${cap.capituloCatalogoId}`).then((r) => (r.ok ? r.json() : [])),
+          cargarParticiones(),
+        ]);
+        let lista: SubrubroEstandar[] = subrubros;
+
+        const particiones = particionesRef.current ?? [];
+        const particionesDeEsteCatalogo = particiones.filter((p) => p.capituloCatalogoId === cap.capituloCatalogoId);
+        const particionesParaEsteCapitulo = particionesDeEsteCatalogo.filter((p) => p.capituloRealDestino === cap.nombre);
+
+        if (particionesParaEsteCapitulo.length > 0) {
+          // Recorte angosto (ej. Pisos, Impermeabilizaciones, Muros,
+          // Revoques, Herrería, Equipamiento, Obra Exterior/Jardín): solo
+          // los subcapítulos particionados para ESTE capítulo real.
+          const idsPermitidos = new Set(particionesParaEsteCapitulo.map((p) => p.subcapituloId));
+          lista = lista.filter((s) => s.subcapituloId && idsPermitidos.has(s.subcapituloId));
+        } else if (particionesDeEsteCatalogo.length > 0) {
+          // "Paraguas": el capituloCatalogo tiene particiones, pero ninguna
+          // apunta a este capítulo real — es el genérico (ej. Albañilería).
+          // Solo se excluye un subcapítulo si su capítulo real de destino
+          // EXISTE en este mismo proyecto (ej. Matisse Monet tiene
+          // "Mampostería y muros"/"Revoques y enlucidos" separados — ahí sí
+          // se excluyen de un eventual "Albañilería" combinado). Si el
+          // proyecto no tiene ese capítulo separado (ej. HOGAR, todo junto
+          // en "Albañilería"), el subcapítulo no tiene dónde más aparecer y
+          // se queda en el paraguas — mismo criterio de convivencia que ya
+          // usaba CAPITULOS_SAU/excluirSubcapitulos, ahora genérico en vez
+          // de hardcodeado por capítulo.
+          const nombresCapitulosDelProyecto = new Set(capitulos.map((c) => c.nombre));
+          const idsExcluidos = new Set(
+            particionesDeEsteCatalogo
+              .filter((p) => nombresCapitulosDelProyecto.has(p.capituloRealDestino))
+              .map((p) => p.subcapituloId)
+          );
+          lista = lista.filter((s) => !s.subcapituloId || !idsExcluidos.has(s.subcapituloId));
+        }
+        // Si no hay ninguna partición para este capituloCatalogoId, no se
+        // filtra nada — se muestra la biblioteca completa de ese capítulo.
+
+        setSubrubrosPorCapitulo((prev) => ({ ...prev, [cap.id]: lista }));
+        setCargandoSubrubros(false);
+        return;
+      }
+
+      // Fallback — capítulo real sin capituloCatalogoId (viejo, sin
+      // matchear, o falló la resolución al crearlo): comportamiento
+      // anterior a la Etapa 5, resolución por alias de nombre.
+      const mapeo = obtenerMapeoSAU(cap.nombre) ?? { capitulos: [cap.nombre] };
       await cargarCatalogoCapitulos();
       const catalogo = catalogoCapitulosRef.current;
 
@@ -2710,7 +2725,7 @@ export default function ProyectoPage() {
     } finally {
       setCargandoSubrubros(false);
     }
-  }, [subrubrosPorCapitulo, cargarCatalogoCapitulos]);
+  }, [subrubrosPorCapitulo, cargarCatalogoCapitulos, cargarParticiones, capitulos]);
 
   const toggleSubrubrosPanel = useCallback((cap: Capitulo) => {
     if (panelSubrubrosCapId === cap.id) {
@@ -2724,7 +2739,7 @@ export default function ProyectoPage() {
   const toggleCapituloConSubrubros = useCallback((cap: Capitulo) => {
     const yaExpandido = expandidos.has(cap.id);
     toggleCapitulo(cap.id);
-    if (!yaExpandido && !proyecto?.generandoRubros && capituloVacio(cap) && obtenerMapeoSAU(cap.nombre)) {
+    if (!yaExpandido && !proyecto?.generandoRubros && capituloVacio(cap) && (cap.capituloCatalogoId || obtenerMapeoSAU(cap.nombre))) {
       abrirSubrubrosPanel(cap);
     }
   }, [expandidos, abrirSubrubrosPanel, proyecto?.generandoRubros]);
@@ -3357,7 +3372,7 @@ export default function ProyectoPage() {
 
                         {capituloVacio(cap) ? (
                           <>
-                            {obtenerMapeoSAU(cap.nombre) && (
+                            {(cap.capituloCatalogoId || obtenerMapeoSAU(cap.nombre)) && (
                               <PanelSubrubrosEstandar
                                 subrubros={subrubrosPorCapitulo[cap.id] ?? []}
                                 cargando={cargandoSubrubros}
@@ -3569,7 +3584,7 @@ export default function ProyectoPage() {
 
                         {/* Botón agregar rubro */}
                         <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
-                          {obtenerMapeoSAU(cap.nombre) && (
+                          {(cap.capituloCatalogoId || obtenerMapeoSAU(cap.nombre)) && (
                             <button
                               onClick={() => toggleSubrubrosPanel(cap)}
                               title="Ver subrubros típicos de este capítulo"

@@ -277,9 +277,6 @@ model CapituloCatalogo {
   // Fase 2, Etapa 4 — lado inverso de Capitulo.capituloCatalogoId (capítulos
   // reales de proyecto que se linkearon a esta entrada del catálogo).
   capitulosReales    Capitulo[]
-  // Fase 2, Etapa 4 — lado inverso de ParticionSubcapitulo.capituloCatalogoDestinoId
-  // (tabla creada vacía en esta etapa, se puebla recién en la Etapa 5).
-  particionesDestino ParticionSubcapitulo[]
 }
 
 model SubcapituloCatalogo {
@@ -297,20 +294,23 @@ model SubcapituloCatalogo {
   @@unique([capituloCatalogoId, nombre])
 }
 
-// Fase 2, Etapa 4 — tabla creada vacía en esta etapa (solo el schema).
-// Se puebla recién en la Etapa 5, cuando se decida qué subcapítulos de
-// Albañilería/Subcontratos-Acondicionamientos van a cada capítulo de
-// proyecto "partido" (Pisos, Impermeabilizaciones, Equipamiento, Obra
-// Exterior/Jardín). FKs reales a SubcapituloCatalogo/CapituloCatalogo
-// (no strings sueltos) — corrección al boceto original del documento de
-// diseño, que usaba subcapituloId/capituloCatalogoDestinoNombre como
-// strings sin @relation.
+// Fase 2, Etapa 5 — poblada con los 7 casos de partición conocidos
+// (Pisos, Impermeabilizaciones, Muros, Revoques dentro de Albañilería;
+// Herrería dentro de Carpinterías; Equipamiento y Obra Exterior/Jardín
+// dentro de Acondicionamientos). capituloRealDestino es el nombre libre
+// del Capitulo real de proyecto (String, no FK) porque un mismo
+// CapituloCatalogo (ej. Albañilería) se reparte entre VARIOS capítulos
+// reales distintos — no hay una única entidad "destino" a la que
+// apuntar con FK, es el nombre canónico que usa el proyecto para esa
+// fase. Ajustado en la Etapa 5 respecto al schema de la Etapa 4, que
+// usaba capituloCatalogoDestinoId (FK a CapituloCatalogo) — no tenía
+// sentido: el destino de una partición es un capítulo REAL, no una
+// entrada más de catálogo.
 model ParticionSubcapitulo {
-  id                        String              @id @default(cuid())
-  subcapituloId             String              @unique
-  subcapitulo               SubcapituloCatalogo @relation(fields: [subcapituloId], references: [id])
-  capituloCatalogoDestinoId String
-  capituloCatalogoDestino   CapituloCatalogo    @relation(fields: [capituloCatalogoDestinoId], references: [id])
+  id                  String              @id @default(cuid())
+  subcapituloId       String              @unique
+  subcapitulo         SubcapituloCatalogo @relation(fields: [subcapituloId], references: [id])
+  capituloRealDestino String
 }
 
 model Configuracion {
