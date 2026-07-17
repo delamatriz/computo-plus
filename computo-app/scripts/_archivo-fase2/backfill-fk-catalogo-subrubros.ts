@@ -1,3 +1,7 @@
+// ARCHIVADO (Etapa 6b) — capitulo/subcapitulo (String) ya no existen en el
+// schema; este script quedó como referencia histórica de cómo se hizo el
+// backfill de la Etapa 2, no compila más (excluido en tsconfig.json).
+//
 // Fase 2, Etapa 2 — backfill de SubrubroEstandar.capituloId/subcapituloId
 // contra el catálogo canónico sembrado en la Etapa 1. Match exacto de
 // nombre (capitulo string viejo === CapituloCatalogo.nombre) — debe ser

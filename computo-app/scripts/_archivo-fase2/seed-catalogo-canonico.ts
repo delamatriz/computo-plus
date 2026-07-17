@@ -1,3 +1,8 @@
+// ARCHIVADO (Etapa 6b) — capitulo/subcapitulo (String) ya no existen en el
+// schema; este script quedó como referencia histórica de cómo se sembró
+// el catálogo canónico en la Etapa 1, no compila más (excluido en
+// tsconfig.json).
+//
 // Fase 2, Etapa 1 — siembra el catálogo canónico (CapituloCatalogo /
 // SubcapituloCatalogo) desde los valores REALES hoy en SubrubroEstandar
 // (activo: true). Puramente aditivo: nada en la app lee estas tablas

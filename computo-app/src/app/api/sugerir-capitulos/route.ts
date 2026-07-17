@@ -53,8 +53,23 @@ export async function POST(request: NextRequest) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
+      // Fase 2, Etapa 7 — nombres canónicos exactos del catálogo
+      // (CapituloCatalogo), para que el capítulo que arma el usuario ya
+      // resuelva capituloCatalogoId al crearse (POST /api/proyectos, Etapa
+      // 5), sin pasar por el fallback de alias de CAPITULOS_SAU. Se
+      // colapsaron variantes que apuntaban al mismo capítulo real
+      // ("Mampostería y muros"/"Revoques y enlucidos"/"Revestimientos y
+      // pisos" → "Albañilería"; "Carpintería"/"Herrería y metálica" →
+      // "Subcontratos - Carpinterías") para que la IA no sugiera el mismo
+      // capítulo repetido. "Movimiento de tierra y fundaciones" (ambiguo,
+      // apuntaba a 2 capítulos) se separó en sus 2 capítulos reales.
+      // Instalación de gas / Instalaciones embutidas / Calefacción /
+      // Honorarios profesionales / Imprevistos no tienen biblioteca de
+      // subrubros propia — quedan igual, siempre resuelven
+      // capituloCatalogoId: null (correcto, son categorías administrativas
+      // o sin biblioteca clasificable).
       system: `Sos un experto en construcción uruguaya. El usuario te da el tipo de obra y una descripción de los trabajos a realizar. Devolvés SOLO un JSON con la lista de capítulos recomendados en orden lógico de ejecución, seleccionados de esta lista disponible:
-Trabajos preliminares, Movimiento de tierra y fundaciones, Estructura, Mampostería y muros, Cubierta, Revoques y enlucidos, Revestimientos y pisos, Carpintería, Instalación sanitaria, Instalación eléctrica, Instalación de gas, Instalaciones embutidas, Calefacción, Pintura, Vidriería, Herrería y metálica, Obras exteriores y paisajismo, Honorarios profesionales, Imprevistos.
+Implantación y Replanteo, Excavaciones y Movimientos de Tierra, Cimentaciones, Estructura, Albañilería, Cubierta / Techos, Subcontratos - Carpinterías, Instalación Sanitaria, Instalación Eléctrica, Instalación de gas, Instalaciones embutidas, Calefacción, Subcontratos - Pinturas, Subcontratos - Vidrios, Subcontratos - Acondicionamientos, Honorarios profesionales, Imprevistos.
 Responde SOLO con JSON válido, sin texto adicional: { "capitulos": ["nombre1", "nombre2", ...] }`,
       messages: [
         {

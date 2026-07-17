@@ -14,8 +14,19 @@ export async function generarCapituloSeguridad(proyectoId: string): Promise<void
 
   if (!proyecto || !proyecto.requierePlanSeguridad) return;
 
+  // Fase 2, Etapa 7 — "Seguridad y Trabajos en Altura" no tiene biblioteca
+  // propia (sus rubros siempre se arman a mano acá abajo), pero SÍ tiene
+  // fila en CapituloCatalogo desde esta etapa, solo para poder resolver
+  // capituloCatalogoId. La idempotencia se chequea por las DOS señales
+  // (capituloCatalogoId Y nombre string) para no duplicar capítulos ya
+  // creados antes de esta migración, que quedaron con capituloCatalogoId
+  // null.
+  const capituloCatalogo = await db.capituloCatalogo.findUnique({ where: { nombre: NOMBRE_CAPITULO } });
+
   const yaExiste = proyecto.capitulos.some(
-    (c) => c.nombre.toLowerCase() === NOMBRE_CAPITULO.toLowerCase()
+    (c) =>
+      (capituloCatalogo && c.capituloCatalogoId === capituloCatalogo.id) ||
+      c.nombre.toLowerCase() === NOMBRE_CAPITULO.toLowerCase()
   );
   if (yaExiste) return;
 
@@ -37,6 +48,12 @@ export async function generarCapituloSeguridad(proyectoId: string): Promise<void
     ? Math.max(...proyecto.capitulos.map((c) => c.orden)) + 1
     : 1;
 
+  if (!capituloCatalogo) {
+    console.warn(
+      `[generarCapituloSeguridad] Sin CapituloCatalogo para "${NOMBRE_CAPITULO}" — se crea sin capituloCatalogoId`
+    );
+  }
+
   await db.capitulo.create({
     data: {
       proyectoId,
@@ -44,6 +61,7 @@ export async function generarCapituloSeguridad(proyectoId: string): Promise<void
       codigo: String(orden).padStart(2, "0"),
       color: "#DC2626",
       orden,
+      capituloCatalogoId: capituloCatalogo?.id,
       rubros: {
         create: descripciones.map((descripcion, i) => ({
           codigo: `R${String(i + 1).padStart(3, "0")}`,
