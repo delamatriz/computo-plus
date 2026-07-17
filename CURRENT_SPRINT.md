@@ -426,6 +426,53 @@ para el diseño completo (Etapas 1-7). Etapas 1 y 2 (catálogo canónico
   brechas de biblioteca pendientes (Gas, Contra incendio, Ascensor, etc.)
   cuando se retome esa expansión.
 
+- [x] Fase 2 — Etapa 5: switch de runtime en abrirSubrubrosPanel — resuelve
+  por Capitulo.capituloCatalogoId + ParticionSubcapitulo en vez de alias de
+  nombre, con fallback intacto a CAPITULOS_SAU cuando la FK es null.
+  ParticionSubcapitulo corregida a capituloRealDestino (string) en vez de
+  FK a CapituloCatalogo — un mismo catálogo se reparte entre varios
+  capítulos reales (Albañilería → Pisos/Impermeabilizaciones/Muros/
+  Revoques; Subcontratos-Carpinterías → Herrería; Subcontratos-
+  Acondicionamientos → Equipamiento/Obra Exterior), poblada con esos 7
+  casos. `resolverCapituloCatalogoId()` (src/lib/capituloCatalogoResolver.ts)
+  cierra el agujero de creación: POST /api/proyectos y POST
+  /api/proyectos/[id]/capitulos ahora resuelven la FK en el momento de
+  crear el capítulo, ya no depende solo de backfill posterior.
+  `CAPITULOS_SAU`/`obtenerMapeoSAU` se movieron a src/lib/capitulosSau.ts
+  (módulo compartido cliente/servidor) — el array en sí **no se tocó**,
+  sigue con sus ~24 entradas intacto como red de seguridad; el recorte
+  real queda para una revisión aparte, en otra sesión.
+  Bug encontrado y corregido en el camino: la exclusión del paraguas
+  inicialmente excluía un subcapítulo con solo que existiera su fila en
+  `ParticionSubcapitulo`, sin chequear si el capítulo real de destino
+  existía en el proyecto actual — rompía Albañilería en HOGAR (48→12,
+  perdía todo Muros/Revoques porque HOGAR no tiene esos capítulos
+  separados). Corregido: solo excluye si el destino existe como capítulo
+  real en el proyecto que se está viendo. Verificado en vivo: 8/8 checks
+  de paraguas/partición (Albañilería=48, Impermeabilizaciones=15,
+  Equipamiento=19, Obra Exterior=7, Mampostería y muros=18, Revoques y
+  enlucidos=18, Carpintería incluye Hierro, Herrería y metálica=solo
+  Hierro) + 4/4 checks de resolución al crear vía POST directo (match,
+  no-match sin bloquear, alta de capítulo en proyecto existente).
+  Commit 3460ce7.
+
+  ⚠️ **Hallazgo aparte, no bloqueante**: `/proyectos/nuevo` queda
+  colgado en "Cargando…" en el entorno de desarrollo local (Suspense
+  alrededor de `useSearchParams()` que nunca resuelve — cero requests al
+  servidor más allá del HTML inicial). Confirmado ajeno a la Etapa 5 (el
+  archivo no importa nada de lo tocado esta sesión) y reproducible tras
+  reiniciar el server y borrar `.next` por completo. Por eso el Paso 1 se
+  verificó pegándole directo a los endpoints (`POST /api/proyectos` y
+  `POST /api/proyectos/[id]/capitulos`) en vez de a través de esa página.
+  Intenté confirmar si también se reproduce en producción
+  (computo-plus.onrender.com) pero el navegador de la sesión dio timeout
+  las 4 veces que lo intenté — quedó sin confirmar. `curl` sí mostró que
+  producción responde (200 en ~22s) y devuelve el mismo shell inicial con
+  "Cargando…", pero eso no prueba nada por sí solo (es el comportamiento
+  normal de un Suspense boundary antes de hidratar). **Pendiente**:
+  confirmar a mano en un navegador real si `/proyectos/nuevo` carga en
+  producción o se cuelga igual que en dev, para decidir si es prioridad.
+
 Diagnóstico previo a este cierre (solo lectura, contra producción):
 0 de 311 filas activas de `SubrubroEstandar` sin `capituloId` — cero
 deuda real hoy, sin drift desde el backfill de la Etapa 2. Ninguno de
