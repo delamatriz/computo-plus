@@ -508,6 +508,42 @@ para el diseño completo (Etapas 1-7). Etapas 1 y 2 (catálogo canónico
   para `console.log` informativo) — hay que decidir si se borran, se
   excluyen del build, o se corrigen antes de tocar el schema.
 
+- [x] Fase 2 — Etapa 6b: eliminadas `SubrubroEstandar.capitulo`/
+  `.subcapitulo` (String) del schema — `capituloId`/`subcapituloId` (FK a
+  `CapituloCatalogo`/`SubcapituloCatalogo`) quedan como única fuente de
+  verdad. Con esto, **Fase 2 (unificación de taxonomías de capítulo) queda
+  cerrada de la Etapa 1 a la 6b** — solo resta la Etapa 7 (unificar
+  `sugerir-capitulos`/`seguridadAltura.ts` contra el catálogo), acordada
+  para el final, sin fecha definida.
+  - `crearSubrubroEstandar()` ya no escribe `capitulo`/`subcapitulo` en el
+    upsert (solo las FK, ya resueltas ahí mismo).
+  - Los 3 fallbacks por string que quedaban (GET `?capitulo=`, la rama
+    fallback completa de `abrirSubrubrosPanel` por alias de
+    `CAPITULOS_SAU`, y el fallback silencioso de `esImplantacion`) se
+    eliminaron por completo — único camino ahora: `capituloCatalogoId` +
+    `ParticionSubcapitulo`. `CAPITULOS_SAU`/`obtenerMapeoSAU`
+    (`src/lib/capitulosSau.ts`) ya no se consumen en el cliente — el único
+    consumidor que queda es `resolverCapituloCatalogoId()` en el servidor
+    (Etapa 5, al crear un capítulo real).
+  - **43 scripts históricos borrados** (ya aplicados contra producción,
+    sin otro valor: 7 de corrección + `reclasificar-acondicionamientos`,
+    6 creadores puntuales Sika/patología/aberturas/revoque, 4 creadores
+    `seed-apus-equipos-obra/equipamiento/carpinteria-metalica/
+    yeso-cielorrasos`, 25 `seed-apus-*` de fallback de lectura para
+    adjuntar `APUEstandar`).
+  - **2 scripts archivados** (no borrados, valor documental de cómo se
+    hicieron las Etapas 1 y 2): `backfill-fk-catalogo-subrubros.ts` y
+    `seed-catalogo-canonico.ts` → `scripts/_archivo-fase2/`, excluidos de
+    `tsc --noEmit` vía `tsconfig.json` (`scripts/` sí estaba dentro del
+    scope de tsc, a diferencia de `npm run build` que no los tocaba).
+  Backup de producción antes de aplicar (irreversible sin restore).
+  Verificado en vivo: 8/8 checks de paraguas/partición (mismos valores de
+  siempre), 5/5 capítulos sin `capituloCatalogoId` siguen sin mostrar "Ver
+  subrubros típicos" (mismo comportamiento, ya no por fallback sino porque
+  no queda código que lo intente), alta de rubro con alias conocido
+  funcionando end-to-end sin columnas string. `tsc`/build limpios. Commit
+  e5b0a14.
+
 Diagnóstico previo a este cierre (solo lectura, contra producción):
 0 de 311 filas activas de `SubrubroEstandar` sin `capituloId` — cero
 deuda real hoy, sin drift desde el backfill de la Etapa 2. Ninguno de
