@@ -1038,6 +1038,59 @@ próximas sesiones.
   `chapa-prep-025` (material $2.732,43 + bulón $28, rubro $4.390,59) —
   ninguno en $0. Proyecto de prueba borrado. `tsc`/build limpios.
 
+## Fase 2 del bug "clona a $0" — Carpinterías, material mal asignado (18/07/2026)
+
+**✅ COMPLETADO** (primera corrección puntual dentro de la Tanda 1 de
+Carpinterías — 28 códigos afectados en total según la auditoría
+transversal, quedan los demás para próximas sesiones). Script:
+[`computo-app/scripts/fix-material-mal-asignado-carpinterias.ts`](computo-app/scripts/fix-material-mal-asignado-carpinterias.ts).
+
+Se detectaron 3 casos donde el problema no era solo falta de precio,
+sino **material del APU mal asignado** (no correspondía a lo que el
+código dice ser):
+
+- **`7.3.14`** (Puerta de chapa calibre 18 0.75x2.05m) — su material
+  apuntaba a una puerta de 0.90x2.10m, idéntico en todo a `carpmet-001`
+  (mismo material, tornillos y MO exactos). **Desactivado**
+  (`activo: false`, no borrado — redundante exacto).
+- **`7.3.15`** (Portón de garage dos hojas 2.40x2.10m, batiente) — su
+  material apuntaba a un portón **corredizo** de 3.00x2.10m (tipo y
+  tamaño distintos), con un `rendimiento=0.9` que era un parche para
+  aproximar el costo. Se creó un material nuevo real "Portón batiente
+  dos hojas de hierro 2.40x2.10m" (⚠️ estimación gruesa, $38.000/u —
+  producto a medida, sin cotización directa de plaza encontrada) y se
+  eliminó el parche de rendimiento. `precioUY`: $51.388,67 (con material
+  equivocado) → **$59.574,16**. `carpmet-004` (el corredizo real) NO se
+  tocó — es un producto distinto, no redundante.
+- **`7.3.18`** (Ventana corrediza aluminio Serie 25 1.20x1.10m) — su
+  material apuntaba a una "Ventana metálica corrediza" genérica
+  (material equivocado: hierro, no aluminio). Se creó un material nuevo
+  "Ventana corrediza aluminio serie 25 1.20x1.10m" (⚠️ estimación
+  gruesa, $12.500/u — confirmado producto real y estandarizado en plaza
+  uruguaya —PGU, Waluminio, Aberturas Moscú, MgM, Alumex— pero sin poder
+  extraer precio exacto de las páginas). `precioUY`: $9.560,66 → **
+  $19.084,43**. `carpmet-002` (la ventana metálica genérica real) NO se
+  tocó — producto distinto.
+- Reusados sin cambios: "Tornillos y herrajes metálicos" ($450/gl) y
+  "Silicona para ventanas" ($280/u), ambos ya con precio real.
+- Verificado en vivo: `7.3.14` ya no aparece en "Ver subrubros típicos"
+  para Carpinterías (32 códigos activos, era 33). `clonar-apu` probado
+  sobre `7.3.15` (material resuelve a $38.000, rubro $59.574,16) y
+  `7.3.18` (material resuelve a $12.500, rubro $19.084,43) — ninguno en
+  $0 ni en el material viejo equivocado. Proyecto de prueba borrado.
+  `tsc`/build limpios.
+
+⚠️ Nota operativa: el servidor de desarrollo se cayó a mitad de esta
+verificación (timeout entre pasos) — se detectó por `curl` devolviendo
+"connection refused", se reinició con `preview_start` y se continuó sin
+pérdida de datos (la base de datos es externa, no depende del server
+dev).
+
+**Pendiente**: el resto de los 28 códigos de Carpinterías (25 restantes,
+sin apalancamiento — casi todos materiales únicos por código, ver
+inventario agrupado ya reportado) queda para la Tanda 1 completa en
+otra sesión.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
