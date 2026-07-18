@@ -936,8 +936,41 @@ algún día se "reaplica" ese APU, el precio se iría a casi $0 — no
 corregido, fuera de alcance de esta fase). Proyecto de prueba borrado.
 `tsc`/build limpios.
 
-**Pendiente**: 201 códigos restantes de la auditoría, sin uso en
-proyecto real — corrección por fases en próximas sesiones.
+**Pendiente**: 199 códigos restantes de la auditoría (201 menos los 2
+resueltos abajo — termica-001/002 — más termica-003/004 que se sumaron
+a la misma tanda), sin uso en proyecto real — corrección por fases en
+próximas sesiones.
+
+## Duplicación de splits en Instalación Térmica — RESUELTO (18/07/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/fix-duplicado-split-termica.ts`](computo-app/scripts/fix-duplicado-split-termica.ts).
+
+- **`7.2.19`/`7.2.20` desactivados** (`activo: false`, no borrados —
+  mismo criterio que el duplicado de contrapiso 6.6.3): huérfanos del
+  import SAU original, sin equivalente 18000/24000 BTU, rendimiento de MO
+  menos realista que `termica-001`/`002`. Ninguno de los 4 códigos
+  estaba en uso en proyecto real (confirmado antes de tocar nada).
+- **`termica-001` a `004` quedan como fuente de verdad**, con su
+  `precioUY` corregido (mismo bug "clona a $0" de la auditoría general):
+  `termica-001` (9000 BTU) $0 → **$28.742,13**, `termica-002` (12000 BTU)
+  → **$33.169,63**, `termica-003` (18000 BTU) → **$46.870,02**,
+  `termica-004` (24000 BTU) → **$60.431,26** — se sumaron a la misma
+  tanda por ser el mismo patrón exacto, sin esperar a la Fase 2 general.
+- De los 3 materiales, **2 ya tenían `PrecioMTOP` real** ("Caño cobre
+  1/4 y 3/8" $380/ml, "Soporte mural exterior" $420/u) — solo hacía
+  falta el equipo split en sí. 5 `PrecioMTOP` nuevos: equipo split
+  9000/12000 BTU (precio de mercado uruguayo real, MercadoLibre/Sodimac/
+  LOi/Aiwa), 18000/24000 BTU (⚠️ estimación más gruesa, menos
+  cotizaciones directas encontradas), y "Soporte mural exterior
+  reforzado" (⚠️ estimación por analogía con el soporte normal).
+- Verificado en vivo: `7.2.19`/`7.2.20` ya no aparecen en "Ver subrubros
+  típicos" para Instalación Térmica (proyecto de prueba, 8/8 códigos
+  restantes son solo `termica-XXX`). `clonar-apu` probado sobre
+  `termica-001` (mejor cotización, material resuelve a $19.000, rubro
+  $28.742,13) y `termica-004` (estimación más gruesa, material resuelve
+  a $42.000, rubro $60.431,26) — ninguno en $0. Proyecto de prueba
+  borrado. `tsc`/build limpios.
 
 ## Pendientes técnicos
 
