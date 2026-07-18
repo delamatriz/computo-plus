@@ -27,7 +27,6 @@ const REVOQUES_SUBCAPS = [
   "Revoques — Otros",
 ];
 const PISOS_SUBCAPS = ["Pisos, Zócalos y Otros", "Revestimientos", "Contrapisos"];
-const IMPERMEABILIZACIONES_SUBCAPS = ["Impermeabilizaciones y Aislaciones"];
 
 export const CAPITULOS_SAU: MapeoSAU[] = [
   { alias: ["Implantación y Replanteo", "Trabajos preliminares"], capitulos: ["Implantación y Replanteo"] },
@@ -37,9 +36,11 @@ export const CAPITULOS_SAU: MapeoSAU[] = [
   { alias: ["Cimentaciones"], capitulos: ["Cimentaciones"] },
   { alias: ["Estructura de Hormigón Armado", "Estructura"], capitulos: ["Estructura"] },
   // Albañilería "paraguas": todo lo que NO esté reclamado por Pisos/
-  // Revestimientos o Impermeabilizaciones — los únicos dos recortes que
-  // coexisten con "Albañilería" como capítulo de proyecto aparte dentro
-  // de un mismo proyecto (ver HOGAR: tiene los 3 capítulos a la vez).
+  // Revestimientos — el único recorte que coexiste con "Albañilería" como
+  // capítulo de proyecto aparte dentro de un mismo proyecto (ver HOGAR).
+  // Impermeabilizaciones y Aislaciones dejó de ser un recorte de este
+  // paraguas — pasó a ser su propio CapituloCatalogo standalone (ver
+  // expansión de biblioteca Impermeabilización/Vidrios, 18/07/2026).
   // Muros y Revoques NO se excluyen acá: "Mampostería y muros"/"Revoques
   // y enlucidos" son nombres alternativos que usan proyectos que NO usan
   // "Albañilería" combinado (nunca coexisten los dos en un mismo
@@ -49,11 +50,11 @@ export const CAPITULOS_SAU: MapeoSAU[] = [
   // lo que exista en SubrubroEstandar (ver obtenerMapeoSAU/abrirSubrubrosPanel)
   // para que un subcapítulo nuevo (ej. Aberturas, Adherencia, Membranas,
   // Patología de Fachada) aparezca solo sin tener que tocar este archivo.
-  { alias: ["Albañilería"], capitulos: ["Albañilería"], excluirSubcapitulos: [...PISOS_SUBCAPS, ...IMPERMEABILIZACIONES_SUBCAPS] },
+  { alias: ["Albañilería"], capitulos: ["Albañilería"], excluirSubcapitulos: PISOS_SUBCAPS },
   { alias: ["Mampostería y muros"], capitulos: ["Albañilería"], subcapitulos: MUROS_SUBCAPS },
   { alias: ["Revoques y enlucidos"], capitulos: ["Albañilería"], subcapitulos: REVOQUES_SUBCAPS },
   { alias: ["Pisos, Zócalos y Revestimientos", "Revestimientos y pisos"], capitulos: ["Albañilería"], subcapitulos: PISOS_SUBCAPS },
-  { alias: ["Impermeabilizaciones y Aislaciones"], capitulos: ["Albañilería"], subcapitulos: IMPERMEABILIZACIONES_SUBCAPS },
+  { alias: ["Impermeabilizaciones y Aislaciones"], capitulos: ["Impermeabilizaciones y Aislaciones"] },
   { alias: ["Pinturas", "Pintura"], capitulos: ["Subcontratos - Pinturas"] },
   { alias: ["Carpintería"], capitulos: ["Subcontratos - Carpinterías"] },
   { alias: ["Herrería y metálica", "Herrería y metalica"], capitulos: ["Subcontratos - Carpinterías"], subcapitulos: ["Hierro"] },
