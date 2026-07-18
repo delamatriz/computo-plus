@@ -744,6 +744,62 @@ Ascensor, ninguno de los 7 códigos preexistentes de Vidrios (`7.4.X`)
 tiene `PrecioMTOP` propio — clonan a $0 hoy si se usan en un rubro real.
 Los 7 códigos nuevos de esta expansión sí tienen `PrecioMTOP` dedicado.
 
+## Expansión de biblioteca — Obra Exterior/Jardín + Carpinterías/Hierro (18/07/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/seed-jardin-carpmet.ts`](computo-app/scripts/seed-jardin-carpmet.ts).
+No se creó ni tocó ningún `CapituloCatalogo`/`SubcapituloCatalogo` — todo
+va a subcapítulos ya existentes ("Obra Exterior / Jardín" dentro de
+"Subcontratos - Acondicionamientos", resuelto por `ParticionSubcapitulo`
+desde la Etapa 5; "Hierro" dentro de "Subcontratos - Carpinterías").
+`SubrubroEstandar` activos: "Obra Exterior / Jardín" pasa de 7 a **19**
+(12 nuevos), "Hierro" pasa de 6 a **8** (2 nuevos).
+
+- **Parrillero/quincho**: `jardin-001` parrillero de mampostería (parrilla
+  de hierro + campana de humos y chimenea, $50.749,15/UNI). `jardin-002`
+  quincho techado completo — **variante default en madera** (tirantería/
+  correas + teja colonial, $8.351,63/m2 — reusa la composición real de
+  `cubierta-010`/`cubierta-001`, más típica y económica en Uruguay para
+  esta escala) y `jardin-002b` variante metálica (perfil IPN + chapa
+  ondulada, $14.967,04/m2, para mayor robustez/luces mayores).
+- **Cercos**: `jardin-003` tejido romboidal galvanizado h≈2m
+  ($3.227,46/ml), `jardin-003b` tradicional postes+hilos sin tejido
+  ($2.375,51/ml), `jardin-004` cerco vivo/vegetal ($843,18/ml). Distinto
+  de `1.3` (cerco temporario de obra en Implantación y Replanteo, no se
+  toca) y reusa (sin código nuevo) los muros de bloque de Albañilería
+  para quien prefiera un muro de cerramiento en vez de cerco.
+- **Iluminación exterior** (columna de jardín, foco empotrado de piso,
+  reflector de fachada, iluminación subacuática de piscina — `jardin-005`
+  a `008`): son solo la luminaria + instalación/fijación, **sin el punto
+  eléctrico de alimentación** (ya cubierto por `electrica-001` en
+  Instalación Eléctrica, no se duplica).
+- **Riego automático**: `jardin-009` aspersión con programador
+  ($42.153,47/GL), `jardin-010` goteo con programador ($27.456,56/GL) —
+  llave en mano, no descompuesto en componentes sueltos.
+- **Portón peatonal y motor para portón corredizo** (`carpmet-007`/`008`)
+  — van a Carpinterías/Hierro, mismo oficio que sus pares 7.3.15/7.3.16/
+  carpmet-004/005, no se creó una categoría paralela en Obra Exterior.
+- **Sin capa de leyes sociales**: confirmado con el usuario que ningún
+  script de esta expansión (gas/incendio, ascensor, impermeabilización/
+  vidrios, este) la aplica — es un módulo aparte del presupuesto real
+  (`SeccionLeyesSociales.tsx`), no del precio de referencia de biblioteca.
+- **20 `PrecioMTOP` nuevos**, **12 materiales reusados** (bloque hormigón,
+  hierro redondo 12mm, cemento portland, arena gruesa, 2 chapas
+  galvanizadas, perfil IPN, revoque premezclado 2en1, alambre galvanizado,
+  poste de eucaliptus, tarugo c/tornillo, tornillos y herrajes, teja
+  colonial).
+- Verificado en vivo (HOGAR, proyecto real): "Ver subrubros típicos" para
+  Obra Exterior/Jardín trae 19/19 códigos, Carpinterías/Hierro trae 8/8
+  (vía el mismo endpoint `GET /api/subrubros-estandar` que usa el panel).
+  `tsc`/build limpios.
+
+⚠️ **Hallazgo aparte, no corregido**: `cubierta-010` (Estructura de
+madera para techo) y `cubierta-001` (Teja colonial sobre estructura de
+madera) tampoco tienen `PrecioMTOP` propio — mismo gap que 7.2.30/31 y
+7.4.X. `jardin-002` reusa su composición pero con `PrecioMTOP` nuevo
+propio, así que funciona correctamente al clonar; los 2 códigos
+originales de Cubierta/Techos siguen sin arreglar.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
