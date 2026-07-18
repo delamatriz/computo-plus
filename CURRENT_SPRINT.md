@@ -1169,6 +1169,52 @@ Carpinterías). Script:
 **Pendiente**: 16 códigos restantes de Carpinterías (Madera,
 Equipamiento) para completar la Tanda 1.
 
+## Fase 2 del bug "clona a $0" — Carpinterías, subcapítulo Madera (18/07/2026)
+
+**✅ COMPLETADO** (4 de los 16 códigos restantes de la Tanda 1 de
+Carpinterías). Script:
+[`computo-app/scripts/fix-madera-carpinterias.ts`](computo-app/scripts/fix-madera-carpinterias.ts).
+
+- Confirmado (sin caso de material mal asignado): en los 4 códigos el
+  material del APU coincide con lo que el código describe. Ninguno
+  usado en Rubro real de HOGAR/Matisse Monet.
+- **Hallazgo**: "Tornillos y herrajes" (7.3.1/7.3.2) y "Tornillos y
+  herrajes mueble" (7.3.3/7.3.4) ya tenían `PrecioMTOP` real (matchean
+  por `contains`) — solo faltaba precificar la puerta/ventana en sí.
+- Fuentes — Generador de Precios de la Construcción Uruguay (CYPE) para
+  3 de los 4, con un ajuste manual en el cuarto tras objeción del
+  usuario:
+  - `7.3.1` (Puerta exterior 0,90×2,10m): **ajustado tras revisión** —
+    la referencia CYPE inicial daba una caída de -72% vs. el histórico
+    ($69.120), señal de que era de gama más económica que una puerta de
+    entrada estándar. Se reemplazó por un precio de venta real (no
+    estimador): Tienda Waluminio, puerta de cedro macizo 85×205cm,
+    $11.295,50 — escalado por área a 0,90×2,10m → material $12.251,65.
+    Queda igual una caída fuerte (-69%) pero ahora anclada a una
+    cotización real confirmada "maciza", no a un estimador genérico.
+  - `7.3.2` (Puerta interior 0,80×2,05m): CYPE "puerta interior de
+    abrir, de madera" → material $3.798,84.
+  - `7.3.3` (Ventana corrediza con celosía 1,20×1,00m): sin match
+    directo en CYPE — ⚠️ estimación gruesa derivada de ventana
+    abisagrada CYPE (×0,85 corrediza, ×1,15 celosía) → material
+    $39.799,04.
+  - `7.3.4` (Puerta ventana corrediza 1,80×2,05m): sin match directo —
+    ⚠️ estimación gruesa derivada de puerta exterior CYPE (×1,4 por
+    tamaño/tipo) → material $28.464,78.
+- Sin cambios de mano de obra en los 4. GG 15% / Utilidad 10%, sin
+  leyes sociales (no aplica en biblioteca).
+- **4 `precioUY` recalculados**: `7.3.1` → **$21.535,04**, `7.3.2` →
+  **$9.019,75**, `7.3.3` → **$54.327,77**, `7.3.4` → **$42.324,11**.
+- Verificado en vivo: `clonar-apu` probado sobre los 4 códigos —
+  ninguno en $0, material y `rubro.precioUnit` coinciden exacto con lo
+  calculado (`7.3.1` material $12.251,65/rubro $21.535,04; `7.3.2`
+  $3.798,84/$9.019,75; `7.3.3` $39.799,04/$54.327,77; `7.3.4`
+  $28.464,78/$42.324,11). Proyecto de prueba borrado. `tsc`/build
+  limpios.
+
+**Pendiente**: 12 códigos restantes de Carpinterías (Equipamiento) para
+completar la Tanda 1.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
