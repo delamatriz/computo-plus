@@ -800,6 +800,51 @@ madera) tampoco tienen `PrecioMTOP` propio — mismo gap que 7.2.30/31 y
 propio, así que funciona correctamente al clonar; los 2 códigos
 originales de Cubierta/Techos siguen sin arreglar.
 
+## Expansión de biblioteca — Gastos Administrativos y Conexiones (18/07/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/seed-administrativo.ts`](computo-app/scripts/seed-administrativo.ts).
+`CapituloCatalogo` nuevo **"Gastos Administrativos y Conexiones"** (orden
+22) — pasa de 22 a **23 filas**. 4 `SubcapituloCatalogo` nuevos:
+"Honorarios Profesionales", "Permisos y Trámites Municipales", "Estudios
+Técnicos", "Conexiones de Servicios". 20 `SubrubroEstandar` nuevos.
+
+- **Honorarios Profesionales (12, `admin-001` a `012`)**: anteproyecto,
+  proyecto arquitectónico/ejecutivo, dirección/supervisión/jefe de obra,
+  asesoramiento, relevamiento, metrajes, presupuesto, plan de seguridad,
+  fiscalización. **`precioUY = $0` explícito** (no estimado) — el arancel
+  SAU es % del costo de obra, cualquier monto fijo sería engañoso. Cada
+  uno lleva `APUEstandar` **mínimo** (1 material a $0, sin MO, sin
+  `PrecioMTOP`) — confirmado en [page.tsx:2799](computo-app/src/app/proyectos/[id]/page.tsx:2799)
+  que un `SubrubroEstandar` sin `APUEstandar` y `precioUY=0` dispara
+  sugerencia de IA (`sugerir-apu`) al agregarlo a un proyecto, que
+  inventaría materiales sin sentido para un honorario. Con `APUEstandar`
+  mínimo (`tieneApuEstandar=true`) toma el camino normal de clonar-apu.
+  El panel muestra "—" en vez de "$0" (`fmtMonedaDecimal`) — comportamiento
+  intencional y correcto, no un bug.
+- **Permisos, Estudios y Conexiones (8, `admin-013` a `020`)**, con precio
+  de referencia real y fuente donde se encontró:
+  - `admin-014` Empadronamiento/catastro: Tasa Catastral publicada, Dir.
+    Nac. de Catastro ($918 base).
+  - `admin-016` Estudio de suelos: Generador de precios CYPE Uruguay,
+    suelo medio, campo+laboratorio ($59.780,63 base).
+  - `admin-017`/`018` Conexión OSE agua/saneamiento: tarifa publicada en
+    UR (5 UR / 17 UR × $1.922,68, valor UR julio 2026).
+  - `admin-020` Conexión Gas del Estado/ANCAP: MontevideoGas, cargo
+    residencial USD 276 c/IVA × TC $42,5 (mismo TC que usa `page.tsx`).
+  - `admin-013`, `015`, `019` (permiso de construcción IM, final de obra,
+    conexión UTE): **sin tarifa fija publicada encontrada** — quedan como
+    estimación gruesa marcada explícitamente (IM cobra 1-1,5% del valor
+    catastral variable, no un monto fijo; UTE define conceptos en su
+    Pliego Tarifario sin monto único para vivienda estándar).
+  - 8 `PrecioMTOP` nuevos (uno por código, mismo criterio que el resto de
+    esta expansión — sin esto clonarían a $0).
+- Verificado en vivo (proyecto de prueba): 23 filas en `CapituloCatalogo`,
+  20 `SubrubroEstandar` activos, los 20 códigos resuelven correctamente
+  vía `capituloCatalogoId` automático al crear el capítulo (Etapa 5) — 12
+  con `precioUY=0`/`tieneApuEstandar=true` (Honorarios), 8 con precio real
+  y subcapítulo correcto. Proyecto de prueba borrado. `tsc`/build limpios.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
