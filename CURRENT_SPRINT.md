@@ -890,6 +890,55 @@ Script: [`computo-app/scripts/seed-herreria-estructura-metalica.ts`](computo-app
   organizados en los 2 subcapítulos correctos. Proyecto de prueba
   borrado. `tsc`/build limpios.
 
+## Auditoría transversal "clona a $0" + Fase 1 de corrección (18/07/2026)
+
+**Auditoría completa**: recorridos los 390 `SubrubroEstandar` activos con
+`APUEstandar`, replicando exacto el lookup de `clonar-apu` (mismo
+`contains`/orden). Resultado: **202 códigos afectados** (52% de la
+biblioteca con APU) — **todos** en el grupo "sin `PrecioMTOP` en
+absoluto" (0 casos de "PrecioMTOP con precioUnitario=0"). 17 capítulos
+afectados, concentrado en Subcontratos-Acondicionamientos (26),
+Albañilería (25), Carpinterías (28) e Instalación Sanitaria (20). De los
+202, **solo 1 está en uso en un proyecto real** (`7.2.1` BAÑO COMPLETO,
+Rubro R001 de HOGAR) — los otros 201 son biblioteca latente, corrección
+por fases sin apuro. (12 de los 202 son los `admin-001` a `012` de
+Honorarios Profesionales — su $0 es intencional, no un gap real.)
+
+**Fase 1 — corregido `7.2.1` (BAÑO COMPLETO)**. Script:
+[`computo-app/scripts/fix-precio-bano-completo.ts`](computo-app/scripts/fix-precio-bano-completo.ts).
+6 `PrecioMTOP` nuevos (Caño PVC desagüe 110mm $350/ml y 50mm $120/ml —
+este último estimación gruesa; Caño termofusión 20mm agua fría/caliente
+$161,34/ml, mismo producto físico, precio real ya en la Lista MTOP como
+SA001; Accesorios termofusión $1.100/gl y Sellador sanitario $450/gl,
+ambos estimación gruesa). `precioUY` de `7.2.1` recalculado de $86.071,36
+(histórico roto) a **$48.020,41**.
+
+⚠️ Comparado contra el Rubro real de HOGAR (R001, $37.524,96 tecleado a
+mano por el usuario en algún momento, **NO tocado** por este fix): 28%
+de diferencia. La mano de obra domina el costo (75% del costo directo,
+Plomero oficial + Peón a 0,15 GL/jornada = 6,67 jornadas combinadas por
+baño — rendimiento heredado del import SAU 2022, no se tocó, esta fase
+solo corrigió materiales). Pendiente de decisión de producto: revisar si
+ese rendimiento de MO es realista, o si el precio tecleado a mano en
+HOGAR está desactualizado.
+
+**Efecto cascada** (sin tocar otros `SubrubroEstandar`/`APUEstandar`, solo
+comparten el `PrecioMTOP` vía el mismo lookup): `7.2.2` (Cocina Completa),
+`sanitaria-002`/`003` (termofusión agua fría/caliente),
+`sanitaria-006`/`007` (desagüe PVC 110mm/50mm) quedan resueltos también.
+
+Verificado en vivo: `clonar-apu` sobre `7.2.1` en proyecto de prueba — los
+7 materiales resuelven a precio real (ninguno en $0), rubro clonado da
+$48.020,41 (coincide exacto). Confirmado que el Rubro R001 de HOGAR sigue
+en $37.524,96 sin cambios (`updatedAt` intacto) — su propio APU interno
+todavía tiene los materiales en $0 (mismo riesgo latente ya señalado: si
+algún día se "reaplica" ese APU, el precio se iría a casi $0 — no
+corregido, fuera de alcance de esta fase). Proyecto de prueba borrado.
+`tsc`/build limpios.
+
+**Pendiente**: 201 códigos restantes de la auditoría, sin uso en
+proyecto real — corrección por fases en próximas sesiones.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
