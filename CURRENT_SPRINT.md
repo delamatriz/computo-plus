@@ -972,6 +972,32 @@ próximas sesiones.
   a $42.000, rubro $60.431,26) — ninguno en $0. Proyecto de prueba
   borrado. `tsc`/build limpios.
 
+## Isopanel con espesores reales — RESUELTO (18/07/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/fix-isopanel-espesores.ts`](computo-app/scripts/fix-isopanel-espesores.ts).
+
+- **`cubierta-008`** (Cubierta de Isopanel genérico, sin espesor,
+  `precioUY=0`) **desactivado** (`activo: false`, no borrado — mismo
+  patrón que `7.2.19`/`7.2.20` y el contrapiso duplicado 6.6.3).
+- **3 códigos nuevos** con espesor real, reusando 3 `PrecioMTOP` que ya
+  existían cargados con precio real pero sin ningún `SubrubroEstandar`
+  que los usara (`CUB001`/`CUB002`/`CUB003` — Panel autoestructural
+  prefabricado multicapa): `isopanel-001` (50mm, **$2.987,16/m2**),
+  `isopanel-002` (150mm, **$3.571,06/m2**), `isopanel-003` (250mm,
+  **$4.375,69/m2**). Ningún `PrecioMTOP` nuevo — pura reclasificación de
+  material ya existente sin usar.
+- MO: mismo criterio que ya usaba `cubierta-008` (Oficial albañil + Peón,
+  rendimiento 16 m2/jornada) para 001/002. En `isopanel-003` (250mm,
+  panel más grueso/pesado) se bajó el rendimiento a 13 m2/jornada —
+  más lento de manipular y fijar.
+- Verificado en vivo: `cubierta-008` ya no aparece en "Ver subrubros
+  típicos" para Cubierta/Techos (17 códigos activos: 15 previos - 1 +
+  3 nuevos), los 3 `isopanel-XXX` sí aparecen. `clonar-apu` probado
+  sobre `isopanel-002` — material resuelve a $2.418,13 (no $0), rubro
+  clonado $3.571,06 (coincide exacto). Proyecto de prueba borrado.
+  `tsc`/build limpios.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
