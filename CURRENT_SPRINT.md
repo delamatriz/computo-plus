@@ -1091,6 +1091,35 @@ sin apalancamiento — casi todos materiales únicos por código, ver
 inventario agrupado ya reportado) queda para la Tanda 1 completa en
 otra sesión.
 
+## Fase 2 del bug "clona a $0" — Carpinterías, subcapítulo Herrajes (18/07/2026)
+
+**✅ COMPLETADO** (3 de los 25 códigos restantes de la Tanda 1 de
+Carpinterías). Script:
+[`computo-app/scripts/fix-herrajes.ts`](computo-app/scripts/fix-herrajes.ts).
+
+- `7.3.6`/`7.3.7`/`7.3.8` (Pomo con llavín, Cerradura tipo star con
+  manija, Bisagra) — confirmado que en los 3 el material del APU sí
+  coincide con lo que el código describe (sin caso de material mal
+  asignado como en Hierro). Ninguno usado en Rubro real de HOGAR/Matisse
+  Monet.
+- Precios: **Pomo con llavín** $950/u (Kroser Uruguay, marca Hermex,
+  rango real observado $727-1.284). **Cerradura tipo star con manija**
+  $4.000/u (⚠️ estimación gruesa — STAR confirmada como marca líder del
+  mercado uruguayo desde 1941, sin precio publicado específico
+  encontrado; ajustada al alza a pedido del usuario, que consideró baja
+  la primera estimación de $2.200 para una cerradura de embutir completa
+  con manija de esa marca). **Bisagra** $180/u (⚠️ estimación gruesa,
+  sin cotización uruguaya específica encontrada).
+- `precioUY`: `7.3.6` $345,60→**$1.785,30**, `7.3.7` $1.782,00→
+  **$5.760,26**, `7.3.8` $126,36→**$446,53**. Sin cambios de MO (los
+  rendimientos originales ya eran correctos).
+- Verificado en vivo: `clonar-apu` probado sobre los 3 — todos resuelven
+  a precio real ($950, $4.000, $180 respectivamente, ninguno en $0).
+  Proyecto de prueba borrado. `tsc`/build limpios.
+
+**Pendiente**: 22 códigos restantes de Carpinterías (Madera, Aluminio,
+Equipamiento) para completar la Tanda 1.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
