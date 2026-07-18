@@ -628,6 +628,57 @@ para el diseño original completo.
   al crear el capítulo (Etapa 5). Proyecto de prueba borrado. `tsc`/build
   limpios.
 
+## Expansión de biblioteca — Ascensor (18/07/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/seed-ascensor.ts`](computo-app/scripts/seed-ascensor.ts).
+No se creó `CapituloCatalogo` nuevo — reusa "Ascensor" (ya existía, con
+2 `SubrubroEstandar`: 7.2.30/7.2.31).
+
+- **5 códigos de capacidad nuevos** (7.2.32 a 7.2.36), mismo patrón llave
+  en mano que 7.2.30/7.2.31 (1 línea de material "ascensor completo
+  instalado" + mano de obra simbólica de Oficial especializado):
+  7.2.32 (4p/4 paradas), 7.2.33 (6p/8 paradas), 7.2.34 (8p/6 paradas),
+  7.2.35 (10p/8 paradas), 7.2.36 (camillero, 10p/6 paradas, uso
+  hospitalario/PH). Precios de referencia escalados con un modelo lineal
+  exacto (`precio = k1×personas + k2×paradas`) resuelto a partir de los 2
+  puntos conocidos (7.2.30/7.2.31) — no son valores sueltos inventados.
+- **4 ítems nuevos que rodean al ascensor** (`ascensor-001` a
+  `ascensor-004`), patrón APU completo (materiales + MO reales):
+  impermeabilización de foso (reusa "Membrana asfáltica con geotextil",
+  PrecioMTOP código 270, ya usado en 6.6.8/6.6.9/6.6.12/cubierta-009),
+  terminación de sala de máquinas (reusa "Revoque premezclado 2 en 1"),
+  habilitación y certificación UNIT (trámite, sin MO propia), y contrato
+  de mantenimiento anual — esta última marcada explícitamente en su
+  descripción como "línea opcional, gasto recurrente post-entrega, no
+  parte del costo de construcción".
+- **7 `PrecioMTOP` nuevos** (no 6 como se estimó al planificar): los 5 de
+  capacidad + habilitación UNIT + mantenimiento anual — los 2 últimos
+  también necesitaban su propio `PrecioMTOP` para no clonar en $0 al
+  usar "clonar-apu" (mismo criterio aplicado a los 5 de capacidad).
+- `precioUY` calculado con la misma fórmula que `clonar-apu` (costoDirecto
+  × 1.15 × 1.10). `aportesSociales` queda en 0 (default), mismo criterio
+  que el resto de la biblioteca agregada esta sesión.
+- Verificado en vivo: dry-run revisado antes de aplicar. Post-aplicación:
+  11 `SubrubroEstandar` activos en "Ascensor" (2 previos + 9 nuevos,
+  confirmado vía `GET /api/subrubros-estandar?capituloId=...`, mismo
+  endpoint que usa "Ver subrubros típicos"). Prueba end-to-end de
+  "clonar-apu" sobre 7.2.32 en un rubro de proyecto de prueba: el
+  material resolvió a $574.565,31 (no $0) y el precio final del rubro dio
+  $901.889,10 — coincide exacto con el `precioUY` calculado. Proyecto de
+  prueba borrado. `tsc`/build limpios.
+
+⚠️ **Hallazgo aparte, no corregido (fuera de alcance de esta tarea)**:
+7.2.30 y 7.2.31 (los 2 códigos de Ascensor preexistentes, cargados en el
+import SAU 2022) **no tienen ningún `PrecioMTOP` asociado** — su
+`precioUY` se cargó directo en ese import, sin pasar por el lookup en
+vivo que usa `clonar-apu`. Si hoy se clona cualquiera de esos 2 códigos a
+un rubro real, el material resuelve a $0 (`precioMTOP?.precioUnitario ??
+0` en `clonar-apu/route.ts`) y solo sobrevive el costo de mano de obra
+simbólica — muy por debajo del precio real de un ascensor instalado.
+Pendiente: cargar un `PrecioMTOP` para esos 2 códigos (mismo patrón que
+los 5 nuevos) si se van a usar en un proyecto real.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
