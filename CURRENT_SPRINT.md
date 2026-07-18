@@ -1212,8 +1212,54 @@ Carpinterías). Script:
   $28.464,78/$42.324,11). Proyecto de prueba borrado. `tsc`/build
   limpios.
 
-**Pendiente**: 12 códigos restantes de Carpinterías (Equipamiento) para
-completar la Tanda 1.
+**Pendiente**: recuento corregido tras re-auditoría — ver sección
+siguiente (18/07/2026). La cifra "12 restantes (Equipamiento)" de aquí
+arriba estaba mal: el recuento nunca se hizo con una re-auditoría
+completa, así que no capturó los códigos de Hierro/`carpmet-` sueltos
+ni un error real en 7.3.17b (ver abajo).
+
+## Re-auditoría de Carpinterías + corrección de 7.3.17b (18/07/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/fix-precio-7317b.ts`](computo-app/scripts/fix-precio-7317b.ts).
+
+- **Re-auditoría solicitada por el usuario** tras notar una
+  inconsistencia en el conteo ("16 restantes" → "12 restantes" nunca
+  sumaba con el inventario original de 3 códigos de Equipamiento).
+  Se recorrieron los 38 `SubrubroEstandar` activos con APU de
+  Carpinterías replicando exactamente la lógica de `clonar-apu`
+  (match de material por `descripcion.contains`, insensible a mayúsculas).
+  Resultado: **13 códigos siguen afectados hoy**, no 12:
+  - Equipamiento (3): `7.3.9` mueble de baño, `7.3.10` mueble cocina,
+    `7.3.11` placard.
+  - Hierro (3): `7.3.12` ventana en perfil de hierro, `7.3.13` reja,
+    `7.3.16` motor para portón batiente.
+  - Familia `carpmet-` (6): `carpmet-001` a `006` — pares de
+    7.3.14/7.3.15/7.3.18 que comparten texto de material pero nunca
+    se les asignó `PrecioMTOP` propio al resolver esos 3 casos.
+  - **`7.3.17b`** (1) — dado por resuelto por error en la tanda de
+    Aluminio ("ya quedó correctamente precificado ($57.279,44)"). Al
+    revisar la base, su `precioUY` seguía en $19.519,67 con
+    `fechaBase: 2022-08` (el valor original de 2022, nunca escrito a
+    producción) y su material no tenía `PrecioMTOP` que lo matchee —
+    seguía clonando a $0. El cálculo de $57.279,44 se había hecho
+    correctamente esa sesión, pero el script nunca se corrió con
+    `--apply`.
+  - Cruzado contra los 35 Rubro reales de HOGAR + Matisse Monet:
+    ninguno de los 13 está en uso hoy — 100% biblioteca latente.
+- **Corregido en esta tanda**: `7.3.17b` (Puerta ventana corrediza
+  aluminio Serie 25 2.00×2.05m) — se aplicó la tarifa Serie 25 real ya
+  usada como ancla en `7.3.18` ($9.469,70/m² = $12.500 /
+  (1,20×1,10 m²)), escalada a los 4,10 m² de 7.3.17b → material
+  $38.825,76/u (nuevo `MAT-ALUM-73170B`). Silicona ($280/u) y mano de
+  obra (Oficial especializado + Peón, rendimiento 0,7 c/u) sin cambios.
+  `precioUY`: $19.519,67 → **$57.279,44**.
+- Verificado en vivo: `clonar-apu` sobre `7.3.17b` — material
+  $38.825,76 (no $0, no el valor viejo de 2022), `rubro.precioUnit`
+  $57.279,44 exacto. Proyecto de prueba borrado. `tsc`/build limpios.
+
+**Pendiente**: 12 códigos restantes de Carpinterías para completar la
+Tanda 1 — Equipamiento (3), Hierro (3), familia `carpmet-` (6).
 
 ## Pendientes técnicos
 
