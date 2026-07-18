@@ -998,6 +998,46 @@ próximas sesiones.
   clonado $3.571,06 (coincide exacto). Proyecto de prueba borrado.
   `tsc`/build limpios.
 
+## Chapa de cubierta con 3 calibres reales — RESUELTO (18/07/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/fix-chapa-calibres.ts`](computo-app/scripts/fix-chapa-calibres.ts).
+
+- **`cubierta-004`/`005`/`006`** (chapa "acanalada" genérica sin calibre,
+  denominación de perfil incorrecta heredada del import SAU)
+  **desactivados** (`activo: false`, no borrados). Reemplazados por **9
+  códigos nuevos** con distinción correcta de perfil (ondulada vs.
+  trapezoidal — "acanalada" no es un perfil real) y 3 calibres reales
+  cada uno (N°27≈0,40mm económica, N°25≈0,50mm superior, N°24≈0,56mm
+  premium). Prepintada solo existe en perfil trapezoidal (confirmado,
+  no un descuido).
+- **Metodología de precio**: base real (Lista MTOP N°599, código 75,
+  chapa ondulada galvanizada N°24 = $463,57/kg) cruzada con peso real
+  por m² de cada calibre (fichas técnicas regionales, mismo sistema de
+  calibres) — no estimación a ciegas. Trapezoidal = ondulada ×1,12,
+  prepintada = trapezoidal ×1,18 (incrementos estimados sobre la base
+  real). Confirmadas las 3 hipótesis del usuario: ondulada más
+  económica que trapezoidal, N°24>N°25>N°27 en precio, prepintada más
+  cara que su equivalente galvanizada.
+- Precios: `chapa-ond-027` $2.929,89, `chapa-ond-025` $3.535,55,
+  `chapa-ond-024` $3.929,51, `chapa-trap-027` $3.005,58, `chapa-trap-025`
+  $3.668,92, `chapa-trap-024` $4.091,22, `chapa-prep-027` $3.612,82,
+  `chapa-prep-025` $4.390,59, `chapa-prep-024` $4.883,12 (todos $/m2).
+- 10 `PrecioMTOP` nuevos: las 9 chapas + "Bulón con arandela de goma"
+  ($28/u, estimación — no tenía precio real, se usa en ondulada y
+  prepintada, no en trapezoidal galvanizada, mismo patrón que los
+  códigos originales). "Tornillos autoperforantes para chapa" reusado
+  tal cual (ya real, $6/u).
+- MO: mismo criterio que cubierta-004/005/006 (Oficial albañil + Peón),
+  rendimiento bajado en N°24 (ondulada 12→10, trapezoidal/prepintada
+  14→12).
+- Verificado en vivo: `cubierta-004`/`005`/`006` ya no aparecen en "Ver
+  subrubros típicos" para Cubierta/Techos (23 códigos activos: 17
+  previos - 3 + 9 nuevos), los 9 `chapa-XXX` sí aparecen. `clonar-apu`
+  probado sobre `chapa-ond-027` (material $1.659,58, rubro $2.929,89) y
+  `chapa-prep-025` (material $2.732,43 + bulón $28, rubro $4.390,59) —
+  ninguno en $0. Proyecto de prueba borrado. `tsc`/build limpios.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
