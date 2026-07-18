@@ -679,6 +679,71 @@ simbólica — muy por debajo del precio real de un ascensor instalado.
 Pendiente: cargar un `PrecioMTOP` para esos 2 códigos (mismo patrón que
 los 5 nuevos) si se van a usar en un proyecto real.
 
+## Impermeabilización pasa a CapituloCatalogo standalone + expansión Vidrios (18/07/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/seed-impermeabilizacion-vidrios.ts`](computo-app/scripts/seed-impermeabilizacion-vidrios.ts).
+`CapituloCatalogo` pasa de 21 a **22 filas**.
+
+- **"Impermeabilizaciones y Aislaciones" deja de ser un subcapítulo de
+  Albañilería repartido vía `ParticionSubcapitulo`** (Etapa 5) y pasa a
+  ser su propio `CapituloCatalogo` standalone (orden 21), con **4
+  subcapítulos nuevos**: "Preparación y Aislación Complementaria" (7
+  códigos existentes), "Membranas Asfálticas y Sistema Tradicional" (2
+  existentes + `imperm-001`/`imperm-002` nuevos), "Impermeabilización de
+  Muros y Cimientos" (5 existentes), "Cementicia, Membranas Líquidas y
+  Sistemas Premium" (4 códigos Sika migrados desde sus subcapítulos
+  propios en Albañilería — `6.8.3` Puente de Impermeabilización SikaTop
+  Seal-107, `6.9.1`/`6.9.2`/`6.9.3` Membranas Líquidas Sika — + 3
+  nuevos). Total: **23 `SubrubroEstandar` activos** (14 migrados + 4 Sika
+  migrados + 5 nuevos). Los códigos existentes **no se renumeraron**
+  (mismo criterio que Ascensor/Vidrios: el código es un identificador
+  histórico del SAU, no depende de qué capítulo lo agrupe).
+- **3 códigos nuevos genuinamente premium** (investigados, sin precio
+  MTOP posible por ser productos de marca): `imperm-001` tradicional
+  multicapa (imprimación + 2 fieltros asfálticos en caliente,
+  $1.014,63/m2 — mano de obra intensiva, +13% sobre la estimación
+  inicial, aceptado sin forzar el número), `imperm-002` membrana
+  transitable con protección granular ($2.086,53/m2), `imperm-003`
+  cristalización tipo Xypex/Penetron ($2.197,37/m2), `imperm-004`
+  poliurea proyectada ($3.492,06/m2), `imperm-005` membrana sintética
+  PVC/TPO monocapa ($2.202,22/m2).
+- **`6.6.13` "Colocación de tejas coloniales"** — reclasificado a
+  "Cubierta / Techos": estaba mal clasificado en el import SAU original
+  (no es impermeabilización).
+- **Impacto de Etapa 5 resuelto**: borrada la fila de
+  `ParticionSubcapitulo` (ya no hace falta, el capítulo no comparte
+  catálogo con nadie), borrados los 2 `SubcapituloCatalogo` huérfanos de
+  Albañilería ("Impermeabilizaciones y Aislaciones" y "Membranas
+  Líquidas" — "Puentes de Adherencia" queda intacto con `6.8.1`/`6.8.2`),
+  re-backfill del único `Capitulo` real que usaba este nombre (HOGAR) a
+  `capituloCatalogoId` del catálogo nuevo, y actualización de
+  [`capitulosSau.ts`](computo-app/src/lib/capitulosSau.ts) (alias
+  apunta al capítulo nuevo; confirmado que `subcapitulos`/
+  `excluirSubcapitulos` ya eran código muerto para el cliente desde la
+  Etapa 6b — el único consumidor activo de `CAPITULOS_SAU` es
+  `resolverCapituloCatalogoId()`, que solo lee `capitulos`).
+- **Vidrios y Espejos — 7 códigos nuevos** (de 7 a 14 total, sigue flat
+  sin subcapítulos): DVH 4-9-4mm ($3.200,17/m2), DVH 4-12-4mm
+  ($3.499,03/m2), DVH con Low-E ($4.794,07/m2), vidrio solar/control
+  solar simple ($2.397,72/m2), DVH con control solar ($5.192,55/m2),
+  vidrio laminado de seguridad PVB 3+3mm ($2.098,86/m2), vidrio templado
+  10mm ($6.675,66/m2, extrapolado linealmente de 6mm/8mm existentes).
+- **14 `PrecioMTOP` nuevos** (reutilizados "Imprimación asfáltica" y
+  "Sellador silicona" ya existentes, no se recrearon).
+- Verificado en vivo: HOGAR (proyecto real) — "Ver subrubros típicos"
+  para Impermeabilizaciones trae los 23 códigos organizados en los 4
+  subcapítulos correctos, `Capitulo.capituloCatalogoId` resuelve al
+  catálogo nuevo. "Puentes de Adherencia" quedó con exactamente
+  `6.8.1`/`6.8.2`. "Membranas Líquidas" quedó vacío (subcapítulo
+  borrado). Vidrios probado en proyecto de prueba — 14/14 códigos,
+  proyecto borrado al terminar. `tsc`/build limpios.
+
+⚠️ **Hallazgo aparte, no corregido**: igual que 7.2.30/7.2.31 de
+Ascensor, ninguno de los 7 códigos preexistentes de Vidrios (`7.4.X`)
+tiene `PrecioMTOP` propio — clonan a $0 hoy si se usan en un rubro real.
+Los 7 códigos nuevos de esta expansión sí tienen `PrecioMTOP` dedicado.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
