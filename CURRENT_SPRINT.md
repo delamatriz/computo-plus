@@ -418,12 +418,12 @@ para el diseño completo (Etapas 1-7). Etapas 1 y 2 (catálogo canónico
   en Altura, Gastos Generales de Obra). Cero cambio de comportamiento en
   runtime — puramente aditivo. Commit 056e8a5.
 
-- [ ] Brecha de biblioteca detectada durante Etapa 4: la biblioteca hoy solo
+- [x] Brecha de biblioteca detectada durante Etapa 4: la biblioteca hoy solo
   tiene capítulo de catálogo para carpintería metálica (dentro de
   "Subcontratos - Carpinterías"). No existe capítulo separado para Herrería
   Estructural ni Herrería de Obra (hierro estructural — pilares, vigas,
-  pórticos / varillas y estribos de hormigón armado). Sigue pendiente
-  (Instalación de Gas y Contra Incendio ya se sembraron — ver más abajo).
+  pórticos / varillas y estribos de hormigón armado). **RESUELTO
+  (18/07/2026)** — ver "Herrería de Obra + Estructura Metálica" más abajo.
 
 - [x] Fase 2 — Etapa 5: switch de runtime en abrirSubrubrosPanel — resuelve
   por Capitulo.capituloCatalogoId + ParticionSubcapitulo en vez de alias de
@@ -844,6 +844,51 @@ Técnicos", "Conexiones de Servicios". 20 `SubrubroEstandar` nuevos.
   vía `capituloCatalogoId` automático al crear el capítulo (Etapa 5) — 12
   con `precioUY=0`/`tieneApuEstandar=true` (Honorarios), 8 con precio real
   y subcapítulo correcto. Proyecto de prueba borrado. `tsc`/build limpios.
+
+## Herrería de Obra + Estructura Metálica (18/07/2026)
+
+**✅ COMPLETADO — cierra la última brecha pendiente de la Etapa 4.**
+Script: [`computo-app/scripts/seed-herreria-estructura-metalica.ts`](computo-app/scripts/seed-herreria-estructura-metalica.ts).
+
+- **Herrería de Obra** (2 códigos, `herreria-obra-001`/`002`): nuevo
+  subcapítulo dentro de `CapituloCatalogo` **"Estructura"** (existente, no
+  se creó capítulo nuevo) — provisión y colocación de hierro suelto para
+  armado ($140,05/kg) y estribos/separadores ($137,75/kg, rendimiento más
+  rápido). Reusan "Hierro para hormigón armado" (`MAT-HIERRO-ARM`,
+  $85/kg), mismo material que ya usan 5.1.1/4.2.5/etc. MO: "Oficial
+  especializado" — confirmado que es la categoría que esta biblioteca ya
+  usa para armado de hierro (ver 5.1.1).
+- **`CapituloCatalogo` nuevo "Estructura Metálica"** (orden 23) —
+  `CapituloCatalogo` pasa de 23 a **24 filas**. 2 subcapítulos:
+  - "Columnas y Vigas": `estmet-001` pilar de hierro IPN/doble T
+    ($432,72/kg), `estmet-002` viga de hierro IPN/doble T ($409,29/kg),
+    `estmet-003` pórtico completo de referencia rápida (~130kg, luz
+    4-6m, $42.157,77/GL — descripción aclara usar 001/002 por kg para
+    proyectos reales).
+  - "Terminación y Protección": `estmet-004` galvanizado en caliente
+    ($120,18/kg, ⚠️ sin tarifa Uruguay publicada encontrada, estimación
+    gruesa), `estmet-005` pintura anticorrosiva + esmalte sintético
+    ($568,21/m2, MO "Pintor oficial" — categoría específica correcta).
+- **Decisión de diseño**: no se agregaron variantes de tamaño de perfil
+  (IPN 100/160/200mm) — el precio ya está en $/kg, el tamaño es una
+  decisión de cómputo del proyecto real, no del catálogo. Se reusa
+  "Perfil de hierro normal (IPN 120mm)" (único perfil con `PrecioMTOP`
+  real ya cargado) como base única de precio para cualquier tamaño.
+- Solo **2 `PrecioMTOP` nuevos** (perno de anclaje para pórtico, servicio
+  de galvanizado) — el resto (hierro armado, perfil IPN, electrodos,
+  pintura anticorrosiva, esmalte sintético) se reusó con precio real ya
+  existente, sin crear materiales redundantes.
+- Rendimiento de MO de `estmet-001`/`002` (25-28 kg/jornada de cuadrilla
+  Oficial especializado + Peón) revisado a pedido antes de aplicar:
+  comparado contra `cubierta-013` (30 kg/jornada, roof liviano) y contra
+  el benchmark internacional de soldadura pura (~64-120 kg/jornada de
+  arco, que no incluye izaje/aplomado/nivelación) — confirmado que el
+  número se sostiene, no es un factor conservador de más. No se ajustó.
+- Verificado en vivo: 24 filas en `CapituloCatalogo`, 2 `SubrubroEstandar`
+  activos en "Herrería de Obra", 5 en "Estructura Metálica" — "Ver
+  subrubros típicos" probado en proyecto de prueba, 5/5 códigos
+  organizados en los 2 subcapítulos correctos. Proyecto de prueba
+  borrado. `tsc`/build limpios.
 
 ## Pendientes técnicos
 
