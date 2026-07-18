@@ -1120,6 +1120,55 @@ Carpinterías). Script:
 **Pendiente**: 22 códigos restantes de Carpinterías (Madera, Aluminio,
 Equipamiento) para completar la Tanda 1.
 
+## Fase 2 del bug "clona a $0" — Carpinterías, subcapítulo Aluminio (18/07/2026)
+
+**✅ COMPLETADO** (8 de los 22 códigos restantes de la Tanda 1 de
+Carpinterías). Script:
+[`computo-app/scripts/fix-aluminio-gala.ts`](computo-app/scripts/fix-aluminio-gala.ts).
+
+- Confirmado (sin caso de material mal asignado): en los 6 códigos Gala
+  el material coincide con la descripción. `7.3.24` "Amure de aberturas
+  de aluminio" no forma parte del lote — ya tenía precio real. Ninguno
+  usado en Rubro real de HOGAR/Matisse Monet.
+- **Escalera de gama confirmada** investigando el sitio del fabricante
+  (aluminios.com, aberturasgala.uy, probba.uy): Serie 25 (económico,
+  sin DVH, otro fabricante) → **Probba** (economía, sí admite DVH,
+  "mejor relación calidad-precio") → **Gala** (media, "comodidad para
+  su familia") → Summa (premium). Esto corrigió una subestimación
+  inicial de Gala (se había calculado como un solo escalón sobre Serie
+  25, en vez de dos).
+- Tarifas base ($/m²): Serie 25 $9.469,70 (ancla real, 7.3.18) → Probba
+  $15.151,52 (×1,60) → Gala $24.242,42 (×1,60). Sobre cada base se
+  aplican los mismos multiplicadores relativos: DVH ×1,38,
+  oscilobatiente ×1,10, lama térmica ×1,65.
+- **Hallazgo antes de aplicar**: `7.3.17b` — pese a estar agrupado como
+  "código de Gala" en el pedido, su descripción y material dicen
+  literalmente "Serie 25" — **se excluyó de la tanda Gala y quedó sin
+  tocar**, con la tarifa Serie 25 real ya aplicada la sesión anterior
+  ($57.279,44). Confirmado con el usuario antes de aplicar.
+- **5 códigos Gala recalculados**: `7.3.19` (DVH) $58.559,01→
+  **$254.383,01**, `7.3.20` $28.283,60→**$60.364,64**, `7.3.21`
+  (oscilobatiente) $28.283,60→**$55.804,82**, `7.3.22` $22.308,20→
+  **$51.082,14**, `7.3.23` (lama térmica) $36.848,36→**$82.654,80**.
+- **6 códigos Probba nuevos** (`alu-probba-001` a `006`, mismos
+  tipos/tamaños que sus pares Gala, mismo criterio de MO): $86.748,18 /
+  $163.289,21 / $39.147,15 / $36.323,82 / $33.372,14 / $53.433,30.
+- ⚠️ Metodología en cadena con un solo punto real de anclaje (7.3.18) —
+  no son cotizaciones directas independientes por producto. Se encontró
+  precio real de componentes sueltos de perfil Gala en
+  `shop.aluminios.com` (ej. hoja de puerta batiente USD 141,90-191,08)
+  pero con ambigüedad de unidad (¿por metro lineal o por barra de 6m?)
+  que impidió usarlo como ancla cuantitativa directa — se usó solo como
+  respaldo cualitativo de que la línea tiene precio de mercado real.
+- Verificado en vivo: 14 `SubrubroEstandar` activos en Aluminio (8
+  previos + 6 Probba nuevos). `clonar-apu` probado sobre `7.3.19` (Gala
+  DVH recalculado — material $192.029,09, rubro $254.383,01) y
+  `alu-probba-005` (nuevo — material $23.333,33, rubro $33.372,14) —
+  ninguno en $0. Proyecto de prueba borrado. `tsc`/build limpios.
+
+**Pendiente**: 16 códigos restantes de Carpinterías (Madera,
+Equipamiento) para completar la Tanda 1.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
