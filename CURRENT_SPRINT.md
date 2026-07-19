@@ -1504,6 +1504,37 @@ zócalo de madera, porcelanato 30x60.
 dura 10x5cm, zócalo de madera, ladrillo de vidrio, malla
 electrosoldada, porcelanato 30x60).
 
+## Fase 2 del bug "clona a $0" — Tanda 2 (Albañilería), sub-tanda 2, Grupo B (19/07/2026)
+
+**✅ COMPLETADO** (2 de los 8 códigos restantes — pulidos/selladores,
+sin material "de obra", solo productos de terminación/mantenimiento).
+Script:
+[`computo-app/scripts/fix-albanileria-pulidos.ts`](computo-app/scripts/fix-albanileria-pulidos.ts).
+
+- Confirmado (sin material mal asignado): en los 2 el material del
+  APU coincide con lo que el código describe. Ninguno usado en Rubro
+  real de HOGAR/Matisse Monet (confirmado por consistencia).
+- Fuentes: se encontró el producto exacto buscado para
+  sellador/plastificado de madera (Sherwin Williams Uruguay, línea
+  Rexpar "Sellador Hidro" + "Poliuretano Comercial") pero sin precio
+  publicado — se usó el rango real confirmado de Sodimac Uruguay para
+  "Barnices y protectores de madera" ($750-$3.489, 1L-4L): sellador
+  tramo bajo-medio $950/L, plastificado tramo medio-alto $1.750/L.
+  Cera selladora para monolítico: TodoFicina.com.uy, Spartan "Pro
+  Shine" 5L $1.509,54 → $301,91/L (SKU real, confirma uso en
+  monolítico).
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **2 `precioUY` aplicados**: `6.4.11` **$839,30**, `6.4.12`
+  **$329,96**.
+- Verificado en vivo: `clonar-apu` probado sobre los 2 — ninguno en
+  $0, material y `rubro.precioUnit` coinciden exacto. Proyecto de
+  prueba borrado. `tsc`/build limpios.
+
+**Pendiente**: 6 códigos restantes de Albañilería (Tanda 2) — Grupo C
+(varios: baldosa de vereda, madera dura 10x5cm, zócalo de madera,
+ladrillo de vidrio, malla electrosoldada, porcelanato 30x60).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
