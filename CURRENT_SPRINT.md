@@ -1599,6 +1599,53 @@ Albañilería queda 100% cerrada). Script:
   sube) y 6.7.1 — ninguno en $0, material y `rubro.precioUnit`
   coinciden exacto. Proyecto de prueba borrado. `tsc`/build limpios.
 
+## Fase 2 del bug "clona a $0" — Tanda 3 (Acondicionamientos), sub-tanda 3a (19/07/2026)
+
+**✅ COMPLETADO** (4 de los 24 códigos de la Tanda 3 — Sanitarios y
+grifería, subcapítulo Equipamiento). De paso corrige jardin-002b (Obra
+Exterior/Jardín). Script:
+[`computo-app/scripts/fix-acondicionamientos-sanitarios.ts`](computo-app/scripts/fix-acondicionamientos-sanitarios.ts).
+
+- Auditoría en vivo (no el archivo viejo) confirmó **24 códigos
+  afectados** en Acondicionamientos (16 Equipamiento + 8 Obra
+  Exterior/Jardín), no los 25-26 de la auditoría original — algo
+  cambió con los fixes de Ascensor/Equipamiento/Obra Exterior/Gastos
+  Administrativos de sesiones previas que comparten este catálogo.
+  Ninguno de los 24 usado en Rubro real de HOGAR/Matisse Monet.
+  Apalancamiento muy bajo, solo "Accesorios de colocación grifería"
+  compartido (7.2.4/7.2.6).
+- Confirmado (sin material mal asignado) en los 4 sanitarios — son
+  conjuntos GL que agrupan varias piezas, igual que el SAU original.
+- **Hallazgo en jardin-002b** (fuera de esta sub-tanda temáticamente,
+  pero resuelto de paso por ser trivial): el material "Chapa de hierro
+  galvanizad**A**, ondulada, Nro. 24..." no matcheaba con la Lista
+  MTOP código 75 "Chapa de hierro galvanizad**O**, ondulada, Nro.
+  24..." ($463,57/kg, ya real, mismo ancla del fix de Chapa en
+  Carpinterías) por pura discordancia de género gramatical. Se
+  renombró — el `precioUY` ya estaba correctamente guardado
+  ($14.967,04), el fix solo alinea `clonar-apu` con ese valor.
+- Fuentes (gama media/estándar, blanco, sin lujo) — todas Sodimac
+  Uruguay salvo la pileta: Inodoro con mochila Rozen "Urban" USD 129;
+  Bidet Rozen "Urban" USD 70; Lavatorio Sensi D'Acqua "Florencia" USD
+  39; Grifería monocomando lavatorio/bidet Sensi D'Acqua "Parma" USD
+  18 (bidet sin SKU propio, mismo precio); Grifería ducha Sensi
+  D'Acqua "Perugia" USD 39; Pileta y media Tramontina 304 (Castro.com.uy)
+  USD 111,80; Mezcladora cocina Sensi D'Acqua USD 69. Accesorios de
+  colocación grifería/pileta sin fuente puntual, estimación ($400/$350
+  gl).
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **4 `precioUY` aplicados**: `7.2.3` **$24.055,87**, `7.2.4`
+  **$7.882,92**, `7.2.5` **$7.970,68**, `7.2.6` **$4.946,91**.
+- Verificado en vivo: `clonar-apu` probado sobre 7.2.3 y jardin-002b —
+  ninguno en $0, material y `rubro.precioUnit` coinciden exacto.
+  Confirmado que jardin-002b resuelve la chapa a $463,57/kg. Proyecto
+  de prueba borrado. `tsc`/build limpios.
+
+**Pendiente**: 20 códigos restantes de Acondicionamientos (Tanda 3) —
+mesadas de piedra (5), varios de Equipamiento (7), Obra Exterior/Jardín
+(7 restantes tras jardin-002b).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
