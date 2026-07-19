@@ -1456,6 +1456,54 @@ vinílicos, flotante, parquet, alfombra, baldosa de vereda, madera dura
 10x5cm, pulido de pisos, ladrillo de vidrio, malla electrosoldada,
 zócalo de madera, porcelanato 30x60.
 
+## Fase 2 del bug "clona a $0" — Tanda 2 (Albañilería), sub-tanda 2, Grupo A (19/07/2026)
+
+**✅ COMPLETADO** (6 de los 14 códigos restantes — pisos de interior
+"blandos"). Script:
+[`computo-app/scripts/fix-albanileria-pisos-interior.ts`](computo-app/scripts/fix-albanileria-pisos-interior.ts).
+
+- Confirmado (sin material mal asignado): en los 6 el material del
+  APU coincide con lo que el código describe. Ninguno usado en Rubro
+  real de HOGAR/Matisse Monet.
+- **Chequeo del orden esperado** (rollo < baldosa ≈ H2O < flotante <
+  parquet) — pedido explícitamente por el usuario, NO se sostiene
+  completo con fuentes reales equivalentes: la baldosa vinílica sale
+  más barata que el rollo (grados de uso distintos: rollo clase
+  34/43 comercial/industrial vs. baldosa clase 31 comercial
+  moderado); el H2O (SPC rígido) resulta el más caro de los 5, no
+  "≈ baldosa" (categoría de producto más moderna/premium). Flotante <
+  parquet sí se sostiene en precio final, aunque por la mano de obra
+  (el parquet lleva rend. 6 vs. 18 del flotante) y no por el material
+  bruto. Aprobado por el usuario tal cual, sin forzar el orden
+  esperado.
+- Fuentes: Sodimac Uruguay (SPC real, piso flotante gama alta real);
+  CYPE Uruguay (rollo/baldosa vinílica comercial, parquet multicapa
+  ingeniería — reemplazó "mosaico" por ser gama más básica que la
+  pedida, espuma de piso flotante). Adhesivos (vinílico, parquet)
+  convertidos a $/kg desde el $/m² real de CYPE usando el rendimiento
+  propio de cada APU.
+- **Alfombra de alto tránsito — advertencia más fuerte del sistema**
+  (⚠️⚠️): Casa Belforte y Vinibel (mayoristas reales uruguayos)
+  confirman el producto exacto en plaza pero sin precio publicado en
+  ningún canal accesible. Estimado escalando el total SAU 2022 con
+  proporción material/MO típica de esta investigación — sin ancla de
+  precio real, revisar si se detecta uso real antes de confiar en el
+  número.
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **6 `precioUY` aplicados**: `6.4.1` **$2.046,53**, `6.4.2`
+  **$1.308,22**, `6.4.3` **$994,99**, `6.4.4` **$1.939,24**, `6.4.5`
+  **$2.223,11**, `6.4.9` **$1.527,33**.
+- Verificado en vivo: `clonar-apu` probado sobre 3 (baldosa la más
+  barata, parquet, H2O la más cara) — ninguno en $0, material y
+  `rubro.precioUnit` coinciden exacto. Proyecto de prueba borrado.
+  `tsc`/build limpios.
+
+**Pendiente**: 8 códigos restantes de Albañilería (Tanda 2) — Grupo B
+(pulidos/selladores: 2) y Grupo C (varios: baldosa de vereda, madera
+dura 10x5cm, zócalo de madera, ladrillo de vidrio, malla
+electrosoldada, porcelanato 30x60).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
