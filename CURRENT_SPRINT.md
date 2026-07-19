@@ -1405,6 +1405,57 @@ Carpinterías queda 100% cerrada). Script:
   precio real + 1 desactivado (7.3.14, redundante). Tanda 1 de
   Carpinterías cerrada por completo.
 
+## Fase 2 del bug "clona a $0" — Tanda 2 (Albañilería), sub-tanda 1 (19/07/2026)
+
+**✅ COMPLETADO** (11 de los 25 códigos afectados de Albañilería, los 4
+materiales de mayor apalancamiento). Script:
+[`computo-app/scripts/fix-albanileria-subtanda1.ts`](computo-app/scripts/fix-albanileria-subtanda1.ts).
+
+- Auditoría en vivo (no el archivo viejo de scratchpad) confirmó los
+  25 códigos afectados y el agrupamiento por material compartido.
+  Ninguno de los 25 usado en Rubro real de HOGAR/Matisse Monet.
+- **Decisión 6.5.4**: no se creó material nuevo — reusa "Baldosa
+  cerámica esmaltada ~45-50cm" (mismo precio que 6.4.7/6.4.22),
+  renombrado para no prometer una medida exacta incumplida (el código
+  decía 45x45cm, el material decía 50x50cm).
+- **Decisión 6.5.1/6.5.3**: sí recibieron material propio. Hallazgo
+  que contradijo la expectativa inicial de "sobreprecio real" —
+  datos reales de Acher Cerámicas (Uruguay) muestran que el porcelanato
+  **pulido** (USD 39,20/m²) sale prácticamente igual al **mate**
+  (USD 39,43/m² promedio), y el de **textura/diseño** (USD 33,75/m²)
+  sale más barato en la muestra relevada. Se reportó así, sin forzar
+  una diferencia artificial.
+- **Bug adicional encontrado** (no estaba en la lista de 25): el
+  material "Cemento Portland" de 6.4.8 resolvía por `contains` al
+  cemento **blanco** ($54,44/kg) en vez del gris estándar (~$25,70/kg)
+  — mismo patrón de colisión por texto ambiguo visto en Carpinterías.
+  Corregido renombrando el material a "Cemento Portland gris
+  (Montevideo, en bolsa, en obra)" (mismo texto que ya usaba
+  correctamente 6.4.23) — no necesitó `PrecioMTOP` nuevo.
+- Fuentes: Acher Cerámicas (Uruguay, real, porcelanatos y cerámica con
+  descuento vigente); MercadoLibre Uruguay (mosaico granítico 20x20cm/
+  30x30cm reales, extrapolado linealmente a 40x40cm); La Casa del
+  Carpintero (Uruguay, alfajía lapacho boliviano 2"x1" $462/ml real,
+  escalado por sección transversal ×11,811 a 30cm×2", medida
+  confirmada en el Rubrado SAU original).
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **11 `precioUY` aplicados**: `6.4.6` **$3.287,76**, `6.4.24`
+  **$624,42**, `6.5.1` **$3.372,91**, `6.5.3` **$3.207,38**, `6.4.7`
+  **$2.090,97**, `6.4.22` **$467,88**, `6.5.4` **$2.151,72**, `6.4.16`
+  **$7.422,91**, `6.4.19` **$7.481,27**, `6.4.8` **$3.023,80**,
+  `6.4.23` **$560,34**.
+- Verificado en vivo: `clonar-apu` probado sobre 5 (uno de cada
+  material + el pulido para confirmar el renombre) — ninguno en $0,
+  material y `rubro.precioUnit` coinciden exacto. Confirmado que 6.4.8
+  ahora resuelve al cemento gris, no al blanco. Proyecto de prueba
+  borrado. `tsc`/build limpios.
+
+**Pendiente**: 14 códigos restantes de Albañilería (Tanda 2) — pisos
+vinílicos, flotante, parquet, alfombra, baldosa de vereda, madera dura
+10x5cm, pulido de pisos, ladrillo de vidrio, malla electrosoldada,
+zócalo de madera, porcelanato 30x60.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
