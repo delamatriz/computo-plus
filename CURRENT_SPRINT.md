@@ -1535,6 +1535,47 @@ Script:
 (varios: baldosa de vereda, madera dura 10x5cm, zócalo de madera,
 ladrillo de vidrio, malla electrosoldada, porcelanato 30x60).
 
+## Fase 2 del bug "clona a $0" — Tanda 2 (Albañilería), Grupo C — CIERRE TANDA 2 (19/07/2026)
+
+**✅ COMPLETADO** (últimos 6 códigos de la Tanda 2 — Tanda 2 de
+Albañilería queda 100% cerrada). Script:
+[`computo-app/scripts/fix-albanileria-varios.ts`](computo-app/scripts/fix-albanileria-varios.ts).
+
+- Confirmado (sin material mal asignado) en los 6. Ninguno usado en
+  Rubro real de HOGAR/Matisse Monet.
+- **Hallazgo**: "Cemento blanco" (material de 6.1.17) ya tenía precio
+  real en la Lista MTOP ("Cemento Portland blanco (en bolsa)"
+  $54,44/kg) pero el `contains` no matcheaba por el orden de las
+  palabras — mismo patrón que el bug de 6.4.8 (sub-tanda 1). Se
+  renombró, sin necesitar `PrecioMTOP` nuevo.
+- Fuentes: Sodimac Uruguay (baldosa de vereda, real); 360Revestimientos
+  (ladrillo de vidrio, línea de color real); Emat.com.uy (varilla de
+  armado, real); Barraca Luissi (malla electrosoldada, real); Acher
+  Cerámicas (porcelanato 30x60 blanco mate, real, coherente con el
+  rango de 60x60 de la sub-tanda 1); madera dura 10x5cm y zócalo de
+  madera 75x15mm reusan la derivación ya validada de La Casa del
+  Carpintero (lapacho boliviano) escalada por sección transversal.
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **6 `precioUY` aplicados**: `6.4.10` **$1.399,14**, `6.4.15`
+  **$2.574,88**, `6.4.21` **$774,21**, `6.1.17` **$19.131,51**, `6.3.5`
+  **$384,90**, `6.5.2` **$2.954,03**.
+- Verificado en vivo: `clonar-apu` probado sobre 6.1.17 (el que más
+  sube), 6.3.5 (el más chico) y 6.5.2 — ninguno en $0, material y
+  `rubro.precioUnit` coinciden exacto. Confirmado que 6.1.17 resuelve
+  "Cemento Portland blanco (en bolsa)" correctamente, no a $0.
+  Proyecto de prueba borrado. `tsc`/build limpios.
+- **Auditoría final de cierre**: recorridos los 78 `SubrubroEstandar`
+  de Albañilería (todos activos, ninguno desactivado) replicando la
+  lógica de `clonar-apu` — **0 códigos activos clonan a $0 hoy**.
+  Tanda 2 de Albañilería cerrada por completo.
+- **Hallazgo aparte (no accionado, fuera del alcance de esta tanda)**:
+  9 códigos tienen `precioUY` guardado en $0 aunque su material SÍ
+  resuelve bien hoy — mismo patrón que carpmet-005 en Carpinterías
+  (nunca se guardó el recálculo). Son: `6.10.1-4`, `6.2.10b`, `6.2.5b`,
+  `6.7.1`, `6.8.1`, `6.8.2`. Pendiente de una mini-tanda de
+  "recalcular y guardar" si se decide abordarlo.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
