@@ -1261,6 +1261,55 @@ ni un error real en 7.3.17b (ver abajo).
 **Pendiente**: 12 códigos restantes de Carpinterías para completar la
 Tanda 1 — Equipamiento (3), Hierro (3), familia `carpmet-` (6).
 
+## Fase 2 del bug "clona a $0" — Carpinterías, subcapítulo Equipamiento (18/07/2026)
+
+**✅ COMPLETADO** (3 de los 12 códigos restantes de la Tanda 1). Script:
+[`computo-app/scripts/fix-equipamiento-carpinterias.ts`](computo-app/scripts/fix-equipamiento-carpinterias.ts).
+
+- Confirmado (sin caso de material mal asignado): en los 3 el material
+  del APU coincide con lo que el código describe. "Tornillos y
+  herrajes mueble" (7.3.10/7.3.11) ya tenía `PrecioMTOP` real
+  ($380/gl) — no hacía falta investigarlo. Ninguno usado en Rubro real
+  de HOGAR/Matisse Monet.
+- **Hallazgo**: los 3 `precioUY` de 2022 no eran huérfanos — son
+  exactamente los valores "precio directo" del Rubrado SAU agosto 2022
+  (rubros 7.3.9/7.3.10/7.3.11, confirmado leyendo el PDF original). El
+  bug es puro problema de nuestro sistema: nunca se les asoció un
+  `PrecioMTOP` propio al material, así que `clonar-apu` recalcula desde
+  cero y da $0. Igual que en Madera, no se preservó ese total: se
+  investigó precio real de material 2026 de forma independiente y se
+  reconstruyó `precioUY` hacia adelante.
+- Fuentes:
+  - `7.3.9` (Mueble de baño con bacha 0.75x0.50x0.65m): Loysa.uy,
+    "mueble suspendido con bacha de loza" 60cm USD 270 / 80cm USD 320
+    — interpolado a 75cm → USD 307,50 → $12.561,38 a $40,85/USD (BROU
+    venta). "Accesorios de colocación mueble" sin fuente puntual — ⚠️
+    estimación gruesa, $450/gl (tarugos/tornillos/sellador).
+  - `7.3.10` (Mueble cocina modulado, ml): combina 2 fuentes reales —
+    Sodimac Uruguay "Bajo mesada Henn 2 puertas 3 cajones" 120cm ancho
+    confirmado, $6.169 → $5.140,83/ml de módulos inferiores; + Rubrado
+    SAU 2022 "Mesada granito gris" $12.417,30/m² × 0,60m profundidad →
+    $7.450,38/ml de mesada. Total $12.591,21/ml.
+  - `7.3.11` (Placard puertas corredizas 1.80x2.30x0.65m): primera
+    fuente (Divino.com.uy) sin medidas publicadas — reemplazada a
+    pedido del usuario por Soy Hogar Muebles, "Ropero placard 3
+    puertas corredizas espejo blanco Residence", medidas CONFIRMADAS
+    2.18m×2.10m×0.52m, $16.110 (con desc.). Escalado por área total de
+    paneles (frente+fondo, 2 laterales, tapa+piso, 3 estantes) → factor
+    1,0066 (casi neutro) → $16.216,09. Bajó de $34.396,87 (primera
+    estimación sin medidas) a $16.216,09 al usar una fuente con
+    medidas reales.
+- Sin cambios de mano de obra en los 3. GG 15% / Utilidad 10%, sin
+  leyes sociales.
+- **3 `precioUY` recalculados**: `7.3.9` → **$21.926,85**, `7.3.10` →
+  **$20.053,55**, `7.3.11` → **$25.995,88**.
+- Verificado en vivo: `clonar-apu` probado sobre los 3 — ninguno en $0,
+  material y `rubro.precioUnit` coinciden exacto con lo calculado.
+  Proyecto de prueba borrado. `tsc`/build limpios.
+
+**Pendiente**: 9 códigos restantes de Carpinterías para completar la
+Tanda 1 — Hierro (3: 7.3.12/13/16), familia `carpmet-` (6: 001-006).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
