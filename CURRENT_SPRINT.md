@@ -1310,6 +1310,52 @@ Tanda 1 — Equipamiento (3), Hierro (3), familia `carpmet-` (6).
 **Pendiente**: 9 códigos restantes de Carpinterías para completar la
 Tanda 1 — Hierro (3: 7.3.12/13/16), familia `carpmet-` (6: 001-006).
 
+## Fase 2 del bug "clona a $0" — Carpinterías, Hierro suelto (19/07/2026)
+
+**✅ COMPLETADO** (3 de los 9 códigos restantes de la Tanda 1). Script:
+[`computo-app/scripts/fix-hierro-suelto-carpinterias.ts`](computo-app/scripts/fix-hierro-suelto-carpinterias.ts).
+
+- **Bug de material mal asignado encontrado** (mismo cuidado que
+  7.3.14/15/18): el accesorio de 7.3.16 (motor **batiente**) matcheaba
+  por `contains` con un `PrecioMTOP` creado para `carpmet-008` "Motor
+  para portón **corredizo**" ($1.200) — kits de accesorios distintos
+  (brazo articulado/bisagras vs. cremallera/riel). Se separó en su
+  propio `PrecioMTOP` y se renombró el material del APU para que ya no
+  colisione. Ninguno de los 3 usado en Rubro real de HOGAR/Matisse
+  Monet.
+- Fuentes:
+  - `7.3.12` (Ventana en perfil de hierro 1.40x1.10m): ⚠️⚠️ sin
+    cotización directa de "ventana en marco de hierro" en plaza —
+    metraje estimado (8,6m de tubo 25x25x2mm) × Lista MTOP código 203
+    "Perfil de hierro ángulo 25x25x3mm" $171,92/kg (perfil real más
+    cercano disponible en la Lista). Cruzado contra CYPE Uruguay
+    (ventana de acero completa con herrajes, $17.190,50) como techo de
+    gama alta.
+  - `7.3.13` (Reja 1.40x1.10m): mismo perfil que ya trae el APU — Lista
+    MTOP código 203 $171,92/kg (real). Cruzado contra CYPE Uruguay
+    "Reja de acero" ($3.935,42/m² ≈ $166/kg) — consistente.
+  - `7.3.16` (Motor para portón batiente): primer intento (BFT España
+    397€/u × margen de importación 1,6x, $56.047,51) descartado por dar
+    un número muy por encima de plaza real — el usuario pidió agotar
+    fuentes locales antes de aceptarlo. Encontrado: Carrasco Import
+    (Montevideo), línea MOTORTEK — 300kg USD 235 / 400kg USD 269 /
+    700kg USD 359, motor solo (centralita/receptor aparte, igual que
+    nuestro APU). Usado el de 400kg (gama residencial media) →
+    $10.988,65, cruzado contra MercadoLibre Uruguay (cae en el rango
+    "$10.000-$20.000" más poblado de la categoría).
+- Sin cambios de mano de obra en los 3. GG 15% / Utilidad 10%, sin
+  leyes sociales.
+- **3 `precioUY` recalculados**: `7.3.12` → **$5.727,37**, `7.3.13` →
+  **$5.341,14**, `7.3.16` → **$18.919,92**.
+- Verificado en vivo: `clonar-apu` probado sobre los 3 — ninguno en $0,
+  material y `rubro.precioUnit` coinciden exacto con lo calculado; el
+  material de 7.3.16 aparece correctamente renombrado a "Accesorios
+  instalación motor portón batiente". Proyecto de prueba borrado.
+  `tsc`/build limpios.
+
+**Pendiente**: 6 códigos restantes de Carpinterías para completar la
+Tanda 1 — familia `carpmet-` (001-006).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
