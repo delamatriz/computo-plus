@@ -1356,6 +1356,55 @@ Tanda 1 — Hierro (3: 7.3.12/13/16), familia `carpmet-` (6: 001-006).
 **Pendiente**: 6 códigos restantes de Carpinterías para completar la
 Tanda 1 — familia `carpmet-` (001-006).
 
+## Fase 2 del bug "clona a $0" — Carpinterías, familia carpmet- — CIERRE TANDA 1 (19/07/2026)
+
+**✅ COMPLETADO** (últimos 6 códigos de la Tanda 1 — Tanda 1 de
+Carpinterías queda 100% cerrada). Script:
+[`computo-app/scripts/fix-carpmet-familia.ts`](computo-app/scripts/fix-carpmet-familia.ts).
+
+- Confirmado (sin material mal asignado nuevo) en los 6. Ninguno usado
+  en Rubro real de HOGAR/Matisse Monet.
+- **carpmet-001** compartía texto exacto de material con 7.3.14
+  (desactivado) pero 7.3.14 nunca tuvo precio propio — necesitó
+  investigación nueva: peso de chapa Nro.18 (doble cara) × Lista MTOP
+  código 78 ($129,24/kg) + 25% margen por marco/refuerzos.
+- **carpmet-002/003** (Ventana metálica corrediza 1.20x1.10m /
+  1.50x1.10m): reusan la tarifa por m² de 7.3.12 ($1.386,73/m², ya
+  real) escalada a cada tamaño — misma familia "ventana de hierro
+  genérico".
+- **carpmet-004** (Portón metálico corredizo 3.00x2.10m): confirmado
+  material distinto al de 7.3.15 (corredizo ≠ batiente) — se reusó
+  solo la tarifa por m² de 7.3.15 ($7.539,68/m²) para el panel. "Riel
+  y guía" (componente nuevo): reconstruido con 2 fuentes reales tras
+  objeción del usuario al rango genérico inicial — 3 ruedas de acero
+  con rodamientos, Carrasco Import (Montevideo) USD 17,70/u, + riel/
+  canal embutido 3m estimado por peso (Lista MTOP). Subió de $3.500 a
+  $4.232,17.
+- **carpmet-005** (Reja tubular, M2): mismo material exacto que 7.3.13
+  ("Tubo cuadrado acero 25x25x2mm"), ya con `PrecioMTOP` real desde el
+  fix de Hierro suelto — no necesitó investigación, solo recalcular y
+  guardar `precioUY` (estaba en $0 porque nunca se guardó).
+- **carpmet-006** (Baranda tubular, ML): **corrección de rendimiento,
+  no solo de precio** — el APU original tenía 2,5ml de tubo por ml de
+  baranda, consistente solo con el pasamanos, sin parantes verticales.
+  Corregido a 9,5ml/ml (2ml pasamanos + 7,5ml de parantes cada ≤12cm ×
+  0,90m de alto, norma de seguridad). Con la corrección, el material
+  converge con la referencia CYPE Uruguay (antes divergía fuerte).
+- Sin cambios de mano de obra (salvo el rendimiento de material de
+  carpmet-006). GG 15% / Utilidad 10%, sin leyes sociales.
+- **6 `precioUY` aplicados**: `carpmet-001` **$13.313,51**,
+  `carpmet-002` **$6.883,98**, `carpmet-003` **$7.462,87**,
+  `carpmet-004` **$76.945,36**, `carpmet-005` **$4.739,84**,
+  `carpmet-006` **$5.184,40**.
+- Verificado en vivo: `clonar-apu` probado sobre los 6 — ninguno en $0,
+  material y `rubro.precioUnit` coinciden exacto. Proyecto de prueba
+  borrado. `tsc`/build limpios.
+- **Auditoría final de cierre**: recorridos los 39 `SubrubroEstandar`
+  de Carpinterías (activos+inactivos) replicando la lógica de
+  `clonar-apu` — **0 códigos activos clonan a $0 hoy**. 38 activos con
+  precio real + 1 desactivado (7.3.14, redundante). Tanda 1 de
+  Carpinterías cerrada por completo.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
