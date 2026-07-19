@@ -1691,6 +1691,46 @@ subcapítulo Equipamiento). Script:
 varios de Equipamiento (7: cortinas, calefón, termotanque, extractor,
 piso técnico), Obra Exterior/Jardín (7 restantes tras jardin-002b).
 
+## Fase 2 del bug "clona a $0" — Tanda 3 (Acondicionamientos), sub-tanda 3c — CIERRE Equipamiento (19/07/2026)
+
+**✅ COMPLETADO** (últimos 6 códigos del subcapítulo Equipamiento —
+Equipamiento queda 100% cerrado dentro de la Tanda 3). Script:
+[`computo-app/scripts/fix-acondicionamientos-varios-equip.ts`](computo-app/scripts/fix-acondicionamientos-varios-equip.ts).
+
+- Confirmado (sin material mal asignado) en los 6. Ninguno usado en
+  Rubro real de HOGAR/Matisse Monet.
+- **Hallazgo**: "Caño PVC ventilación 110mm" (equip-003) no matcheaba
+  con nada, pero es el mismo caño físico que "Caño PVC desagüe 110mm"
+  ($350/ml, ya real) — mismo diámetro/material, solo cambia el uso.
+  Renombrado, sin investigar de cero.
+- Fuentes (gama media/estándar, no premium): Calefón a gas 13L —
+  Sodimac Uruguay, Bosch (único match exacto de 13L), USD 495 real.
+  Termotanque eléctrico 80L — Sodimac Uruguay, promedio 4 modelos
+  gama media, USD 260. Extractor de cocina — Sodimac Uruguay, Cata
+  Profesional 500, USD 129. Cortina blackout — Anne Decor, derivado a
+  $2.000/m². Riel para cortina — Sodimac Uruguay/Bemaor, ~$480/ml.
+  Cortina veneciana interior — Bork, lama 25mm estándar, $2.000/m²
+  (baja fuerte del valor SAU 2022 que probablemente reflejaba una
+  veneciana premium). Panel piso técnico / Pedestal regulable: ⚠️⚠️
+  se confirmaron 4 proveedores reales en Uruguay (Improtel, Verona,
+  Just Crea, Tecnomadera) sin precio publicado — estimación gruesa.
+  Accesorios instalación calefón/termotanque: ⚠️ sin fuente puntual,
+  estimación.
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **6 `precioUY` aplicados**: `equip-001` (Calefón a gas 13L)
+  **$30.219,03**, `equip-002` (Termotanque eléctrico 80L)
+  **$21.576,62**, `equip-003` (Extractor de cocina) **$10.285,34**,
+  `7.2.18` (Piso técnico) **$8.047,16**, `7.2.21` (Cortina blackout)
+  **$3.579,92**, `7.2.22` (Cortina veneciana interior) **$3.006,63**.
+- Verificado en vivo: `clonar-apu` probado sobre equip-001 y 7.2.22 —
+  ninguno en $0, material y `rubro.precioUnit` coinciden exacto.
+  Proyecto de prueba borrado. `tsc`/build limpios.
+
+**Pendiente**: 7 códigos restantes de Acondicionamientos (Tanda 3) —
+todos en Obra Exterior/Jardín (jardin-002b ya resuelto de paso en
+sub-tanda 3a).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
