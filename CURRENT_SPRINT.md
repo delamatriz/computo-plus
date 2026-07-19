@@ -1646,6 +1646,51 @@ Exterior/Jardín). Script:
 mesadas de piedra (5), varios de Equipamiento (7), Obra Exterior/Jardín
 (7 restantes tras jardin-002b).
 
+## Fase 2 del bug "clona a $0" — Tanda 3 (Acondicionamientos), sub-tanda 3b (19/07/2026)
+
+**✅ COMPLETADO** (6 de los 20 códigos restantes — Mesadas de piedra,
+subcapítulo Equipamiento). Script:
+[`computo-app/scripts/fix-acondicionamientos-mesadas.ts`](computo-app/scripts/fix-acondicionamientos-mesadas.ts).
+
+- Confirmado (sin material mal asignado) en los 6. Ninguno usado en
+  Rubro real de HOGAR/Matisse Monet.
+- **Chequeo del orden esperado** (granito < travertino < carrara <
+  Silestone ≈ Dekton) — pedido explícitamente por el usuario, se
+  confirma PARCIALMENTE: Dekton es la más cara del grupo (se
+  sostiene), travertino < carrara < Silestone también se sostiene.
+  Pero "Granito negro absoluto" NO es el más barato — es el **segundo
+  más caro**, por encima de Silestone: es una variedad de granito
+  específicamente premium/exótica, no el granito gris genérico.
+  Confirmado con fuente real (Piemontesa Cerámicas, Uruguay, USD
+  307/m², ya de por sí una cifra alta para un granito). Aprobado por
+  el usuario tal cual, sin forzar el orden esperado.
+- Fuentes: Granito negro absoluto — Piemontesa Cerámicas (Montevideo),
+  real, USD 307/m². Mármol travertino/Carrara/Silestone/Dekton — se
+  confirmaron 3 distribuidores reales en Uruguay (StoneCenter —oficial
+  Cosentino—, Barraca Malvin, Marmolería San Pancracio) sin precio
+  publicado online; se reconstruyó el material implícito en cada valor
+  del Rubrado SAU 2022 (retro-calculando costoDirecto, descontando MO y
+  sellador) y se escalaron los 4 restantes por el mismo factor (0,8013)
+  que llevó el granito de su valor 2022 implícito al real 2026
+  confirmado — mantiene el juicio profesional relativo del SAU anclado
+  a un dato de mercado actual. Perfil de aluminio para amure: ⚠️⚠️ sin
+  fuente puntual, estimación $180/ml.
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **6 `precioUY` aplicados**: `7.2.11` (Granito negro absoluto)
+  **$18.586,26**, `7.2.12` (Mármol travertino) **$12.099,00**, `7.2.13`
+  (Mármol blanco Carrara) **$13.172,33**, `7.2.14` (Silestone blanco)
+  **$14.561,45**, `7.2.15` (Dekton Natura) **$21.368,55**, `7.2.16`
+  (Amure de mesada) **$1.978,99**.
+- Verificado en vivo: `clonar-apu` probado sobre 7.2.15 (Dekton, la
+  más cara) y 7.2.12 (travertino, la más barata) — ninguno en $0,
+  material y `rubro.precioUnit` coinciden exacto. Proyecto de prueba
+  borrado. `tsc`/build limpios.
+
+**Pendiente**: 14 códigos restantes de Acondicionamientos (Tanda 3) —
+varios de Equipamiento (7: cortinas, calefón, termotanque, extractor,
+piso técnico), Obra Exterior/Jardín (7 restantes tras jardin-002b).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
