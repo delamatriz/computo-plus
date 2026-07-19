@@ -1731,6 +1731,49 @@ Equipamiento queda 100% cerrado dentro de la Tanda 3). Script:
 todos en Obra Exterior/Jardín (jardin-002b ya resuelto de paso en
 sub-tanda 3a).
 
+## Fase 2 del bug "clona a $0" — Tanda 3 (Acondicionamientos), sub-tanda 3e — CIERRE TANDA 3 (19/07/2026)
+
+**✅ COMPLETADO** (últimos 7 códigos — Obra Exterior/Jardín. Tanda 3 de
+Acondicionamientos queda 100% cerrada). Script:
+[`computo-app/scripts/fix-acondicionamientos-obra-exterior.ts`](computo-app/scripts/fix-acondicionamientos-obra-exterior.ts).
+
+- Confirmado (sin material mal asignado) en los 7. Ninguno usado en
+  Rubro real de HOGAR/Matisse Monet.
+- **Chequeo de la hipótesis de sobreprecio en veneciana exterior vs.
+  interior** (pedido explícitamente por el usuario) — NO se sostiene:
+  Bork y Uruguay Decoraciones venden lama de aluminio "a medida" sin
+  diferenciar precio interior/exterior — el aluminio ya es resistente
+  a la intemperie por naturaleza. Se aplicó solo un margen modesto
+  (+10%) por accesorios de montaje exterior, no por un salto de
+  material.
+- Fuentes: Césped artificial — Sodimac Uruguay, real (⚠️ formato chico
+  tipo alfombra). Baldosa Green Block — Prodeco (Uruguay), real.
+  Toldo vertical — Casajardín (Uruguay), real. Cortina veneciana
+  exterior — reusa base real de la interior +10%. Arena de sílice,
+  materiales de deck, baldosa de caucho reciclado, adhesivo, soporte
+  de toldo: ⚠️⚠️ sin fuente puntual, estimación gruesa. Piscina de
+  poliéster + Equipo de filtrado: ⚠️⚠️ ítem muy específico/caro sin
+  cotización fresca — retro-derivado del Rubrado SAU 2022 (material
+  implícito, descontando MO y materiales ya reales) +20% de ajuste
+  por inflación 2022→2026.
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **7 `precioUY` aplicados**: `7.2.23` (Césped artificial)
+  **$1.389,75**, `7.2.24` (Deck de madera) **$3.295,77**, `7.2.25`
+  (Baldosa Green Block) **$1.966,76**, `7.2.26` (Baldosa caucho
+  reciclado) **$2.876,26**, `7.2.27` (Piscina + filtrado)
+  **$425.980,50**, `7.2.28` (Toldo vertical) **$7.440,92**, `7.2.29`
+  (Cortina veneciana exterior) **$3.359,81**.
+- Verificado en vivo: `clonar-apu` probado sobre 7.2.27 (piscina, el
+  de mayor valor) y 7.2.25 (Green Block, fuente real) — ninguno en
+  $0, material y `rubro.precioUnit` coinciden exacto. Proyecto de
+  prueba borrado. `tsc`/build limpios.
+- **Auditoría final de cierre**: recorridos los 38 `SubrubroEstandar`
+  de Acondicionamientos (todos activos, ninguno desactivado) — **0
+  códigos activos clonan a $0 hoy**, y tampoco quedó ningún `precioUY`
+  guardado en $0 (a diferencia de Albañilería). Tanda 3 de
+  Acondicionamientos cerrada por completo.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
