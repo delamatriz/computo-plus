@@ -1576,6 +1576,29 @@ Albañilería queda 100% cerrada). Script:
   `6.7.1`, `6.8.1`, `6.8.2`. Pendiente de una mini-tanda de
   "recalcular y guardar" si se decide abordarlo.
 
+## Mini-tanda de cierre — recálculo y guardado, 9 códigos de Albañilería (19/07/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/fix-albanileria-recalculo-guardado.ts`](computo-app/scripts/fix-albanileria-recalculo-guardado.ts).
+
+- Puro recálculo y guardado de `precioUY` — sin investigación de
+  mercado, sin cambios de material ni de rendimiento. Confirmado en
+  los 9 que el material ya resolvía a precio real (mismo patrón que
+  carpmet-005 en Carpinterías: nunca se había guardado el recálculo).
+  Fórmula de siempre: `costoDirecto × 1.15 × 1.10`.
+- **9 `precioUY` aplicados**: `6.10.1` (Hidrolavado de fachada)
+  **$45,60**, `6.10.2` (Saneado de revoques en fachada) **$304,16**,
+  `6.10.3` (Tratamiento de hierros expuestos) **$240,95**, `6.10.4`
+  (Limpieza final de obra) **$65,84**, `6.2.10b` (Revoque monocapa
+  exterior 3 en 1) **$1.000,88**, `6.2.5b` (Revoque monocapa interior
+  2 en 1) **$815,63**, `6.7.1` (Colocación y amure de aberturas —
+  tradicional) **$461,43**, `6.8.1` (Puente de adherencia para
+  mortero, SikaTop Modul) **$133,07**, `6.8.2` (Puente de adherencia
+  para hormigón, Sikadur 32 Gel) **$1.324,12**.
+- Verificado en vivo: `clonar-apu` probado sobre 6.8.2 (el que más
+  sube) y 6.7.1 — ninguno en $0, material y `rubro.precioUnit`
+  coinciden exacto. Proyecto de prueba borrado. `tsc`/build limpios.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
