@@ -1985,6 +1985,49 @@ solo material (7: 7.1.5, 7.1.6, 7.1.7, 7.1.11, 7.1.16, 7.1.17,
 Sika Elasto Color como referencia adicional (pedido explícito del
 usuario, sobre todo para látex e impermeabilizante siliconado).
 
+## Fase 2 del bug "clona a $0" — Tanda 5 (Pinturas), sub-tanda 5b — Látex (20/07/2026)
+
+**✅ COMPLETADO** (Látex interior/exterior, 4 de los 15 códigos
+afectados). Script:
+[`computo-app/scripts/fix-pinturas-latex.ts`](computo-app/scripts/fix-pinturas-latex.ts).
+
+- Confirmado (sin material mal asignado) en los 4. 7.1.14 y 7.1.15
+  (los "exterior") comparten el mismo equipo "Andamio tubular" (rend
+  0.15 hs, $85/hs real) que se coló sin sumar en la sub-tanda 5a —
+  esta vez se verificó y se sumó desde el inicio, sin corrección
+  posterior. 0 clones directos en Rubro real, pero hay un APU armado
+  a mano en Matisse Monet que ya carga "Pintura látex acrílica
+  interior 1ra calidad" a $480/L (gama más alta que la estándar
+  pedida, pero corrobora el orden de magnitud).
+- Fuentes — gama media/estándar, no premium: Pintura látex interior —
+  DT Importaciones, Inca Incamax pared interiores blanco mate, 4L,
+  $1.610 → **$402,50/L** real. Pintura látex exterior — Sodimac
+  Uruguay, Inca Antimoho Exterior, 4L, $2.649 → **$662,25/L** real
+  (misma marca, mismo tamaño de envase que el interior). Sika
+  Elastocolor (pedido explícitamente como referencia) — existe en el
+  mercado uruguayo pero no se encontró precio publicado en ningún
+  punto de venta consultado; queda como referencia cualitativa, no
+  como fuente numérica.
+- Hipótesis confirmada: el exterior cuesta ~65% más que el interior
+  ($662,25 vs $402,50/L) — ratio casi idéntico al ~60% de los
+  enduidos de la sub-tanda 5a, reforzando que el patrón de sobreprecio
+  por resistencia a intemperie es consistente entre familias de
+  producto.
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **4 `precioUY` aplicados**: `7.1.9` **$279,80**, `7.1.12`
+  **$207,13**, `7.1.14` **$311,92**, `7.1.15` **$287,52**.
+- Verificado en vivo: `clonar-apu` probado sobre `7.1.9` (interior) y
+  `7.1.14` (exterior, con andamio) — material, equipo y
+  `rubro.precioUnit` coinciden exacto. Proyecto de prueba borrado
+  (404 confirmado). `tsc`/build limpios.
+
+**Pendiente**: 7 códigos restantes de Pinturas (Tanda 5), todos de un
+solo material — 7.1.5 (Fijador para muros), 7.1.6 (Imprimación para
+muros), 7.1.7 (Fondo para madera), 7.1.11 (Pintura antihongos), 7.1.16
+(Impermeabilizante siliconado hidrorepelente), 7.1.17 (Esmalte
+sintético), 7.1.18 (Barniz para madera).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
