@@ -1851,6 +1851,66 @@ artefactos). Script:
 **Pendiente**: 3 códigos restantes de Instalación Sanitaria (Tanda 4)
 — bombas/tanque (sanitaria-016/017/018).
 
+## Fase 2 del bug "clona a $0" — Tanda 4 (Instalación Sanitaria), sub-tanda 4c — CIERRE de los 12 códigos originales (20/07/2026)
+
+**✅ COMPLETADO** (últimos 3 de los 12 códigos originalmente
+afectados). Script:
+[`computo-app/scripts/fix-sanitaria-bombas-tanque.ts`](computo-app/scripts/fix-sanitaria-bombas-tanque.ts).
+
+- Confirmado (sin material mal asignado) en los 3. Ninguno usado en
+  Rubro real de HOGAR/Matisse Monet.
+- Fuentes (gama media/estándar, no premium): Bomba eléctrica 1HP
+  (sanitaria-016) — Sodimac Uruguay, Taifu autocebante, USD 229 real
+  (se evitó Grundfos, USD 659-1.199, gama premium). Bomba eléctrica
+  2HP (sanitaria-017) — Gianni S.A., modelo propio SCM2-60 de doble
+  rotor, USD 469 real (se evitó Pedrollo 2CPM25-16B, USD 834, marca
+  italiana importada de gama premium; misma línea de fabricación que
+  el SCM2-52 de 1.5HP de Gianni, USD 392, consistente en la escala de
+  potencia). Accesorios instalación bomba (compartido 016/017) — ⚠️
+  sin fuente puntual, estimación gruesa $700/gl. Tanque de agua 500L
+  (sanitaria-018) — Barraca Carmela, Gianni Tricapa antibacteriano
+  "Kit Completo" (incluye flotante y salida), USD 183 real (se evitó
+  el Bicapa, USD 154, por ser kit incompleto — sin flotante).
+  Accesorios instalación tanque — ⚠️ sin fuente puntual, estimación
+  gruesa $500/gl.
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **3 `precioUY` aplicados**: `sanitaria-016` **$17.387,51**,
+  `sanitaria-017` **$30.956,66**, `sanitaria-018` **$12.822,80**.
+- Verificado en vivo: `clonar-apu` probado sobre los 3 — ninguno en
+  $0, material y `rubro.precioUnit` coinciden exacto. Proyecto de
+  prueba borrado (404 confirmado). `tsc`/build limpios.
+
+### Auditoría de cierre de Tanda 4 — hallazgo adicional (no resuelto en este script)
+
+Recorrido completo de los 20 `SubrubroEstandar` activos del capítulo
+catálogo "Instalación Sanitaria" replicando la lógica exacta de
+`clonar-apu`: **los 12 códigos originalmente afectados están
+cerrados** (0 en $0 por material sin resolver). Pero la auditoría
+encontró **8 códigos adicionales** con `precioUY` guardado en $0 pese
+a que sus materiales YA resuelven correctamente hoy — mismo patrón
+que la "mini-tanda de cierre" de Albañilería. Probablemente quedaron
+en $0 porque sus materiales compartidos (Grifería monocomando ducha,
+Accesorios de colocación sanitaria, Termotanque eléctrico 80L, Caño
+PVC desagüe 110mm) se resolvieron recién como efecto colateral de
+fixes de otras tandas (Acondicionamientos, sub-tanda 4b), no de un fix
+propio. **No se tocó nada** — esto no estaba en el alcance pedido para
+esta sub-tanda:
+- `sanitaria-002` (Cañería agua fría PPR ø20mm) — recalculado sería $488,60
+- `sanitaria-003` (Cañería agua caliente PPR ø20mm) — recalculado sería $488,60
+- `sanitaria-006` (Cañería desagüe PVC ø110mm) — recalculado sería $801,63
+- `sanitaria-007` (Cañería desagüe PVC ø50mm) — recalculado sería $415,26
+- `sanitaria-008` (Inodoro con mochila instalado) — recalculado sería $8.363,68
+- `sanitaria-011` (Lavatorio con grifería monocomando) — recalculado sería $7.278,50
+- `sanitaria-012` (Ducha con grifería monocomando) — recalculado sería $3.221,59
+- `sanitaria-020` (Calefón eléctrico 50L) — recalculado sería $21.576,62
+
+**Pendiente**: los 12 códigos originales de Tanda 4 están 100%
+resueltos. Queda una mini-tanda de recálculo y guardado puro (8
+códigos, sin investigación de mercado) para que el capítulo
+"Instalación Sanitaria" quede en 0 códigos en $0 — análoga a la de
+Albañilería, pendiente de autorización explícita.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
