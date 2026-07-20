@@ -1911,6 +1911,28 @@ códigos, sin investigación de mercado) para que el capítulo
 "Instalación Sanitaria" quede en 0 códigos en $0 — análoga a la de
 Albañilería, pendiente de autorización explícita.
 
+## Mini-tanda de cierre — recálculo y guardado, 8 códigos de Instalación Sanitaria — CIERRE TANDA 4 (20/07/2026)
+
+**✅ COMPLETADO**. Script:
+[`computo-app/scripts/fix-sanitaria-recalculo-guardado.ts`](computo-app/scripts/fix-sanitaria-recalculo-guardado.ts).
+
+- Puro recálculo y guardado (mismo patrón que la mini-tanda de
+  Albañilería) — sin investigación de mercado, sin cambios de
+  material ni de rendimiento, para 8 códigos cuyos materiales ya
+  resolvían pero cuyo `precioUY` nunca se había recalculado/guardado.
+- **8 `precioUY` aplicados**: `sanitaria-002` **$488,60**,
+  `sanitaria-003` **$488,60**, `sanitaria-006` **$801,63**,
+  `sanitaria-007` **$415,26**, `sanitaria-008` **$8.363,68**,
+  `sanitaria-011` **$7.278,50**, `sanitaria-012` **$3.221,59**,
+  `sanitaria-020` **$21.576,62**.
+- Verificado en vivo: `clonar-apu` probado sobre `sanitaria-008` y
+  `sanitaria-020` — material y `rubro.precioUnit` coinciden exacto.
+  Proyecto de prueba borrado (404 confirmado). `tsc`/build limpios.
+- **Auditoría de cierre completa de Tanda 4 (Instalación Sanitaria)**:
+  recorridos los 20 `SubrubroEstandar` activos del capítulo catálogo
+  replicando la lógica exacta de `clonar-apu` — **0 códigos en $0**.
+  Tanda 4 (Instalación Sanitaria) cerrada por completo.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
