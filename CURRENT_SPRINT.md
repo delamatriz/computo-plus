@@ -1814,6 +1814,43 @@ cañerías + cámara de inspección). Script:
 — sanitarios/artefactos (4: inodoros sin mochila, bañera) y bombas/
 tanque/calefón (3).
 
+## Fase 2 del bug "clona a $0" — Tanda 4 (Instalación Sanitaria), sub-tanda 4b (20/07/2026)
+
+**✅ COMPLETADO** (4 de los 7 códigos restantes — sanitarios/
+artefactos). Script:
+[`computo-app/scripts/fix-sanitaria-artefactos.ts`](computo-app/scripts/fix-sanitaria-artefactos.ts).
+
+- Confirmado (sin material mal asignado) en los 4. Ninguno usado en
+  Rubro real de HOGAR/Matisse Monet.
+- Fuentes (gama media/estándar, no premium): Inodoro sin mochila
+  (compartido sanitaria-009/010) — Sodimac Uruguay, Celite "Saveiro"
+  corto, USD 69 real (se evitó la línea "Fit", USD 107-124, gama más
+  alta). Cisterna embutida (sanitaria-009) — Acher Cerámicas, Valsir
+  "Tropea FixSystem", USD 480,68 con descuento vigente, real — es un
+  sistema de muro completo (marco + soportes), no solo un tanque, de
+  ahí la diferencia de 4x real frente a la cisterna de sobreponer
+  (confirmado con el usuario, no es un error). Cisterna de
+  sobreponer (sanitaria-010) — Sodimac Uruguay, "Cisterna tradicional
+  blanco", $1.899 real. Bañera estándar (sanitaria-013) — Sodimac
+  Uruguay, fibra y acrílico 140x70x38cm, $7.919 real; reusa Grifería
+  monocomando ducha ($1.593,15, ya real desde Acondicionamientos) sin
+  tocarla. Calefón a gas 10L (sanitaria-019) — Sodimac Uruguay,
+  Enxuta TENX10G, USD 235 real; equip-001 (calefón 13L,
+  Acondicionamientos) sirvió de referencia de escala pero no se
+  reusó directamente por ser capacidad distinta.
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **4 `precioUY` aplicados**: `sanitaria-009` **$30.627,62**,
+  `sanitaria-010` **$7.957,17**, `sanitaria-013` **$16.500,09**,
+  `sanitaria-019` **$16.199,92**.
+- Verificado en vivo: `clonar-apu` probado sobre `sanitaria-009` y
+  `sanitaria-013` — ninguno en $0, material y `rubro.precioUnit`
+  coinciden exacto. Proyecto de prueba borrado (404 confirmado).
+  `tsc`/build limpios.
+
+**Pendiente**: 3 códigos restantes de Instalación Sanitaria (Tanda 4)
+— bombas/tanque (sanitaria-016/017/018).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
