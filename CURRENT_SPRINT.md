@@ -1774,6 +1774,46 @@ Acondicionamientos queda 100% cerrada). Script:
   guardado en $0 (a diferencia de Albañilería). Tanda 3 de
   Acondicionamientos cerrada por completo.
 
+## Fase 2 del bug "clona a $0" — Tanda 4 (Instalación Sanitaria), sub-tanda 4a (20/07/2026)
+
+**✅ COMPLETADO** (5 de los 12 códigos afectados de Sanitaria —
+cañerías + cámara de inspección). Script:
+[`computo-app/scripts/fix-sanitaria-canerias.ts`](computo-app/scripts/fix-sanitaria-canerias.ts).
+
+- Auditoría en vivo (no la vieja) confirmó **12 códigos afectados**
+  en Instalación Sanitaria, no los 20 de la auditoría original —
+  mismo patrón que en Acondicionamientos. Catálogo sin subcapítulos.
+  Apalancamiento mejor que en tandas anteriores: 3 materiales
+  compartidos cubren 6 de los 12 códigos. Ninguno de los 12 usado en
+  Rubro real de HOGAR/Matisse Monet. Sin material mal asignado.
+- Fuentes: Tapa y contratapa hierro fundido 60x60cm (compartido
+  7.2.8/sanitaria-014) — EMAT (Uruguay), suma de 2 componentes reales
+  (contratapa + tapa reforzada, punto medio del rango real). Sifón
+  desconector — **corregido tras pedido explícito del usuario de
+  confirmar el diámetro**: la primera fuente (EMAT, 160mm, $161,58)
+  resultó ser un componente suelto, no la unidad completa del
+  diámetro correcto (110mm, típico de desagüe cloacal residencial);
+  reemplazada por Todoobra.com.uy, REDI, 110mm "con registro",
+  $4.258,53 real. Caño PVC presión 20mm — **también corregido tras
+  pedido de agotar la búsqueda antes de aceptar la estimación**:
+  encontrado en Gianni S.A. (Uruguay), tubo PVC soldable 20mm PN12,
+  USD 8/6m real, reemplaza una estimación gruesa inicial. Caño acero
+  galvanizado 3/4" — Sodimac Uruguay, real. Caño acero galvanizado
+  1/2" — interpolado entre dos diámetros reales confirmados (3/4" y
+  1-1/4").
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **5 `precioUY` aplicados**: `7.2.8` **$13.525,84**, `sanitaria-014`
+  **$21.421,97**, `sanitaria-001` **$304,43**, `sanitaria-004`
+  **$493,29**, `sanitaria-005` **$590,15**.
+- Verificado en vivo: `clonar-apu` probado sobre los 5 — ninguno en
+  $0, material y `rubro.precioUnit` coinciden exacto. Proyecto de
+  prueba borrado. `tsc`/build limpios.
+
+**Pendiente**: 7 códigos restantes de Instalación Sanitaria (Tanda 4)
+— sanitarios/artefactos (4: inodoros sin mochila, bañera) y bombas/
+tanque/calefón (3).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
