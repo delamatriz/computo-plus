@@ -1933,6 +1933,58 @@ Albañilería, pendiente de autorización explícita.
   replicando la lógica exacta de `clonar-apu` — **0 códigos en $0**.
   Tanda 4 (Instalación Sanitaria) cerrada por completo.
 
+## Fase 2 del bug "clona a $0" — Tanda 5 (Subcontratos - Pinturas), auditoría inicial + sub-tanda 5a (20/07/2026)
+
+**Auditoría en vivo** (capítulo catálogo "Subcontratos - Pinturas"):
+18 `SubrubroEstandar` activos hoy (no 15 como decía la auditoría
+original) — **15 clonan a $0** por material sin resolver, 3 ya OK
+(`7.1.8` Antióxido para hierro, `7.1.10` Pintura a la cal en
+cielorrasos, `7.1.13` Pintura a la cal en muros). El `precioUY`
+guardado de los 15 no es $0 (son valores heredados del import 2022 de
+SAU) — el bug real aparece recién al clonar hoy. Sin material mal
+asignado. 0 usos directos de estos 15 códigos en Rubro real de
+HOGAR/Matisse Monet (aunque sí hay un APU armado a mano en Matisse
+Monet que usa un material de nombre similar, ver abajo). Apalancamiento
+modesto: 4 materiales cubren 8 de los 15 códigos, los otros 7 son
+materiales únicos.
+
+**✅ COMPLETADO sub-tanda 5a** (Enduidos plásticos, 4 de los 15
+códigos). Script:
+[`computo-app/scripts/fix-pinturas-enduidos.ts`](computo-app/scripts/fix-pinturas-enduidos.ts).
+
+- Fuentes — gama estándar: Enduido plástico interior — Sodimac
+  Uruguay, Elbex, 5kg, $389 → **$77,80/kg** real. Enduido plástico
+  exterior — Sodimac Uruguay, Lusol, 2kg, $249 → **$124,50/kg** real
+  (se evitó el Elbex Acrílico Exterior 25kg, Bertolotti, $164,72/kg,
+  por ser línea premium). Hipótesis confirmada: el exterior cuesta
+  ~60% más que el interior.
+- Dato de referencia cruzado: en Matisse Monet hay un APU armado a
+  mano (no clonado de biblioteca) que ya carga "Enduido plástico
+  interior (listo para usar)" a $85/kg — cercano a la fuente usada
+  ($77,80/kg), lo que corrobora el rango pese a que el `precioUY`
+  nuevo quedó por debajo del histórico 2022 en los 4 códigos.
+- **Corrección durante la verificación**: la primera pasada del
+  script no sumaba el equipo "Andamio tubular" (rend 0.15 hs, $85/hs
+  real, alquilado) que `7.1.2` y `7.1.4` (los códigos "exterior")
+  tienen en su APU — `clonar-apu` sí lo suma. El primer `precioUY`
+  aplicado a esos dos quedó subvaluado; se corrigió el script para
+  sumar `sumEq` (igual que `sumEquipos` de `apu-calc.ts`) y se
+  reaplicó antes de cerrar la sub-tanda.
+- **4 `precioUY` aplicados (valores finales, ya corregidos)**:
+  `7.1.1` **$253,14**, `7.1.3` **$211,77**, `7.1.2` **$327,65**,
+  `7.1.4` **$289,95**.
+- Verificado en vivo: `clonar-apu` probado sobre `7.1.1` y `7.1.2`
+  (el que tuvo el error) — material, equipo y `rubro.precioUnit`
+  coinciden exacto tras la corrección. Proyecto de prueba borrado
+  (404 confirmado). `tsc`/build limpios.
+
+**Pendiente**: 11 códigos restantes de Pinturas (Tanda 5) — látex
+interior/exterior (4: 7.1.9, 7.1.12, 7.1.14, 7.1.15) y varios de un
+solo material (7: 7.1.5, 7.1.6, 7.1.7, 7.1.11, 7.1.16, 7.1.17,
+7.1.18). Para las próximas sub-tandas, considerar las marcas Inca y
+Sika Elasto Color como referencia adicional (pedido explícito del
+usuario, sobre todo para látex e impermeabilizante siliconado).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
