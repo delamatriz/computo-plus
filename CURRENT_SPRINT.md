@@ -2028,6 +2028,55 @@ muros), 7.1.7 (Fondo para madera), 7.1.11 (Pintura antihongos), 7.1.16
 (Impermeabilizante siliconado hidrorepelente), 7.1.17 (Esmalte
 sintético), 7.1.18 (Barniz para madera).
 
+## Fase 2 del bug "clona a $0" — Tanda 5 (Pinturas), sub-tanda 5c — CIERRE TANDA 5 (21/07/2026)
+
+**✅ COMPLETADO** (últimos 7 de los 15 códigos afectados, todos
+material único). Script:
+[`computo-app/scripts/fix-pinturas-varios.ts`](computo-app/scripts/fix-pinturas-varios.ts).
+
+- Confirmado (sin material mal asignado) en los 7. Equipos chequeados
+  ANTES de calcular (mismo cuidado que faltó en los enduidos
+  exteriores de la sub-tanda 5a) — ninguno de los 7 tiene equipo en su
+  APU. 0 uso directo de estos 7 códigos en Rubro real, pero hay un APU
+  armado a mano en Matisse Monet con "Fondo fijador acrílico" a $320/L
+  que corrobora el orden de magnitud de esa familia.
+- Fuentes — gama media/estándar, no premium: Fijador para muros —
+  Sodimac Uruguay, Inca Fijador/Sellador al agua, 1L, $659 real.
+  Imprimación para muros — Barraca 5 Esquinas, Tersuave Imprimación
+  Fijador, 1L, $406 real. Fondo selladora para madera — Pinturas
+  Amanecer (UY), Tapaporos para Madera, 0,85L, $576 → $677,65/L real.
+  Pintura antihongos — Sodimac Uruguay, Prodanix Antihongos Hogar, 1L,
+  $229 real. Impermeabilizante siliconado hidrorepelente — DT
+  Importaciones, Sika Igol 5-Sil, 5L, $6.291 → $1.258,20/L real (match
+  directo con la descripción; Sika Elastocolor, pedido explícitamente
+  como referencia, resultó ser un producto distinto — pintura
+  elastomérica de terminación, no impermeabilizante hidrorepelente —
+  y sin precio publicado, no aplicó como fuente). Esmalte sintético —
+  Sodimac Uruguay, Tersuave, 1L, $740 real. Barniz para madera —
+  Sodimac Uruguay, Tersuave Barniz marino Troya, 4L, $2.590 →
+  $647,50/L real.
+- **Verificación adicional pedida por el usuario** antes de aprobar:
+  esmalte ($740/L) y barniz ($647,50/L) caían >75% vs. el histórico
+  2022 sin dato cruzado de proyecto real. Se confirmó (1) que el
+  precio del esmalte es genuinamente por 1L —contrastado contra 9+
+  variantes de color del mismo producto, todas a $740/1L— y (2) que
+  el barniz Tersuave Troya no es la línea más económica del catálogo
+  (mismo precio que toda la línea "Impregnante Troya", por debajo solo
+  de la "Laca Poliacrílica" premium). Ambas verificaciones confirmaron
+  que no hay error de mi parte — la caída es real.
+- Sin cambios de mano de obra. GG 15% / Utilidad 10%, sin leyes
+  sociales.
+- **7 `precioUY` aplicados**: `7.1.5` **$195,07**, `7.1.6` **$147,06**,
+  `7.1.7` **$202,90**, `7.1.11` **$283,28**, `7.1.16` **$458,38**,
+  `7.1.17` **$366,98**, `7.1.18` **$241,06**.
+- Verificado en vivo: `clonar-apu` probado sobre `7.1.17`, `7.1.18` y
+  `7.1.16` — material y `rubro.precioUnit` coinciden exacto. Proyecto
+  de prueba borrado (404 confirmado). `tsc`/build limpios.
+- **Auditoría de cierre completa de Tanda 5 (Subcontratos - Pinturas)**:
+  recorridos los 18 `SubrubroEstandar` activos del capítulo catálogo
+  replicando la lógica exacta de `clonar-apu` — **0 códigos en $0**.
+  Tanda 5 (Pinturas) cerrada por completo.
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
