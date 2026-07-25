@@ -85,3 +85,53 @@ adhesivo genérico).
 en vivo. Los 12 restantes (7.4.1, 7.4.2, 7.4.3, 7.4.4, 7.4.5, vidrio-007
 corregido, vidrio-001 a vidrio-006) no tienen ningún insumo en $0,
 confirmado en la auditoría de cierre.
+
+---
+
+## Estructura — 5.2.1, 5.2.2, 5.2.3 (Losa prefabricada Stalton H=10/15/19cm)
+
+**Insumos pendientes**: "Losa Stalton H=10cm", "Losa Stalton H=15cm",
+"Losa Stalton H=19cm" (m², rendimiento 1,05 cada uno) — el componente
+**prefabricado** del sistema (viguetas pretensadas + bovedillas). El
+hormigón de compresión (arena gruesa, cemento Portland, hierro para
+hormigón armado) YA está resuelto como líneas propias del APU, creciendo
+con el espesor — no incluir de nuevo al retomar este pendiente.
+
+**Estado**: los 3 códigos activos, precioUY guardado en $3.828,81 /
+$4.026,02 / $5.923,26 respectivamente (rubro SAU 2022, desactualizado)
+— los materiales resuelven a $0 en clonado real.
+
+**Búsqueda realizada**: se identificaron 2 fabricantes reales
+uruguayos del sistema Stalton — **HOPRESA** (hopresa.com.uy, empresa
+uruguaya desde 1958, fabrica Sistema Stalton Porteña y Sistema Stalton
+de Hormigón) y **Mequis3** (mequis3.com.uy, losas prefabricadas tipo
+HL/L/PT con vigueta reticulada + bovedilla). Ninguno de los dos publica
+precio en ningún canal accesible (web, PDFs técnicos, fichas de
+producto) — solo invitan a contactar por teléfono/WhatsApp/email.
+MercadoLibre Uruguay bloqueó el fetch con 403. El único otro dato
+encontrado (CYPE Uruguay "Losa llena" $4.704,27/m², 24cm) es un sistema
+distinto (losa maciza tradicional, no aligerada con vigueta/bovedilla)
+— no es sustituto válido. El Rubrado SAU 2022 solo reproduce los mismos
+3 valores que ya teníamos guardados (no es una fuente nueva).
+
+**A diferencia de otros pendientes de esta lista** (ej. Soporte para
+canalón, que tenía la planchuela de EMAT como ancla real parcial), acá
+no until ningún ancla parcial verificable — solo la bovedilla cerámica
+suelta ($63,80/u, Lista MTOP) como componente aislado, sin precio de
+vigueta pretensada en pesos uruguayos para combinar. Encadenar
+estimaciones sobre 3 alturas distintas sin ningún dato real de anclaje
+se descartó por baja confianza.
+
+**Escalado no lineal entre los 3 espesores** (pedido explícito a
+verificar antes de interpolar) queda **sin verificar** por falta de
+datos de partida.
+
+**Acción sugerida**: cotización telefónica/WhatsApp directa a HOPRESA
+o Mequis3 (canal no accesible por herramientas de búsqueda web).
+
+**Conclusión**: sin fuente confiable. Los 3 códigos quedan pendientes.
+
+**Estado del capítulo Estructura**: 12/15 códigos resueltos y
+verificados en vivo (incluye 10 ya sanos + sub-tanda 12b, hormigón
+premezclado). Quedan 5.2.1, 5.2.2, 5.2.3 pendientes — capítulo dejado
+abierto a propósito, sin auditoría de cierre completo.
