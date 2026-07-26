@@ -1,0 +1,1404 @@
+{
+  "mapeo": [
+    {
+      "codigo": "MAT-GRANITO-NEGRO-ABSOLUTO",
+      "proveedor": "Piemontesa Cerámicas (Montevideo)",
+      "nombreProducto": "Granito negro absoluto mesada, USD 307/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-mesadas.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-MARMOL-TRAVERTINO",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Mármol travertino mesada",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-mesadas.ts",
+      "nota": "Precio implícito retro-calculado del Rubrado SAU 2022 (costoDirecto = precioUY/1.265, descontando MO y sellador), escalado por el factor 0.8013 que llevó el granito (MAT-GRANITO-NEGRO-ABSOLUTO) de su valor 2022 implícito a su valor real 2026 confirmado (Piemontesa Cerámicas). Se confirmaron 3 distribuidores reales (StoneCenter oficial Cosentino, Barraca Malvin, Marmolería San Pancracio) pero ninguno publica precio online.",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-MARMOL-CARRARA",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Mármol blanco Carrara mesada",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-mesadas.ts",
+      "nota": "Misma metodología que MAT-MARMOL-TRAVERTINO: retro-calculado del Rubrado SAU 2022 y escalado por el factor 0.8013 anclado al valor real del granito (MAT-GRANITO-NEGRO-ABSOLUTO).",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-SILESTONE-BLANCO",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Silestone blanco mesada",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-mesadas.ts",
+      "nota": "Misma metodología que MAT-MARMOL-TRAVERTINO: retro-calculado del Rubrado SAU 2022 y escalado por el factor 0.8013 anclado al valor real del granito (MAT-GRANITO-NEGRO-ABSOLUTO).",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-DEKTON-NATURA",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Dekton Natura mesada",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-mesadas.ts",
+      "nota": "Misma metodología que MAT-MARMOL-TRAVERTINO: retro-calculado del Rubrado SAU 2022 y escalado por el factor 0.8013 anclado al valor real del granito (MAT-GRANITO-NEGRO-ABSOLUTO).",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-CESPED-ARTIFICIAL-20MM",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Just Home Collection, césped artificial h=20mm, $700/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-obra-exterior.ts",
+      "nota": "Formato chico tipo alfombra, no rollo profesional de jardín (advertencia del script).",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-BALDOSA-GREEN-BLOCK",
+      "proveedor": "Prodeco (Uruguay)",
+      "nombreProducto": "Baldosa Green Block, $139/pieza 35x35cm",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-obra-exterior.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-TOLDO-VERTICAL-MANUAL",
+      "proveedor": "Casajardín (Uruguay)",
+      "nombreProducto": "Toldo vertical manual, 3.50x2.00m, $5.077/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-obra-exterior.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-CORTINA-VENECIANA-EXT",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Cortina veneciana exterior",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-obra-exterior.ts",
+      "nota": "Deriva de MAT-CORTINA-VENECIANA-INT (Bork, $2.000/m² real) + 10% por accesorios de montaje/estanqueidad de exterior. No es un producto/proveedor distinto — Bork y Uruguay Decoraciones venden lama de aluminio a medida sin diferenciar precio interior/exterior.",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-INODORO-MOCHILA-BLANCO",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Rozen \"Urban\" kit completo, USD 129",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-sanitarios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-BIDET-BLANCO",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Rozen \"Urban\", USD 70",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-sanitarios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-LAVATORIO-BLANCO",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Sensi D'Acqua \"Florencia\" pedestal, USD 39",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-sanitarios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-GRIFERIA-MONO-LAVATORIO",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Sensi D'Acqua \"Parma\", USD 18 (cartucho cerámico, 10 años garantía)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-sanitarios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-GRIFERIA-MONO-BIDET",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Sensi D'Acqua \"Parma\" (mismo producto usado para lavatorio)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-sanitarios.ts",
+      "nota": "Sin SKU específico 'para bidet' encontrado — en la práctica es la misma línea/producto que MAT-GRIFERIA-MONO-LAVATORIO, mismo precio.",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-GRIFERIA-MONO-DUCHA",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Sensi D'Acqua \"Perugia\" sin transferencia, USD 39",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-sanitarios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-PILETA-Y-MEDIA-INOX",
+      "proveedor": "Castro.com.uy",
+      "nombreProducto": "Tramontina 304 mate, USD 111.80 (con descuento vigente)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-sanitarios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-MEZCLADORA-COCINA",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Sensi D'Acqua, mezcladora monocomando cocina, USD 69",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-sanitarios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-CALEFON-GAS-13L",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Bosch, calefón a gas 13L (único match exacto de 13L en catálogo), USD 495",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-varios-equip.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-TERMOTANQUE-ELEC-80L",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Promedio 4 modelos gama media (Brilliant/Enxuta/Hyundai/Smartlife, USD 241-279) → USD 260",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-varios-equip.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-EXTRACTOR-COCINA",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Cata Profesional 500, USD 129",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-varios-equip.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-CORTINA-BLACKOUT",
+      "proveedor": "Anne Decor",
+      "nombreProducto": "Cortina blackout manual, confección a medida, $5.200/ml de ancho (hasta 2.60m de alto), derivado a $2.000/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-varios-equip.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-RIEL-CORTINA",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Bemaor, riel extensible 160-290cm, $1.089 → ~$480/ml",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-varios-equip.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-CORTINA-VENECIANA-INT",
+      "proveedor": "Bork",
+      "nombreProducto": "Cortina veneciana interior, lama 25mm (estándar, no premium 50mm), $2.000/m² con descuento vigente",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-acondicionamientos-varios-equip.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-PISO-VINILICO-H2O",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "SPC \"Holztek Natural Brow\" 4mm, USD 31/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pisos-interior.ts",
+      "nota": "Espesor real del producto (4mm) distinto al del código MTOP (8mm), mismo orden de magnitud (advertencia del script).",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-PISO-VINILICO-ROLLO",
+      "proveedor": "CYPE Uruguay",
+      "nombreProducto": "Piso vinílico heterogéneo 2mm clase 23/34/43 (uso comercial), material PVC $672.87/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pisos-interior.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-ADHESIVO-VINILICO",
+      "proveedor": "CYPE Uruguay",
+      "nombreProducto": "Adhesivo acrílico, $53.89/m² ÷ cobertura 0.4kg/m² = $134.72/kg",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pisos-interior.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-BALDOSA-VINILICA-3030",
+      "proveedor": "CYPE Uruguay",
+      "nombreProducto": "Losetas PVC 455x455mm clase 31 (comercial moderado), material $446.92/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pisos-interior.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-PISO-FLOTANTE-ALTA",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Promedio 3 gamas altas (Oak/Main/Dorm, USD 27.50-30.50/m²)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pisos-interior.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-ESPUMA-FLOTANTE",
+      "proveedor": "CYPE Uruguay",
+      "nombreProducto": "Base de espuma de polietileno (del rubro de parquet multicapa), $34.40/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pisos-interior.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-PARQUET-MADERA",
+      "proveedor": "CYPE Uruguay",
+      "nombreProducto": "Parquet multicapa (ingeniería, tres capas, 2180x200x14mm chapa de roble), material lamas $941.40/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pisos-interior.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-ADHESIVO-PARQUET",
+      "proveedor": "CYPE Uruguay",
+      "nombreProducto": "Adhesivo+cinta selladora del rubro multicapa ($34.40+$14.18=$48.58/m²) ÷ 1.2kg/m² = $40.48/kg",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pisos-interior.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-SELLADOR-MADERA",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Rango real \"Barnices y protectores de madera\" (Lusol, Tersuave, Elbex, Inca): $750-$3.489/L; sellador (fondo) tramo bajo-medio $950/L",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pulidos.ts",
+      "nota": "Producto exacto buscado (Sherwin Williams Uruguay, línea Rexpar \"Sellador Hidro\") confirmado disponible en Uruguay pero sin precio publicado; se usó como sustituto el rango real de Sodimac.",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-PLASTIFICADO-PISO-MADERA",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Rango real \"Barnices y protectores de madera\": $750-$3.489/L; plastificado (terminación) tramo medio-alto $1.750/L",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pulidos.ts",
+      "nota": "Producto exacto buscado (Sherwin Williams Uruguay, línea Rexpar \"Poliuretano Comercial\") confirmado disponible en Uruguay pero sin precio publicado; se usó como sustituto el rango real de Sodimac.",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-CERA-SELLADORA-MONOLITICO",
+      "proveedor": "TodoFicina.com.uy",
+      "nombreProducto": "Spartan \"Pro Shine\" 5L, $1.509.54 c/IVA → $301.91/L",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-pulidos.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-PORCELANATO-6060-MATE",
+      "proveedor": "Acher Cerámicas",
+      "nombreProducto": "Promedio de 9 productos mate ($30.42-$46.49/m²) = USD 39.43/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-subtanda1.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-PORCELANATO-6060-PULIDO",
+      "proveedor": "Acher Cerámicas",
+      "nombreProducto": "\"Bianco Master Pulido\", USD 39.20/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-subtanda1.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-PORCELANATO-6060-TEXTURA",
+      "proveedor": "Acher Cerámicas",
+      "nombreProducto": "Promedio línea Travertino texturada USD 31.01-36.48/m² = USD 33.75/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-subtanda1.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-BALDOSA-CERAMICA-4550",
+      "proveedor": "Acher Cerámicas",
+      "nombreProducto": "Promedio 10 productos 45x45cm con descuento vigente ($15.50-$26.64/m²) = USD 20.65/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-subtanda1.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-BALDOSA-MONOLITICA-4040",
+      "proveedor": "MercadoLibre Uruguay",
+      "nombreProducto": "Mosaico granítico — extrapolación lineal desde 20x20cm ($1.641/m²) y 30x30cm ($1.702/m²) real, +$61 cada 10cm de formato → 40x40cm = $1.763/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-subtanda1.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-MADERA-DURA-E2-30CM",
+      "proveedor": "La Casa del Carpintero (Uruguay)",
+      "nombreProducto": "Alfajía lapacho boliviano cepillado 2\"x1\", $462/ml real, escalado por sección transversal (factor 11.811x) a perfil 30cm ancho x 2\" espesor",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-subtanda1.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-BALDOSA-VEREDA-2020",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Baldosa de vereda 20x20cm, $23/u → $575/m² (25 unidades/m²)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-MADERA-DURA-10X5",
+      "proveedor": "La Casa del Carpintero (Uruguay)",
+      "nombreProducto": "Lapacho boliviano, $358.050.72/m³ implícito × sección transversal 10x5cm",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-ZOCALO-MADERA-7515",
+      "proveedor": "La Casa del Carpintero (Uruguay)",
+      "nombreProducto": "Lapacho boliviano, $358.050.72/m³ implícito × sección transversal 75x15mm",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-LADRILLO-VIDRIO-19198",
+      "proveedor": "360Revestimientos.com.uy",
+      "nombreProducto": "Línea \"Brilly\", ladrillo de vidrio 19x19x8cm, USD 13.50/u",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-varios.ts",
+      "nota": "Línea de color específica confirmada con precio; no se verificó si la variante transparente básica es más barata.",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-VARILLA-ARMADO-VIDRIO",
+      "proveedor": "Emat.com.uy",
+      "nombreProducto": "Varilla de hierro tratada 6mm x 12m, $19.22/ml",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-MALLA-ELECTROSOLDADA-1515",
+      "proveedor": "Barraca Luissi",
+      "nombreProducto": "Malla electrosoldada 15x15x4.2mm, USD 3.64-3.83/m² (promedio USD 3.74)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-PORCELANATO-3060-BLANCO",
+      "proveedor": "Acher Cerámicas",
+      "nombreProducto": "Serie Munari Eliane, porcelanato 30x60cm blanco mate, USD 31.48/m² (con descuento vigente)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-albanileria-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-ALUM-7319",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Puerta ventana corrediza aluminio Gala DVH 2.80x2.05m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Escalera de gama confirmada por aluminios.com + aberturasgala.uy + probba.uy: Gala = Probba × 1.6 = (Serie 25 × 1.6) × 1.6. Ancla real Serie 25 = 7.3.18, $12.500/(1.20×1.10m²) = $9.469,70/m², resuelto en sesión anterior (no documentado en estos 46 scripts). Sobre esa base se aplican multiplicadores relativos (DVH ×1.38, oscilobatiente ×1.10, lama térmica ×1.65). Sin precio de venta directo de ventana/puerta armada Gala encontrado públicamente.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ALUM-7320",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Puerta batiente aluminio Gala 0.90x2.05m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Misma metodología que MAT-ALUM-7319: escalera de gama Serie25→Probba(×1.6)→Gala(×1.6), confirmada por aluminios.com/aberturasgala.uy/probba.uy, sin precio de venta directo de la puerta armada.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ALUM-7321",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Ventana oscilobatiente aluminio Gala 1.40x1.10m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Misma metodología que MAT-ALUM-7319: escalera de gama Serie25→Probba(×1.6)→Gala(×1.6) + multiplicador oscilobatiente ×1.10, confirmada por aluminios.com/aberturasgala.uy/probba.uy, sin precio de venta directo de la ventana armada.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ALUM-7322",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Ventana corrediza aluminio Gala 1.40x1.10m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Misma metodología que MAT-ALUM-7319: escalera de gama Serie25→Probba(×1.6)→Gala(×1.6), confirmada por aluminios.com/aberturasgala.uy/probba.uy, sin precio de venta directo de la ventana armada.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ALUM-7323",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Ventana corrediza con cortina lama térmica aluminio Gala 1.40x1.10m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Misma metodología que MAT-ALUM-7319: escalera de gama Serie25→Probba(×1.6)→Gala(×1.6) + multiplicador lama térmica ×1.65, confirmada por aluminios.com/aberturasgala.uy/probba.uy.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ALUM-ALUPROBBA001",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Puerta ventana corrediza aluminio Probba 2.00x2.05m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Probba = Serie25 (ancla real 7.3.18, $9.469,70/m²) × 1.60, escalera confirmada por aluminios.com/aberturasgala.uy/probba.uy (Probba admite DVH, 'mejor relación calidad-precio' según su sitio), sin precio de venta directo de la ventana armada.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ALUM-ALUPROBBA002",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Puerta ventana corrediza aluminio Probba DVH 2.80x2.05m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Misma metodología que MAT-ALUM-ALUPROBBA001: Serie25×1.60 (Probba) + multiplicador DVH ×1.38.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ALUM-ALUPROBBA003",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Puerta batiente aluminio Probba 0.90x2.05m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Misma metodología que MAT-ALUM-ALUPROBBA001: Serie25×1.60 (Probba).",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ALUM-ALUPROBBA004",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Ventana oscilobatiente aluminio Probba 1.40x1.10m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Misma metodología que MAT-ALUM-ALUPROBBA001: Serie25×1.60 (Probba) + multiplicador oscilobatiente ×1.10.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ALUM-ALUPROBBA005",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Ventana corrediza aluminio Probba 1.40x1.10m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Misma metodología que MAT-ALUM-ALUPROBBA001: Serie25×1.60 (Probba).",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ALUM-ALUPROBBA006",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Ventana corrediza aluminio Probba con lama térmica 1.40x1.10m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-aluminio-gala.ts",
+      "nota": "Misma metodología que MAT-ALUM-ALUPROBBA001: Serie25×1.60 (Probba) + multiplicador lama térmica ×1.65.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-PORTON-CORREDIZO-300210",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Portón metálico corredizo 3.00x2.10m",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-carpmet-familia.ts",
+      "nota": "Reusa la tarifa por m² de 7.3.15 (portón batiente, $7.539,68/m², ya real) — corredizo y batiente son construcciones similares en chapa/tubo, sin dato que indique que uno sea más caro que el otro. No es una cotización directa del producto corredizo.",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-TUBO-REDONDO-38MM",
+      "proveedor": "Lista Oficial MTOP (código 203)",
+      "nombreProducto": "Perfil de hierro / tubo redondo 38mm, calculado por peso a partir de $171.92/kg (Lista MTOP código 203, ya usado en Hierro suelto)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-carpmet-familia.ts",
+      "nota": "Fuente es tarifa oficial de la Lista MTOP (organismo estatal), no retail privado.",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-CHAPA-OND-027",
+      "proveedor": "Lista Oficial MTOP (código 75) + fichas técnicas Sagosa",
+      "nombreProducto": "Chapa ondulada galvanizada N°27 (~0.40mm), derivada de $463.57/kg (Lista MTOP N°599, código 75) × peso 3.58kg/m² (fichas técnicas Sagosa/proveedores regionales)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-chapa-calibres.ts",
+      "nota": "Fuente base es tarifa oficial de la Lista MTOP (organismo estatal); peso por m² viene de fichas técnicas de fabricante regional, no de plaza uruguaya directa.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-CHAPA-OND-025",
+      "proveedor": "Lista Oficial MTOP (código 75) + fichas técnicas Sagosa",
+      "nombreProducto": "Chapa ondulada galvanizada N°25 (~0.50mm), derivada de $463.57/kg (Lista MTOP N°599, código 75) × peso 4.46kg/m² (fichas técnicas Sagosa/proveedores regionales)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-chapa-calibres.ts",
+      "nota": "Fuente base es tarifa oficial de la Lista MTOP (organismo estatal); peso por m² viene de fichas técnicas de fabricante regional, no de plaza uruguaya directa.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-CHAPA-OND-024",
+      "proveedor": "Lista Oficial MTOP (código 75) + fichas técnicas Sagosa",
+      "nombreProducto": "Chapa ondulada galvanizada N°24 (~0.56mm), derivada de $463.57/kg (Lista MTOP N°599, código 75) × peso 5.00kg/m² (interpolado por espesor)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-chapa-calibres.ts",
+      "nota": "Fuente base es tarifa oficial de la Lista MTOP (organismo estatal); peso por m² interpolado, no de plaza uruguaya directa.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-CANO-PVC-BAJADA-110",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Caño PVC bajada pluvial 110mm",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-cubiertas-bajada-estructura.ts",
+      "nota": "Mismo caño PVC de 110mm ya resuelto como material de desagüe en Instalación Sanitaria ($350/ml) — mismo producto físico, distinto uso (bajada pluvial exterior vs desagüe interior). Ver también MAT-SANITARIA-PVC-DESAGUE-110.",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-PERFIL-HIERRO-ESTRUCTURA",
+      "proveedor": "Lista Oficial MTOP N°599 (nov-2025), código 189",
+      "nombreProducto": "Perfil de hierro normal (IPN 120mm), $140.42/kg",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-cubiertas-bajada-estructura.ts",
+      "nota": "Fuente es tarifa oficial de la Lista MTOP (organismo estatal), no retail privado.",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-CANALON-CHAPA-GALV",
+      "proveedor": "Barraca Carmela (carmela.com.uy)",
+      "nombreProducto": "Canal Cajón Chapa Galvanizada Desagüe Pluvial ARMCO, $1.290/tramo de 3m, calibre 26 (0.41mm), 17cm de ancho",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-cubiertas-canalones.ts",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-TEJA-FRANCESA",
+      "proveedor": "Juan Construye (juanconstruye.com.uy)",
+      "nombreProducto": "Línea \"Cerro Negro\" (fabricante argentino Cerro Negro, vendido en plaza uruguaya), Teja Francesa Grande Natural, USD 1.63/u",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-cubiertas-teja-policarbonato.ts",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-POLICARBONATO-ALVEOLAR",
+      "proveedor": "Aluminios del Uruguay (shop.aluminios.com)",
+      "nombreProducto": "Policarbonato Alveolar 6mm, 5800x2100mm, Clear, USD 158.11 IVA incluido (placa completa 12.18 m²)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-cubiertas-teja-policarbonato.ts",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-TERMICA-SPLIT-9000",
+      "proveedor": "Mercado uruguayo (MercadoLibre, Sodimac, Aiwa, LOi, Tienda Inglesa)",
+      "nombreProducto": "Equipo split 9000 BTU inverter, rango medio de plaza (~$14.990 a equivalente USD 594-640 según marca), se usó $19.000/u (gama media)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-duplicado-split-termica.ts",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-TERMICA-SPLIT-12000",
+      "proveedor": "Mercado uruguayo (MercadoLibre, Sodimac, Aiwa, LOi, Tienda Inglesa)",
+      "nombreProducto": "Equipo split 12000 BTU inverter, rango medio de plaza ($12.490-16.990 o USD 299-700), se usó $22.500/u",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-duplicado-split-termica.ts",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-CAMARA-IP-EXTERIOR",
+      "proveedor": "Security Store",
+      "nombreProducto": "IMOU Cruiser SE+ (IPC-S21FEP), WiFi PTZ 2MP, certificación IP66, USD 71.89",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-camaras-dvr.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-CABLE-UTP",
+      "proveedor": "Security Store",
+      "nombreProducto": "Cable UTP NRG+ Cat5E, 100% cobre, uso interior, rollo 100m, USD 51.90",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-camaras-dvr.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-CAMARA-IP-INTERIOR",
+      "proveedor": "Security Store",
+      "nombreProducto": "IMOU Ranger 2C, WiFi PTZ 2MP, sin certificación de intemperie, USD 49.90",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-camaras-dvr.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-DVR-NVR-4CANALES",
+      "proveedor": "Security Store",
+      "nombreProducto": "NVR IMOU 4 canales (para cámaras WiFi), USD 103.90",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-camaras-dvr.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-LUMINARIA-EMBUTIDA-LED",
+      "proveedor": "Fivisa",
+      "nombreProducto": "Philips Lighting PH9724X, downlight LED redondo 22W 2000lm 4000k ø295mm, USD 6.22",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-luminarias-alarma.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-LUMINARIA-COLGANTE",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Casa Bonita, lámpara de techo colgante blanca 1 luz E27, $934",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-luminarias-alarma.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-CENTRAL-ALARMA",
+      "proveedor": "Security Store Uruguay",
+      "nombreProducto": "Paradox SP4000, panel hasta 32 zonas cableadas/inalámbricas, USD 52.50",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-luminarias-alarma.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-SENSOR-MOVIMIENTO",
+      "proveedor": "SVIDEO Uruguay",
+      "nombreProducto": "Sensor volumétrico PIR wireless FSK433 (MC-565RF), USD 31.00",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-luminarias-alarma.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-PORTERO-CON-VIDEO",
+      "proveedor": "Fivisa",
+      "nombreProducto": "Kit monitor color 7\" interior + panel exterior con cámara (P37508), USD 193.69",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-porteros.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-PORTERO-SIMPLE",
+      "proveedor": "Fivisa",
+      "nombreProducto": "Kit portero eléctrico TSP 314 (P37304), audio sin video, USD 50.24",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-porteros.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-CAJA-EMBUTIR-RECT",
+      "proveedor": "Fivisa",
+      "nombreProducto": "Geros GR1010, 118x96x70mm, USD 2.23",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-puestas-caneria.ts",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-CABLE-ELECTRICO-25MM",
+      "proveedor": "Fivisa",
+      "nombreProducto": "Fustix CF 2.5mm² cobre flexible clase 5, rollo 100m, USD 63.81",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-puestas-caneria.ts",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-TOMA-O-INTERRUPTOR",
+      "proveedor": "Fivisa",
+      "nombreProducto": "Promedio de Tomacorriente (módulo entrada lateral Presta con tierra y seguro, USD 2.98) e Interruptor (módulo llave unipolar 10A 250V Sica, USD 1.19)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-puestas-caneria.ts",
+      "nota": "Precio promedio de 2 SKUs reales distintos (criterio del script: 'sin desdoblar').",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-CONDUIT-PVC-20MM",
+      "proveedor": "Fivisa",
+      "nombreProducto": "Tuboform, caño negro PVC curvable en frío 20mm, barra 3m, USD 4.00",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-puestas-caneria.ts",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-TABLERO-ELEC-12",
+      "proveedor": "Fivisa",
+      "nombreProducto": "Schneider Electric, tablero de embutir 12 módulos con riel DIN, puerta transparente (MG1566), USD 13.02",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-tableros.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-TERMICAS-DIFERENCIALES",
+      "proveedor": "Fivisa",
+      "nombreProducto": "Paquete: 1 diferencial 2P 40A 30mA (MG1208, USD 65.05) + 12 térmicas 1P 20A (HY1520M, USD 2.26 c/u)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-tableros.ts",
+      "nota": "Ítem tipo paquete/gl estimado como conjunto, no desglosado térmica por térmica (mismo criterio de otros 'accesorios de colocación' de tandas anteriores).",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-TABLERO-ELEC-24",
+      "proveedor": "Fivisa",
+      "nombreProducto": "Schneider Electric, tablero de embutir 24 módulos con riel DIN, línea Easy9, puerta blanca (MG1920), USD 32.51",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-electrica-tableros.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-MUEBLE-BANO-BACHA-075",
+      "proveedor": "Loysa.uy",
+      "nombreProducto": "Mueble de baño suspendido con bacha de loza, interpolado linealmente entre 60cm (USD 270) y 80cm (USD 320) a 75cm → USD 307.50",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-equipamiento-carpinterias.ts",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-MUEBLE-COCINA-ML",
+      "proveedor": "Sodimac Uruguay + Rubrado SAU agosto 2022",
+      "nombreProducto": "Combina (a) Sodimac Uruguay 'Bajo mesada Henn 2 puertas 3 cajones' 120cm, $6.169 real, y (b) Rubrado SAU agosto 2022 'MESADA GRANITO GRIS' $12.417,30/m² (rubro 7.2.10) × 0.60m de profundidad estándar",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-equipamiento-carpinterias.ts",
+      "nota": "Precio híbrido: el componente de módulos inferiores es de plaza 2026 (Sodimac), pero el componente de mesada proviene del precio directo del Rubrado SAU agosto 2022, no de una cotización de mercado 2026 fresca.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-PLACARD-CORR-180230",
+      "proveedor": "Soy Hogar Muebles (soyhogar.com.uy)",
+      "nombreProducto": "Ropero placard 3 puertas corredizas espejo blanco 'Residence', medidas confirmadas 2.18m ancho x 2.10m alto x 0.52m profundidad, $17.900 lista / $16.110 con 10% desc., escalado por área total de paneles a la medida objetivo (factor 1.0066)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-equipamiento-carpinterias.ts",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-HORMIGON-PREMEZCLADO-C20",
+      "proveedor": "Generador de Precios CYPE Uruguay",
+      "nombreProducto": "Hormigón para armar H-21 (equivalente a C20 20MPa nominal), componente Materiales con 5% de excedente = $7.761,44/m³",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-estructura-hormigon-premezclado.ts",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-POMO-LLAVIN",
+      "proveedor": "Kroser Uruguay",
+      "nombreProducto": "Marca Hermex, sistema llavín/botón ciego, rango real $727-1.284, se usó $950/u (mid-range)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-herrajes.ts",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-TUBO-CUADRADO-25X25X2",
+      "proveedor": "Lista Oficial MTOP (código 203)",
+      "nombreProducto": "Perfil de hierro ángulo 25x25x3mm usado como proxy de tubo cuadrado 25x25x2mm, $171.92/kg",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-hierro-suelto-carpinterias.ts",
+      "nota": "Fuente es tarifa oficial de la Lista MTOP (organismo estatal), no retail privado. El perfil de la Lista es 'ángulo 25x25x3mm', el más cercano en tamaño nominal disponible, no exactamente el tubo hueco 25x25x2mm.",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-MOTOR-PORTON-BATIENTE",
+      "proveedor": "Carrasco Import (Montevideo, carrascoimport.com)",
+      "nombreProducto": "Línea MOTORTEK, motor para portón batiente 400kg WiFi-Bluetooth (gama residencial media), USD 269",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-hierro-suelto-carpinterias.ts",
+      "fechaUltimaVerificacion": "2026-07-19"
+    },
+    {
+      "codigo": "MAT-MEMBRANA-GEOTEXTIL",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Asfalkote, membrana asfáltica con geotextil 4mm, rollo 10 m², $5.359",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-imper-membranas.ts",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-MEMBRANA-ALUMINIZADA",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Sika AP-NC, membrana asfáltica aluminizada 4mm, 40kg, rollo 10 m², $2.756",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-imper-membranas.ts",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-POLIETILENO-100MICRONES",
+      "proveedor": "EMAT (emat.com.uy)",
+      "nombreProducto": "Nylon 100 micrones tubular (transparente), $359.12/kg, rendimiento 2.6 m lineales/kg × 2m de ancho de tubo",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-imper-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-CHAPA-GALV-CARTEL",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Chapa lisa Zincgrip 0.3mm, 1x2m (Armco), $1.069 el paño de 2m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-implantacion.ts",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-HORMIGON-POBRE-BASES",
+      "proveedor": "Generador de Precios CYPE Uruguay",
+      "nombreProducto": "Hormigón de limpieza H-13 (baja resistencia, para base de fundaciones), componente Materiales $7.157,60/m³ (incluye 5% de excedente)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-implantacion.ts",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-PINTURA-ESMALTE-SINTETICO",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Pintura esmalte sintético",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-implantacion.ts",
+      "nota": "Reutiliza 'Esmalte sintetico' real de la Lista Oficial MTOP (código 90) = $874,36/l — mismo producto, no colisionaba por 'contains' porque a la fila real le falta la palabra 'Pintura' al inicio. Fuente subyacente es tarifa oficial (organismo estatal), no retail privado.",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-TEJIDO-GALV-N14",
+      "proveedor": "Lista Oficial MTOP (código 158)",
+      "nombreProducto": "Tejido de alambre galvanizado, hueco 5x5cm, Nro.14 (2mm), $686,94/m², convertido a $1.786,04/ml para cerco de 2.60m de altura",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-implantacion.ts",
+      "nota": "Fuente es tarifa oficial de la Lista MTOP (organismo estatal), no retail privado. Conversión de unidad explícita m²→ml aplicada por el script.",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-ALAMBRE-GALV-N14",
+      "proveedor": "Lista Oficial MTOP (código 12)",
+      "nombreProducto": "Alambre galvanizado Nro. 16/14, $1.059,66/kg",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-implantacion.ts",
+      "nota": "Fuente es tarifa oficial de la Lista MTOP (organismo estatal), no retail privado.",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-POSTE-MADERA",
+      "proveedor": "Lista Oficial MTOP",
+      "nombreProducto": "Madera. Poste de eucaliptus tratado, diámetro 12cm, largo 2.2m, $426,77/u",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-implantacion.ts",
+      "nota": "Fuente es tarifa oficial de la Lista MTOP (organismo estatal), no retail privado. Se eligió eucaliptus (no quebracho) por ser el estándar económico para barreras/cercos de obra provisorios.",
+      "fechaUltimaVerificacion": "2026-07-25"
+    },
+    {
+      "codigo": "MAT-MADERA-PUERTA-EXT-090210",
+      "proveedor": "Tienda Waluminio",
+      "nombreProducto": "Puerta de cedro macizo (no enchapado) 85x205cm, $11.295,50, escalado por área a 1.89m² (0.90x2.10m)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-madera-carpinterias.ts",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-MADERA-PUERTA-INT-080205",
+      "proveedor": "Generador de Precios CYPE Uruguay",
+      "nombreProducto": "Puerta interior de abrir, de madera (203x82.5x3.5cm, tablero hueco alveolar, melamina), materiales $3.879,33 para 1.675m², escalado a 0.80x2.05m (1.64m²) → $3.797,65",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-madera-carpinterias.ts",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-PANEL-ISOPANEL-CUBIERTA",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Panel isopanel para cubierta, espesor 50mm asumido como estándar",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-paneles-termicos.ts",
+      "nota": "Reutiliza el componente de material ya resuelto de isopanel-001 ('Panel autoestructural prefabricado, Tipo multicapa espesor 50mm', código real CUB001, $1.978,53/m²) — mismo producto físico (Isopanel), solo con nombre de línea de material distinto en este código genérico. Espesor 50mm elegido por ser la opción de entrada/más frecuente en Uruguay (BMC Uruguay, Construex).",
+      "fechaUltimaVerificacion": "2026-07-26"
+    },
+    {
+      "codigo": "MAT-PANEL-ISODECK",
+      "proveedor": "Barraca Carmela (carmela.com.uy)",
+      "nombreProducto": "Panel Techo Aislante Engrafado Poliuretano Isodec PIR 80mm, USD 79.50/ml (ancho útil 1.13m)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-paneles-termicos.ts",
+      "fechaUltimaVerificacion": "2026-07-26"
+    },
+    {
+      "codigo": "MAT-ENDUIDO-PLASTICO-INT",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Elbex, enduido plástico interior, 5kg, $389",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-enduidos.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-ENDUIDO-PLASTICO-EXT",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Lusol, enduido plástico exterior, 2kg, $249",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-enduidos.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-LATEX-INTERIOR",
+      "proveedor": "DT Importaciones",
+      "nombreProducto": "Inca Incamax pared interiores blanco mate, 4L, $1.610",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-latex.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-LATEX-EXTERIOR",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Inca Antimoho Exterior, 4L, $2.649",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-latex.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-FIJADOR-MUROS",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Inca Fijador/Sellador al agua, 1L, $659",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-IMPRIMACION-MUROS",
+      "proveedor": "Barraca 5 Esquinas",
+      "nombreProducto": "Tersuave Imprimación Fijador, 1L, $406",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-FONDO-SELLADORA-MADERA",
+      "proveedor": "Pinturas Amanecer (Uruguay)",
+      "nombreProducto": "Tapaporos para Madera, 0.85L, $576",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-varios.ts",
+      "nota": "El término técnico correcto del producto es 'tapaporos'; no se encontró un 'sellador para madera' genérico con precio propio distinto.",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-PINTURA-ANTIHONGOS",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Prodanix Antihongos Hogar, 1L, $229",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-IMPER-SILICONADO-HIDROREP",
+      "proveedor": "DT Importaciones",
+      "nombreProducto": "Sika Igol 5-Sil (hidro-repelente de silicona en solvente), 5L, $6.291",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-ESMALTE-SINTETICO",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Tersuave, esmalte sintético blanco brillante/mate, 1L, $740",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-BARNIZ-MADERA",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Tersuave Barniz marino Troya satinado caoba, 4L, $2.590",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-pinturas-varios.ts",
+      "fechaUltimaVerificacion": "2026-07-21"
+    },
+    {
+      "codigo": "MAT-ALUM-73170B",
+      "proveedor": "Waluminio / Aberturas Moscú",
+      "nombreProducto": "Puerta ventana corrediza aluminio Serie 25 2.00x2.05m — tarifa ancla Serie 25 $12.500/(1.20×1.10m²) = $9.469,70/m², escalada al área 4.10m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-precio-7317b.ts",
+      "nota": "Reaplica la tarifa Serie 25 confirmada como ancla real en la sesión de Aluminio (Gala/Probba, no incluida en estos 46 scripts) para 7.3.18; ese cálculo se había hecho pero nunca se aplicó a producción. Serie 25 es línea de otro fabricante/importador (Waluminio/Aberturas Moscú), no una de las 4 líneas de Aluminios del Uruguay.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-SANITARIA-PVC-DESAGUE-110",
+      "proveedor": "Barraca Carmela / Tigre-Barraca Dayman",
+      "nombreProducto": "Caño PVC desagüe 110mm, aprobado UNIT 206, rango real $300-427/ml, se usó $350/ml",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-precio-bano-completo.ts",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-SANITARIA-TERMOFUSION-FRIA",
+      "proveedor": "Lista Oficial MTOP (código SA001)",
+      "nombreProducto": "Caño termofusión PPR Ø1/2\" (apto agua fría y caliente), $968.03 por barra de 6m = $161.34/ml",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-precio-bano-completo.ts",
+      "nota": "Fuente es tarifa oficial de la Lista MTOP (organismo estatal), no retail privado. Mismo producto físico reusado para ambos usos fría/caliente.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-SANITARIA-TERMOFUSION-CALIENTE",
+      "proveedor": "Lista Oficial MTOP (código SA001)",
+      "nombreProducto": "Caño termofusión PPR Ø1/2\" (apto agua fría y caliente), $968.03 por barra de 6m = $161.34/ml",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-precio-bano-completo.ts",
+      "nota": "Fuente es tarifa oficial de la Lista MTOP (organismo estatal), no retail privado. Mismo producto físico reusado para ambos usos fría/caliente (misma fila que MAT-SANITARIA-TERMOFUSION-FRIA).",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-INODORO-SIN-MOCHILA",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Celite \"Saveiro\" corto, USD 69",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-artefactos.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-CISTERNA-EMBUTIDA",
+      "proveedor": "Acher Cerámicas",
+      "nombreProducto": "Valsir \"Tropea FixSystem\" (cisterna + soportes para muro sólido), USD 480.68 con descuento vigente",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-artefactos.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-CISTERNA-SOBREPONER",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Cisterna tradicional blanco, $1.899",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-artefactos.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-BANERA-ESTANDAR",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Bañera de fibra y acrílico 140x70x38cm, $7.919",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-artefactos.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-CALEFON-GAS-10L",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Enxuta TENX10G, USD 235",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-artefactos.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-BOMBA-ELECTRICA-1HP",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Taifu, autocebante 1HP, USD 229",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-bombas-tanque.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-BOMBA-ELECTRICA-2HP",
+      "proveedor": "Gianni S.A.",
+      "nombreProducto": "Modelo propio SCM2-60, doble rotor, USD 469",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-bombas-tanque.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-TANQUE-AGUA-500L",
+      "proveedor": "Barraca Carmela",
+      "nombreProducto": "Gianni Tricapa antibacteriano \"Kit Completo\" (incluye flotante y salida), USD 183",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-bombas-tanque.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-TAPA-CONTRATAPA-6060",
+      "proveedor": "EMAT (Uruguay)",
+      "nombreProducto": "Tapa y contratapa hierro fundido 60x60cm — suma de 2 componentes: contratapa $186.29 + tapa reforzada ~$700 (punto medio de rango real $186.29-$1.219,90 según capacidad de carga)",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-canerias.ts",
+      "nota": "Combinación de 2 SKU reales, no un set único encontrado.",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-SIFON-DESCONECTOR-110",
+      "proveedor": "Todoobra.com.uy",
+      "nombreProducto": "REDI, sifón desconector 110mm \"con registro\" (acceso de limpieza), $4.258,53 c/IVA",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-canerias.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-CANO-PVC-PRESION-20",
+      "proveedor": "Gianni S.A. (Uruguay)",
+      "nombreProducto": "Tubo PVC soldable 20mm PN12 con junta elástica, barra 6m, USD 8 → USD 1.33/ml",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-canerias.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-CANO-GALV-12",
+      "proveedor": "Interpolado — Sodimac Uruguay (3/4\", $110.67/ml) y Casa Korman (1-1/4\", $221.33/ml)",
+      "nombreProducto": "Caño acero galvanizado 1/2 pulgada, interpolado entre dos diámetros reales confirmados",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-canerias.ts",
+      "nota": "No hay cotización directa para el diámetro 1/2\" — se interpoló entre 3/4\" (Sodimac) y 1-1/4\" (Casa Korman), ambos reales.",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-CANO-GALV-34",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Caño acero galvanizado 3/4 pulgada, $332/3m → $110.67/ml",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-sanitaria-canerias.ts",
+      "fechaUltimaVerificacion": "2026-07-20"
+    },
+    {
+      "codigo": "MAT-PERFIL-STEEL-FRAMING",
+      "proveedor": "Barraca Paraná",
+      "nombreProducto": "Perfil PGC (montante) 150mm x 6m, calibre 18, línea steel framing estructural, USD 55.25",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-steel-framing.ts",
+      "nota": "Verificado contra EMAT, que lista el mismo producto exacto a USD 75.51 pero figuraba 'Agotado'; se prefirió Barraca Paraná por ser especialista del rubro y no tener problema de stock (ambas fuentes confirman el mismo orden de magnitud).",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-PLACA-OSB-STEEL",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Masisa OSB Home E1, 11.1mm, 1.22x2.44m (2.97 m²), $1.019",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-steel-framing.ts",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-VIDRIO-TEMPLADO-10",
+      "proveedor": "Lista Oficial MTOP N°599 (nov-2025), código 30",
+      "nombreProducto": "\"Cristal 10mm. templado\", $17.739,08/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-vidrio007-correccion.ts",
+      "nota": "Fuente es tarifa oficial de la Lista MTOP (organismo estatal), no retail privado. El precio original de vidrio-007 resultaba incoherente frente a esta fila real; se descartó la variante con bordes trabajados (código 274) por no coincidir con la especificación del código.",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-VIDRIO-INCOLORO-4MM",
+      "proveedor": "Lista Oficial MTOP N°599 (nov-2025), código 169",
+      "nombreProducto": "\"Vidrio cortado, espesor 4mm (nacional)\", $4.312,59/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-vidrios-incoloro.ts",
+      "nota": "Fuente es tarifa oficial de la Lista MTOP (organismo estatal), no retail privado.",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-VIDRIO-INCOLORO-5MM",
+      "proveedor": "Derivado — ver nota",
+      "nombreProducto": "Vidrio incoloro 5mm, interpolación lineal $5.458,06/m²",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-vidrios-incoloro.ts",
+      "nota": "Sin fila propia de 5mm en la Lista MTOP (solo 2.3, 3, 4 y 6mm). Interpolado linealmente entre 'Vidrio cortado 4mm nacional' ($4.312,59/m², código 169) y 'Vidrio cortado 6mm nacional' ($6.603,52/m², código 171), ambos de la Lista Oficial MTOP (organismo estatal).",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-PERFIL-CIELORRASO",
+      "proveedor": "EMAT (Uruguay)",
+      "nombreProducto": "Perfil Montante 35mm x 3m, calibre liviano, armado de cielorrasos suspendidos, USD 3.66",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-yeso-durlock.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-PERFIL-TABIQUE",
+      "proveedor": "EMAT (Uruguay)",
+      "nombreProducto": "Perfil Montante 70mm x 3m, para tabiques de yeso, USD 4.09",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-yeso-durlock.ts",
+      "nota": "Se verificó explícitamente que es distinto del perfil 'steel framing estructural' de igual ancho que también vende Sodimac.",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-MASILLA-DURLOCK",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Durlock, masilla para juntas, 18kg, $999",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-yeso-durlock.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-LANA-VIDRIO",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Isover, lana de vidrio aislante, 1.20x18m 50mm, $2.999",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-yeso-durlock.ts",
+      "fechaUltimaVerificacion": "2026-07-23"
+    },
+    {
+      "codigo": "MAT-YESO-BLANCO",
+      "proveedor": "Barraca Paraná",
+      "nombreProducto": "Yeso en polvo Corral, bolsa 40kg, USD 16.86",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-yeso-liso-moldura.ts",
+      "nota": "Cruzado con Sodimac Uruguay (mismo producto, misma marca Corral, bolsa 40kg, $479 → $11.97/kg), que figuraba 'no disponible momentáneamente'; ambas fuentes confirman el mismo orden de magnitud, se prefirió Barraca Paraná.",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-PANEL-CIELORRASO-PVC",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Barbieri, pack x10 (20cm x 120cm x 13mm c/u, 2.40 m² total), $269",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-yeso-pvc-lanaroca.ts",
+      "nota": "Figuraba 'no disponible' en el catálogo — precio de mercado válido igual (mismo criterio que el perfil de steel framing).",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-PERFIL-OMEGA-PVC",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Barbieri, tira omega 12.5mm x 2.60m, $129",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-yeso-pvc-lanaroca.ts",
+      "nota": "El producto real es de aluminio/metálico, no plástico PVC propiamente dicho — 'PVC' en el nombre del material del código refiere al sistema de panel que soporta, no a la composición del perfil (no se encontró un perfil omega de plástico PVC con precio en Uruguay).",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-TORNILLOS-TACOS",
+      "proveedor": "Sodimac Uruguay",
+      "nombreProducto": "Fischer PO 25 (tacos GKA + tornillos TMF 4x25), caja x25u, $299",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-yeso-pvc-lanaroca.ts",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-LANA-ROCA",
+      "proveedor": "Group Soluciones (Uruguay)",
+      "nombreProducto": "Lana de roca, caja de 9 paneles (40x120x5cm, densidad 40kg/m³) = 4.32 m², $578",
+      "urlReferencia": null,
+      "scriptOrigen": "fix-yeso-pvc-lanaroca.ts",
+      "nota": "Se descartó Prodeco (mismo tipo de producto, $541.67/m², outlier ~4x más caro, no representativo de gama estándar).",
+      "fechaUltimaVerificacion": "2026-07-24"
+    },
+    {
+      "codigo": "MAT-ADMIN-014",
+      "proveedor": "Dirección Nacional de Catastro",
+      "nombreProducto": "Tasa Catastral (cédula catastral informada) — $918 valor publicado",
+      "urlReferencia": null,
+      "scriptOrigen": "seed-administrativo.ts",
+      "nota": "Organismo estatal/tarifa oficial, no retail privado. El empadronamiento completo puede incluir honorarios de agrimensor no cubiertos por esta tasa.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ADMIN-016",
+      "proveedor": "Generador de precios CYPE Uruguay",
+      "nombreProducto": "Estudio geotécnico (sondeo + informe de capacidad portante), suelo medio (arcillas, margas), incluye trabajo de campo + laboratorio, $59.780,63",
+      "urlReferencia": null,
+      "scriptOrigen": "seed-administrativo.ts",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ADMIN-017",
+      "proveedor": "OSE",
+      "nombreProducto": "Conexión domiciliaria de agua potable 12.5-13mm vivienda unifamiliar = 5 UR × $1.922,68 (valor UR julio 2026, DGI/INE)",
+      "urlReferencia": null,
+      "scriptOrigen": "seed-administrativo.ts",
+      "nota": "Organismo estatal/tarifa oficial, no retail privado.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ADMIN-018",
+      "proveedor": "OSE",
+      "nombreProducto": "Conexión de saneamiento 110mm (diámetro residencial estándar) = 17 UR × $1.922,68",
+      "urlReferencia": null,
+      "scriptOrigen": "seed-administrativo.ts",
+      "nota": "Organismo estatal/tarifa oficial, no retail privado.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    },
+    {
+      "codigo": "MAT-ADMIN-020",
+      "proveedor": "MontevideoGas",
+      "nombreProducto": "Cargo de conexión residencial (medidor hasta 6m³/h, incluye gabinete/regulador), USD 276 con IVA incluido",
+      "urlReferencia": null,
+      "scriptOrigen": "seed-administrativo.ts",
+      "nota": "MontevideoGas es distribuidor de gas de ANCAP (empresa estatal) — tarifa regulada, no retail privado de mercado libre en sentido estricto.",
+      "fechaUltimaVerificacion": "2026-07-18"
+    }
+  ],
+  "ambiguos": [
+    {
+      "codigo": "MAT-PISCINA-POLIESTER-7535",
+      "motivo": "Retro-derivado del Rubrado SAU 2022 (material implícito $158.418,67 combinado con equipo de filtrado, descontando MO y materiales ya reales) + ajuste de inflación estimado +20% (2022→2026), dividido 85%/15% entre piscina y equipo. Sin cotización de mercado fresca ni proveedor identificable — es una reconstrucción, no un precio de catálogo.",
+      "scriptOrigen": "fix-acondicionamientos-obra-exterior.ts"
+    },
+    {
+      "codigo": "MAT-EQUIPO-FILTRADO-PISCINA",
+      "motivo": "Mismo origen que MAT-PISCINA-POLIESTER-7535: retro-derivado del Rubrado SAU 2022 + ajuste de inflación estimado, sin proveedor real identificable (15% del valor combinado).",
+      "scriptOrigen": "fix-acondicionamientos-obra-exterior.ts"
+    },
+    {
+      "codigo": "MAT-ASC-8P-12PAR",
+      "motivo": "Derivado de modelo de regresión lineal (Material = a + b×paradas + c×personas) calibrado sobre 5 puntos reales de una familia de ascensores instalados sembrada en otra tanda. No hay proveedor/tienda identificable — el 'insumo' es un ascensor completo instalado, no un producto de catálogo. El propio script advierte que la coincidencia casi exacta con el precioUY 2022 guardado es una coincidencia que refuerza el modelo, no una validación externa independiente.",
+      "scriptOrigen": "fix-ascensor-faltantes.ts"
+    },
+    {
+      "codigo": "MAT-ASC-6P-5PAR",
+      "motivo": "Mismo origen que MAT-ASC-8P-12PAR: derivado del mismo modelo de regresión lineal sobre 5 puntos reales, sin proveedor/tienda identificable.",
+      "scriptOrigen": "fix-ascensor-faltantes.ts"
+    },
+    {
+      "codigo": "MAT-PERFIL-UNION-POLICARBONATO",
+      "motivo": "Caso de fuente cruzada de menor confianza citado explícitamente en el script: Aluminios del Uruguay tiene el Perfil H en catálogo pero SIN precio visible; Mercado Libre Uruguay bloqueó el fetch (403). Se usó como fuente final GINISA (Argentina), mismo producto (barra de 5.80m) = ARS 37.143, con doble conversión de moneda (ARS→USD→UYU, tipo de cambio jul-2026) para llegar a $174.81/ml. No queda claro que el precio de GINISA sea representativo de plaza uruguaya.",
+      "scriptOrigen": "fix-cubiertas-teja-policarbonato.ts"
+    },
+    {
+      "codigo": "MAT-ASC-4P-4PAR",
+      "motivo": "Derivado de modelo de regresión lineal exacto (precio = k1×personas + k2×paradas, resuelto a partir de 7.2.30 y 7.2.31) para escalar 5 capacidades nuevas de ascensor. No hay proveedor/tienda identificable — el 'insumo' es un ascensor completo instalado, no un producto de catálogo.",
+      "scriptOrigen": "seed-ascensor.ts"
+    },
+    {
+      "codigo": "MAT-ASC-6P-8PAR",
+      "motivo": "Mismo origen que MAT-ASC-4P-4PAR: derivado del modelo de regresión lineal exacto k1×personas+k2×paradas, sin proveedor/tienda identificable.",
+      "scriptOrigen": "seed-ascensor.ts"
+    },
+    {
+      "codigo": "MAT-ASC-8P-6PAR",
+      "motivo": "Mismo origen que MAT-ASC-4P-4PAR: derivado del modelo de regresión lineal exacto k1×personas+k2×paradas, sin proveedor/tienda identificable.",
+      "scriptOrigen": "seed-ascensor.ts"
+    },
+    {
+      "codigo": "MAT-ASC-10P-8PAR",
+      "motivo": "Mismo origen que MAT-ASC-4P-4PAR: derivado del modelo de regresión lineal exacto k1×personas+k2×paradas, sin proveedor/tienda identificable.",
+      "scriptOrigen": "seed-ascensor.ts"
+    },
+    {
+      "codigo": "MAT-ASC-CAMILLERO-10P-6PAR",
+      "motivo": "Mismo origen que MAT-ASC-4P-4PAR: derivado del modelo de regresión lineal exacto k1×personas+k2×paradas, sin proveedor/tienda identificable. El script señala que la variante camillero (uso hospitalario/PH) encaja en el mismo modelo sin premium adicional, lo cual es una observación no confirmada, no una fuente de precio real distinta.",
+      "scriptOrigen": "seed-ascensor.ts"
+    }
+  ],
+  "no_encontrados": [
+    {
+      "codigo": "MAT-CARPMET-ACCESORIOS-MOTOR",
+      "motivo": "No se encontró documentación de fuente para este código exacto en ninguno de los 46 scripts. fix-carpmet-familia.ts menciona que 'Accesorios instalación motor portón CORREDIZO' ($1.200) fue creado para carpmet-008 ('Motor para portón corredizo') en una tanda anterior no incluida en estos 46 archivos. fix-hierro-suelto-carpinterias.ts solo crea la variante batiente (MAT-CARPMET-ACCESORIOS-MOTOR-BATIENTE, con el mismo valor de referencia $1.200), un código MTOP distinto del solicitado.",
+      "scriptOrigen": null
+    }
+  ],
+  "_progreso": {
+    "archivos_procesados": [
+      "fix-acondicionamientos-mesadas.ts",
+      "fix-acondicionamientos-obra-exterior.ts",
+      "fix-acondicionamientos-sanitarios.ts",
+      "fix-acondicionamientos-varios-equip.ts",
+      "fix-albanileria-pisos-interior.ts",
+      "fix-albanileria-pulidos.ts",
+      "fix-albanileria-subtanda1.ts",
+      "fix-albanileria-varios.ts",
+      "fix-aluminio-gala.ts",
+      "fix-ascensor-faltantes.ts",
+      "fix-carpmet-familia.ts",
+      "fix-chapa-calibres.ts",
+      "fix-cubiertas-bajada-estructura.ts",
+      "fix-cubiertas-canalones.ts",
+      "fix-cubiertas-teja-policarbonato.ts",
+      "fix-duplicado-split-termica.ts",
+      "fix-electrica-camaras-dvr.ts",
+      "fix-electrica-luminarias-alarma.ts",
+      "fix-electrica-porteros.ts",
+      "fix-electrica-puestas-caneria.ts",
+      "fix-electrica-tableros.ts",
+      "fix-equipamiento-carpinterias.ts",
+      "fix-estructura-hormigon-premezclado.ts",
+      "fix-herrajes.ts",
+      "fix-hierro-suelto-carpinterias.ts",
+      "fix-imper-membranas.ts",
+      "fix-imper-varios.ts",
+      "fix-implantacion.ts",
+      "fix-madera-carpinterias.ts",
+      "fix-paneles-termicos.ts",
+      "fix-pinturas-enduidos.ts",
+      "fix-pinturas-latex.ts",
+      "fix-pinturas-varios.ts",
+      "fix-precio-7317b.ts",
+      "fix-precio-bano-completo.ts",
+      "fix-sanitaria-artefactos.ts",
+      "fix-sanitaria-bombas-tanque.ts",
+      "fix-sanitaria-canerias.ts",
+      "fix-steel-framing.ts",
+      "fix-vidrio007-correccion.ts",
+      "fix-vidrios-incoloro.ts",
+      "fix-yeso-durlock.ts",
+      "fix-yeso-liso-moldura.ts",
+      "fix-yeso-pvc-lanaroca.ts",
+      "seed-administrativo.ts",
+      "seed-ascensor.ts"
+    ],
+    "archivos_pendientes": [],
+    "estado": "COMPLETO — los 46 archivos fueron procesados. Los 165 códigos objetivo fueron localizados (154 en 'mapeo', 10 en 'ambiguos', 1 en 'no_encontrados')."
+  }
+}
