@@ -442,6 +442,17 @@ model PrecioMTOP {
   fechaLista     String   @default("2025-11")
   creadoEn       DateTime @default(now())
   actualizadoEn  DateTime @updatedAt
+
+  // FEAT-AI-006 — actualización periódica de precios de mercado libre.
+  // Todos opcionales/con default: no rompen los registros existentes
+  // (Lista MTOP oficial ni los 334 de Fase 2 sin estos datos aún).
+  proveedor               String?
+  nombreProducto          String?
+  urlReferencia           String?
+  fechaUltimaVerificacion DateTime?
+  umbralAlertaPorcentaje  Float     @default(17.5)
+  requiereVerificacion    Boolean   @default(false)
+  motivoVerificacion      String?
 }
 
 model PrecioEquipo {
