@@ -135,3 +135,82 @@ o Mequis3 (canal no accesible por herramientas de búsqueda web).
 verificados en vivo (incluye 10 ya sanos + sub-tanda 12b, hormigón
 premezclado). Quedan 5.2.1, 5.2.2, 5.2.3 pendientes — capítulo dejado
 abierto a propósito, sin auditoría de cierre completo.
+
+---
+
+## Cortinas de Enrollar — 7.5.1 (PVC) y 7.5.2 (Aluminio con relleno poliuretánico)
+
+**Insumos pendientes**: "Cortina de enrollar PVC" (m², rend 1,05),
+"Cortina de enrollar aluminio poliuretánica" (m², rend 1,05), "Cajón
+para cortina de enrollar" (ml, rend 0,8 — compartido por ambos
+códigos).
+
+**Estado**: ambos códigos activos, precioUY guardado en $15.120,00 y
+$29.160,00 respectivamente (rubro SAU 2022 original, misma
+especificación "PVC completa"/"aluminio completa con relleno
+poliuretánico con colocación" — a diferencia del Cartel de obra
+(1.1), acá SÍ se confirmó que la especificación no cambió, por lo que
+el número 2022 es genuinamente comparable) — los materiales resuelven
+a $0 en clonado real.
+
+**Confirmado antes de investigar**: el APU de ambos códigos modela
+SOLO la cortina (lamas) + el cajón — ningún material de vidrio ni
+marco de ventana. Se descartó la hipótesis de que fueran parte de un
+sistema "monoblock" (marco+vidrio+cortina prefabricados), ya que un
+monoblock real incluiría esos materiales en el descompuesto.
+
+**Búsqueda realizada (dos rondas)**:
+- **Ronda 1** — fuentes residenciales reales, con fetch directo:
+  - Cortina de enrollar PVC: CYPE Uruguay, "Persiana enrollable de
+    lamas PVC 45mm" (explícitamente "en cajón de persiana ya
+    ejecutado", sin cajón) = $1.300,65/m² (solo materiales).
+  - Cortina de enrollar aluminio poliuretánica: Bork Uruguay,
+    "Aluminio Perfilada 45mm con relleno de poliuretano", caja
+    aparte = $5.500/m² (blanco).
+  - Diferencial PVC/aluminio confirmado con ficha real (no asumido):
+    Alumex describe PVC como "protección UV" simple vs. aluminio
+    "extrusionado con núcleo de poliuretano expandido" — premium de
+    aislación térmica/acústica real, ~4,2x, coherente.
+  - Cajón para cortina de enrollar: sin fuente directa por ml — solo
+    derivado indirectamente comparando dos fichas CYPE ("sin cajón"
+    $1.300,65/m² vs "con cajón monoblock" $2.082,77/m², espesores de
+    lama distintos 45mm/37mm, ruido considerable) → diferencia
+    ~$782/m², convertida a $/ml asumiendo una altura de vano no
+    confirmada (~$938/ml) — estimación de baja confianza, cadena
+    larga de supuestos.
+- **Ronda 2** — se investigó si Aluminios del Uruguay vendía la
+  tablilla con poliuretano o el cajón como accesorio suelto de
+  monoblock (hipótesis descartada primero, pero investigada por las
+  dudas): se encontraron componentes menores del cajón ("Tapa lateral
+  p/cajón de cortina 200mm" USD 7,64/par, "Kit testero central p/cajón
+  150mm") pero NO el cajón completo. La "Tablilla tubular panel
+  opaco" resultó ser aluminio hueco sin relleno (peso 0,759 kg/m,
+  demasiado liviano para llevar poliuretano) — no aplica a 7.5.2. La
+  categoría "Monoblock" completa (40 productos) no tiene ninguna
+  cortina poliuretánica ni cajón como ítem propio. Se buscaron
+  también proveedores de cortinas METÁLICAS comerciales (Alvacor, TCM,
+  Acecortinas, Cortinas Brescia, Infinito, Persianas TyC) — todos
+  reales pero sin precio público (piden presupuesto a medida); el
+  único precio comercial concreto encontrado (CYPE, $20.646,18 para
+  una unidad de 300x220cm = $3.128,21/m²) es de **chapa de acero
+  galvanizado**, material distinto a PVC/aluminio-poliuretánico, no
+  aplica.
+
+**Anomalía sin resolver**: con las fuentes residenciales (las únicas
+disponibles), el precioUY nuevo caería ~70-76% respecto al histórico
+2022 en AMBOS códigos a la vez — la caída más grande de toda la Fase
+2, y a diferencia de otros casos (Cartel de obra), acá la
+especificación 2022 SÍ es comparable, por lo que no hay una
+explicación de "número huérfano" que la justifique. Hipótesis no
+confirmada: los códigos podrían corresponder a una cortina de
+enrollar de gama comercial/reforzada (coherente con "COMPLETA" en el
+nombre y con estar en el capítulo "Subcontratos"), más robusta que la
+persiana residencial liviana encontrada, pero no se pudo verificar
+con ninguna fuente con precio público tras dos rondas de búsqueda.
+
+**Conclusión**: sin fuente confiable que cierre. Ambos códigos quedan
+pendientes — no se aplica el dato residencial disponible por la
+magnitud de la caída sin explicación.
+
+**Estado del capítulo Cortinas de Enrollar**: 0/2 resuelto — capítulo
+queda completo pendiente.
