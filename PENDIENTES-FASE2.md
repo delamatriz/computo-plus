@@ -214,3 +214,87 @@ magnitud de la caída sin explicación.
 
 **Estado del capítulo Cortinas de Enrollar**: 0/2 resuelto — capítulo
 queda completo pendiente.
+
+---
+
+## Gobernanza de datos — 17 precios sin script `fix-*`/`seed-*` dedicado
+
+Auditoría de cierre de Fase 2: de las 334 filas de `PrecioMTOP` cargadas
+en esta fase (`fechaLista=2026-07`, `numeroLista=0`), 17 no aparecían en
+ningún archivo `scripts/fix-*.ts`, `seed-*.ts` ni `agregar-*.ts` del
+repo — se sospechó inicialmente que eran inserciones puntuales sin
+registro (Prisma Studio o SQL directo).
+
+**Hallazgo**: no es así. Las 17 SÍ tienen historia real en `git log
+-S<código>` — vienen de una tanda de expansión de biblioteca **anterior
+a esta sesión de Fase 2** (commits `feat:`/`docs:` del 11-12/07/2026),
+documentada con scripts `seed-*.ts` que existieron, se aplicaron a
+producción y luego se borraron del repo (mismo patrón de limpieza que
+usamos nosotros con los `_tmp-*.ts`) — por eso no aparecen hoy en
+`scripts/`, aunque el commit que los agregó y los borró sigue en el
+historial.
+
+**Nota sobre el "adicional" del conteo**: la lista original de
+"sueltos" tenía 9 nombres pero el conteo dio 10 — el décimo es
+`MAT-ALAMBRE-GALV` (sin sufijo `N14`), un código casi duplicado de
+`MAT-ALAMBRE-GALV-N14` (ese sí documentado en `fix-implantacion.ts`)
+que quedó sembrado por separado en la tanda de "Colocación y amure de
+aberturas".
+
+Chequeo de plausibilidad (punto 2 de la tarea): los 17 precios están
+dentro de rangos razonables para el producto que describen (verificado
+por comparación con productos Sika/URUMIX ya conocidos en el resto del
+proyecto, no por re-investigación). **Ninguno resultó sospechoso.**
+
+### Sika — Puentes de Adherencia y Membranas Líquidas (7 códigos)
+
+Origen: commits `a63b6f4` (Puentes de Adherencia, 11/07/2026), `095d2c1`
+(Membranas Líquidas, 12/07/2026), `27d61f3` (Patología de Fachada,
+11/07/2026), `2c6bbad` (SikaTop Seal-107, 11/07/2026) — todos con
+mensaje de commit que documenta el producto, el uso técnico y el
+subrubro donde se usa. Ninguno cita una barraca/retailer específico por
+nombre (a diferencia de la Fase 2 propiamente dicha), pero sí documentan
+el desglose de paquete comercial (bolsa/kit/rollo → $/unidad).
+
+| Código | Precio | Origen | Clasificación |
+|---|---|---|---|
+| MAT-SIKADUR-32GEL | $2.003/kg (kit 1kg) | `a63b6f4` — puente de adherencia hormigón, uso puntual estructural | Origen reconstruido |
+| MAT-SIKATOP-MODUL | $299,80/kg (~$1.499/bolsa 5kg) | `a63b6f4` — puente de adherencia mortero, método lechada | Origen reconstruido |
+| MAT-SIKAFILL-ELASTICO | $237,90/kg (balde 20kg) | `095d2c1` — membrana líquida techos/terrazas | Origen reconstruido |
+| MAT-SIKALASTIC-560 | $264,95/kg (balde 20kg) | `095d2c1` — membrana líquida premium | Origen reconstruido |
+| MAT-SIKA-TEXTRAMA | $113,49/m² ($2.979/rollo 25×1,05m) | `3194ccc` (12/07/2026) — completa un precio que `095d2c1` había dejado explícitamente en $0 "pendiente de relevar"; desglose de paquete documentado | Origen reconstruido |
+| MAT-SIKATOP-ARMATEC108 | $810/kg ($4.050/kit 5kg) | `27d61f3` — primer/puente para armadura, Patología de Fachada | Origen reconstruido |
+| MAT-SIKATOP-SEAL107 | $190/kg ($4.750/bolsa 25kg) | `2c6bbad` — explícitamente marcado como "referencia media-baja del rango de mercado $4.583-6.291" | Origen reconstruido |
+
+### Sueltos — Amure de aberturas, revoques URUMIX y otros (10 códigos)
+
+| Código | Precio | Origen | Clasificación |
+|---|---|---|---|
+| MAT-MORTERO-AMURE | $18,50/kg | `fdc8717` (11/07/2026) — "Colocación y amure de aberturas", insumo faltante para que la biblioteca clone sin $0 | Origen reconstruido |
+| MAT-ALAMBRE-GALV | $1.059,66/kg | `fdc8717` — mismo valor exacto que `MAT-ALAMBRE-GALV-N14` (real, Fase 2); parece copiado de esa fuente ya verificada | Origen reconstruido |
+| MAT-CUNA-NIVEL | $85/gl | `fdc8717` | Origen reconstruido |
+| MAT-SELLADOR-PERIM | $320/gl | `fdc8717` | Origen reconstruido |
+| MAT-TARUGO-TORNILLO | $8,50/u | `fdc8717` | Origen reconstruido |
+| MAT-SELLADOR-CART | $420/u (cartucho 300ml) | `fdc8717` | Origen reconstruido |
+| MAT-INSUMOS-LIMPIEZA-FINAL | $17,50/m² | `27d61f3` — explícitamente "punto medio del rango $15-20/m2", sin desglosar bolsas/limpiavidrios/paños | Origen reconstruido (precio es una estimación de rango, documentada como tal desde el origen) |
+| MAT-REVOQUE-2EN1 | $305,75/bolsa (25kg) | `7b85dc0` (11/07/2026) — revoques monocapa premezclados URUMIX | Origen reconstruido |
+| MAT-REVOQUE-3EN1 | $320/bolsa (25kg) | `7b85dc0` — ídem | Origen reconstruido |
+| MAT-POLIURETANO-AEROSOL | $290/lata | `3194ccc` (12/07/2026) — completa un precio que `fdc8717` había dejado explícitamente sin cargar ("no existe referencia confiable en ningún lado del sistema"); el commit documenta el precio final pero **no hay ningún diff que muestre la escritura en base** — se aplicó por fuera de cualquier script versionado | **Único caso sin reconstrucción completa** — precio plausible (retail típico de aerosol expansivo), pero el paso de carga en sí queda sin registro verificable |
+
+**Nota de proceso — `MAT-POLIURETANO-AEROSOL`**: recomendación hacia
+adelante, no solo el dato archivado. Evitar cargas de precio por fuera
+de script versionado (Prisma Studio/SQL directo sin commit). Todo
+precio nuevo debe pasar por un script `fix-*`/`seed-*` aunque se borre
+después de aplicarlo — el commit del script (incluso eliminado) es lo
+que permite reconstruir el origen, como pasó con los otros 16 casos de
+esta misma auditoría.
+
+### Conclusión de la auditoría
+
+De los 17: **16 con origen reconstruido** (commit, fecha, autor y
+razonamiento técnico documentados, aunque sin cita de retailer
+específico como en el resto de la Fase 2) y **1 caso parcial**
+(`MAT-POLIURETANO-AEROSOL`: se sabe cuándo y por qué se cargó $290, pero
+no hay script ni diff que lo respalde). Ningún precio resultó
+sospechoso en el chequeo de plausibilidad. No se modificó ningún valor
+en esta auditoría — es solo documentación del estado actual.
