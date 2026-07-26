@@ -281,6 +281,36 @@ el desglose de paquete comercial (bolsa/kit/rollo → $/unidad).
 | MAT-REVOQUE-3EN1 | $320/bolsa (25kg) | `7b85dc0` — ídem | Origen reconstruido |
 | MAT-POLIURETANO-AEROSOL | $290/lata | `3194ccc` (12/07/2026) — completa un precio que `fdc8717` había dejado explícitamente sin cargar ("no existe referencia confiable en ningún lado del sistema"); el commit documenta el precio final pero **no hay ningún diff que muestre la escritura en base** — se aplicó por fuera de cualquier script versionado | **Único caso sin reconstrucción completa** — precio plausible (retail típico de aerosol expansivo), pero el paso de carga en sí queda sin registro verificable |
 
+### MAT-CARPMET-ACCESORIOS-MOTOR — sin script trazable (detectado en FEAT-AI-006 etapa 2)
+
+Durante la migración de metadata de fuente estructurada (FEAT-AI-006,
+etapa 2), al procesar los 165 códigos clasificados como REAL, este
+código quedó sin poder migrarse: no aparece documentado en ninguno de
+los 46 scripts `fix-*.ts`/`seed-*.ts` vigentes en el repo.
+
+`fix-carpmet-familia.ts` lo menciona solo de pasada, indicando que
+"Accesorios instalación motor portón CORREDIZO" (mismo valor de
+referencia, $1.200) fue creado para `carpmet-008` ("Motor para portón
+corredizo") en una tanda anterior no incluida en ese conjunto de
+scripts. El único código MTOP con script propio documentado en el
+conjunto actual es la variante `-BATIENTE`
+(`MAT-CARPMET-ACCESORIOS-MOTOR-BATIENTE`, en
+`fix-hierro-suelto-carpinterias.ts`), que es un código MTOP distinto.
+
+**Estado**: el registro sigue activo en `PrecioMTOP` con su precio
+$1.200/gl intacto (nunca se tocó ningún precio en esta auditoría) —
+queda con los campos nuevos de FEAT-AI-006 (`proveedor`,
+`nombreProducto`, etc.) en `null`/default, mismo tratamiento que los 17
+casos de gobernanza ya documentados arriba. No se fuerza una fuente sin
+respaldo.
+
+**Conclusión**: sin script trazable. Queda pendiente para una futura
+sesión que pueda ubicar el commit/origen real (probablemente en
+historial de una tanda de expansión de biblioteca anterior a Fase 2,
+mismo patrón que los 17 casos de gobernanza).
+
+---
+
 **Nota de proceso — `MAT-POLIURETANO-AEROSOL`**: recomendación hacia
 adelante, no solo el dato archivado. Evitar cargas de precio por fuera
 de script versionado (Prisma Studio/SQL directo sin commit). Todo
