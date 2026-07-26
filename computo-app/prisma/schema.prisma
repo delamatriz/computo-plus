@@ -453,6 +453,7 @@ model PrecioMTOP {
   umbralAlertaPorcentaje  Float     @default(17.5)
   requiereVerificacion    Boolean   @default(false)
   motivoVerificacion      String?
+  precioSugeridoPendiente Float?
 }
 
 model PrecioEquipo {
