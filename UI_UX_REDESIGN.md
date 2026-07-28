@@ -1,0 +1,187 @@
+# Rediseño de Navegación (Navbar + Sidebar) y Spec de Features Nuevas
+
+Documento de diseño — nada de lo descrito acá está implementado
+todavía. Registra las decisiones tomadas en sesión de repaso de UX
+del navbar y sidebar de Cómputo+, más el alcance de dos features
+nuevas (Sugerencias, Metrajes con plano), para construir en fases
+futuras.
+
+---
+
+## 1. Problema identificado
+
+El navbar horizontal y la sidebar duplicaban parcialmente los mismos
+ítems (Proyectos, Cálculo rápido, Metrajes, Configuración aparecían
+en ambos) sin un criterio de por qué esos 4 y no los otros 3
+(Rubros/Descompuestos/Referencias solo en sidebar). Esto generaba
+sensación de navegación "incompleta"/inconsistente.
+
+---
+
+## 2. Modelo de navegación nuevo
+
+### Navbar (persistente, visible en cualquier pantalla)
+
+- Mis Proyectos (volver a lo existente, sin importar dónde estés)
+- Cálculo Rápido (herramienta rápida, accesible sin ir a home)
+- Notificaciones, ayuda, cuenta
+
+Razón: son las únicas dos acciones que un usuario querría poder
+disparar desde CUALQUIER pantalla de la app, sin importar en qué
+proyecto/sección esté trabajando.
+
+### Sidebar (reorganizada en 3 categorías)
+
+**Contextual al proyecto abierto:**
+- Metrajes
+
+**Global / catálogo (sin depender de ningún proyecto):**
+- Rubros
+- Descompuestos
+
+**Sistema:**
+- Configuración (ya existe, sin cambios)
+- Referencias (expandida — ver sección 4)
+- Sugerencias (nueva — ver sección 5)
+
+---
+
+## 3. Rubros y Descompuestos — hallazgo importante
+
+Hoy ambos ítems del sidebar están VACÍOS en la UI. Hipótesis
+confirmada por el usuario: nunca se construyó una pantalla real para
+administrar el catálogo maestro de rubros (CapituloCatalogo/
+SubcapituloCatalogo) ni la biblioteca de APUEstandar. Toda la gestión
+de precios/APUs de la Fase 2 (334 registros) se hizo exclusivamente
+vía scripts de Claude Code contra la base de datos, nunca desde una
+UI.
+
+Contenido a construir (fase futura, spec separada):
+
+- **Rubros**: listado navegable Capítulo→Subcapítulo, buscador,
+  precio actual + fuente/estado (conectar con FEAT-AI-006: mostrar si
+  `requiereVerificacion`), alta de rubro nuevo a biblioteca.
+- **Descompuestos**: vista/edición del APU estándar de cada rubro
+  (materiales con rendimiento y precio, mano de obra SUNCA, equipos,
+  %GG, %utilidad). Editar acá afecta futuros clonados, no proyectos
+  ya existentes. Sería el lugar natural para resolver a mano los 8
+  pendientes de precio documentados en `PENDIENTES-FASE2.md`.
+
+---
+
+## 4. Referencias — contenido a construir
+
+Estructura interna sugerida (evitar que sea un cajón de sastre):
+
+- **Normativa**: Lista MTOP N°599, convenio SUNCA vigente, leyes
+  sociales, Decreto 643/988, MCG-MTOP 2006
+- **Glosario**: contenido de `DOMAIN_GLOSSARY.md` volcado a la UI
+- **Guías de uso**: cómo metrar, cómo cargar un plano (cuando
+  exista), cómo usar el asistente de IA
+
+No se crea un ítem "Ayuda"/"Tutorial" separado — todo el contenido
+instructivo vive dentro de Referencias para evitar duplicar
+funciones.
+
+---
+
+## 5. Sugerencias — nueva sección, alcance simple
+
+Buzón de feedback del usuario (Luis / equipo del estudio) hacia el
+producto. Alcance MVP:
+
+- Formulario de texto libre + categoría opcional (bug / idea / falta
+  algo)
+- Guardado en tabla simple de base de datos, visible en un panel
+  interno
+- Sin notificación por email, sin sistema de votos/estado por ahora
+- Visible solo para el equipo interno, no para clientes finales del
+  SaaS (si en el futuro el producto tiene multi-tenant)
+
+---
+
+## 6. Metrajes — dos modos distintos, alcance definido
+
+### Modo "Proyecto formal" (dentro de un proyecto, vía sidebar)
+
+Prioriza precisión y trazabilidad. Flujo:
+
+1. Subir archivo: PDF (posible multi-página) o imagen (foto de
+   croquis). DWG queda para una fase posterior (requiere parseo de
+   geometría vectorial vía DXF, más complejo).
+2. Elegir página/plano si el PDF tiene varias hojas.
+3. **CALIBRACIÓN DE ESCALA** (paso obligatorio, no saltable): el
+   usuario traza una línea sobre un elemento de longitud conocida en
+   el plano y especifica la medida real. El sistema calcula el factor
+   de escala píxeles→metros.
+4. Medición sobre el plano con herramientas: línea (ML),
+   polígono/área (M²), punto (unidades).
+5. Asignación de la medición a un rubro del presupuesto activo del
+   proyecto — la cantidad medida se suma a la columna CANTIDAD de ese
+   rubro.
+6. El plano se guarda con las marcas trazadas, para auditoría visual
+   posterior ("de dónde salió este número").
+
+Decisiones de diseño para el MVP:
+
+- Un proyecto puede tener VARIOS planos (planta baja, alta, cortes,
+  etc.), no uno solo.
+- Si se sube una nueva versión de un plano, no hay versionado
+  automático en el MVP — es un plano nuevo e independiente, las
+  mediciones viejas no se migran solas.
+- Integración futura con FEAT-AI-001 (Asistente de Cómputo): el
+  usuario podría trazar y describir en lenguaje natural qué es, y la
+  IA asocia al rubro correcto.
+
+### Modo "Cálculo Rápido" (portal de entrada separado)
+
+Prioriza velocidad sobre precisión, coherente con el tagline "De la
+medición al presupuesto en minutos". Flujo:
+
+1. Usuario sube croquis/PDF/imagen.
+2. La IA (con capacidad de visión) estima cantidades directamente,
+   SIN calibración manual de escala por parte del usuario.
+3. Resultado: presupuesto orientativo rápido.
+
+Puente entre ambos modos: si un Cálculo Rápido se convierte en
+proyecto formal (el cliente confirma), las cantidades estimadas por
+IA se heredan al proyecto PERO quedan marcadas como "estimado por IA,
+sin calibrar — requiere verificación en Metrajes" (mismo patrón
+conceptual que `requiereVerificacion` de FEAT-AI-006, aplicado acá a
+cantidades en vez de precios). No se debe confiar en esa cantidad
+para un presupuesto formal entregado a un cliente sin pasar por
+Metrajes primero.
+
+---
+
+## 7. Roadmap de implementación (en este orden, no todo junto)
+
+1. Navbar + sidebar reorganizados (cambio de UI, bajo riesgo)
+2. Rubros + Descompuestos como pantallas reales (spec de feature
+   nueva, media complejidad)
+3. Sugerencias (chico, bajo riesgo)
+4. Metrajes con plano — modo proyecto formal (alta complejidad,
+   probablemente requiere librería de manipulación de PDF/canvas en
+   frontend)
+5. Cálculo Rápido con visión de IA sobre plano (depende de que el
+   modo proyecto formal ya esté probado)
+
+---
+
+## 8. Alcance — qué NO se toca en la implementación del navbar/sidebar
+
+Cuando se implemente el punto 1 del roadmap (navbar + sidebar
+reorganizados), el cambio debe limitarse ESTRICTAMENTE al navbar
+horizontal y a la sidebar. Explícitamente NO se debe tocar:
+
+- La página de inicio/landing interna (`/inicio`) con los dos
+  portales "Cálculo Rápido" / "Nuevo Proyecto" (cards grandes) — esta
+  pantalla ya está bien resuelta y no forma parte de este rediseño.
+- La vista de detalle de un proyecto abierto (tabla de capítulos/
+  rubros, botones Editar/Excel/PDF/Eliminar) — tampoco se toca en
+  esta fase, salvo que se indique lo contrario en una tarea futura
+  separada.
+
+Esta sesión de rediseño es sobre navegación (navbar + sidebar)
+únicamente. Cualquier cambio a esas dos pantallas requiere una
+instrucción explícita y separada.
