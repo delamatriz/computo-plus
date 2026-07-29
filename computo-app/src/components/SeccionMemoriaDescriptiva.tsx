@@ -80,7 +80,7 @@ export default function SeccionMemoriaDescriptiva({ proyectoId, proyectoNombre, 
       const data = await res.json();
       setTexto(data.memoriaDescriptiva ?? "");
     } catch {
-      setError("No se pudo generar la memoria descriptiva. Probá de nuevo.");
+      setError("No se pudo generar la memoria del presupuesto. Probá de nuevo.");
     } finally {
       setGenerando(false);
     }
@@ -108,9 +108,9 @@ export default function SeccionMemoriaDescriptiva({ proyectoId, proyectoNombre, 
 
   function exportarWord() {
     const cuerpo = markdownBasicoAHtml(texto);
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Memoria descriptiva</title></head>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Memoria del presupuesto</title></head>
 <body style="font-family: 'DM Sans', Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #1E293B;">
-<h1 style="color: #1A3A5C;">Memoria Descriptiva</h1>
+<h1 style="color: #1A3A5C;">Memoria del Presupuesto</h1>
 <h2 style="color: #1A3A5C; font-weight: normal;">${proyectoNombre}</h2>
 ${cuerpo}
 </body></html>`;
@@ -119,7 +119,7 @@ ${cuerpo}
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Memoria-Descriptiva-${proyectoNombre.replace(/\s+/g, "-")}.doc`;
+    a.download = `Memoria-del-Presupuesto-${proyectoNombre.replace(/\s+/g, "-")}.doc`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -133,7 +133,7 @@ ${cuerpo}
       >
         <div className="flex items-center gap-2.5">
           <FileText className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Memoria descriptiva</h2>
+          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Memoria del presupuesto</h2>
         </div>
         <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
           {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -155,7 +155,7 @@ ${cuerpo}
               {!texto ? (
                 <div className="text-center py-8">
                   <p className="text-sm text-slate-400 mb-4">
-                    Generá automáticamente la memoria descriptiva del proyecto
+                    Generá automáticamente la memoria del presupuesto del proyecto
                     a partir del presupuesto actual.
                   </p>
                   <button
@@ -164,7 +164,7 @@ ${cuerpo}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-medium hover:bg-[#1A3A5C] transition-colors disabled:opacity-60"
                   >
                     {generando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    {generando ? "Generando..." : "Generar memoria descriptiva"}
+                    {generando ? "Generando..." : "Generar memoria del presupuesto"}
                   </button>
                 </div>
               ) : (

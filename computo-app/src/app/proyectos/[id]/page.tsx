@@ -3716,7 +3716,7 @@ export default function ProyectoPage() {
           }))}
         />
 
-        {/* ── Memoria descriptiva ──────────────────────────── */}
+        {/* ── Memoria del presupuesto ──────────────────────── */}
         <SeccionMemoriaDescriptiva
           proyectoId={proyectoActivo.id}
           proyectoNombre={proyectoActivo.nombre}
