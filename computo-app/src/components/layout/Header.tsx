@@ -60,10 +60,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
       {/* Nav central */}
       <nav className="hidden md:flex items-center gap-1">
         {[
-          { href: "/calcular", label: "Cálculo rápido" },
-          { href: "/proyectos", label: "Proyectos" },
-          { href: "/metrajes", label: "Metrajes" },
-          { href: "/configuracion", label: "Configuración" },
+          { href: "/proyectos", label: "Mis Proyectos" },
         ].map((item) => (
           <Link
             key={item.href}
