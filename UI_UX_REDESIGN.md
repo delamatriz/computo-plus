@@ -23,14 +23,23 @@ sensación de navegación "incompleta"/inconsistente.
 ### Navbar (persistente, visible en cualquier pantalla)
 
 - Mis Proyectos (volver a lo existente, sin importar dónde estés)
-- Cálculo Rápido (herramienta rápida, accesible sin ir a home)
 - Notificaciones, ayuda, cuenta
 
-Razón: son las únicas dos acciones que un usuario querría poder
-disparar desde CUALQUIER pantalla de la app, sin importar en qué
-proyecto/sección esté trabajando.
+Razón: es la única acción que un usuario querría poder disparar desde
+CUALQUIER pantalla de la app, sin importar en qué proyecto/sección
+esté trabajando.
 
-### Sidebar (reorganizada en 3 categorías)
+### Sidebar (portales de entrada + 3 categorías)
+
+**Portales de entrada** (arriba de todo, como par — misma jerarquía
+visual, uno junto al otro):
+- Nuevo Proyecto
+- Cálculo Rápido
+
+Razón del cambio de ubicación: Cálculo Rápido se agrupa con Nuevo
+Proyecto porque ambos son formas de EMPEZAR algo nuevo — no una
+acción de "volver a algo existente" como Mis Proyectos, que por eso
+sí se queda en el navbar persistente.
 
 **Contextual al proyecto abierto:**
 - Metrajes
