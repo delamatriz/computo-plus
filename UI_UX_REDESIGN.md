@@ -55,6 +55,104 @@ sí se queda en el navbar persistente.
 
 ---
 
+## 2bis. Arquitectura de fases dentro de un proyecto
+
+### Razón de ser
+
+El presupuesto y la gestión de la obra ya ganada son etapas de
+negocio distintas, con documentación y herramientas propias —
+mezclarlas en una sola vista (como está hoy) no escala. Se decidió
+separar en 3 pestañas de fase, visibles SOLO cuando hay un proyecto
+abierto (patrón de navegación de 2 niveles: navbar global siempre
+visible + fila de pestañas de fase que aparece/desaparece según el
+contexto).
+
+Inspirado en el análisis competitivo ya existente: KALYA SP 3.0
+separa Presupuestos/Control de Obra/Certificación como módulos
+propios; PRESTO tiene Presupuesto→Planificación→Certificaciones→
+Control de costes.
+
+### Estructura de navegación completa
+
+**Navbar global (siempre visible):**
+- Mis Proyectos
+- Notificaciones, ayuda, cuenta
+
+**Fuera de un proyecto (sidebar):**
+- Nuevo Proyecto / Cálculo Rápido (portales de entrada, juntos)
+- Biblioteca: Rubros, Descompuestos
+- Sistema: Configuración, Referencias, Sugerencias
+
+**Dentro de un proyecto — 2da fila de pestañas (aparece solo acá):**
+
+### Pestaña 1 — Presupuesto (contenido ya existente, reorganizado)
+
+- Documentación del llamado (NUEVA, ver sección 2ter): Pliego de
+  Condiciones, Memoria del pliego, fotos, planos de referencia — solo
+  subir/listar/descargar, sin lectura por IA en el MVP.
+- Herramientas de cálculo: Metrajes, Cómputo Global de Materiales,
+  Leyes Sociales/BPS, Detección de Partidas Faltantes, Actualización
+  de precios por índice ICCV.
+- Tabla de capítulos/rubros (sin cambios, fuera de alcance de este
+  rediseño).
+- Anexos de salida: Resumen del Presupuesto, Garantías, "Memoria del
+  Presupuesto" (RENOMBRAR desde "Memoria Descriptiva" — es el anexo
+  que la empresa entrega al cliente junto con el presupuesto,
+  FEAT-AI-002; distinto de la Memoria del pliego que es
+  documentación de entrada), Comparativo de Ofertas, Cronograma
+  (estimado, de esta fase).
+
+### Pestaña 2 — Gestión de Obra (nueva, sin implementar - placeholder)
+
+- Contratación/Inscripciones (paso inicial/checklist al entrar a esta
+  fase): contrato firmado, inscripciones BPS/DGI, permisos
+  municipales. Es un hito único de transición, no una pestaña propia
+  de primer nivel.
+- Documentación de obra (consulta continua): planos técnicos,
+  especificaciones actualizadas de obra en curso.
+- Seguimiento: avance físico/porcentual, fotos, cronograma real,
+  curva S, pagos.
+- Corresponde al ítem E) del roadmap general ("Módulo Gestión de
+  Obra") ya existente en la documentación del proyecto.
+
+### Pestaña 3 — Certificación (nueva, sin implementar - placeholder)
+
+Separada de Gestión de Obra porque cruza datos de las otras dos
+fases (precio unitario de Presupuesto × % de avance real de Gestión
+de Obra) para producir un documento de cobro formal — no es un dato
+que viva naturalmente en un solo lugar.
+
+Alcance MVP definido (sin certificación a subcontratistas por ahora
+— el usuario no tiene experiencia de obras grandes para validar ese
+caso, se agrega si aparece la necesidad real):
+
+- Certificación del mes: calcula monto a certificar por período.
+- Retenciones y descuentos: fondo de reparo, anticipos, retenciones
+  contractuales.
+- Historial de certificaciones: listado de certificados emitidos,
+  monto, fecha, estado.
+- Certificado de Obra (PDF): documento formal de salida para
+  presentar al cliente.
+
+Corresponde al ítem C) del roadmap general ("Certificaciones
+básicas").
+
+---
+
+## 2ter. Documentación del llamado (nueva sección, alcance MVP)
+
+Repositorio de entrada dentro de la pestaña Presupuesto — distinto de
+Metrajes: acá se sube para CONSULTAR/ARCHIVAR (Pliego de Condiciones,
+Memoria del pliego, fotos, planos de referencia general); en Metrajes
+se sube un plano específicamente para MEDIR sobre él. Pueden ser el
+mismo archivo físico, pero cumplen roles distintos y viven en
+secciones distintas.
+
+Alcance MVP: solo subir, listar y descargar archivos (PDF, imágenes).
+Sin lectura automática por IA en esta primera versión.
+
+---
+
 ## 3. Rubros y Descompuestos — hallazgo importante
 
 Hoy ambos ítems del sidebar están VACÍOS en la UI. Hipótesis
@@ -194,3 +292,10 @@ horizontal y a la sidebar. Explícitamente NO se debe tocar:
 Esta sesión de rediseño es sobre navegación (navbar + sidebar)
 únicamente. Cualquier cambio a esas dos pantallas requiere una
 instrucción explícita y separada.
+
+**Actualización — pestañas de fase (ver sección 2bis):** la
+implementación de las pestañas "Gestión de Obra" y "Certificación"
+queda como PLACEHOLDER únicamente en esta ronda (mostrar la pestaña,
+con un mensaje tipo "Próximamente" o similar) — la funcionalidad
+completa de cada una es trabajo futuro, fuera del alcance de la
+sesión de reordenamiento de navegación actual.
