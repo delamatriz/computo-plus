@@ -21,6 +21,8 @@ import {
   AlertTriangle,
   Info,
   RefreshCw,
+  HardHat,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra } from "@/lib/apu-calc";
@@ -2141,6 +2143,7 @@ export default function ProyectoPage() {
   const [subrubrosPorCapitulo, setSubrubrosPorCapitulo] = useState<Record<string, SubrubroEstandar[]>>({});
   const [cargandoSubrubros, setCargandoSubrubros] = useState(false);
   const [materialesGlobalesExpandido, setMaterialesGlobalesExpandido] = useState(false);
+  const [tabActiva, setTabActiva] = useState<"presupuesto" | "gestion-obra" | "certificacion">("presupuesto");
 
   // Refs para debounce de auto-save por rubro
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -3183,6 +3186,32 @@ export default function ProyectoPage() {
         </div>
       </div>
 
+      {/* ── Pestañas de fase ─────────────────────────────── */}
+      <div className="bg-white border-b border-slate-200 px-4 md:px-6">
+        <div className="max-w-6xl mx-auto flex items-center gap-1">
+          {(
+            [
+              { id: "presupuesto", label: "Presupuesto" },
+              { id: "gestion-obra", label: "Gestión de Obra" },
+              { id: "certificacion", label: "Certificación" },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setTabActiva(tab.id)}
+              className={cn(
+                "px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors",
+                tabActiva === tab.id
+                  ? "border-[#2563EB] text-[#2563EB]"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* ── Banner: generación de rubros en curso ────────────── */}
       {proyecto?.generandoRubros && (
         <div className="bg-blue-50 border-b border-blue-100 px-4 md:px-6 py-2.5">
@@ -3222,7 +3251,8 @@ export default function ProyectoPage() {
         </div>
       )}
 
-      {/* ── Tabla de capítulos ──────────────────────────── */}
+      {/* ── Pestaña: Presupuesto — tabla de capítulos + anexos (contenido existente, sin cambios) ── */}
+      {tabActiva === "presupuesto" && (
       <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 
@@ -3795,6 +3825,37 @@ export default function ProyectoPage() {
           );
         })()}
       </div>
+      )}
+
+      {/* ── Pestaña: Gestión de Obra — placeholder, sin funcionalidad todavía ── */}
+      {tabActiva === "gestion-obra" && (
+        <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
+          <div className="flex flex-col items-center justify-center text-center bg-white rounded-[16px] border border-slate-300 shadow-sm py-16 px-6">
+            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+              <HardHat className="w-5 h-5 text-[#2563EB]" />
+            </div>
+            <h2 className="text-sm font-semibold text-[#1E293B] mb-1">Próximamente</h2>
+            <p className="text-sm text-slate-500 max-w-sm">
+              Acá vas a poder gestionar la obra ya ganada: contratación e inscripciones, documentación de obra y seguimiento de avance.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pestaña: Certificación — placeholder, sin funcionalidad todavía ── */}
+      {tabActiva === "certificacion" && (
+        <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
+          <div className="flex flex-col items-center justify-center text-center bg-white rounded-[16px] border border-slate-300 shadow-sm py-16 px-6">
+            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+              <ClipboardCheck className="w-5 h-5 text-[#2563EB]" />
+            </div>
+            <h2 className="text-sm font-semibold text-[#1E293B] mb-1">Próximamente</h2>
+            <p className="text-sm text-slate-500 max-w-sm">
+              Acá vas a poder generar certificaciones mensuales de avance, retenciones y el certificado de obra en PDF.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Drawer APU ──────────────────────────────────── */}
       <AnimatePresence>
