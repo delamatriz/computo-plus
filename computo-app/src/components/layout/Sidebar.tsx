@@ -117,7 +117,7 @@ export function Sidebar({ collapsed = false, onToggle, mobileOpen = false, onMob
           href="/calcular"
           title={collapsed ? "Cálculo rápido" : undefined}
           className={cn(
-            "flex items-center gap-2.5 rounded-[10px] bg-[#1A3A5C] hover:bg-[#22496E] transition-colors text-white font-medium text-sm",
+            "flex items-center gap-2.5 rounded-[10px] bg-[#3B82F6] hover:bg-[#2563EB] transition-colors text-white font-medium text-sm",
             collapsed ? "justify-center p-2.5" : "px-3.5 py-3"
           )}
         >

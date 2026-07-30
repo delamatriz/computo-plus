@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FolderOpen, Upload, FileText, FileImage, Download, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { Upload, FileText, FileImage, Download, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -133,11 +133,10 @@ export default function SeccionDocumentacionLlamado({ proyectoId }: Props) {
         className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-blue-100/30 transition-colors text-left group"
       >
         <div className="min-w-0">
-          <div className="flex items-center gap-2.5 mb-1">
-            <FolderOpen className="w-4 h-4 text-[#2563EB] flex-shrink-0" />
+          <div className="flex items-center gap-2 mb-1">
             <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Documentación del llamado</h2>
             {documentos.length > 0 && (
-              <span className="flex-shrink-0 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#2563EB] text-white text-[10px] font-bold">
+              <span className="flex-shrink-0 flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-slate-200 text-slate-600 text-[9px] font-semibold">
                 {documentos.length}
               </span>
             )}
