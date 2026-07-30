@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Layers,
   BookOpen,
   Settings,
   ChevronLeft,
@@ -23,13 +22,7 @@ const navItems = [
     section: "Presupuestación",
     items: [
       { href: "/metrajes", icon: Ruler, label: "Metrajes" },
-    ],
-  },
-  {
-    section: "Biblioteca",
-    items: [
-      { href: "/rubros", icon: Layers, label: "Rubros" },
-      { href: "/recetas", icon: BookOpen, label: "Descompuestos" },
+      { href: "/rubros", icon: BookOpen, label: "Biblioteca" },
     ],
   },
   {
