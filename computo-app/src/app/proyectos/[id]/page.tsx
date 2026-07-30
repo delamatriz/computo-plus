@@ -36,6 +36,7 @@ import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
 import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
 import SeccionActualizacionPrecios from "@/components/SeccionActualizacionPrecios";
+import SeccionDocumentacionLlamado from "@/components/SeccionDocumentacionLlamado";
 
 /* ─── Tipo Proyecto ───────────────────────────────────────── */
 interface ProyectoData {
@@ -3254,6 +3255,10 @@ export default function ProyectoPage() {
       {/* ── Pestaña: Presupuesto — tabla de capítulos + anexos (contenido existente, sin cambios) ── */}
       {tabActiva === "presupuesto" && (
       <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
+
+        {/* ── Documentación del llamado — sección de entrada, distinta de los anexos de salida de abajo ── */}
+        <SeccionDocumentacionLlamado proyectoId={proyectoActivo.id} />
+
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 
           {/* Cabecera de la tabla — usa GRID_CAPITULO, la misma plantilla de columnas que la fila de Capítulo más abajo y que comparte Total/% Incid. con GRID_RUBRO */}

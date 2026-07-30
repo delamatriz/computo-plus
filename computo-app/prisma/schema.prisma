@@ -41,6 +41,7 @@ model Proyecto {
   capitulos   Capitulo[]
   leyesSociales LeyesSociales?
   certificaciones Certificacion[]
+  documentosLlamado DocumentoLlamado[]
   memoriaDescriptiva String? @db.Text
   fechaBaseIndice    DateTime?
   indiceBaseValor    Float?
@@ -357,6 +358,20 @@ model FotoCertificacionItem {
   certificacionItem   CertificacionItem @relation(fields: [certificacionItemId], references: [id], onDelete: Cascade)
   url                 String            // base64 o ruta del archivo
   createdAt           DateTime          @default(now())
+}
+
+// Documentación del llamado — repositorio de entrada (Pliego, Memoria del
+// pliego, fotos y planos de referencia) para CONSULTAR/ARCHIVAR, distinto de
+// Metrajes (donde se sube un plano para MEDIR). Ver UI_UX_REDESIGN.md 2ter.
+model DocumentoLlamado {
+  id            String   @id @default(cuid())
+  proyectoId    String
+  proyecto      Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  nombreArchivo String
+  url           String   @db.Text // base64 (mismo patrón que FotoCertificacionItem)
+  etiqueta      String   @default("OTRO") // "PLIEGO" | "MEMORIA" | "FOTOS" | "PLANOS" | "OTRO"
+  tamano        Int?     // bytes, opcional
+  createdAt     DateTime @default(now())
 }
 
 model SubrubroEstandar {
