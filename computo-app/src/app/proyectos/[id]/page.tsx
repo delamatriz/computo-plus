@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import * as XLSX from "xlsx-js-style";
 import {
@@ -13,7 +12,6 @@ import {
   FileSpreadsheet,
   FileText,
   Pencil,
-  ArrowLeft,
   X,
   LayoutList,
   Trash2,
@@ -3127,14 +3125,6 @@ export default function ProyectoPage() {
       {/* ── Header del proyecto ─────────────────────────── */}
       <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-4">
         <div className="max-w-6xl mx-auto">
-          <Link
-            href="/proyectos"
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors mb-3"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            Mis proyectos
-          </Link>
-
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center flex-wrap gap-2 mb-1">
@@ -3148,7 +3138,6 @@ export default function ProyectoPage() {
               </div>
               <p className="text-xs md:text-sm text-slate-400 break-words">
                 {proyectoActivo.cliente}
-                {proyectoActivo.tipo && ` · ${proyectoActivo.tipo}`}
                 {!!proyectoActivo.area && ` · ${proyectoActivo.area} m²`}
                 {proyectoActivo.direccion && ` · ${proyectoActivo.direccion}`}
               </p>

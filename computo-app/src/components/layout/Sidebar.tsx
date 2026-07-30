@@ -111,33 +111,29 @@ export function Sidebar({ collapsed = false, onToggle, mobileOpen = false, onMob
         </button>
       </div>
 
-      {/* Portales de entrada — Nuevo proyecto + Cálculo rápido, como par */}
-      <div className={cn("px-3 pt-4 pb-2 flex-shrink-0 gap-2", collapsed ? "flex flex-col" : "grid grid-cols-2")}>
-        <Link
-          href="/proyectos/nuevo"
-          title={collapsed ? "Nuevo proyecto" : undefined}
-          className={cn(
-            "flex flex-col items-center justify-center gap-1.5 rounded-[10px] bg-brand-accent hover:bg-brand-light transition-colors text-white",
-            collapsed ? "p-2.5" : "py-3 px-2"
-          )}
-        >
-          <Plus className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && (
-            <span className="text-[11px] font-medium leading-tight text-center">Nuevo proyecto</span>
-          )}
-        </Link>
+      {/* Portales de entrada — Cálculo rápido + Nuevo proyecto, apilados como par */}
+      <div className="px-3 pt-4 pb-2 flex-shrink-0 flex flex-col gap-2">
         <Link
           href="/calcular"
           title={collapsed ? "Cálculo rápido" : undefined}
           className={cn(
-            "flex flex-col items-center justify-center gap-1.5 rounded-[10px] bg-brand-deep hover:bg-[#22496E] transition-colors text-white",
-            collapsed ? "p-2.5" : "py-3 px-2"
+            "flex items-center gap-2.5 rounded-[10px] bg-brand-deep hover:bg-[#22496E] transition-colors text-white font-medium text-sm",
+            collapsed ? "justify-center p-2.5" : "px-3.5 py-3"
           )}
         >
           <Calculator className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && (
-            <span className="text-[11px] font-medium leading-tight text-center">Cálculo rápido</span>
+          {!collapsed && <span>Cálculo rápido</span>}
+        </Link>
+        <Link
+          href="/proyectos/nuevo"
+          title={collapsed ? "Nuevo proyecto" : undefined}
+          className={cn(
+            "flex items-center gap-2.5 rounded-[10px] bg-brand-accent hover:bg-brand-light transition-colors text-white font-medium text-sm",
+            collapsed ? "justify-center p-2.5" : "px-3.5 py-3"
           )}
+        >
+          <Plus className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span>Nuevo proyecto</span>}
         </Link>
       </div>
 
