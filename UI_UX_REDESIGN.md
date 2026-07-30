@@ -207,57 +207,116 @@ producto. Alcance MVP:
 
 ---
 
-## 6. Metrajes — dos modos distintos, alcance definido
+## 6. Metrajes con plano — diseño completo
 
-### Modo "Proyecto formal" (dentro de un proyecto, vía sidebar)
+Reemplaza y expande la spec breve de la sección anterior con el
+diseño completo de la feature, definido en sesión de diseño
+dedicada.
 
-Prioriza precisión y trazabilidad. Flujo:
+### Principio no negociable
 
-1. Subir archivo: PDF (posible multi-página) o imagen (foto de
-   croquis). DWG queda para una fase posterior (requiere parseo de
-   geometría vectorial vía DXF, más complejo).
-2. Elegir página/plano si el PDF tiene varias hojas.
-3. **CALIBRACIÓN DE ESCALA** (paso obligatorio, no saltable): el
-   usuario traza una línea sobre un elemento de longitud conocida en
-   el plano y especifica la medida real. El sistema calcula el factor
-   de escala píxeles→metros.
-4. Medición sobre el plano con herramientas: línea (ML),
-   polígono/área (M²), punto (unidades).
-5. Asignación de la medición a un rubro del presupuesto activo del
-   proyecto — la cantidad medida se suma a la columna CANTIDAD de ese
-   rubro.
-6. El plano se guarda con las marcas trazadas, para auditoría visual
-   posterior ("de dónde salió este número").
+La IA NUNCA inventa un dato que no tiene evidencia de conocer. Si
+para calcular una medición necesita un dato que no está en el plano
+(ej: una altura de muro, que normalmente no aparece acotada en una
+planta), DEBE preguntarle al usuario ese dato puntual antes de
+calcular — nunca asume, estima, ni completa con un valor por defecto
+sin avisar. Mismo principio ya aplicado en toda la Fase 2 de precios
+(nunca forzar un número sin fuente).
 
-Decisiones de diseño para el MVP:
+### Etapa 1 — Subida y visor del plano
 
-- Un proyecto puede tener VARIOS planos (planta baja, alta, cortes,
-  etc.), no uno solo.
-- Si se sube una nueva versión de un plano, no hay versionado
-  automático en el MVP — es un plano nuevo e independiente, las
-  mediciones viejas no se migran solas.
-- Integración futura con FEAT-AI-001 (Asistente de Cómputo): el
-  usuario podría trazar y describir en lenguaje natural qué es, y la
-  IA asocia al rubro correcto.
+- Un proyecto puede tener varios planos (planta baja, alta, cortes,
+  etc.), cada uno independiente.
+- Tipos de archivo en esta fase: PDF (elegir página si tiene varias)
+  e imágenes (JPG/PNG) — incluye fotos de croquis a mano. DWG y
+  BIM/IFC quedan explícitamente FUERA de esta fase (ver nota al
+  final).
+- FOTOS COMPLEMENTARIAS: además del plano principal, el usuario
+  puede adjuntar fotos de apoyo (ej. estado real de un muro, detalle
+  que el plano no deja claro). No reemplazan al plano calibrado —
+  son contexto adicional que el Modo B (análisis por IA) puede usar
+  junto al plano al generar mediciones. Posible reutilización de las
+  fotos ya subidas en "Documentación del llamado" si son las mismas.
+- Visor con zoom y desplazamiento (pan).
+- Requiere rasterizar PDF a imagen para poder dibujar encima con
+  precisión en la Etapa 3 (librería tipo pdf.js).
 
-### Modo "Cálculo Rápido" (portal de entrada separado)
+### Etapa 2 — Calibración de escala (obligatoria antes de medir)
 
-Prioriza velocidad sobre precisión, coherente con el tagline "De la
-medición al presupuesto en minutos". Flujo:
+Dos métodos, según lo que tenga el plano:
 
-1. Usuario sube croquis/PDF/imagen.
-2. La IA (con capacidad de visión) estima cantidades directamente,
-   SIN calibración manual de escala por parte del usuario.
-3. Resultado: presupuesto orientativo rápido.
+- **Método A — Por cota:** el plano tiene al menos una cota (medida
+  real escrita). El usuario traza una línea sobre esa cota y escribe
+  la medida real; el sistema calcula el factor píxel→metro.
+- **Método B — Por escala declarada:** el plano no tiene cotas, pero
+  el usuario sabe la escala del dibujo (ej. "1:100"). La ingresa
+  directamente, sin trazar nada.
+- **Sin calibración posible:** si el plano no tiene cotas NI el
+  usuario conoce la escala, NO SE PUEDE medir con precisión. El
+  sistema debe bloquear la medición con un mensaje explícito.
+- Cada plano tiene su propia calibración independiente.
 
-Puente entre ambos modos: si un Cálculo Rápido se convierte en
-proyecto formal (el cliente confirma), las cantidades estimadas por
-IA se heredan al proyecto PERO quedan marcadas como "estimado por IA,
-sin calibrar — requiere verificación en Metrajes" (mismo patrón
-conceptual que `requiereVerificacion` de FEAT-AI-006, aplicado acá a
-cantidades en vez de precios). No se debe confiar en esa cantidad
-para un presupuesto formal entregado a un cliente sin pasar por
-Metrajes primero.
+### Etapa 3 — Medición, dos modos
+
+**Modo A — Manual (visor):** el usuario traza directamente sobre el
+plano ya calibrado, con herramientas de:
+
+- Línea (ML): elementos lineales (cañerías, zócalos, vigas)
+- Polígono/Área (M²): click punto por punto delimitando una
+  superficie (fórmula de polígono / shoelace formula)
+- Punto (unidad): conteo de elementos puntuales (artefactos,
+  columnas, ventanas)
+
+Cada medición trazada queda dibujada y visible sobre el plano.
+
+**Modo B — Por IA:** la IA analiza el plano YA CALIBRADO (más las
+fotos complementarias si existen), identifica las cotas/elementos, y
+genera las mediciones (áreas, longitudes) para los rubros que
+reconoce. Si necesita un dato que no está disponible en el plano ni
+en las fotos (ej. altura de un muro no acotada), pregunta
+explícitamente al usuario ese dato puntual antes de calcular — no
+asume ni inventa. Relacionado con FEAT-AI-001 (Asistente de Cómputo
+Métrico), aplicado sobre el plano completo en vez de descripción
+manual elemento por elemento.
+
+### Etapa 4 — Asignación a rubro
+
+- El usuario (o la IA, con confirmación) asigna cada medición a un
+  rubro del presupuesto activo del proyecto.
+- El valor se SUMA a la columna CANTIDAD de ese rubro (acumula, no
+  reemplaza).
+- El plano queda guardado con todas las marcas trazadas, para
+  auditoría visual posterior.
+
+### Diferencia con Cálculo Rápido — IMPORTANTE, no confundir
+
+Cálculo Rápido usa ÚNICAMENTE una versión simplificada del Modo B:
+el usuario sube una foto/croquis con medidas YA ESCRITAS, y la IA
+las lee directamente para estimar. NO HAY visor, calibración formal,
+ni Modo A. Las cantidades de Cálculo Rápido, si se convierten en
+proyecto formal, quedan marcadas como "estimado, sin calibrar -
+requiere verificación en Metrajes" (ya documentado en sección 2bis).
+
+### Fuera de alcance — fase futura (no diseñada en detalle aún)
+
+DWG (geometría vectorial real, requiere parseo de capas vía DXF) y
+BIM/IFC (modelo con propiedades semánticas, un nivel más allá de
+DWG) quedan EXPLÍCITAMENTE fuera de esta fase de diseño. Ya se sabe
+que su lugar natural es DENTRO de Metrajes, como un tercer/cuarto
+tipo de fuente de plano (junto a PDF e imagen) — no requiere
+rediseñar la arquitectura cuando se aborde, solo sumar el soporte
+técnico correspondiente en su momento, con su propia sesión de
+diseño dedicada (el problema técnico de leer capas DXF o propiedades
+IFC es sustancialmente distinto a calibrar una imagen plana).
+
+### Roadmap de implementación sugerido (dentro de esta feature)
+
+1. Etapa 1 (subida + visor + fotos complementarias) — base técnica
+2. Etapa 2 (calibración, ambos métodos)
+3. Etapa 3, Modo A primero (manual) — más simple de construir
+4. Etapa 4 (asignación a rubro)
+5. Etapa 3, Modo B (análisis por IA, con apoyo de fotos) — al final
+6. (Futuro, fuera de esta fase) DWG / BIM
 
 ---
 
