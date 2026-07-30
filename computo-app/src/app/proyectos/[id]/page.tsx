@@ -3128,7 +3128,10 @@ export default function ProyectoPage() {
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center flex-wrap gap-2 mb-1">
-                <h1 className="text-lg md:text-xl font-bold text-[#1A3A5C] break-words">{proyectoActivo.nombre}</h1>
+                <h1 className="text-lg md:text-xl font-bold text-[#1A3A5C] break-words">
+                  <span className="font-medium text-slate-400">Proyecto: </span>
+                  {proyectoActivo.nombre}
+                </h1>
                 <span
                   className="text-[11px] md:text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
                   style={{ background: estado.bg, color: estado.color }}
