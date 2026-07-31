@@ -10,15 +10,14 @@ import {
   Download,
   Plus,
   X,
-  Camera,
-  FileText,
   ChevronDown,
   Sparkles,
   Calculator,
   Loader2,
-  FileSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import SeccionPlanos, { type PlanoResumen } from "@/components/metrajes/SeccionPlanos";
+import VisorPlano, { fileToBase64, type PlanoDetalle } from "@/components/metrajes/VisorPlano";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface MetrajeFila {
@@ -37,11 +36,6 @@ interface RubroOption {
   capituloNombre: string;
 }
 
-interface FotoRelevamiento {
-  file: File;
-  preview: string;
-}
-
 interface ElementoDetectado {
   descripcion: string;
   largo: number | null;
@@ -52,9 +46,6 @@ interface ElementoDetectado {
   unidad: "M2" | "M3" | "ML" | "U";
   nota: string;
 }
-
-const MAX_FOTOS = 10;
-const MAX_DOCS = 5;
 
 /* ─── Helpers ─────────────────────────────────────────────── */
 function fmtNum(v: number, decimales = 2): string {
@@ -79,52 +70,6 @@ function nuevaFila(): MetrajeFila {
   };
 }
 
-/* ─── Card colapsable ─────────────────────────────────────── */
-function CardColapsable({
-  titulo,
-  defaultAbierta = true,
-  colapsarCuando,
-  children,
-}: {
-  titulo: string;
-  defaultAbierta?: boolean;
-  colapsarCuando?: boolean;
-  children: React.ReactNode;
-}) {
-  const [abierta, setAbierta] = useState(defaultAbierta);
-
-  useEffect(() => {
-    if (colapsarCuando) setAbierta(false);
-  }, [colapsarCuando]);
-
-  return (
-    <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
-      <button
-        onClick={() => setAbierta((p) => !p)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
-      >
-        <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">{titulo}</span>
-        <ChevronDown
-          className={cn("w-4 h-4 text-slate-400 transition-transform", abierta && "rotate-180")}
-        />
-      </button>
-      <AnimatePresence initial={false}>
-        {abierta && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="border-t border-slate-100 px-5 py-4">{children}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 /* ─── Página principal ────────────────────────────────────── */
 export default function MetrajesPage() {
   const params = useParams();
@@ -135,20 +80,12 @@ export default function MetrajesPage() {
 
   const [filas, setFilas] = useState<MetrajeFila[]>([nuevaFila()]);
 
-  // Documentación
-  const [fotos, setFotos] = useState<FotoRelevamiento[]>([]);
-  const [documentos, setDocumentos] = useState<File[]>([]);
-  const [notas, setNotas] = useState("");
-  const fotosInputRef = useRef<HTMLInputElement>(null);
-  const docsInputRef = useRef<HTMLInputElement>(null);
-
   // Fila con IA
   const [iaTexto, setIaTexto] = useState("");
   const [iaCargando, setIaCargando] = useState(false);
 
-  // Análisis de imágenes con IA
-  const [analisisCargando, setAnalisisCargando] = useState(false);
-  const [analisisError, setAnalisisError] = useState<string | null>(null);
+  // Análisis de imágenes con IA (dispara desde la card "Planos" — el
+  // resultado se muestra en el mismo modal de siempre, ver más abajo)
   const [elementosDetectados, setElementosDetectados] = useState<ElementoDetectado[] | null>(null);
   const [observacionesIA, setObservacionesIA] = useState("");
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
@@ -156,9 +93,141 @@ export default function MetrajesPage() {
   // Calculadora rápida
   const [mostrarCalculadora, setMostrarCalculadora] = useState(false);
 
-  // Split view — visor de documentación
-  const [visorAbierto, setVisorAbierto] = useState(false);
-  const [tabVisor, setTabVisor] = useState(0);
+  // Planos — lista + plano abierto. El detalle vive acá (no en
+  // SeccionPlanos) porque el visor se muestra como panel lateral, hermano
+  // de la columna de contenido, no anidado dentro de la card "Planos".
+  const [planos, setPlanos] = useState<PlanoResumen[]>([]);
+  const [cargandoPlanos, setCargandoPlanos] = useState(true);
+  const [errorPlanos, setErrorPlanos] = useState<string | null>(null);
+  const [eliminandoIds, setEliminandoIds] = useState<Set<string>>(new Set());
+  const [planoAbierto, setPlanoAbierto] = useState<PlanoDetalle | null>(null);
+  const [cargandoDetallePlano, setCargandoDetallePlano] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+
+  // Panel redimensionable — ancho del visor como % del split, arrastrando el
+  // divisor. Solo aplica en desktop (lg+); en mobile el visor es overlay
+  // full-screen y no hay nada que redimensionar. No se persiste a propósito
+  // (resetea al recargar).
+  const [anchoVisorPct, setAnchoVisorPct] = useState(40);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const splitRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const actualizar = () => setIsDesktop(mq.matches);
+    actualizar();
+    mq.addEventListener("change", actualizar);
+    return () => mq.removeEventListener("change", actualizar);
+  }, []);
+
+  const iniciarResizeVisor = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const contenedor = splitRef.current;
+    if (!contenedor) return;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const rect = contenedor.getBoundingClientRect();
+      const pctDesdeIzquierda = ((ev.clientX - rect.left) / rect.width) * 100;
+      setAnchoVisorPct(Math.min(70, Math.max(20, 100 - pctDesdeIzquierda)));
+    };
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  useEffect(() => {
+    if (!proyectoId) return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/proyectos/${proyectoId}/planos`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!cancelado) setPlanos(data.planos ?? []);
+      } catch {
+        if (!cancelado) setErrorPlanos("No se pudieron cargar los planos.");
+      } finally {
+        if (!cancelado) setCargandoPlanos(false);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [proyectoId]);
+
+  async function abrirPlano(id: string) {
+    setCargandoDetallePlano(true);
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/planos/${id}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setPlanoAbierto(data.plano);
+    } catch {
+      setErrorPlanos("No se pudo abrir el plano.");
+    } finally {
+      setCargandoDetallePlano(false);
+    }
+  }
+
+  async function eliminarPlano(id: string) {
+    setEliminandoIds((prev) => new Set(prev).add(id));
+    const anterior = planos;
+    setPlanos((prev) => prev.filter((p) => p.id !== id));
+    if (planoAbierto?.id === id) setPlanoAbierto(null);
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/planos/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setPlanos(anterior);
+      setErrorPlanos("No se pudo eliminar el plano.");
+    } finally {
+      setEliminandoIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }
+
+  async function subirFotoComplementariaPlano(file: File) {
+    if (!planoAbierto) return;
+    setSubiendoFoto(true);
+    try {
+      const archivo = await fileToBase64(file);
+      const res = await fetch(`/api/proyectos/${proyectoId}/planos/${planoAbierto.id}/fotos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archivo, nombreArchivoOriginal: file.name }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setPlanoAbierto(data.plano);
+      setPlanos((prev) => prev.map((p) => (p.id === planoAbierto.id ? { ...p, cantidadFotos: data.plano.fotos.length } : p)));
+    } catch {
+      setErrorPlanos("No se pudo subir la foto complementaria.");
+    } finally {
+      setSubiendoFoto(false);
+    }
+  }
+
+  async function guardarNotasPlano(notas: string) {
+    if (!planoAbierto) return;
+    const res = await fetch(`/api/proyectos/${proyectoId}/planos/${planoAbierto.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notas }),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    setPlanoAbierto(data.plano);
+  }
 
   /* Cargar proyecto y rubros disponibles */
   useEffect(() => {
@@ -186,67 +255,6 @@ export default function MetrajesPage() {
     }
     cargar();
   }, [proyectoId]);
-
-  /* Fotos de relevamiento */
-  const agregarFotos = (files: FileList | null) => {
-    if (!files) return;
-    const nuevas = Array.from(files)
-      .filter((f) => f.type.startsWith("image/"))
-      .slice(0, MAX_FOTOS - fotos.length)
-      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
-    if (nuevas.length > 0) setFotos((prev) => [...prev, ...nuevas]);
-  };
-
-  const quitarFoto = (index: number) => {
-    setFotos((prev) => {
-      const copia = [...prev];
-      URL.revokeObjectURL(copia[index].preview);
-      copia.splice(index, 1);
-      return copia;
-    });
-  };
-
-  /* Documentos PDF/DWG */
-  const agregarDocumentos = (files: FileList | null) => {
-    if (!files) return;
-    const nuevos = Array.from(files).slice(0, MAX_DOCS - documentos.length);
-    if (nuevos.length > 0) setDocumentos((prev) => [...prev, ...nuevos]);
-  };
-
-  const quitarDocumento = (index: number) => {
-    setDocumentos((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  /* URLs de objeto para previsualizar documentos (PDF/DWG) en el visor */
-  const documentoUrls = useMemo(
-    () => documentos.map((doc) => URL.createObjectURL(doc)),
-    [documentos]
-  );
-  useEffect(() => {
-    return () => {
-      documentoUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [documentoUrls]);
-
-  /* Items combinados (fotos + documentos) para el visor en split view */
-  const itemsVisor = useMemo(() => {
-    const items: { tipo: "foto" | "pdf"; label: string; url: string }[] = [];
-    fotos.forEach((foto, i) => items.push({ tipo: "foto", label: `Foto ${i + 1}`, url: foto.preview }));
-    documentos.forEach((doc, i) => items.push({ tipo: "pdf", label: doc.name, url: documentoUrls[i] }));
-    return items;
-  }, [fotos, documentos, documentoUrls]);
-
-  const hayDocumentacion = itemsVisor.length > 0;
-
-  useEffect(() => {
-    if (tabVisor >= itemsVisor.length) setTabVisor(0);
-  }, [itemsVisor.length, tabVisor]);
-
-  useEffect(() => {
-    if (!hayDocumentacion) setVisorAbierto(false);
-  }, [hayDocumentacion]);
-
-  const itemVisorActual = itemsVisor[tabVisor];
 
   /* Filas de la planilla */
   const actualizarFila = (id: string, field: keyof MetrajeFila, value: string) => {
@@ -303,39 +311,22 @@ export default function MetrajesPage() {
     }
   };
 
-  /* Convierte un File a data URL base64 */
-  const fileABase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+  /* Analizar imágenes de un plano (+ sus fotos complementarias) con IA —
+   * disparado desde la card "Planos". Recibe las imágenes ya en base64
+   * (vienen de un PlanoProyecto/FotoComplementaria persistidos, no de un
+   * File efímero) y un contexto opcional (las notas del plano). */
+  const analizarConIA = async (imagenesBase64: string[], contexto: string | null) => {
+    const res = await fetch("/api/metrajes/analizar-imagen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fotos: imagenesBase64, contexto: contexto?.trim() || undefined }),
     });
-
-  /* Analizar fotos de relevamiento con IA */
-  const analizarImagenes = async () => {
-    if (fotos.length === 0 || analisisCargando) return;
-    setAnalisisCargando(true);
-    setAnalisisError(null);
-    try {
-      const fotosBase64 = await Promise.all(fotos.map((f) => fileABase64(f.file)));
-      const res = await fetch("/api/metrajes/analizar-imagen", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fotos: fotosBase64, contexto: notas.trim() || undefined }),
-      });
-      if (!res.ok) throw new Error("Error al analizar las imágenes");
-      const data = await res.json();
-      const elementos: ElementoDetectado[] = data.elementos ?? [];
-      setElementosDetectados(elementos);
-      setObservacionesIA(data.observaciones ?? "");
-      setSeleccionados(new Set(elementos.map((_, i) => i)));
-    } catch (err) {
-      console.error("[metrajes] analizarImagenes", err);
-      setAnalisisError("No se pudieron analizar las imágenes. Probá de nuevo.");
-    } finally {
-      setAnalisisCargando(false);
-    }
+    if (!res.ok) throw new Error("Error al analizar las imágenes");
+    const data = await res.json();
+    const elementos: ElementoDetectado[] = data.elementos ?? [];
+    setElementosDetectados(elementos);
+    setObservacionesIA(data.observaciones ?? "");
+    setSeleccionados(new Set(elementos.map((_, i) => i)));
   };
 
   const toggleSeleccionado = (i: number) => {
@@ -351,7 +342,6 @@ export default function MetrajesPage() {
     setElementosDetectados(null);
     setObservacionesIA("");
     setSeleccionados(new Set());
-    setAnalisisError(null);
   };
 
   const agregarElementosSeleccionados = () => {
@@ -434,19 +424,6 @@ export default function MetrajesPage() {
               )}
             </h1>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {hayDocumentacion && (
-                <button
-                  onClick={() => setVisorAbierto(true)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 rounded-[8px] border text-sm font-medium transition-colors",
-                    visorAbierto
-                      ? "border-[#2563EB] text-[#2563EB] bg-blue-50"
-                      : "border-slate-300 text-slate-600 hover:bg-slate-50"
-                  )}
-                >
-                  <FileSearch className="w-3.5 h-3.5" /> Ver documentación
-                </button>
-              )}
               <button
                 onClick={exportarExcel}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
@@ -458,168 +435,24 @@ export default function MetrajesPage() {
         </div>
       </div>
 
-      <div className="w-full flex-1 flex flex-col lg:flex-row min-h-0">
+      <div ref={splitRef} className="w-full flex-1 flex flex-col lg:flex-row min-h-0">
       <div
-        className={cn(
-          "w-full px-3 md:px-6 py-6 space-y-4",
-          visorAbierto ? "lg:w-[60%]" : "max-w-6xl mx-auto"
-        )}
+        className={cn("w-full px-3 md:px-6 py-6 space-y-4", planoAbierto ? "lg:w-[60%]" : "max-w-6xl mx-auto")}
+        style={isDesktop && planoAbierto ? { width: `${100 - anchoVisorPct}%` } : undefined}
       >
-        {/* ── Documentación ────────────────────────────────── */}
-        <CardColapsable titulo="Documentación" colapsarCuando={visorAbierto}>
-          <div className="space-y-5">
-            {/* Fotos de relevamiento */}
-            <div>
-              <label className="block text-sm font-semibold text-[#1A3A5C] mb-2">
-                Fotos de relevamiento
-              </label>
-              <input
-                ref={fotosInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  agregarFotos(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => fotosInputRef.current?.click()}
-                disabled={fotos.length >= MAX_FOTOS}
-                className={cn(
-                  "flex items-center gap-1.5 text-xs font-medium transition-colors",
-                  fotos.length >= MAX_FOTOS
-                    ? "text-slate-300 cursor-not-allowed"
-                    : "text-slate-400 hover:text-[#2563EB]"
-                )}
-              >
-                <Camera className="w-3.5 h-3.5" />
-                Agregar fotos
-                {fotos.length > 0 && (
-                  <span className="text-slate-300">({fotos.length}/{MAX_FOTOS})</span>
-                )}
-              </button>
-
-              {fotos.length > 0 && (
-                <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 md:grid-cols-10 gap-2">
-                  {fotos.map((foto, i) => (
-                    <div key={foto.preview} className="relative aspect-square rounded-[8px] overflow-hidden border border-slate-200 group">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={foto.preview} alt={`Relevamiento ${i + 1}`} className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => quitarFoto(i)}
-                        className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-                        aria-label="Quitar foto"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {fotos.length > 0 && (
-                <button
-                  type="button"
-                  onClick={analizarImagenes}
-                  disabled={analisisCargando}
-                  className={cn(
-                    "mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-colors",
-                    analisisCargando
-                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                      : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-                  )}
-                >
-                  {analisisCargando ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3.5 h-3.5" />
-                  )}
-                  Analizar medidas
-                </button>
-              )}
-              {analisisError && (
-                <p className="mt-2 text-xs text-red-500">{analisisError}</p>
-              )}
-            </div>
-
-            {/* Documentos PDF/DWG */}
-            <div>
-              <label className="block text-sm font-semibold text-[#1A3A5C] mb-2">
-                Planos y documentos (PDF / DWG)
-              </label>
-              <input
-                ref={docsInputRef}
-                type="file"
-                accept=".pdf,.dwg,application/pdf"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  agregarDocumentos(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => docsInputRef.current?.click()}
-                disabled={documentos.length >= MAX_DOCS}
-                className={cn(
-                  "flex items-center gap-1.5 text-xs font-medium transition-colors",
-                  documentos.length >= MAX_DOCS
-                    ? "text-slate-300 cursor-not-allowed"
-                    : "text-slate-400 hover:text-[#2563EB]"
-                )}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                Agregar documentos
-                {documentos.length > 0 && (
-                  <span className="text-slate-300">({documentos.length}/{MAX_DOCS})</span>
-                )}
-              </button>
-
-              {documentos.length > 0 && (
-                <ul className="mt-2 space-y-1">
-                  {documentos.map((doc, i) => (
-                    <li
-                      key={`${doc.name}-${i}`}
-                      className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-[8px] border border-slate-200 bg-slate-50 text-sm text-slate-600"
-                    >
-                      <span className="flex items-center gap-2 min-w-0">
-                        <FileText className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                        <span className="truncate">{doc.name}</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => quitarDocumento(i)}
-                        className="text-slate-400 hover:text-red-500 transition-colors flex-shrink-0"
-                        aria-label="Quitar documento"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Notas */}
-            <div>
-              <label className="block text-sm font-semibold text-[#1A3A5C] mb-2">
-                Notas
-              </label>
-              <textarea
-                value={notas}
-                onChange={(e) => setNotas(e.target.value)}
-                rows={3}
-                placeholder="Observaciones del relevamiento, accesos, estado del lugar, etc."
-                className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-none"
-              />
-            </div>
-          </div>
-        </CardColapsable>
+        {/* ── Planos (Etapa 1 — subida + visor, ver UI_UX_REDESIGN.md 6) ── */}
+        {proyectoId && (
+          <SeccionPlanos
+            proyectoId={proyectoId}
+            planos={planos}
+            cargando={cargandoPlanos}
+            error={errorPlanos}
+            eliminandoIds={eliminandoIds}
+            onPlanosActualizados={setPlanos}
+            onAbrirPlano={abrirPlano}
+            onEliminarPlano={eliminarPlano}
+          />
+        )}
 
         {/* ── Planilla de cómputo ───────────────────────────── */}
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
@@ -825,71 +658,36 @@ export default function MetrajesPage() {
         </div>
       </div>
 
-      {/* ── Visor de documentación (split view) ───────────── */}
-      <AnimatePresence>
-        {visorAbierto && itemVisorActual && (
-          <motion.div
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 40 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="fixed inset-0 z-50 bg-white flex flex-col lg:static lg:inset-auto lg:z-auto lg:w-[40%] lg:flex-shrink-0 lg:border-l lg:border-slate-200"
-          >
-            {/* Header del visor */}
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200 flex-shrink-0">
-              <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
-                Documentación
-              </span>
-              <button
-                onClick={() => setVisorAbierto(false)}
-                aria-label="Cerrar visor de documentación"
-                className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* ── Divisor arrastrable — solo desktop, solo con un plano abierto ── */}
+      {planoAbierto && (
+        <div
+          onMouseDown={iniciarResizeVisor}
+          title="Arrastrar para redimensionar"
+          className="hidden lg:flex items-stretch w-2.5 flex-shrink-0 cursor-col-resize group relative z-10"
+        >
+          <div className="w-px mx-auto bg-slate-200 group-hover:bg-[#2563EB] group-active:bg-[#2563EB] transition-colors" />
+        </div>
+      )}
 
-            {/* Tabs */}
-            {itemsVisor.length > 1 && (
-              <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-slate-200 overflow-x-auto flex-shrink-0">
-                {itemsVisor.map((item, i) => (
-                  <button
-                    key={`${item.tipo}-${i}`}
-                    onClick={() => setTabVisor(i)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-[8px] text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0",
-                      tabVisor === i
-                        ? "bg-[#2563EB] text-white"
-                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                    )}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            )}
+      {/* ── Visor de plano (panel lateral, ver UI_UX_REDESIGN.md 6) ── */}
+      {planoAbierto && (
+        <VisorPlano
+          plano={planoAbierto}
+          onClose={() => setPlanoAbierto(null)}
+          onSubirFoto={subirFotoComplementariaPlano}
+          subiendoFoto={subiendoFoto}
+          onGuardarNotas={guardarNotasPlano}
+          onAnalizarConIA={analizarConIA}
+          style={isDesktop ? { width: `${anchoVisorPct}%` } : undefined}
+        />
+      )}
+      {cargandoDetallePlano && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+          <Loader2 className="w-6 h-6 animate-spin text-white" />
+        </div>
+      )}
+      </div>
 
-            {/* Contenido */}
-            <div className="flex-1 overflow-auto p-4">
-              {itemVisorActual.tipo === "foto" ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={itemVisorActual.url}
-                  alt={itemVisorActual.label}
-                  className="w-full h-auto rounded-[8px] border border-slate-200"
-                />
-              ) : (
-                <iframe
-                  src={itemVisorActual.url}
-                  title={itemVisorActual.label}
-                  className="w-full h-full min-h-[70vh] rounded-[8px] border border-slate-200"
-                />
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
     </div>
 
       {/* ── Modal: elementos detectados por IA ────────────── */}
