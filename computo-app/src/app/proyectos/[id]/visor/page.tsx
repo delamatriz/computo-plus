@@ -56,9 +56,6 @@ export default function VisorProyectoPage() {
   const [observacionesIA, setObservacionesIA] = useState("");
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
 
-  // Calculadora rápida
-  const [mostrarCalculadora, setMostrarCalculadora] = useState(false);
-
   // Las 3 categorías de documentos — acá solo para armar la lista
   // combinada del visor y las fotos para "Analizar con IA"; el
   // alta/listado/subida en sí vive en Documentación para metrar
@@ -403,13 +400,11 @@ export default function VisorProyectoPage() {
                 totalGeneral={totalGeneral}
                 iaTexto={iaTexto}
                 iaCargando={iaCargando}
-                mostrarCalculadora={mostrarCalculadora}
                 onActualizarFila={actualizarFila}
                 onAgregarFila={agregarFila}
                 onEliminarFila={eliminarFila}
                 onIaTextoChange={setIaTexto}
                 onAgregarFilaIA={agregarFilaIA}
-                onToggleCalculadora={() => setMostrarCalculadora((v) => !v)}
                 onExportarExcel={exportarExcel}
               />
             </div>

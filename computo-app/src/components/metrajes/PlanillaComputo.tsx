@@ -2,28 +2,28 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Plus, X, ChevronDown, Sparkles, Calculator, Loader2 } from "lucide-react";
+import { Download, Plus, X, ChevronDown, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtNum, subtotalFila, type MetrajeFila, type RubroOption } from "./metrajeFila";
 
-// Planilla de cómputo + Calculadora rápida — vive dentro del Visor
-// (Página 2), al costado del documento principal, en la misma columna
-// redimensionable (ver UI_UX_REDESIGN.md 2quinquies). El estado de las
-// filas lo dueña SeccionMetrajesPresupuesto (necesita `filas` también
-// para exportar a Excel); este componente es presentacional.
+// Planilla de cómputo — vive dentro del Visor (Página 2), arriba del
+// documento principal (ver UI_UX_REDESIGN.md 2quinquies). El estado de
+// las filas lo dueña la página /proyectos/[id]/visor (necesita `filas`
+// también para exportar a Excel); este componente es presentacional.
+// La Calculadora rápida se sacó de acá — quedó redundante con el botón
+// flotante circular (CalculadoraFlotante, global en toda la app), que
+// es ahora la única forma de acceder a ella desde esta página.
 export default function PlanillaComputo({
   filas,
   rubrosDisponibles,
   totalGeneral,
   iaTexto,
   iaCargando,
-  mostrarCalculadora,
   onActualizarFila,
   onAgregarFila,
   onEliminarFila,
   onIaTextoChange,
   onAgregarFilaIA,
-  onToggleCalculadora,
   onExportarExcel,
 }: {
   filas: MetrajeFila[];
@@ -31,13 +31,11 @@ export default function PlanillaComputo({
   totalGeneral: number;
   iaTexto: string;
   iaCargando: boolean;
-  mostrarCalculadora: boolean;
   onActualizarFila: (id: string, field: keyof MetrajeFila, value: string) => void;
   onAgregarFila: () => void;
   onEliminarFila: (id: string) => void;
   onIaTextoChange: (value: string) => void;
   onAgregarFilaIA: () => void;
-  onToggleCalculadora: () => void;
   onExportarExcel: () => void;
 }) {
   const inputCls =
@@ -253,112 +251,6 @@ export default function PlanillaComputo({
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
-
-      {/* ── Calculadora rápida ────────────────────────────── */}
-      <div className="space-y-2.5">
-        <button
-          type="button"
-          onClick={onToggleCalculadora}
-          className="relative flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-slate-300 text-slate-500 hover:text-slate-700 hover:border-slate-400 font-medium text-sm transition-colors bg-white"
-        >
-          <Calculator className="w-4 h-4" />
-          Calculadora rápida
-          <ChevronDown
-            className={cn("w-4 h-4 absolute right-4 transition-transform", mostrarCalculadora && "rotate-180")}
-          />
-        </button>
-        <AnimatePresence initial={false}>
-          {mostrarCalculadora && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25, ease: "easeInOut" }}
-              className="overflow-hidden"
-            >
-              <div className="rounded-[12px] border border-slate-300 bg-white p-3 max-w-xs">
-                <CalculadoraInline />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Calculadora rápida inline ──────────────────────────── */
-function CalculadoraInline() {
-  const [display, setDisplay] = useState("0");
-  const [operacion, setOperacion] = useState("");
-  const [valorPrevio, setValorPrevio] = useState("");
-  const [esperandoOperando, setEsperandoOperando] = useState(false);
-
-  const presionarNumero = (num: string) => {
-    if (esperandoOperando) {
-      setDisplay(num);
-      setEsperandoOperando(false);
-    } else {
-      setDisplay(display === "0" ? num : display + num);
-    }
-  };
-
-  const presionarOperacion = (op: string) => {
-    setValorPrevio(display);
-    setOperacion(op);
-    setEsperandoOperando(true);
-  };
-
-  const calcular = () => {
-    const prev = parseFloat(valorPrevio);
-    const curr = parseFloat(display);
-    let resultado = 0;
-    if (operacion === "+") resultado = prev + curr;
-    if (operacion === "-") resultado = prev - curr;
-    if (operacion === "×") resultado = prev * curr;
-    if (operacion === "÷") resultado = curr !== 0 ? prev / curr : 0;
-    setDisplay(resultado % 1 === 0 ? resultado.toString() : resultado.toFixed(2));
-    setOperacion("");
-    setEsperandoOperando(true);
-  };
-
-  const limpiar = () => {
-    setDisplay("0");
-    setOperacion("");
-    setValorPrevio("");
-    setEsperandoOperando(false);
-  };
-
-  const btnCls = "h-9 rounded-lg text-sm font-medium transition-colors";
-
-  return (
-    <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-      <div className="bg-white rounded-lg px-3 py-2 text-right text-lg font-mono font-semibold text-[#1A3A5C] mb-2 border border-slate-200 min-h-[40px]">
-        {parseFloat(display).toLocaleString("es-UY")}
-      </div>
-      <div className="grid grid-cols-4 gap-1.5">
-        <button onClick={limpiar} className={`${btnCls} col-span-2 bg-red-50 text-red-600 hover:bg-red-100`}>C</button>
-        <button onClick={() => presionarOperacion("÷")} className={`${btnCls} bg-blue-50 text-[#2563EB] hover:bg-blue-100`}>÷</button>
-        <button onClick={() => presionarOperacion("×")} className={`${btnCls} bg-blue-50 text-[#2563EB] hover:bg-blue-100`}>×</button>
-
-        {["7", "8", "9"].map((n) => (
-          <button key={n} onClick={() => presionarNumero(n)} className={`${btnCls} bg-white border border-slate-200 text-[#1E293B] hover:bg-slate-100`}>{n}</button>
-        ))}
-        <button onClick={() => presionarOperacion("-")} className={`${btnCls} bg-blue-50 text-[#2563EB] hover:bg-blue-100`}>−</button>
-
-        {["4", "5", "6"].map((n) => (
-          <button key={n} onClick={() => presionarNumero(n)} className={`${btnCls} bg-white border border-slate-200 text-[#1E293B] hover:bg-slate-100`}>{n}</button>
-        ))}
-        <button onClick={() => presionarOperacion("+")} className={`${btnCls} bg-blue-50 text-[#2563EB] hover:bg-blue-100`}>+</button>
-
-        {["1", "2", "3"].map((n) => (
-          <button key={n} onClick={() => presionarNumero(n)} className={`${btnCls} bg-white border border-slate-200 text-[#1E293B] hover:bg-slate-100`}>{n}</button>
-        ))}
-        <button onClick={calcular} className={`${btnCls} row-span-2 bg-[#2563EB] text-white hover:bg-blue-700`}>=</button>
-
-        <button onClick={() => presionarNumero("0")} className={`${btnCls} col-span-2 bg-white border border-slate-200 text-[#1E293B] hover:bg-slate-100`}>0</button>
-        <button onClick={() => presionarNumero(".")} className={`${btnCls} bg-white border border-slate-200 text-[#1E293B] hover:bg-slate-100`}>.</button>
       </div>
     </div>
   );
