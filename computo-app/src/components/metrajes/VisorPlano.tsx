@@ -5,54 +5,12 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { X, ZoomIn, ZoomOut, Maximize2, Loader2, Camera, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PDF_OPTIONS, MAX_ARCHIVO_MB, MAX_ARCHIVO_BYTES, type PlanoDetalle } from "./planoArchivo";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url
 ).toString();
-
-// Sin esto, page.render() se queda colgado para siempre en PDFs con fuentes
-// estándar (no embebidas) — pdf.js espera indefinidamente los datos de la
-// fuente. Servidos como estáticos desde public/ (copiados de
-// node_modules/pdfjs-dist), mismo criterio que el worker: self-hosted, sin
-// depender de un CDN externo.
-export const PDF_OPTIONS = { standardFontDataUrl: "/standard_fonts/", cMapUrl: "/cmaps/", cMapPacked: true };
-
-// Límite de tamaño — el archivo se sube a Vercel Blob (ya no base64 en
-// Postgres, ver commit de migración a Blob), así que el techo real es
-// mucho más alto que el viejo límite de 15MB atado a la conexión de la
-// base. Se deja un límite razonable como sanity check, no porque Blob lo
-// requiera.
-export const MAX_ARCHIVO_MB = 200;
-export const MAX_ARCHIVO_BYTES = MAX_ARCHIVO_MB * 1024 * 1024;
-
-export interface FotoComplementaria {
-  id: string;
-  archivo: string;
-  nombreArchivoOriginal: string;
-  descripcion: string | null;
-  createdAt: string;
-}
-
-export interface PlanoDetalle {
-  id: string;
-  nombre: string;
-  tipoArchivo: "PDF" | "IMAGEN";
-  archivo: string;
-  nombreArchivoOriginal: string;
-  paginaPDF: number | null;
-  notas: string | null;
-  fotos: FotoComplementaria[];
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function VisorPlano({
   plano,
@@ -311,5 +269,3 @@ export default function VisorPlano({
     </div>
   );
 }
-
-export { fileToBase64 };

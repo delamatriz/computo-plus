@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import * as XLSX from "xlsx";
 import {
@@ -16,8 +17,25 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import SeccionPlanos, { type PlanoResumen } from "@/components/metrajes/SeccionPlanos";
-import VisorPlano, { fileToBase64, type PlanoDetalle } from "@/components/metrajes/VisorPlano";
+import { fileToBase64, type PlanoDetalle } from "@/components/metrajes/planoArchivo";
+import type { PlanoResumen } from "@/components/metrajes/SeccionPlanos";
+
+// SeccionPlanos y VisorPlano importan react-pdf (pdf.js), que revienta con
+// "DOMMatrix is not defined" si su módulo se evalúa en el servidor — pdf.js
+// usa esa API de navegador a nivel de módulo, no dentro de una función. Esta
+// página es "use client" pero de todos modos Next la renderiza una vez en
+// el servidor para el HTML inicial, así que un import estático de estos
+// componentes rompía la página con 500 siempre. Con ssr:false nunca se
+// evalúan del lado del servidor, solo en el browser.
+const SeccionPlanos = dynamic(() => import("@/components/metrajes/SeccionPlanos"), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm p-4">
+      <p className="text-sm text-slate-400">Cargando…</p>
+    </div>
+  ),
+});
+const VisorPlano = dynamic(() => import("@/components/metrajes/VisorPlano"), { ssr: false });
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface MetrajeFila {

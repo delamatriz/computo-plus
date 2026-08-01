@@ -15,7 +15,7 @@ import {
   Camera,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fileToBase64, PDF_OPTIONS, MAX_ARCHIVO_MB, MAX_ARCHIVO_BYTES } from "./VisorPlano";
+import { fileToBase64, PDF_OPTIONS, MAX_ARCHIVO_MB, MAX_ARCHIVO_BYTES } from "./planoArchivo";
 
 export interface PlanoResumen {
   id: string;
