@@ -153,6 +153,64 @@ Sin lectura automática por IA en esta primera versión.
 
 ---
 
+## 2quater. Ajuste: Metrajes como biblioteca + Documentación para metrar
+
+### Cambio de rol de "Metrajes" en el sidebar
+
+"Metrajes" deja de ser la página de TRABAJO de un proyecto específico
+(que hoy vive en `/proyectos/[id]/metrajes` con su propia URL en el
+sidebar) y pasa a ser una BIBLIOTECA DE CONSULTA, mismo patrón que ya
+se aplicó con Rubros/Descompuestos → Biblioteca:
+
+- Permite ver cómo se midió en otros proyectos ya trabajados, como
+  referencia (ej. "ya medí un apartamento parecido, veo cómo lo
+  hice").
+- Vive en el sidebar, fuera del contexto de un proyecto específico
+  (mismo lugar donde ya está hoy, pero cambia su contenido/propósito).
+- Alcance de esta biblioteca (a definir en detalle cuando se
+  implemente): probablemente de solo consulta al inicio, similar al
+  alcance MVP de la Biblioteca de Rubros.
+
+### Nueva tarjeta: "Documentación para metrar" (específica del proyecto)
+
+Vive dentro de la pestaña Presupuesto, junto a "Documentación del
+llamado" (ya existente, sección 2ter) — las DOS tarjetas lado a lado,
+arriba de la tabla de capítulos/rubros.
+
+Contenido de "Documentación para metrar" (migra lo que hoy vive en la
+página separada `/metrajes`):
+
+- **Planos y documentos**: lista de planos/detalles ya subidos
+  (nombre, fecha, peso, ver/eliminar) + botón para subir nuevo. Al
+  hacer click en "ver", abre el VISOR (pantalla separada, ver más
+  abajo).
+- **Fotos de relevamiento**: lista de fotos ya subidas + botón para
+  agregar. Fotos generales de apoyo para medir, no necesariamente
+  atadas a un plano específico.
+- **Notas**: campo de texto libre (observaciones del relevamiento,
+  accesos, estado del lugar).
+
+Diferencia con "Documentación del llamado": esa es para PLIEGO/
+MEMORIA DEL PLIEGO/fotos y planos de REFERENCIA GENERAL del llamado a
+licitación (solo consultar/archivar). "Documentación para metrar" es
+específicamente el material que se usa para MEDIR y completar la
+Planilla de Cómputo de este proyecto.
+
+### Pantalla "Visor" (ya implementada, sin cambios de esta sesión)
+
+Al abrir un plano desde "Documentación para metrar", se entra al
+visor: layout de 3 columnas (Planos+Planilla de Cómputo | Visor con
+zoom/pan | Notas + Fotos complementarias), todo visible sin necesidad
+de scroll. Ajustes de esta sesión sobre el visor:
+
+- Notas se ubica DEBAJO del visor (compacta), no en columna aparte.
+- Columna de Fotos/Detalles más angosta, para dar más ancho al visor.
+- Botones de acción (Agregar foto, Analizar con IA) visibles arriba
+  de la columna, no al final (evitar que queden ocultos tras scroll —
+  se detectó que el propio usuario no los había visto hasta ahora).
+
+---
+
 ## 3. Rubros y Descompuestos — hallazgo importante
 
 Hoy ambos ítems del sidebar están VACÍOS en la UI. Hipótesis
