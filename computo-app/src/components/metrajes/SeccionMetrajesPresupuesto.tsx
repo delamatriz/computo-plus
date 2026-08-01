@@ -496,21 +496,25 @@ export default function SeccionMetrajesPresupuesto({
 
   return (
     <>
-      {/* ── Página 1 — Documentación del llamado + Documentación para metrar, lado a lado (ver UI_UX_REDESIGN.md 2quinquies) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start mb-6">
-        {documentacionLlamado}
-        {proyectoId && (
-          <SeccionDocumentacionParaMetrar
-            proyectoId={proyectoId}
-            estado={estadoDocumentos}
-            eliminandoIds={eliminandoIds}
-            onDocumentosActualizados={actualizarDocumentos}
-            onAbrirDocumento={abrirComoPrincipal}
-            onEliminarDocumento={eliminarDocumento}
-            onIrAlVisor={irAlVisor}
-          />
-        )}
-      </div>
+      {/* ── Página 1 — Documentación del llamado + Documentación para metrar, lado a lado (ver UI_UX_REDESIGN.md 2quinquies).
+          Se oculta por completo mientras el Visor está abierto — reemplazo de contenido, no apilado
+          (mismo patrón que el cambio entre pestañas Presupuesto/Gestión de Obra/Certificación). ── */}
+      {!visorAbierto && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start mb-6">
+          {documentacionLlamado}
+          {proyectoId && (
+            <SeccionDocumentacionParaMetrar
+              proyectoId={proyectoId}
+              estado={estadoDocumentos}
+              eliminandoIds={eliminandoIds}
+              onDocumentosActualizados={actualizarDocumentos}
+              onAbrirDocumento={abrirComoPrincipal}
+              onEliminarDocumento={eliminarDocumento}
+              onIrAlVisor={irAlVisor}
+            />
+          )}
+        </div>
+      )}
 
       {/* ── Página 2 — Planilla de cómputo + Visor, columna redimensionable ── */}
       {visorAbierto && (
