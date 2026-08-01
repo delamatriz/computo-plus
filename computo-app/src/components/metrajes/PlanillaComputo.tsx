@@ -43,22 +43,50 @@ export default function PlanillaComputo({
   const inputCls =
     "w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300";
 
+  // Colapsable — arriba del Visor ya no hay tanta altura de sobra como
+  // antes (columna al costado); con pantallas más bajas (ej. 1280x720)
+  // Planilla+Visor no entran ambos cómodos sin colapsar uno de los dos.
+  // Empieza expandida (el pedido de este cambio fue "que sea más
+  // visible"), con la opción de colapsarla para recuperar alto para el
+  // documento — ver nota en SeccionMetrajesPresupuesto.tsx.
+  const [expandido, setExpandido] = useState(true);
+
   return (
     <div className="space-y-4">
       {/* ── Planilla de cómputo ───────────────────────────── */}
       <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200">
-          <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
-            Planilla de cómputo
-          </span>
+        <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-200">
+          <button
+            onClick={() => setExpandido((v) => !v)}
+            className="flex items-center gap-2 text-left group flex-1 min-w-0"
+          >
+            <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
+              Planilla de cómputo
+            </span>
+            <ChevronDown
+              className={cn(
+                "w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-transform flex-shrink-0",
+                !expandido && "-rotate-90"
+              )}
+            />
+          </button>
           <button
             onClick={onExportarExcel}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors flex-shrink-0"
           >
             <Download className="w-3.5 h-3.5" /> Exportar Excel
           </button>
         </div>
 
+        <AnimatePresence initial={false}>
+          {expandido && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
         <div className="overflow-x-auto">
           <div className="min-w-[860px]">
             {/* Cabecera */}
@@ -222,6 +250,9 @@ export default function PlanillaComputo({
             </div>
           </div>
         </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* ── Calculadora rápida ────────────────────────────── */}

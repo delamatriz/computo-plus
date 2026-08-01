@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Document, Page, pdfjs } from "react-pdf";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import {
@@ -17,6 +18,7 @@ import {
   File as FileGenerico,
   Download,
   GripHorizontal,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { obtenerArchivoCacheado } from "@/lib/archivoCache";
@@ -186,7 +188,25 @@ function VisorPrincipal({ doc }: { doc: DocumentoDetalle }) {
 
 // ── Ventana flotante — Foto/Detalle abierto desde la lista, overlay
 // liviano encima del visor principal (que sigue fijo detrás). Movible
-// (drag por el header) y cerrable, sin fondo oscuro de pantalla completa. ─
+// (drag por el header), redimensionable (drag por la esquina inferior
+// derecha) y cerrable, sin fondo oscuro de pantalla completa.
+//
+// Se renderiza vía portal a document.body con position:fixed — así queda
+// SIEMPRE por encima de todo (Planilla incluida) sin importar hacia dónde
+// se la arrastre. Antes era position:absolute dentro del visor principal,
+// así que al arrastrarla sobre la Planilla (un hermano fuera de ese
+// contenedor) quedaba tapada: la comparación de z-index solo aplica
+// dentro de un mismo stacking context, y ese absolute no podía "escapar"
+// del suyo. Con position:fixed las coordenadas son siempre relativas al
+// viewport, no a ningún contenedor del Visor. ──────────────────────────
+
+const VENTANA_ANCHO_MIN = 280;
+const VENTANA_ALTO_MIN = 220;
+const VENTANA_TAMANO_INICIAL = { width: 380, height: 420 };
+
+function clamp(valor: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, valor));
+}
 
 function VentanaFlotante({
   doc,
@@ -196,18 +216,28 @@ function VentanaFlotante({
   onClose: () => void;
 }) {
   const { cargando, blob, imgObjectUrl, error } = useArchivoBlob(doc);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [tamano, setTamano] = useState(VENTANA_TAMANO_INICIAL);
 
+  // Reposiciona cerca de la esquina superior derecha de la ventana del
+  // navegador cada vez que se abre un documento nuevo.
   useEffect(() => {
-    setOffset({ x: 0, y: 0 });
+    setPos({ x: Math.max(16, window.innerWidth - VENTANA_TAMANO_INICIAL.width - 24), y: 96 });
+    setTamano(VENTANA_TAMANO_INICIAL);
   }, [doc.id]);
 
   const iniciarArrastre = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (!pos) return;
     const inicio = { x: e.clientX, y: e.clientY };
-    const offsetInicial = offset;
+    const posInicial = pos;
     const onMove = (ev: MouseEvent) => {
-      setOffset({ x: offsetInicial.x + (ev.clientX - inicio.x), y: offsetInicial.y + (ev.clientY - inicio.y) });
+      // Clamp liviano — evita que se pueda arrastrar tan lejos que se
+      // pierda de vista por completo (sin header/botón cerrar alcanzable).
+      setPos({
+        x: clamp(posInicial.x + (ev.clientX - inicio.x), -tamano.width + 80, window.innerWidth - 80),
+        y: clamp(posInicial.y + (ev.clientY - inicio.y), 0, window.innerHeight - 40),
+      });
     };
     const onUp = () => {
       window.removeEventListener("mousemove", onMove);
@@ -217,10 +247,31 @@ function VentanaFlotante({
     window.addEventListener("mouseup", onUp);
   };
 
-  return (
+  const iniciarRedimension = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const inicio = { x: e.clientX, y: e.clientY };
+    const tamanoInicial = tamano;
+    const onMove = (ev: MouseEvent) => {
+      setTamano({
+        width: clamp(tamanoInicial.width + (ev.clientX - inicio.x), VENTANA_ANCHO_MIN, window.innerWidth - 32),
+        height: clamp(tamanoInicial.height + (ev.clientY - inicio.y), VENTANA_ALTO_MIN, window.innerHeight - 32),
+      });
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  if (!pos) return null;
+
+  return createPortal(
     <div
-      className="absolute top-4 right-4 z-20 w-[min(360px,80%)] max-h-[70%] bg-white rounded-[12px] border border-slate-300 shadow-xl flex flex-col overflow-hidden"
-      style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+      className="fixed z-[100] bg-white rounded-[12px] border border-slate-300 shadow-xl flex flex-col overflow-hidden"
+      style={{ left: pos.x, top: pos.y, width: tamano.width, height: tamano.height }}
     >
       <div
         onMouseDown={iniciarArrastre}
@@ -234,7 +285,7 @@ function VentanaFlotante({
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
-      <div className="flex-1 min-h-[160px] relative bg-slate-100 overflow-auto flex items-center justify-center p-2">
+      <div className="flex-1 min-h-0 relative bg-slate-100 overflow-auto flex items-center justify-center p-2">
         {doc.tipoArchivo === "DWG" ? (
           <SinVistaPrevia doc={doc} />
         ) : (
@@ -247,13 +298,24 @@ function VentanaFlotante({
             )}
             {!cargando && !error && doc.tipoArchivo === "PDF" && blob && (
               <Document file={blob} options={PDF_OPTIONS} loading={null}>
-                <Page pageNumber={doc.paginaPDF ?? 1} width={320} renderTextLayer={false} renderAnnotationLayer={false} />
+                <Page pageNumber={doc.paginaPDF ?? 1} width={Math.max(160, tamano.width - 32)} renderTextLayer={false} renderAnnotationLayer={false} />
               </Document>
             )}
           </>
         )}
       </div>
-    </div>
+      {/* Esquina de redimensionar */}
+      <div
+        onMouseDown={iniciarRedimension}
+        title="Arrastrar para redimensionar"
+        className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize flex items-end justify-end p-0.5 text-slate-300 hover:text-slate-500 transition-colors"
+      >
+        <svg viewBox="0 0 10 10" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+          <path d="M9 1L1 9M9 5L5 9M9 9L9 9" />
+        </svg>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -263,28 +325,48 @@ function ListaDocumentos({
   documentos,
   documentoPrincipalId,
   onSeleccionar,
+  onEliminar,
+  eliminandoIds,
 }: {
   documentos: DocumentoResumen[];
   documentoPrincipalId: string;
   onSeleccionar: (doc: DocumentoResumen) => void;
+  onEliminar: (doc: DocumentoResumen) => void;
+  eliminandoIds: Set<string>;
 }) {
   return (
     <div className="flex-1 overflow-y-auto p-2 space-y-1">
       {documentos.map((doc) => {
         const Icono = iconoPorTipo(doc.tipoArchivo);
         const activo = doc.id === documentoPrincipalId;
+        const seEliminando = eliminandoIds.has(doc.id);
         return (
-          <button
+          <div
             key={doc.id}
-            onClick={() => onSeleccionar(doc)}
             className={cn(
-              "w-full flex items-center gap-2 px-2.5 py-2 rounded-[8px] text-left transition-colors",
-              activo ? "bg-blue-50 text-[#2563EB]" : "text-slate-600 hover:bg-slate-100"
+              "flex items-center gap-0.5 rounded-[8px] transition-colors",
+              activo ? "bg-blue-50" : "hover:bg-slate-100",
+              seEliminando && "opacity-40 pointer-events-none"
             )}
           >
-            <Icono className={cn("w-3.5 h-3.5 flex-shrink-0", activo ? "text-[#2563EB]" : "text-slate-400")} />
-            <span className="flex-1 min-w-0 text-xs font-medium truncate">{doc.nombre}</span>
-          </button>
+            <button
+              onClick={() => onSeleccionar(doc)}
+              className={cn(
+                "flex-1 min-w-0 flex items-center gap-2 px-2.5 py-2 text-left",
+                activo ? "text-[#2563EB]" : "text-slate-600"
+              )}
+            >
+              <Icono className={cn("w-3.5 h-3.5 flex-shrink-0", activo ? "text-[#2563EB]" : "text-slate-400")} />
+              <span className="flex-1 min-w-0 text-xs font-medium truncate">{doc.nombre}</span>
+            </button>
+            <button
+              onClick={() => onEliminar(doc)}
+              title="Eliminar"
+              className="flex-shrink-0 p-1.5 mr-1.5 rounded-[6px] text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         );
       })}
     </div>
@@ -297,6 +379,8 @@ export default function Visor({
   documentoPrincipal,
   todosLosDocumentos,
   onSeleccionarDocumento,
+  onEliminarDocumento,
+  eliminandoIds,
   ventanaFlotante,
   onCerrarVentanaFlotante,
   onClose,
@@ -314,6 +398,11 @@ export default function Visor({
   documentoPrincipal: DocumentoDetalle | null;
   todosLosDocumentos: DocumentoResumen[];
   onSeleccionarDocumento: (doc: DocumentoResumen) => void;
+  /** Eliminar un documento directo desde la lista del visor — la página
+   * que lo llama es responsable de limpiar documentoPrincipal/
+   * ventanaFlotante si el documento eliminado era el que estaba abierto. */
+  onEliminarDocumento: (doc: DocumentoResumen) => void;
+  eliminandoIds: Set<string>;
   ventanaFlotante: DocumentoDetalle | null;
   onCerrarVentanaFlotante: () => void;
   onClose: () => void;
@@ -356,7 +445,7 @@ export default function Visor({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-white flex flex-col lg:static lg:inset-auto lg:z-auto lg:h-full lg:flex-shrink-0 lg:border-l lg:border-slate-200 overflow-hidden"
+      className="fixed inset-0 z-50 bg-white flex flex-col lg:static lg:inset-auto lg:z-auto lg:h-full lg:flex-shrink-0 lg:border lg:border-slate-300 lg:rounded-[16px] lg:shadow-sm overflow-hidden"
       style={style}
     >
       {/* Header */}
@@ -408,6 +497,10 @@ export default function Visor({
               documentos={todosLosDocumentos}
               documentoPrincipalId={documentoPrincipal?.id ?? ""}
               onSeleccionar={onSeleccionarDocumento}
+              eliminandoIds={eliminandoIds}
+              onEliminar={(doc) => {
+                if (confirm(`¿Eliminar "${doc.nombre}"?`)) onEliminarDocumento(doc);
+              }}
             />
             <div className="p-2.5 border-t border-slate-200 flex-shrink-0">
               <button

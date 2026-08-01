@@ -3271,7 +3271,6 @@ export default function ProyectoPage() {
             (ver UI_UX_REDESIGN.md sección 2quater — antes vivía en /proyectos/[id]/metrajes) ── */}
         <SeccionMetrajesPresupuesto
           proyectoId={proyectoActivo.id}
-          proyectoNombre={proyectoActivo.nombre}
           documentacionLlamado={<SeccionDocumentacionLlamado proyectoId={proyectoActivo.id} />}
         />
 
