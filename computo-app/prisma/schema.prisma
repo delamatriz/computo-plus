@@ -385,7 +385,7 @@ model PlanoProyecto {
   proyecto              Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
   nombre                String   // ej. "Planta Baja", "Corte A-A"
   tipoArchivo           String   // "PDF" | "IMAGEN"
-  archivo               String   @db.Text // base64 (mismo patrón que DocumentoLlamado.url)
+  archivo               String   @db.Text // URL de Vercel Blob (antes base64 — ver commit de migración a Blob)
   nombreArchivoOriginal String
   paginaPDF             Int?     // página elegida (1-indexed), si el PDF tiene varias hojas
   tamano                Int?     // bytes, opcional
@@ -398,7 +398,7 @@ model FotoComplementaria {
   id                    String        @id @default(cuid())
   planoId               String
   plano                 PlanoProyecto @relation(fields: [planoId], references: [id], onDelete: Cascade)
-  archivo               String        @db.Text
+  archivo               String        @db.Text // URL de Vercel Blob (antes base64 — ver commit de migración a Blob)
   nombreArchivoOriginal String
   descripcion           String?
   createdAt             DateTime      @default(now())

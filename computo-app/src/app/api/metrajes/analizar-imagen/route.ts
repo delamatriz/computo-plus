@@ -27,17 +27,41 @@ Respondé SOLO con JSON:
   "observaciones": string
 }`;
 
-interface FotoBase64 {
-  data: string;
-  mediaType: string;
+interface ImageBlock {
+  type: "image";
+  source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string };
 }
 
-function parseDataUrl(foto: string): FotoBase64 {
-  const match = foto.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
-  if (match) {
-    return { data: match[2], mediaType: match[1] };
+// Las imágenes de Planos/Fotos complementarias vienen como URL de la ruta
+// proxy .../archivo (ver PlanoProyecto/FotoComplementaria — el archivo real
+// vive en un store privado de Vercel Blob, esa ruta lo baja autenticado y
+// lo reenvía). No son necesariamente alcanzables desde afuera de nuestro
+// servidor, así que en vez de mandarle la URL a Claude, se bajan los bytes
+// acá mismo y se mandan en base64 — mismo criterio para las data URLs que
+// pueda mandar el cliente directamente.
+async function imageBlockDesdeFoto(foto: string, origin: string): Promise<ImageBlock> {
+  const dataUrlMatch = foto.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+  if (dataUrlMatch) {
+    return {
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: dataUrlMatch[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+        data: dataUrlMatch[2],
+      },
+    };
   }
-  return { data: foto, mediaType: "image/jpeg" };
+
+  const url = foto.startsWith("http") ? foto : `${origin}${foto}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`No se pudo descargar la imagen (${res.status}): ${url}`);
+  const buffer = Buffer.from(await res.arrayBuffer());
+  const mediaType = (res.headers.get("content-type") || "image/jpeg") as
+    | "image/jpeg"
+    | "image/png"
+    | "image/gif"
+    | "image/webp";
+  return { type: "image", source: { type: "base64", media_type: mediaType, data: buffer.toString("base64") } };
 }
 
 export async function POST(request: NextRequest) {
@@ -48,17 +72,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "sin_fotos" }, { status: 400 });
     }
 
-    const imageBlocks = fotos.map((foto: string) => {
-      const { data, mediaType } = parseDataUrl(foto);
-      return {
-        type: "image" as const,
-        source: {
-          type: "base64" as const,
-          media_type: mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
-          data,
-        },
-      };
-    });
+    const origin = new URL(request.url).origin;
+    const imageBlocks = await Promise.all(fotos.map((foto: string) => imageBlockDesdeFoto(foto, origin)));
 
     const textoPrompt = contexto?.trim()
       ? `${PROMPT}\n\nContexto del espacio: ${contexto.trim()}`

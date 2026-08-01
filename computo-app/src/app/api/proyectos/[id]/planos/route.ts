@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { subirArchivoABlob } from "@/lib/blob";
 
 // Metrajes con plano — Etapa 1 (solo subida + visor). El listado NO trae el
-// campo `archivo` (base64) — puede pesar varios MB por plano — para que la
-// pantalla cargue rápido; el contenido completo se pide recién al abrir un
-// plano puntual en /api/proyectos/[id]/planos/[planoId].
+// campo `archivo` (URL de Vercel Blob) para que la pantalla cargue rápido;
+// el contenido completo se pide recién al abrir un plano puntual en
+// /api/proyectos/[id]/planos/[planoId].
 async function listarPlanos(proyectoId: string) {
   const planos = await db.planoProyecto.findMany({
     where: { proyectoId },
@@ -55,12 +56,20 @@ export async function POST(
       return NextResponse.json({ error: "tipoArchivo debe ser PDF o IMAGEN" }, { status: 400 });
     }
 
+    let url: string;
+    try {
+      url = await subirArchivoABlob(`planos/${proyectoId}/${body.nombreArchivoOriginal}`, body.archivo);
+    } catch (err) {
+      console.error("[POST /api/proyectos/[id]/planos] subida a blob", err);
+      return NextResponse.json({ error: "No se pudo subir el archivo" }, { status: 400 });
+    }
+
     await db.planoProyecto.create({
       data: {
         proyectoId,
         nombre: body.nombre.trim(),
         tipoArchivo: body.tipoArchivo,
-        archivo: body.archivo,
+        archivo: url,
         nombreArchivoOriginal: body.nombreArchivoOriginal,
         paginaPDF: typeof body.paginaPDF === "number" ? body.paginaPDF : null,
         tamano: typeof body.tamano === "number" ? body.tamano : null,

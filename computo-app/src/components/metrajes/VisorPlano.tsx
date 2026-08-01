@@ -18,16 +18,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 // depender de un CDN externo.
 export const PDF_OPTIONS = { standardFontDataUrl: "/standard_fonts/", cMapUrl: "/cmaps/", cMapPacked: true };
 
-// Límite de tamaño — el storage de planos/fotos es base64-en-Postgres
-// (mismo patrón que DocumentoLlamado/FotoCertificacionItem). La base es
-// remota (Render); confirmado con pruebas aisladas que un INSERT de un
-// solo TEXT grande tarda demasiado sobre esa conexión y el driver termina
-// cortándola ("Connection terminated unexpectedly") antes de completar —
-// 20MB tardó 18s y pasó raspando, 25MB falló a los 12s, 30MB a los 28s. No
-// es un límite de Next.js ni de validación: es la conexión a la DB. Hasta
-// que esto migre a un storage tipo blob/S3, se limita la subida a un rango
-// que probamos que anda rápido y confiable.
-export const MAX_ARCHIVO_MB = 15;
+// Límite de tamaño — el archivo se sube a Vercel Blob (ya no base64 en
+// Postgres, ver commit de migración a Blob), así que el techo real es
+// mucho más alto que el viejo límite de 15MB atado a la conexión de la
+// base. Se deja un límite razonable como sanity check, no porque Blob lo
+// requiera.
+export const MAX_ARCHIVO_MB = 200;
 export const MAX_ARCHIVO_BYTES = MAX_ARCHIVO_MB * 1024 * 1024;
 
 export interface FotoComplementaria {
