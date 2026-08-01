@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { obtenerStreamDeBlob } from "@/lib/blob";
@@ -7,7 +8,7 @@ import { obtenerStreamDeBlob } from "@/lib/blob";
 // ruta baja el contenido server-side (autenticado) y lo reenvía, para que
 // VisorPlano pueda usar `archivo` como <img src>/<Document file> normal.
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string; planoId: string }> }
 ) {
   try {
@@ -21,6 +22,20 @@ export async function GET(
       return NextResponse.json({ error: "Plano no encontrado" }, { status: 404 });
     }
 
+    // El contenido de un plano ya guardado es inmutable (se sube con
+    // addRandomSuffix, así que la URL en `plano.archivo` cambia si alguna
+    // vez se reemplaza el archivo) — el ETag sale de esa URL, sin necesidad
+    // de bajar el blob para calcularlo. Permite además devolver 304 sin
+    // pegarle a Vercel Blob.
+    const etag = `"${createHash("sha1").update(plano.archivo).digest("hex")}"`;
+    const ifNoneMatch = req.headers.get("if-none-match");
+    if (ifNoneMatch && ifNoneMatch.split(",").map((v) => v.trim()).includes(etag)) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: { "Cache-Control": "private, max-age=31536000, immutable", ETag: etag },
+      });
+    }
+
     const resultado = await obtenerStreamDeBlob(plano.archivo);
     if (resultado.statusCode !== 200) {
       return NextResponse.json({ error: "Archivo no disponible" }, { status: 404 });
@@ -32,7 +47,8 @@ export async function GET(
     return new NextResponse(resultado.stream, {
       headers: {
         "Content-Type": resultado.blob.contentType,
-        "Cache-Control": "private, max-age=3600",
+        "Cache-Control": "private, max-age=31536000, immutable",
+        ETag: etag,
       },
     });
   } catch (err) {

@@ -1,16 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { X, ZoomIn, ZoomOut, Maximize2, Loader2, Camera, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { obtenerArchivoCacheado } from "@/lib/archivoCache";
 import { PDF_OPTIONS, MAX_ARCHIVO_MB, MAX_ARCHIVO_BYTES, type PlanoDetalle } from "./planoArchivo";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url
 ).toString();
+
+// El proxy de archivo (ver .../archivo/route.ts) manda la respuesta en
+// streaming sin Content-Length, así que la descarga (ver obtenerArchivoCacheado)
+// no siempre puede calcular un % exacto — cuando el total es conocido se
+// muestra el %, si no, los MB bajados.
+function textoProgresoCarga(loaded: number, total: number): string {
+  if (total > 0) {
+    return `Cargando plano — ${Math.min(100, Math.round((loaded / total) * 100))}%`;
+  }
+  if (loaded > 0) {
+    return `Cargando plano — ${(loaded / 1024 / 1024).toFixed(1)} MB`;
+  }
+  return "Cargando plano…";
+}
 
 export default function VisorPlano({
   plano,
@@ -33,6 +48,56 @@ export default function VisorPlano({
 }) {
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [errorFoto, setErrorFoto] = useState<string | null>(null);
+
+  // Estado de carga del archivo principal (PDF o imagen) — el visor abre
+  // antes de que el archivo esté disponible localmente, así que hay que
+  // mostrar feedback en vez de una pantalla en blanco. La descarga (con
+  // progreso) y el cacheo entre aperturas del mismo plano los maneja
+  // obtenerArchivoCacheado — ver ese archivo para el motivo (el Cache-
+  // Control/ETag del proxy no alcanza por un header Vary que agrega
+  // Next.js a todo Route Handler bajo app/api).
+  const [cargandoArchivo, setCargandoArchivo] = useState(true);
+  const [progresoArchivo, setProgresoArchivo] = useState({ loaded: 0, total: 0 });
+  const [archivoBlob, setArchivoBlob] = useState<Blob | null>(null);
+  const [imgObjectUrl, setImgObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCargandoArchivo(true);
+    setProgresoArchivo({ loaded: 0, total: 0 });
+    setErrorCarga(null);
+    setArchivoBlob(null);
+    setImgObjectUrl(null);
+
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const blob = await obtenerArchivoCacheado(plano.archivo, {
+          signal: controller.signal,
+          onProgress: (loaded, total) => setProgresoArchivo({ loaded, total }),
+        });
+        if (cancelado) return;
+        if (plano.tipoArchivo === "IMAGEN") {
+          objectUrl = URL.createObjectURL(blob);
+          setImgObjectUrl(objectUrl);
+        }
+        setArchivoBlob(blob);
+        setCargandoArchivo(false);
+      } catch (err) {
+        if (cancelado || (err instanceof DOMException && err.name === "AbortError")) return;
+        setErrorCarga(plano.tipoArchivo === "PDF" ? "No se pudo cargar el PDF." : "No se pudo cargar la imagen.");
+        setCargandoArchivo(false);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [plano.id, plano.tipoArchivo, plano.archivo]);
 
   const [notasLocal, setNotasLocal] = useState(plano.notas ?? "");
   const [guardandoNotas, setGuardandoNotas] = useState(false);
@@ -98,6 +163,22 @@ export default function VisorPlano({
                 <p className="text-sm text-red-500">{errorCarga}</p>
               </div>
             )}
+            {cargandoArchivo && !errorCarga && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-slate-100/90">
+                <Loader2 className="w-6 h-6 text-[#2563EB] animate-spin" />
+                <p className="text-sm text-slate-500">
+                  {textoProgresoCarga(progresoArchivo.loaded, progresoArchivo.total)}
+                </p>
+                {progresoArchivo.total > 0 && (
+                  <div className="w-40 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                    <div
+                      className="h-full bg-[#2563EB] transition-[width] duration-150"
+                      style={{ width: `${Math.min(100, Math.round((progresoArchivo.loaded / progresoArchivo.total) * 100))}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
             <TransformWrapper
               initialScale={1}
               minScale={0.3}
@@ -140,27 +221,31 @@ export default function VisorPlano({
                     wrapperClass="cursor-grab active:cursor-grabbing select-none"
                   >
                     {plano.tipoArchivo === "PDF" ? (
-                      <Document
-                        file={plano.archivo}
-                        options={PDF_OPTIONS}
-                        onLoadError={() => setErrorCarga("No se pudo cargar el PDF.")}
-                        loading={<div className="p-10 text-sm text-slate-400">Cargando plano…</div>}
-                      >
-                        <Page
-                          pageNumber={plano.paginaPDF ?? 1}
-                          width={900}
-                          renderTextLayer={false}
-                          renderAnnotationLayer={false}
-                        />
-                      </Document>
+                      archivoBlob && (
+                        <Document
+                          file={archivoBlob}
+                          options={PDF_OPTIONS}
+                          onLoadError={() => setErrorCarga("No se pudo cargar el PDF.")}
+                          loading={null}
+                        >
+                          <Page
+                            pageNumber={plano.paginaPDF ?? 1}
+                            width={900}
+                            renderTextLayer={false}
+                            renderAnnotationLayer={false}
+                          />
+                        </Document>
+                      )
                     ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={plano.archivo}
-                        alt={plano.nombre}
-                        className="max-w-none select-none"
-                        onError={() => setErrorCarga("No se pudo cargar la imagen.")}
-                      />
+                      imgObjectUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={imgObjectUrl}
+                          alt={plano.nombre}
+                          className="max-w-none select-none"
+                          onError={() => setErrorCarga("No se pudo cargar la imagen.")}
+                        />
+                      )
                     )}
                   </TransformComponent>
                 </>
