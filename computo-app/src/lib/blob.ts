@@ -50,12 +50,9 @@ export async function obtenerStreamDeBlob(url: string): Promise<GetBlobResult> {
   return resultado;
 }
 
-// URLs que el cliente puede usar directo en <img src>/<Document file> — no
+// URL que el cliente puede usar directo en <img src>/<Document file> — no
 // la URL real de Blob (privada, requiere el token), sino la ruta proxy de
 // nuestro propio servidor que la reenvía (ver .../archivo/route.ts).
-export function urlProxyPlano(proyectoId: string, planoId: string): string {
-  return `/api/proyectos/${proyectoId}/planos/${planoId}/archivo`;
-}
-export function urlProxyFoto(proyectoId: string, planoId: string, fotoId: string): string {
-  return `/api/proyectos/${proyectoId}/planos/${planoId}/fotos/${fotoId}/archivo`;
+export function urlProxyDocumentoMetraje(proyectoId: string, docId: string): string {
+  return `/api/proyectos/${proyectoId}/documentos-metraje/${docId}/archivo`;
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import * as XLSX from "xlsx-js-style";
 import {
@@ -35,6 +36,24 @@ import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
 import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
 import SeccionActualizacionPrecios from "@/components/SeccionActualizacionPrecios";
 import SeccionDocumentacionLlamado from "@/components/SeccionDocumentacionLlamado";
+
+// SeccionMetrajesPresupuesto (vía SeccionPlanos/VisorPlano) importa react-pdf
+// (pdf.js), que revienta con "DOMMatrix is not defined" si su módulo se
+// evalúa en el servidor. Esta página es "use client" pero de todos modos se
+// renderiza una vez en el servidor para el HTML inicial — con ssr:false
+// nunca se evalúa ahí, solo en el browser (mismo criterio que ya usaba la
+// vieja página /proyectos/[id]/metrajes).
+const SeccionMetrajesPresupuesto = dynamic(
+  () => import("@/components/metrajes/SeccionMetrajesPresupuesto"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm p-4 mb-6">
+        <p className="text-sm text-slate-400">Cargando…</p>
+      </div>
+    ),
+  }
+);
 
 /* ─── Tipo Proyecto ───────────────────────────────────────── */
 interface ProyectoData {
@@ -3248,8 +3267,13 @@ export default function ProyectoPage() {
       {tabActiva === "presupuesto" && (
       <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
 
-        {/* ── Documentación del llamado — sección de entrada, distinta de los anexos de salida de abajo ── */}
-        <SeccionDocumentacionLlamado proyectoId={proyectoActivo.id} />
+        {/* ── Documentación para metrar + Planilla de cómputo + Calculadora + Visor
+            (ver UI_UX_REDESIGN.md sección 2quater — antes vivía en /proyectos/[id]/metrajes) ── */}
+        <SeccionMetrajesPresupuesto
+          proyectoId={proyectoActivo.id}
+          proyectoNombre={proyectoActivo.nombre}
+          documentacionLlamado={<SeccionDocumentacionLlamado proyectoId={proyectoActivo.id} />}
+        />
 
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 

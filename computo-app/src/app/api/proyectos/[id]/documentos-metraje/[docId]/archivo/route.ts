@@ -3,31 +3,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { obtenerStreamDeBlob } from "@/lib/blob";
 
-// Proxy del archivo del plano — el store de Vercel Blob es privado, así que
-// el browser no puede pedirlo directo por su URL (necesita el token). Esta
-// ruta baja el contenido server-side (autenticado) y lo reenvía, para que
-// VisorPlano pueda usar `archivo` como <img src>/<Document file> normal.
+// Proxy del archivo del documento — el store de Vercel Blob es privado, así
+// que el browser no puede pedirlo directo por su URL (necesita el token).
+// Esta ruta baja el contenido server-side (autenticado) y lo reenvía, para
+// que el Visor pueda usar `archivo` como <img src>/<Document file> normal.
 export async function GET(
   req: NextRequest,
-  context: { params: Promise<{ id: string; planoId: string }> }
+  context: { params: Promise<{ id: string; docId: string }> }
 ) {
   try {
-    const { planoId } = await context.params;
+    const { docId } = await context.params;
 
-    const plano = await db.planoProyecto.findUnique({
-      where: { id: planoId },
+    const documento = await db.documentoMetraje.findUnique({
+      where: { id: docId },
       select: { archivo: true },
     });
-    if (!plano) {
-      return NextResponse.json({ error: "Plano no encontrado" }, { status: 404 });
+    if (!documento) {
+      return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
     }
 
-    // El contenido de un plano ya guardado es inmutable (se sube con
-    // addRandomSuffix, así que la URL en `plano.archivo` cambia si alguna
-    // vez se reemplaza el archivo) — el ETag sale de esa URL, sin necesidad
-    // de bajar el blob para calcularlo. Permite además devolver 304 sin
-    // pegarle a Vercel Blob.
-    const etag = `"${createHash("sha1").update(plano.archivo).digest("hex")}"`;
+    // El contenido de un documento ya guardado es inmutable (se sube con
+    // addRandomSuffix, así que la URL en `documento.archivo` cambia si
+    // alguna vez se reemplaza el archivo) — el ETag sale de esa URL, sin
+    // necesidad de bajar el blob para calcularlo. Permite además devolver
+    // 304 sin pegarle a Vercel Blob.
+    const etag = `"${createHash("sha1").update(documento.archivo).digest("hex")}"`;
     const ifNoneMatch = req.headers.get("if-none-match");
     if (ifNoneMatch && ifNoneMatch.split(",").map((v) => v.trim()).includes(etag)) {
       return new NextResponse(null, {
@@ -36,7 +36,7 @@ export async function GET(
       });
     }
 
-    const resultado = await obtenerStreamDeBlob(plano.archivo);
+    const resultado = await obtenerStreamDeBlob(documento.archivo);
     if (resultado.statusCode !== 200) {
       return NextResponse.json({ error: "Archivo no disponible" }, { status: 404 });
     }
@@ -52,7 +52,7 @@ export async function GET(
       },
     });
   } catch (err) {
-    console.error("[GET /api/proyectos/[id]/planos/[planoId]/archivo]", err);
+    console.error("[GET /api/proyectos/[id]/documentos-metraje/[docId]/archivo]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }

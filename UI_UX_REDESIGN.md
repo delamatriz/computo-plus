@@ -155,6 +155,12 @@ Sin lectura automática por IA en esta primera versión.
 
 ## 2quater. Ajuste: Metrajes como biblioteca + Documentación para metrar
 
+> **Nota:** el contenido de "Documentación para metrar" (3 secciones vs.
+> 2) y el diseño del Visor (documento fijo + lista + ventana flotante)
+> descritos acá quedaron reemplazados por el diseño final en la sección
+> **2quinquies**. El cambio de rol de "Metrajes" en el sidebar (más
+> abajo) sigue vigente sin cambios.
+
 ### Cambio de rol de "Metrajes" en el sidebar
 
 "Metrajes" deja de ser la página de TRABAJO de un proyecto específico
@@ -208,6 +214,71 @@ de scroll. Ajustes de esta sesión sobre el visor:
 - Botones de acción (Agregar foto, Analizar con IA) visibles arriba
   de la columna, no al final (evitar que queden ocultos tras scroll —
   se detectó que el propio usuario no los había visto hasta ahora).
+
+---
+
+## 2quinquies. Diseño final — Documentación para metrar + Visor
+
+Reemplaza el contenido de "Documentación para metrar" y el diseño del
+Visor descritos en la sección 2quater con el diseño final, definido en
+sesión de diseño dedicada. El cambio de rol de "Metrajes" en el
+sidebar (biblioteca de consulta) no se toca, sigue como en 2quater.
+
+### Página 1 — "Documentación para metrar" (dentro de Presupuesto)
+
+Card colapsable, mismo patrón visual, tamaño y color que "Documentación
+del llamado" (sección 2ter) — ambas tarjetas quedan visualmente
+equivalentes entre sí (se le sacó a "Documentación del llamado" la
+frase "para consultar y archivar" para igualar el alto de las dos
+cards colapsadas).
+
+Al expandir, TRES secciones independientes, cada una con su propio
+listado + subida (no una sola lista mixta):
+
+- **Planos y documentos** (PDF, JPG, DWG — DWG se acepta solo como
+  metadata/tipo de archivo por ahora, sin parseo de capas ni soporte
+  real; ese trabajo sigue fuera de alcance, ver sección 6 "Fuera de
+  alcance — fase futura").
+- **Fotos de relevamiento** (JPG, PNG) — deja de ser "complementaria a
+  un plano específico" (como era hasta esta sesión) y pasa a ser una
+  categoría propia e independiente, al mismo nivel que Planos y
+  Detalles.
+- **Detalles** (JPG, PDF).
+
+Cada sección lista lo ya guardado (nombre, fecha, peso) con dos
+controles diferenciados por ítem (mismo patrón ya aplicado en esta
+sesión a la card de Planos): flecha para abrir ese documento en el
+Visor, papelera aparte para eliminar.
+
+### Página 2 — Visor (mismo mecanismo de estado, sin cambiar URL)
+
+- El documento que se usó para abrir el visor (normalmente un plano)
+  queda FIJO y grande en el centro, con los controles de zoom/pan ya
+  existentes — no se reemplaza por navegar a otro documento.
+- Lista de TODOS los documentos guardados del proyecto (las 3
+  categorías juntas: Planos, Fotos, Detalles) accesible desde el
+  visor, para abrir cualquiera sin volver a la Página 1.
+- Click en un documento de categoría **Plano** desde esa lista:
+  reemplaza el documento fijo central (es el único slot de "documento
+  principal", tiene sentido que otro plano lo reemplace ahí).
+- Click en una **Foto** o **Detalle** desde esa lista mientras el
+  documento principal está abierto: se abre como VENTANA FLOTANTE
+  encima del visor — no reemplaza ni tapa por completo al documento
+  principal, es una ventana movible/cerrable tipo overlay liviano (sin
+  fondo oscuro de pantalla completa) que el usuario cierra cuando ya
+  consultó lo que necesitaba. El documento principal permanece visible
+  y fijo detrás en todo momento.
+- **Notas**: pasa a ser UNA SOLA por proyecto (no una por plano/
+  documento como hasta esta sesión), campo de texto simple, ubicada
+  DEBAJO del visor.
+- **Planilla de Cómputo**: se ubica al costado del Visor, en la misma
+  columna redimensionable (divisor arrastrable) que ya existía —
+  decisión de diseño: el flujo de trabajo real es "mirar el plano →
+  anotar la medida en la planilla" en un loop constante, y tenerlas
+  lado a lado evita perder de vista el plano cada vez que se completa
+  una fila (contra ponerla arriba/abajo, que obligaría a scrollear
+  entre una y otra en cada medición). Calculadora rápida se mantiene
+  junto a la Planilla, como hasta ahora.
 
 ---
 

@@ -42,7 +42,8 @@ model Proyecto {
   leyesSociales LeyesSociales?
   certificaciones Certificacion[]
   documentosLlamado DocumentoLlamado[]
-  planos            PlanoProyecto[]
+  documentosMetraje DocumentoMetraje[]
+  notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
   memoriaDescriptiva String? @db.Text
   fechaBaseIndice    DateTime?
   indiceBaseValor    Float?
@@ -375,33 +376,28 @@ model DocumentoLlamado {
   createdAt     DateTime @default(now())
 }
 
-// Metrajes con plano — Etapa 1 (UI_UX_REDESIGN.md sección 6): solo
-// subida + visor. Un plano se sube para MEDIR sobre él (calibración,
-// dibujo, asignación a rubro llegan en etapas 2-4), a diferencia de
-// DocumentoLlamado que es archivo de referencia para CONSULTAR/ARCHIVAR.
-model PlanoProyecto {
+// Documentación para metrar — Página 1 (UI_UX_REDESIGN.md sección
+// 2quinquies): 3 categorías independientes que comparten el mismo modelo
+// (Planos y documentos / Fotos de relevamiento / Detalles), cada una con
+// su propio listado + subida. Reemplaza a PlanoProyecto + FotoComplementaria
+// (esta última era hija obligatoria de un plano puntual; "Fotos de
+// relevamiento" pasó a ser una categoría propia e independiente, ya no
+// atada a un plano específico — por eso el modelo se unificó en vez de
+// mantenerse separado). El Visor necesita listar las 3 categorías juntas
+// para su lista de documentos — con un solo modelo es una query, no un
+// UNION de 3 formas distintas.
+model DocumentoMetraje {
   id                    String   @id @default(cuid())
   proyectoId            String
   proyecto              Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  categoria             String   // "PLANO" | "FOTO" | "DETALLE"
   nombre                String   // ej. "Planta Baja", "Corte A-A"
-  tipoArchivo           String   // "PDF" | "IMAGEN"
-  archivo               String   @db.Text // URL de Vercel Blob (antes base64 — ver commit de migración a Blob)
+  tipoArchivo           String   // "PDF" | "IMAGEN" | "DWG" (DWG: solo metadata/tipo, sin parseo — fuera de alcance, ver sección 6)
+  archivo               String   @db.Text // URL de Vercel Blob
   nombreArchivoOriginal String
-  paginaPDF             Int?     // página elegida (1-indexed), si el PDF tiene varias hojas
+  paginaPDF             Int?     // página elegida (1-indexed), solo relevante para categoria=PLANO, PDF multipágina
   tamano                Int?     // bytes, opcional
-  notas                 String?  @db.Text // observaciones del relevamiento — absorbido de la vieja card "Documentación", ahora persistido acá
-  fotos                 FotoComplementaria[]
   createdAt             DateTime @default(now())
-}
-
-model FotoComplementaria {
-  id                    String        @id @default(cuid())
-  planoId               String
-  plano                 PlanoProyecto @relation(fields: [planoId], references: [id], onDelete: Cascade)
-  archivo               String        @db.Text // URL de Vercel Blob (antes base64 — ver commit de migración a Blob)
-  nombreArchivoOriginal String
-  descripcion           String?
-  createdAt             DateTime      @default(now())
 }
 
 model SubrubroEstandar {

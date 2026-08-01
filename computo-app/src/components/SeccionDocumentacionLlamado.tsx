@@ -142,7 +142,7 @@ export default function SeccionDocumentacionLlamado({ proyectoId }: Props) {
             )}
           </div>
           <p className="text-xs text-slate-500">
-            Pliego de Condiciones, Memoria del pliego, fotos y planos de referencia — para consultar y archivar.
+            Pliego de Condiciones, Memoria del pliego, fotos y planos de referencia.
           </p>
         </div>
         <span className="text-slate-400 group-hover:text-slate-600 transition-colors flex-shrink-0">
