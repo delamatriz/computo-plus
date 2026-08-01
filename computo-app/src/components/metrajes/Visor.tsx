@@ -308,7 +308,10 @@ export default function Visor({
   onAnalizarConIA,
   style,
 }: {
-  documentoPrincipal: DocumentoDetalle;
+  /** null cuando el usuario entra al Visor sin tener ningún documento
+   * cargado todavía — se muestra un estado vacío, pero el resto del
+   * Visor (lista, Notas) sigue disponible igual. */
+  documentoPrincipal: DocumentoDetalle | null;
   todosLosDocumentos: DocumentoResumen[];
   onSeleccionarDocumento: (doc: DocumentoResumen) => void;
   ventanaFlotante: DocumentoDetalle | null;
@@ -359,10 +362,11 @@ export default function Visor({
       {/* Header */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-slate-200 flex-shrink-0">
         <div className="min-w-0">
-          <h2 className="text-sm font-bold text-[#1A3A5C] truncate">{documentoPrincipal.nombre}</h2>
+          <h2 className="text-sm font-bold text-[#1A3A5C] truncate">{documentoPrincipal?.nombre ?? "Visor"}</h2>
           <p className="text-xs text-slate-400 truncate">
-            {documentoPrincipal.nombreArchivoOriginal}
-            {documentoPrincipal.tipoArchivo === "PDF" && documentoPrincipal.paginaPDF ? ` · página ${documentoPrincipal.paginaPDF}` : ""}
+            {documentoPrincipal
+              ? `${documentoPrincipal.nombreArchivoOriginal}${documentoPrincipal.tipoArchivo === "PDF" && documentoPrincipal.paginaPDF ? ` · página ${documentoPrincipal.paginaPDF}` : ""}`
+              : "Sin documento seleccionado"}
           </p>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -382,7 +386,16 @@ export default function Visor({
       {/* Documento principal + lista */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         <div className="flex-1 min-w-0 relative bg-slate-100">
-          <VisorPrincipal doc={documentoPrincipal} />
+          {documentoPrincipal ? (
+            <VisorPrincipal doc={documentoPrincipal} />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6">
+              <FileGenerico className="w-10 h-10 text-slate-300" />
+              <p className="text-sm text-slate-500 max-w-xs">
+                Todavía no hay ningún documento — subí uno desde &quot;Documentación para metrar&quot;.
+              </p>
+            </div>
+          )}
           {ventanaFlotante && <VentanaFlotante doc={ventanaFlotante} onClose={onCerrarVentanaFlotante} />}
         </div>
 
@@ -393,7 +406,7 @@ export default function Visor({
             </div>
             <ListaDocumentos
               documentos={todosLosDocumentos}
-              documentoPrincipalId={documentoPrincipal.id}
+              documentoPrincipalId={documentoPrincipal?.id ?? ""}
               onSeleccionar={onSeleccionarDocumento}
             />
             <div className="p-2.5 border-t border-slate-200 flex-shrink-0">

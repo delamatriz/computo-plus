@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import SeccionDocumentoMetraje from "./SeccionDocumentoMetraje";
 import { CATEGORIAS, type CategoriaDocumento, type DocumentoResumen } from "./documentoMetraje";
@@ -25,6 +25,7 @@ export default function SeccionDocumentacionParaMetrar({
   onDocumentosActualizados,
   onAbrirDocumento,
   onEliminarDocumento,
+  onIrAlVisor,
 }: {
   proyectoId: string;
   estado: Record<CategoriaDocumento, EstadoCategoria>;
@@ -32,6 +33,9 @@ export default function SeccionDocumentacionParaMetrar({
   onDocumentosActualizados: (categoria: CategoriaDocumento, documentos: DocumentoResumen[]) => void;
   onAbrirDocumento: (id: string) => void;
   onEliminarDocumento: (id: string) => void;
+  /** Botón "Ir al visor y planilla de metraje" — abre el Visor con el
+   * primer documento disponible (o vacío si todavía no hay ninguno). */
+  onIrAlVisor: () => void;
 }) {
   const [expandido, setExpandido] = useState(false);
 
@@ -88,6 +92,16 @@ export default function SeccionDocumentacionParaMetrar({
                   onEliminarDocumento={onEliminarDocumento}
                 />
               ))}
+
+              <div className="pt-1 border-t border-blue-100">
+                <button
+                  onClick={onIrAlVisor}
+                  className="w-full flex items-center justify-center gap-2 mt-4 px-4 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors"
+                >
+                  Ir al visor y planilla de metraje
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
