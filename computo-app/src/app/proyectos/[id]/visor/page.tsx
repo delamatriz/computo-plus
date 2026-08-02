@@ -9,7 +9,8 @@ import { X, Plus, Sparkles, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { urlProxyDocumentoMetraje } from "@/lib/blob";
 import { fmtNum, subtotalFila, nuevaFila, type MetrajeFila, type RubroOption } from "@/components/metrajes/metrajeFila";
-import type { DocumentoResumen, DocumentoDetalle } from "@/components/metrajes/documentoMetraje";
+import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento } from "@/components/metrajes/documentoMetraje";
+import type { NuevaMedicionInput } from "@/components/metrajes/Visor";
 
 // Visor y PlanillaComputo (vía Visor) importan react-pdf (pdf.js), que
 // revienta con "DOMMatrix is not defined" si su módulo se evalúa en el
@@ -68,6 +69,11 @@ export default function VisorProyectoPage() {
   const [documentoAbierto, setDocumentoAbierto] = useState<DocumentoDetalle | null>(null);
   const [ventanaFlotante, setVentanaFlotante] = useState<DocumentoDetalle | null>(null);
   const [cargandoDetalleDoc, setCargandoDetalleDoc] = useState(false);
+
+  // Marcas de medición (Etapa 3 — herramienta de Línea) del documento
+  // principal, para dibujarlas sobre el plano. Se recargan cada vez que
+  // cambia el documento abierto.
+  const [mediciones, setMediciones] = useState<MedicionDocumento[]>([]);
 
   // Notas — única por proyecto
   const [notas, setNotas] = useState("");
@@ -196,6 +202,73 @@ export default function VisorProyectoPage() {
         return next;
       });
     }
+  }
+
+  // Carga las marcas de medición del documento principal cada vez que
+  // cambia — solo tiene sentido para categoria=PLANO, pero no hace daño
+  // pedirlo siempre (la lista simplemente da vacía para el resto).
+  useEffect(() => {
+    if (!documentoAbierto || documentoAbierto.categoria !== "PLANO") {
+      setMediciones([]);
+      return;
+    }
+    let cancelado = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/mediciones`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!cancelado) setMediciones(data.mediciones ?? []);
+      } catch {
+        if (!cancelado) setMediciones([]);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [documentoAbierto, proyectoId]);
+
+  // Guarda una nueva marca de medición (Etapa 3, herramienta de Línea) y
+  // agrega la fila correspondiente a la Planilla — mismo mecanismo que ya
+  // usan "Analizar con IA"/agregarFilaIA: se agrega en memoria, no hay
+  // tabla de filas persistida (ver metrajeFila.ts).
+  async function guardarMedicion(input: NuevaMedicionInput) {
+    if (!documentoAbierto) return;
+    const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/mediciones`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    setMediciones((prev) => [...prev, data.medicion]);
+    // La fila usa el id de la medición (en vez del id random de
+    // nuevaFila()) para poder encontrarla y sacarla de la Planilla si la
+    // medición se borra después — ver eliminarMedicion.
+    setFilas((prev) => [
+      ...prev,
+      {
+        ...nuevaFila(),
+        id: data.medicion.id,
+        descripcion: input.descripcion,
+        largo: input.longitudReal,
+        cantidad: input.repeticiones,
+        rubroId: input.rubroId,
+      },
+    ]);
+  }
+
+  // Borra una marca de medición (corrección de un trazo mal hecho) — y la
+  // fila que había generado en la Planilla, ya que comparten id.
+  async function eliminarMedicion(medicionId: string) {
+    if (!documentoAbierto) return;
+    const res = await fetch(
+      `/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/mediciones/${medicionId}`,
+      { method: "DELETE" }
+    );
+    if (!res.ok) throw new Error();
+    setMediciones((prev) => prev.filter((m) => m.id !== medicionId));
+    setFilas((prev) => prev.filter((f) => f.id !== medicionId));
   }
 
   async function guardarNotas(nuevasNotas: string) {
@@ -444,6 +517,10 @@ export default function VisorProyectoPage() {
               imagenesParaIA={imagenesParaIA}
               onAnalizarConIA={analizarConIA}
               onGuardarCalibracion={guardarCalibracion}
+              rubrosDisponibles={rubrosDisponibles}
+              mediciones={mediciones}
+              onGuardarMedicion={guardarMedicion}
+              onEliminarMedicion={eliminarMedicion}
             />
           </div>
         </div>

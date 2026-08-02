@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Document, Page, pdfjs } from "react-pdf";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { TransformWrapper, TransformComponent, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 import {
   X,
   ZoomIn,
@@ -21,10 +21,13 @@ import {
   Trash2,
   Ruler,
   AlertTriangle,
+  Slash,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { obtenerArchivoCacheado } from "@/lib/archivoCache";
-import { PDF_OPTIONS, parsearEscala, type DocumentoDetalle, type DocumentoResumen } from "./documentoMetraje";
+import { PDF_OPTIONS, parsearEscala, type DocumentoDetalle, type DocumentoResumen, type MedicionDocumento } from "./documentoMetraje";
+import type { RubroOption } from "./metrajeFila";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -247,13 +250,20 @@ function CalibracionBanner({
               ? `Calibrado — Escala ${doc.escalaDeclarada}`
               : "Sin calibrar — no se puede medir todavía"}
           </span>
+          <span
+            title="La escala le dice al sistema qué tan grande es tu plano en la realidad, para poder calcular medidas reales cuando midas sobre él."
+            className="flex-shrink-0 cursor-help"
+          >
+            <Info className={cn("w-3.5 h-3.5", calibrado ? "text-emerald-500" : "text-amber-500")} />
+          </span>
         </div>
         {calibrado ? (
           <button
             onClick={() => setModalAbierto(true)}
-            className="flex-shrink-0 text-xs font-medium text-emerald-700 hover:text-emerald-900 underline transition-colors"
+            title="Volver a declarar la escala de este plano — reemplaza la calibración actual"
+            className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-emerald-300 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold transition-colors"
           >
-            Recalibrar
+            <Ruler className="w-3.5 h-3.5" /> Cambiar escala
           </button>
         ) : (
           <button
@@ -275,10 +285,404 @@ function CalibracionBanner({
   );
 }
 
+// ── Herramienta de Línea — Etapa 3 de "Metrajes con plano"
+// (UI_UX_REDESIGN.md sección 6, Modo A manual), primera ronda: solo
+// tipo="LINEA". Área y Punto quedan para rondas futuras; Modo B (por
+// IA) también.
+//
+// Mapeo de coordenadas: en vez de trackear scale/positionX/positionY de
+// TransformWrapper (no expone ninguno de los dos hoy — ni ref ni
+// callback), usamos SVGElement.getScreenCTM(). El <svg> vive DENTRO de
+// TransformComponent, como hermano del documento, con
+// viewBox="0 0 100 100" ocupando exactamente su misma caja — así hereda
+// el pan/zoom automáticamente, sin recalcular nada a mano, y
+// getScreenCTM().inverse() convierte cualquier click de pantalla a
+// coordenadas 0-100% (%) del documento sin importar el zoom/pan actual.
+//
+// Restricción a PDF: convertir distancia-en-papel a metros reales
+// necesita el tamaño FÍSICO del documento. Un PDF lo tiene (tamaño de
+// página en puntos, 72pt = 1", dato embebido en el archivo). Una imagen
+// (foto/escaneo) no tiene ningún tamaño físico confiable — calcular con
+// un DPI supuesto daría medidas incorrectas. Por eso la herramienta
+// solo se habilita para categoria=PLANO && tipoArchivo=PDF; para
+// imágenes hace falta calibrar por cota (Método A, ronda futura).
+
+export interface NuevaMedicionInput {
+  xInicio: number;
+  yInicio: number;
+  xFin: number;
+  yFin: number;
+  longitudReal: number;
+  repeticiones: number;
+  descripcion: string;
+  rubroId: string | null;
+}
+
+function calcularLongitudReal(
+  xInicio: number,
+  yInicio: number,
+  xFin: number,
+  yFin: number,
+  pageDimsMM: { width: number; height: number },
+  factorEscala: number
+): number {
+  const dxMM = ((xFin - xInicio) / 100) * pageDimsMM.width;
+  const dyMM = ((yFin - yInicio) / 100) * pageDimsMM.height;
+  const distanciaPapelMM = Math.hypot(dxMM, dyMM);
+  return (distanciaPapelMM * factorEscala) / 1000;
+}
+
+function puntoDesdeEvento(svg: SVGSVGElement, clientX: number, clientY: number): { x: number; y: number } | null {
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  const pt = svg.createSVGPoint();
+  pt.x = clientX;
+  pt.y = clientY;
+  const p = pt.matrixTransform(ctm.inverse());
+  return { x: Math.min(100, Math.max(0, p.x)), y: Math.min(100, Math.max(0, p.y)) };
+}
+
+function ModalConfirmarLinea({
+  longitudInicial,
+  rubroNombre,
+  onCancelar,
+  onGuardar,
+}: {
+  longitudInicial: number;
+  rubroNombre: string;
+  onCancelar: () => void;
+  onGuardar: (descripcion: string, repeticiones: number, longitudReal: number) => Promise<void>;
+}) {
+  const [descripcion, setDescripcion] = useState("");
+  const [repeticiones, setRepeticiones] = useState("1");
+  const [longitud, setLongitud] = useState(longitudInicial.toFixed(2));
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const guardar = async () => {
+    const rep = parseFloat(repeticiones.replace(",", "."));
+    const long = parseFloat(longitud.replace(",", "."));
+    if (!descripcion.trim()) {
+      setError("Escribí una descripción.");
+      return;
+    }
+    if (!isFinite(rep) || rep <= 0) {
+      setError("Las repeticiones tienen que ser mayores a 0.");
+      return;
+    }
+    if (!isFinite(long) || long <= 0) {
+      setError("La longitud tiene que ser mayor a 0.");
+      return;
+    }
+    setGuardando(true);
+    setError(null);
+    try {
+      await onGuardar(descripcion.trim(), rep, long);
+    } catch {
+      setError("No se pudo guardar la medición. Probá de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onCancelar} />
+      <div className="relative w-full max-w-sm bg-white rounded-[16px] shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <h2 className="text-base font-bold text-[#1A3A5C]">Nueva medición</h2>
+          <button onClick={onCancelar} className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <label className="block text-sm font-semibold text-[#1A3A5C] mb-1">Descripción</label>
+            <input
+              type="text"
+              value={descripcion}
+              onChange={(e) => {
+                setDescripcion(e.target.value);
+                if (error) setError(null);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && guardar()}
+              placeholder="Ej. Muro eje A"
+              autoFocus
+              className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
+            />
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-[#1A3A5C] mb-1">Longitud (m)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={longitud}
+                onChange={(e) => {
+                  setLongitud(e.target.value);
+                  if (error) setError(null);
+                }}
+                className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-[#1A3A5C] mb-1">Repeticiones</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={repeticiones}
+                onChange={(e) => {
+                  setRepeticiones(e.target.value);
+                  if (error) setError(null);
+                }}
+                className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400">
+            Rubro: <span className="font-medium text-slate-600">{rubroNombre}</span>
+          </p>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+          <button
+            onClick={onCancelar}
+            disabled={guardando}
+            className="px-4 py-2 rounded-[8px] text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={guardar}
+            disabled={guardando}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-sm font-semibold text-white transition-colors",
+              guardando ? "bg-slate-300 cursor-not-allowed" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+            )}
+          >
+            {guardando && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {guardando ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HerramientaMedicionBarra({
+  esPDF,
+  pageDimsListo,
+  rubrosDisponibles,
+  rubroSeleccionado,
+  onCambiarRubro,
+  herramientaActiva,
+  onToggleHerramienta,
+}: {
+  esPDF: boolean;
+  pageDimsListo: boolean;
+  rubrosDisponibles: RubroOption[];
+  rubroSeleccionado: string;
+  onCambiarRubro: (id: string) => void;
+  herramientaActiva: boolean;
+  onToggleHerramienta: () => void;
+}) {
+  const puedeActivar = esPDF && pageDimsListo && !!rubroSeleccionado;
+
+  return (
+    <div className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
+      <select
+        value={rubroSeleccionado}
+        onChange={(e) => onCambiarRubro(e.target.value)}
+        disabled={herramientaActiva}
+        className="flex-1 min-w-0 text-xs text-slate-600 bg-[#F8FAFC] border border-slate-200 rounded-[8px] px-2 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/20"
+      >
+        <option value="">Elegí un rubro para medir…</option>
+        {Object.entries(
+          rubrosDisponibles.reduce<Record<string, RubroOption[]>>((acc, r) => {
+            (acc[r.capituloNombre] ??= []).push(r);
+            return acc;
+          }, {})
+        ).map(([capNombre, rubros]) => (
+          <optgroup key={capNombre} label={capNombre}>
+            {rubros.map((r) => (
+              <option key={r.id} value={r.id}>{r.nombre}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <button
+        onClick={onToggleHerramienta}
+        disabled={!puedeActivar}
+        title={
+          !esPDF
+            ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
+            : !rubroSeleccionado
+            ? "Elegí un rubro antes de medir"
+            : herramientaActiva
+            ? "Trazando — clic y arrastre para dibujar una línea"
+            : "Trazar una línea sobre el plano"
+        }
+        className={cn(
+          "flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors",
+          !puedeActivar
+            ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+            : herramientaActiva
+            ? "bg-[#1D4ED8] text-white"
+            : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+        )}
+      >
+        <Slash className="w-3.5 h-3.5" /> {herramientaActiva ? "Trazando…" : "Línea"}
+      </button>
+    </div>
+  );
+}
+
+// Mínimo de la forma de PDFPageProxy que usamos — evitar depender del
+// tipo exacto exportado por pdfjs-dist/react-pdf.
+type PaginaPDFCargada = { getViewport: (opts: { scale: number }) => { width: number; height: number } };
+
+// ── Nitidez del PDF al hacer zoom ───────────────────────────────────────
+// <Page width={900}> fija el tamaño EN PANTALLA (CSS) — el zoom de
+// TransformWrapper es un transform CSS puro sobre ese render ya
+// rasterizado, así que agrandarlo lo desenfoca. react-pdf ya separa
+// "tamaño en pantalla" (width/scale) de "resolución interna del canvas"
+// (prop devicePixelRatio, ver node_modules/react-pdf/src/Page/Canvas.tsx:
+// canvas.width usa scale*devicePixelRatio, canvas.style.width usa solo
+// scale) — así que re-renderizamos más nítido subiendo devicePixelRatio
+// según el zoom actual, sin tocar el tamaño CSS ni pelear con el
+// scale/pan de TransformWrapper.
+//
+// Cuantizado en escalones (no continuo) y solo al soltar el gesto
+// (onZoomStop/onPanningStop, no onTransform) para no redibujar el canvas
+// en cada frame de un pinch/wheel — page.render() no es gratis. Tope
+// duro en dpr efectivo 4 (⇒ ~3600px de ancho de canvas sobre width=900)
+// para no explotar memoria/límites de canvas en pantallas retina con
+// planos grandes, aunque el multiplicador y el devicePixelRatio real de
+// la pantalla ya sumen más que eso.
+const DPR_MAXIMO = 4;
+
+function multiplicadorParaEscala(scale: number): number {
+  if (scale <= 1.3) return 1;
+  if (scale <= 2.5) return 2;
+  if (scale <= 4) return 3;
+  return 4;
+}
+
 // ── Visor principal — documento fijo y grande, con zoom/pan ────────────
 
-function VisorPrincipal({ doc }: { doc: DocumentoDetalle }) {
+export interface ControlesZoom {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetTransform: () => void;
+}
+
+function VisorPrincipal({
+  doc,
+  rubrosDisponibles,
+  mediciones,
+  onGuardarMedicion,
+  onEliminarMedicion,
+  onControlesZoomListos,
+}: {
+  doc: DocumentoDetalle;
+  rubrosDisponibles: RubroOption[];
+  mediciones: MedicionDocumento[];
+  onGuardarMedicion: (input: NuevaMedicionInput) => Promise<void>;
+  /** Borra una marca de medición ya guardada (corrección de un trazo mal
+   * hecho) — también saca la fila que había generado en la Planilla. */
+  onEliminarMedicion: (medicionId: string) => Promise<void>;
+  /** Expone zoomIn/zoomOut/resetTransform del TransformWrapper hacia el
+   * header del Visor (fuera de este árbol) — los botones de zoom viven
+   * ahí, junto a expandir/cerrar, en vez de flotando sobre el documento. */
+  onControlesZoomListos: (controles: ControlesZoom | null) => void;
+}) {
   const { cargando, progreso, blob, imgObjectUrl, error, setError } = useArchivoBlob(doc);
+  const [eliminandoMedicionIds, setEliminandoMedicionIds] = useState<Set<string>>(new Set());
+  const handleEliminarMedicion = async (medicionId: string) => {
+    setEliminandoMedicionIds((prev) => new Set(prev).add(medicionId));
+    try {
+      await onEliminarMedicion(medicionId);
+    } finally {
+      setEliminandoMedicionIds((prev) => {
+        const next = new Set(prev);
+        next.delete(medicionId);
+        return next;
+      });
+    }
+  };
+
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
+  const [multiplicadorDPR, setMultiplicadorDPR] = useState(1);
+  const actualizarDPRSegunZoom = (ref: ReactZoomPanPinchRef) => setMultiplicadorDPR(multiplicadorParaEscala(ref.state.scale));
+  const dprRender = Math.min((typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicadorDPR, DPR_MAXIMO);
+  const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
+  const [rubroSeleccionado, setRubroSeleccionado] = useState("");
+  const [herramientaActiva, setHerramientaActiva] = useState(false);
+  const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
+  const [lineaPendiente, setLineaPendiente] = useState<{ xInicio: number; yInicio: number; xFin: number; yFin: number; longitudReal: number } | null>(null);
+
+  const esPDF = doc.tipoArchivo === "PDF";
+
+  const handlePaginaCargada = (page: PaginaPDFCargada) => {
+    const viewport = page.getViewport({ scale: 1 });
+    setPageDimsMM({ width: (viewport.width * 25.4) / 72, height: (viewport.height * 25.4) / 72 });
+  };
+
+  const onSvgMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!herramientaActiva || lineaPendiente || !svgRef.current) return;
+    const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
+    if (!p) return;
+    setDibujoActual({ xInicio: p.x, yInicio: p.y, xActual: p.x, yActual: p.y });
+  };
+
+  const onSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!dibujoActual || !svgRef.current) return;
+    const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
+    if (!p) return;
+    setDibujoActual((prev) => (prev ? { ...prev, xActual: p.x, yActual: p.y } : prev));
+  };
+
+  const finalizarDibujo = () => {
+    if (!dibujoActual) return;
+    const { xInicio, yInicio, xActual: xFin, yActual: yFin } = dibujoActual;
+    setDibujoActual(null);
+    const distPercent = Math.hypot(xFin - xInicio, yFin - yInicio);
+    if (distPercent < 0.5 || !pageDimsMM || doc.factorEscala == null) return;
+    const longitudReal = calcularLongitudReal(xInicio, yInicio, xFin, yFin, pageDimsMM, doc.factorEscala);
+    setLineaPendiente({ xInicio, yInicio, xFin, yFin, longitudReal });
+  };
+
+  const rubroNombre = rubrosDisponibles.find((r) => r.id === rubroSeleccionado)?.nombre ?? "Sin rubro";
+
+  const confirmarLinea = async (descripcion: string, repeticiones: number, longitudReal: number) => {
+    if (!lineaPendiente) return;
+    await onGuardarMedicion({
+      xInicio: lineaPendiente.xInicio,
+      yInicio: lineaPendiente.yInicio,
+      xFin: lineaPendiente.xFin,
+      yFin: lineaPendiente.yFin,
+      longitudReal,
+      repeticiones,
+      descripcion,
+      rubroId: rubroSeleccionado || null,
+    });
+    setLineaPendiente(null);
+  };
+
+  useEffect(() => {
+    if (doc.tipoArchivo === "DWG") {
+      onControlesZoomListos(null);
+      return;
+    }
+    onControlesZoomListos({
+      zoomIn: () => transformRef.current?.zoomIn(),
+      zoomOut: () => transformRef.current?.zoomOut(),
+      resetTransform: () => transformRef.current?.resetTransform(),
+    });
+    return () => onControlesZoomListos(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.tipoArchivo]);
 
   if (doc.tipoArchivo === "DWG") return <SinVistaPrevia doc={doc} />;
 
@@ -303,40 +707,138 @@ function VisorPrincipal({ doc }: { doc: DocumentoDetalle }) {
           )}
         </div>
       )}
-      <TransformWrapper initialScale={1} minScale={0.3} maxScale={6} centerOnInit panning={{ disabled: false, velocityDisabled: false }}>
-        {({ zoomIn, zoomOut, resetTransform }) => (
-          <>
-            <div className="absolute bottom-4 right-4 z-10 flex items-center gap-1 bg-white rounded-[10px] border border-slate-200 shadow-md p-1">
-              <button onClick={() => zoomIn()} title="Acercar" className="w-8 h-8 flex items-center justify-center rounded-[6px] text-slate-500 hover:bg-slate-100 transition-colors">
-                <ZoomIn className="w-4 h-4" />
-              </button>
-              <button onClick={() => zoomOut()} title="Alejar" className="w-8 h-8 flex items-center justify-center rounded-[6px] text-slate-500 hover:bg-slate-100 transition-colors">
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <button onClick={() => resetTransform()} title="Restablecer vista" className="w-8 h-8 flex items-center justify-center rounded-[6px] text-slate-500 hover:bg-slate-100 transition-colors">
-                <Maximize2 className="w-4 h-4" />
+      {doc.factorEscala != null && (
+        <HerramientaMedicionBarra
+          esPDF={esPDF}
+          pageDimsListo={pageDimsMM != null}
+          rubrosDisponibles={rubrosDisponibles}
+          rubroSeleccionado={rubroSeleccionado}
+          onCambiarRubro={setRubroSeleccionado}
+          herramientaActiva={herramientaActiva}
+          onToggleHerramienta={() => setHerramientaActiva((v) => !v)}
+        />
+      )}
+      <TransformWrapper
+        ref={transformRef}
+        initialScale={1}
+        minScale={0.3}
+        maxScale={6}
+        centerOnInit
+        panning={{ disabled: herramientaActiva, velocityDisabled: false }}
+        onZoomStop={actualizarDPRSegunZoom}
+        onPanningStop={actualizarDPRSegunZoom}
+      >
+        {/* OJO: contentStyle NO debe forzar width/height/flex — la librería
+            centra vía centerOnInit midiendo el tamaño NATURAL del
+            contenido. Ver comentario histórico en el visor anterior. */}
+        <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} wrapperClass={cn("select-none", herramientaActiva ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}>
+          <div style={{ position: "relative", display: "inline-block" }}>
+            {doc.tipoArchivo === "PDF" ? (
+              blob && (
+                <Document file={blob} options={PDF_OPTIONS} onLoadError={() => setError("No se pudo cargar el PDF.")} loading={null}>
+                  <Page
+                    pageNumber={doc.paginaPDF ?? 1}
+                    width={900}
+                    devicePixelRatio={dprRender}
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
+                    onLoadSuccess={handlePaginaCargada}
+                  />
+                </Document>
+              )
+            ) : (
+              imgObjectUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imgObjectUrl} alt={doc.nombre} className="max-w-none select-none" onError={() => setError("No se pudo cargar la imagen.")} />
+              )
+            )}
+            {/* Overlay de medición — mismo tamaño exacto que el documento
+                (wrapper de arriba shrink-wrappea al contenido), viewBox
+                0-100 = porcentaje del ancho/alto. Hereda el pan/zoom del
+                padre automáticamente por ser hermano dentro de
+                TransformComponent. */}
+            <svg
+              ref={svgRef}
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              className="absolute inset-0 w-full h-full"
+              style={{ pointerEvents: herramientaActiva ? "auto" : "none" }}
+              onMouseDown={onSvgMouseDown}
+              onMouseMove={onSvgMouseMove}
+              onMouseUp={finalizarDibujo}
+              onMouseLeave={finalizarDibujo}
+            >
+              {mediciones.map((m) => (
+                <line
+                  key={m.id}
+                  x1={m.xInicio}
+                  y1={m.yInicio}
+                  x2={m.xFin}
+                  y2={m.yFin}
+                  stroke="#2563EB"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+              {dibujoActual && (
+                <line
+                  x1={dibujoActual.xInicio}
+                  y1={dibujoActual.yInicio}
+                  x2={dibujoActual.xActual}
+                  y2={dibujoActual.yActual}
+                  stroke="#2563EB"
+                  strokeWidth={2}
+                  strokeDasharray="6,4"
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+              {lineaPendiente && (
+                <line
+                  x1={lineaPendiente.xInicio}
+                  y1={lineaPendiente.yInicio}
+                  x2={lineaPendiente.xFin}
+                  y2={lineaPendiente.yFin}
+                  stroke="#F59E0B"
+                  strokeWidth={2.5}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+            </svg>
+          </div>
+        </TransformComponent>
+      </TransformWrapper>
+      {lineaPendiente && (
+        <ModalConfirmarLinea
+          longitudInicial={lineaPendiente.longitudReal}
+          rubroNombre={rubroNombre}
+          onCancelar={() => setLineaPendiente(null)}
+          onGuardar={confirmarLinea}
+        />
+      )}
+      {mediciones.length > 0 && (
+        <div className="absolute bottom-4 right-4 z-10 w-64 max-h-52 overflow-y-auto bg-white rounded-[10px] border border-slate-200 shadow-md p-1.5 space-y-0.5">
+          {mediciones.map((m) => (
+            <div key={m.id} className="flex items-center gap-1.5 px-2 py-1.5 rounded-[6px] hover:bg-slate-50 transition-colors">
+              <Slash className="w-3 h-3 text-[#2563EB] flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-slate-600 truncate">{m.descripcion}</p>
+                <p className="text-[10px] text-slate-400">{m.longitudReal.toFixed(2)} m × {m.repeticiones}</p>
+              </div>
+              <button
+                onClick={() => handleEliminarMedicion(m.id)}
+                disabled={eliminandoMedicionIds.has(m.id)}
+                title="Eliminar medición"
+                className="flex-shrink-0 p-1 rounded-[6px] text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-3 h-3" />
               </button>
             </div>
-            {/* OJO: contentStyle NO debe forzar width/height/flex — la librería
-                centra vía centerOnInit midiendo el tamaño NATURAL del
-                contenido. Ver comentario histórico en el visor anterior. */}
-            <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} wrapperClass="cursor-grab active:cursor-grabbing select-none">
-              {doc.tipoArchivo === "PDF" ? (
-                blob && (
-                  <Document file={blob} options={PDF_OPTIONS} onLoadError={() => setError("No se pudo cargar el PDF.")} loading={null}>
-                    <Page pageNumber={doc.paginaPDF ?? 1} width={900} renderTextLayer={false} renderAnnotationLayer={false} />
-                  </Document>
-                )
-              ) : (
-                imgObjectUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imgObjectUrl} alt={doc.nombre} className="max-w-none select-none" onError={() => setError("No se pudo cargar la imagen.")} />
-                )
-              )}
-            </TransformComponent>
-          </>
-        )}
-      </TransformWrapper>
+          ))}
+        </div>
+      )}
     </>
   );
 }
@@ -546,6 +1048,10 @@ export default function Visor({
   imagenesParaIA,
   onAnalizarConIA,
   onGuardarCalibracion,
+  rubrosDisponibles,
+  mediciones,
+  onGuardarMedicion,
+  onEliminarMedicion,
   style,
 }: {
   /** null cuando el usuario entra al Visor sin tener ningún documento
@@ -571,11 +1077,26 @@ export default function Visor({
   /** Guarda la calibración de escala (Etapa 2 de "Metrajes con plano") del
    * documento principal — solo se llama/muestra cuando es categoria=PLANO. */
   onGuardarCalibracion: (escalaDeclarada: string, factorEscala: number) => Promise<void>;
+  /** Rubros del proyecto, para el selector de la herramienta de Línea
+   * (Etapa 3) — mismo listado que ya usa "Rubro vinculado" en la Planilla. */
+  rubrosDisponibles: RubroOption[];
+  /** Marcas de medición ya persistidas del documento principal (se
+   * recargan al abrir el documento) — se dibujan sobre el plano. */
+  mediciones: MedicionDocumento[];
+  /** Guarda una nueva marca de medición (Etapa 3, herramienta de Línea)
+   * del documento principal — solo se llama/muestra cuando es
+   * categoria=PLANO && tipoArchivo=PDF && ya calibrado. */
+  onGuardarMedicion: (input: NuevaMedicionInput) => Promise<void>;
+  /** Borra una marca de medición ya guardada — también saca la fila que
+   * había generado en la Planilla. */
+  onEliminarMedicion: (medicionId: string) => Promise<void>;
   style?: React.CSSProperties;
 }) {
   const [notasLocal, setNotasLocal] = useState(notas);
   const [guardandoNotas, setGuardandoNotas] = useState(false);
   useEffect(() => setNotasLocal(notas), [notas]);
+
+  const [controlesZoom, setControlesZoom] = useState<ControlesZoom | null>(null);
 
   const guardarNotasSiCambio = async () => {
     if (notasLocal === notas) return;
@@ -618,6 +1139,20 @@ export default function Visor({
           </p>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
+          {controlesZoom && (
+            <>
+              <button onClick={controlesZoom.zoomOut} title="Alejar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <button onClick={controlesZoom.zoomIn} title="Acercar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <button onClick={controlesZoom.resetTransform} title="Restablecer vista" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <Maximize2 className="w-4 h-4" />
+              </button>
+              <div className="w-px h-4 bg-slate-200 mx-0.5" />
+            </>
+          )}
           <button
             onClick={onToggleExpandir}
             title={expandido ? "Volver a vista de 3 columnas" : "Expandir visor a pantalla completa"}
@@ -639,7 +1174,15 @@ export default function Visor({
           )}
           <div className="flex-1 min-h-0 relative">
             {documentoPrincipal ? (
-              <VisorPrincipal doc={documentoPrincipal} />
+              <VisorPrincipal
+                key={documentoPrincipal.id}
+                doc={documentoPrincipal}
+                rubrosDisponibles={rubrosDisponibles}
+                mediciones={mediciones}
+                onGuardarMedicion={onGuardarMedicion}
+                onEliminarMedicion={onEliminarMedicion}
+                onControlesZoomListos={setControlesZoom}
+              />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6">
                 <FileGenerico className="w-10 h-10 text-slate-300" />

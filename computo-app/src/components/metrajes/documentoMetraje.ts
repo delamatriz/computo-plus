@@ -115,6 +115,27 @@ export function parsearEscala(texto: string): { factor: number; normalizada: str
   return { factor: m / n, normalizada: `${match[1]}:${match[2]}` };
 }
 
+// Marcas de medición trazadas sobre un plano — Etapa 3 de "Metrajes con
+// plano" (UI_UX_REDESIGN.md sección 6, Modo A manual), primera ronda:
+// solo tipo="LINEA". xInicio/yInicio/xFin/yFin son porcentajes (0-100)
+// del ancho/alto del documento, no píxeles.
+export type TipoMedicion = "LINEA" | "AREA" | "PUNTO";
+
+export interface MedicionDocumento {
+  id: string;
+  documentoId: string;
+  tipo: TipoMedicion;
+  xInicio: number;
+  yInicio: number;
+  xFin: number;
+  yFin: number;
+  longitudReal: number;
+  repeticiones: number;
+  descripcion: string;
+  rubroId: string | null;
+  createdAt: string;
+}
+
 export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

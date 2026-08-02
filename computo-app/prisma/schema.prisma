@@ -128,6 +128,7 @@ model Rubro {
   apu         APU?
   certificacionItems CertificacionItem[]
   cotizaciones CotizacionProveedor[]
+  mediciones  MedicionDocumento[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -409,7 +410,36 @@ model DocumentoMetraje {
   factorEscala          Float?   // factor numérico ya calculado (M/N de "N:M"), para los cálculos de medición futuros
   metodoCalibracion     String?  // "DECLARADA" | "COTA" (Método A, futuro)
 
+  mediciones            MedicionDocumento[]
+
   createdAt             DateTime @default(now())
+}
+
+// Marcas de medición trazadas sobre un plano — Etapa 3 de "Metrajes con
+// plano" (UI_UX_REDESIGN.md sección 6, Modo A manual), primera ronda:
+// solo tipo="LINEA". Persisten para trazabilidad visual (la línea queda
+// dibujada sobre el plano al reabrirlo) — a diferencia de las filas de
+// la Planilla de Cómputo, que siguen siendo estado local efímero (no
+// hay tabla de filas hoy; ver metrajeFila.ts). xInicio/yInicio/xFin/yFin
+// son porcentajes (0-100) del ancho/alto del documento, no píxeles —
+// así el mapeo de coordenadas no depende del zoom/pan actual ni del
+// ancho de render (900px en el visor principal, variable en la ventana
+// flotante).
+model MedicionDocumento {
+  id            String           @id @default(cuid())
+  documentoId   String
+  documento     DocumentoMetraje @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  tipo          String           @default("LINEA") // deja lugar a "AREA" | "PUNTO", rondas futuras
+  xInicio       Float
+  yInicio       Float
+  xFin          Float
+  yFin          Float
+  longitudReal  Float            // metros — resultado del cálculo (factorEscala × distancia en papel), editable a mano antes de guardar
+  repeticiones  Float            @default(1)
+  descripcion   String
+  rubroId       String?
+  rubro         Rubro?           @relation(fields: [rubroId], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
 }
 
 model SubrubroEstandar {
