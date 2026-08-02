@@ -22,6 +22,7 @@ import {
   Ruler,
   AlertTriangle,
   Slash,
+  Hexagon,
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -287,7 +288,7 @@ function FilaEstadoYRubro({
           <select
             value={controlesMedicion?.rubroSeleccionado ?? ""}
             onChange={(e) => controlesMedicion?.onCambiarRubro(e.target.value)}
-            disabled={!controlesMedicion || controlesMedicion.herramientaActiva}
+            disabled={!controlesMedicion || controlesMedicion.herramienta != null}
             className="flex-1 min-w-[200px] max-w-sm text-xs text-slate-600 bg-white border border-slate-200 rounded-[8px] px-2 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/20"
           >
             <option value="">Elegí un rubro para medir…</option>
@@ -339,16 +340,26 @@ function FilaEstadoYRubro({
 // solo se habilita para categoria=PLANO && tipoArchivo=PDF; para
 // imágenes hace falta calibrar por cota (Método A, ronda futura).
 
-export interface NuevaMedicionInput {
-  xInicio: number;
-  yInicio: number;
-  xFin: number;
-  yFin: number;
-  longitudReal: number;
-  repeticiones: number;
-  descripcion: string;
-  rubroId: string | null;
-}
+export type NuevaMedicionInput =
+  | {
+      tipo: "LINEA";
+      xInicio: number;
+      yInicio: number;
+      xFin: number;
+      yFin: number;
+      longitudReal: number;
+      repeticiones: number;
+      descripcion: string;
+      rubroId: string | null;
+    }
+  | {
+      tipo: "AREA";
+      puntos: { x: number; y: number }[];
+      areaReal: number;
+      repeticiones: number;
+      descripcion: string;
+      rubroId: string | null;
+    };
 
 function calcularLongitudReal(
   xInicio: number,
@@ -364,6 +375,34 @@ function calcularLongitudReal(
   return (distanciaPapelMM * factorEscala) / 1000;
 }
 
+// Área real de un polígono — fórmula de polígono / shoelace sobre las
+// coordenadas convertidas a mm de papel (mismo mecanismo que
+// calcularLongitudReal), con un matiz importante: el área escala con
+// el CUADRADO del factor de escala (no linealmente como la longitud),
+// porque tanto el ancho como el alto del polígono se multiplican por
+// ese factor. Último punto se conecta de vuelta al primero (% i+1 con
+// wraparound) para cerrar el polígono sin necesidad de repetirlo en el
+// array de entrada.
+function calcularAreaReal(
+  puntos: { x: number; y: number }[],
+  pageDimsMM: { width: number; height: number },
+  factorEscala: number
+): number {
+  const puntosMM = puntos.map((p) => ({
+    x: (p.x / 100) * pageDimsMM.width,
+    y: (p.y / 100) * pageDimsMM.height,
+  }));
+  let suma = 0;
+  for (let i = 0; i < puntosMM.length; i++) {
+    const a = puntosMM[i];
+    const b = puntosMM[(i + 1) % puntosMM.length];
+    suma += a.x * b.y - b.x * a.y;
+  }
+  const areaPapelMM2 = Math.abs(suma) / 2;
+  const areaRealMM2 = areaPapelMM2 * factorEscala * factorEscala;
+  return areaRealMM2 / 1_000_000;
+}
+
 function puntoDesdeEvento(svg: SVGSVGElement, clientX: number, clientY: number): { x: number; y: number } | null {
   const ctm = svg.getScreenCTM();
   if (!ctm) return null;
@@ -374,26 +413,32 @@ function puntoDesdeEvento(svg: SVGSVGElement, clientX: number, clientY: number):
   return { x: Math.min(100, Math.max(0, p.x)), y: Math.min(100, Math.max(0, p.y)) };
 }
 
-function ModalConfirmarLinea({
-  longitudInicial,
+// Modal de confirmación compartido entre Línea y Área — mismo patrón
+// de UX para ambas: valor calculado pre-cargado (editable a mano),
+// descripción, repeticiones, rubro ya elegido. Solo cambia la
+// etiqueta/unidad del valor numérico.
+function ModalConfirmarMedicion({
+  unidadLabel,
+  valorInicial,
   rubroNombre,
   onCancelar,
   onGuardar,
 }: {
-  longitudInicial: number;
+  unidadLabel: string;
+  valorInicial: number;
   rubroNombre: string;
   onCancelar: () => void;
-  onGuardar: (descripcion: string, repeticiones: number, longitudReal: number) => Promise<void>;
+  onGuardar: (descripcion: string, repeticiones: number, valor: number) => Promise<void>;
 }) {
   const [descripcion, setDescripcion] = useState("");
   const [repeticiones, setRepeticiones] = useState("1");
-  const [longitud, setLongitud] = useState(longitudInicial.toFixed(2));
+  const [valor, setValor] = useState(valorInicial.toFixed(2));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const guardar = async () => {
     const rep = parseFloat(repeticiones.replace(",", "."));
-    const long = parseFloat(longitud.replace(",", "."));
+    const val = parseFloat(valor.replace(",", "."));
     if (!descripcion.trim()) {
       setError("Escribí una descripción.");
       return;
@@ -402,14 +447,14 @@ function ModalConfirmarLinea({
       setError("Las repeticiones tienen que ser mayores a 0.");
       return;
     }
-    if (!isFinite(long) || long <= 0) {
-      setError("La longitud tiene que ser mayor a 0.");
+    if (!isFinite(val) || val <= 0) {
+      setError(`${unidadLabel} tiene que ser mayor a 0.`);
       return;
     }
     setGuardando(true);
     setError(null);
     try {
-      await onGuardar(descripcion.trim(), rep, long);
+      await onGuardar(descripcion.trim(), rep, val);
     } catch {
       setError("No se pudo guardar la medición. Probá de nuevo.");
     } finally {
@@ -445,13 +490,13 @@ function ModalConfirmarLinea({
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-sm font-semibold text-[#1A3A5C] mb-1">Longitud (m)</label>
+              <label className="block text-sm font-semibold text-[#1A3A5C] mb-1">{unidadLabel}</label>
               <input
                 type="text"
                 inputMode="decimal"
-                value={longitud}
+                value={valor}
                 onChange={(e) => {
-                  setLongitud(e.target.value);
+                  setValor(e.target.value);
                   if (error) setError(null);
                 }}
                 className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
@@ -540,16 +585,32 @@ export interface ControlesZoom {
   resetTransform: () => void;
 }
 
-/** Expone el estado + acciones de la herramienta de medición del
- * VisorPrincipal hacia FILA 1 (selector de rubro) y FILA 2 (botón
- * "Medir") del Visor — mismo patrón que ControlesZoom. */
+/** Expone el estado + acciones de las herramientas de medición del
+ * VisorPrincipal hacia FILA 1 (selector de rubro) y FILA 2 (botones
+ * "Medir") del Visor — mismo patrón que ControlesZoom. Solo una
+ * herramienta puede estar activa a la vez. */
 export interface ControlesMedicion {
   pageDimsListo: boolean;
   rubroSeleccionado: string;
   onCambiarRubro: (id: string) => void;
-  herramientaActiva: boolean;
-  onToggleHerramienta: () => void;
+  herramienta: "LINEA" | "AREA" | null;
+  onToggleLinea: () => void;
+  /** Click en el botón "Medir (área)" — arranca la herramienta si está
+   * apagada; con la herramienta prendida y menos de 3 vértices puestos
+   * la apaga (cancela); con 3+ vértices, cierra el polígono (mismo
+   * botón hace de "Finalizar"). */
+  onToggleArea: () => void;
+  /** Vértices puestos del polígono en curso — FILA 2 lo usa para
+   * decidir el texto del botón ("Dibujando…" vs "Finalizar (N)"). */
+  puntosAreaCount: number;
 }
+
+// Medición pendiente de confirmar en el modal — Línea o Área, cada
+// una con su geometría propia además del valor calculado (editable a
+// mano en el modal antes de guardar).
+type MedicionPendiente =
+  | { tipo: "LINEA"; xInicio: number; yInicio: number; xFin: number; yFin: number; valor: number }
+  | { tipo: "AREA"; puntos: { x: number; y: number }[]; valor: number };
 
 function VisorPrincipal({
   doc,
@@ -571,8 +632,8 @@ function VisorPrincipal({
    * header del Visor (fuera de este árbol) — los botones de zoom viven
    * ahí, junto a expandir/cerrar, en vez de flotando sobre el documento. */
   onControlesZoomListos: (controles: ControlesZoom | null) => void;
-  /** Expone el estado del selector de rubro + la herramienta de Línea
-   * hacia FILA 1/FILA 2 del Visor (fuera de este árbol). */
+  /** Expone el estado del selector de rubro + las herramientas de
+   * medición hacia FILA 1/FILA 2 del Visor (fuera de este árbol). */
   onControlesMedicionListos: (controles: ControlesMedicion | null) => void;
 }) {
   const { cargando, progreso, blob, imgObjectUrl, error, setError } = useArchivoBlob(doc);
@@ -597,9 +658,11 @@ function VisorPrincipal({
   const dprRender = Math.min((typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicadorDPR, DPR_MAXIMO);
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
   const [rubroSeleccionado, setRubroSeleccionado] = useState("");
-  const [herramientaActiva, setHerramientaActiva] = useState(false);
+  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
-  const [lineaPendiente, setLineaPendiente] = useState<{ xInicio: number; yInicio: number; xFin: number; yFin: number; longitudReal: number } | null>(null);
+  const [puntosArea, setPuntosArea] = useState<{ x: number; y: number }[]>([]);
+  const [cursorArea, setCursorArea] = useState<{ x: number; y: number } | null>(null);
+  const [medicionPendiente, setMedicionPendiente] = useState<MedicionPendiente | null>(null);
 
   const handlePaginaCargada = (page: PaginaPDFCargada) => {
     const viewport = page.getViewport({ scale: 1 });
@@ -607,44 +670,119 @@ function VisorPrincipal({
   };
 
   const onSvgMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!herramientaActiva || lineaPendiente || !svgRef.current) return;
+    if (herramienta !== "LINEA" || medicionPendiente || !svgRef.current) return;
     const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
     if (!p) return;
     setDibujoActual({ xInicio: p.x, yInicio: p.y, xActual: p.x, yActual: p.y });
   };
 
   const onSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!dibujoActual || !svgRef.current) return;
+    if (!svgRef.current) return;
     const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
     if (!p) return;
-    setDibujoActual((prev) => (prev ? { ...prev, xActual: p.x, yActual: p.y } : prev));
+    if (herramienta === "LINEA" && dibujoActual) {
+      setDibujoActual((prev) => (prev ? { ...prev, xActual: p.x, yActual: p.y } : prev));
+    } else if (herramienta === "AREA" && puntosArea.length > 0 && !medicionPendiente) {
+      setCursorArea(p);
+    }
   };
 
-  const finalizarDibujo = () => {
-    if (!dibujoActual) return;
+  const finalizarDibujoLinea = () => {
+    if (herramienta !== "LINEA" || !dibujoActual) return;
     const { xInicio, yInicio, xActual: xFin, yActual: yFin } = dibujoActual;
     setDibujoActual(null);
     const distPercent = Math.hypot(xFin - xInicio, yFin - yInicio);
     if (distPercent < 0.5 || !pageDimsMM || doc.factorEscala == null) return;
-    const longitudReal = calcularLongitudReal(xInicio, yInicio, xFin, yFin, pageDimsMM, doc.factorEscala);
-    setLineaPendiente({ xInicio, yInicio, xFin, yFin, longitudReal });
+    const valor = calcularLongitudReal(xInicio, yInicio, xFin, yFin, pageDimsMM, doc.factorEscala);
+    setMedicionPendiente({ tipo: "LINEA", xInicio, yInicio, xFin, yFin, valor });
+  };
+
+  // Click para AREA — cada click agrega un vértice. mousedown/mouseup ya
+  // están ocupados por el drag de Línea, así que el punteo de Área usa
+  // onClick (un click "de verdad", sin arrastre significativo de por
+  // medio) para no pisarse con esa lógica.
+  const onSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (herramienta !== "AREA" || medicionPendiente || !svgRef.current) return;
+    const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
+    if (!p) return;
+    setPuntosArea((prev) => [...prev, p]);
+  };
+
+  const onSvgMouseLeave = () => {
+    if (herramienta === "LINEA") {
+      finalizarDibujoLinea();
+    } else if (herramienta === "AREA") {
+      // Solo se limpia la línea de previsualización — los vértices ya
+      // puestos se mantienen, perderlos porque el mouse salió un
+      // instante del plano (ej. al ir a buscar la barra de zoom) sería
+      // muy frustrante en un polígono de varios clicks.
+      setCursorArea(null);
+    }
+  };
+
+  const finalizarArea = () => {
+    if (puntosArea.length < 3 || !pageDimsMM || doc.factorEscala == null) return;
+    const valor = calcularAreaReal(puntosArea, pageDimsMM, doc.factorEscala);
+    setMedicionPendiente({ tipo: "AREA", puntos: puntosArea, valor });
+    setPuntosArea([]);
+    setCursorArea(null);
+  };
+
+  const toggleLinea = () => {
+    if (herramienta === "LINEA") {
+      setHerramienta(null);
+      setDibujoActual(null);
+      return;
+    }
+    setHerramienta("LINEA");
+    setPuntosArea([]);
+    setCursorArea(null);
+  };
+
+  const toggleArea = () => {
+    if (herramienta !== "AREA") {
+      setHerramienta("AREA");
+      setPuntosArea([]);
+      setCursorArea(null);
+      setDibujoActual(null);
+      return;
+    }
+    if (puntosArea.length >= 3) {
+      finalizarArea();
+    } else {
+      setHerramienta(null);
+      setPuntosArea([]);
+      setCursorArea(null);
+    }
   };
 
   const rubroNombre = rubrosDisponibles.find((r) => r.id === rubroSeleccionado)?.nombre ?? "Sin rubro";
 
-  const confirmarLinea = async (descripcion: string, repeticiones: number, longitudReal: number) => {
-    if (!lineaPendiente) return;
-    await onGuardarMedicion({
-      xInicio: lineaPendiente.xInicio,
-      yInicio: lineaPendiente.yInicio,
-      xFin: lineaPendiente.xFin,
-      yFin: lineaPendiente.yFin,
-      longitudReal,
-      repeticiones,
-      descripcion,
-      rubroId: rubroSeleccionado || null,
-    });
-    setLineaPendiente(null);
+  const confirmarMedicion = async (descripcion: string, repeticiones: number, valor: number) => {
+    if (!medicionPendiente) return;
+    if (medicionPendiente.tipo === "LINEA") {
+      await onGuardarMedicion({
+        tipo: "LINEA",
+        xInicio: medicionPendiente.xInicio,
+        yInicio: medicionPendiente.yInicio,
+        xFin: medicionPendiente.xFin,
+        yFin: medicionPendiente.yFin,
+        longitudReal: valor,
+        repeticiones,
+        descripcion,
+        rubroId: rubroSeleccionado || null,
+      });
+    } else {
+      await onGuardarMedicion({
+        tipo: "AREA",
+        puntos: medicionPendiente.puntos,
+        areaReal: valor,
+        repeticiones,
+        descripcion,
+        rubroId: rubroSeleccionado || null,
+      });
+    }
+    setMedicionPendiente(null);
   };
 
   useEffect(() => {
@@ -661,12 +799,13 @@ function VisorPrincipal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.tipoArchivo]);
 
-  // Empuja el estado de la herramienta de medición hacia arriba en cada
-  // cambio relevante (no solo al montar) — a diferencia del efecto de
-  // zoom de arriba, FILA 1/FILA 2 necesitan reflejar valores que cambian
-  // todo el tiempo (rubro elegido, si está trazando), no solo funciones
-  // estables. El unmount (doc.id cambia, o se cierra el documento) se
-  // maneja aparte para no limpiar y volver a setear en cada cambio.
+  // Empuja el estado de las herramientas de medición hacia arriba en
+  // cada cambio relevante (no solo al montar) — a diferencia del efecto
+  // de zoom de arriba, FILA 1/FILA 2 necesitan reflejar valores que
+  // cambian todo el tiempo (rubro elegido, qué herramienta está activa,
+  // cuántos vértices lleva el polígono), no solo funciones estables. El
+  // unmount (doc.id cambia, o se cierra el documento) se maneja aparte
+  // para no limpiar y volver a setear en cada cambio.
   useEffect(() => {
     if (doc.tipoArchivo === "DWG") {
       onControlesMedicionListos(null);
@@ -676,11 +815,13 @@ function VisorPrincipal({
       pageDimsListo: pageDimsMM != null,
       rubroSeleccionado,
       onCambiarRubro: setRubroSeleccionado,
-      herramientaActiva,
-      onToggleHerramienta: () => setHerramientaActiva((v) => !v),
+      herramienta,
+      onToggleLinea: toggleLinea,
+      onToggleArea: toggleArea,
+      puntosAreaCount: puntosArea.length,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.tipoArchivo, pageDimsMM, rubroSeleccionado, herramientaActiva]);
+  }, [doc.tipoArchivo, pageDimsMM, rubroSeleccionado, herramienta, puntosArea.length]);
 
   useEffect(() => {
     return () => onControlesMedicionListos(null);
@@ -716,14 +857,14 @@ function VisorPrincipal({
         minScale={0.3}
         maxScale={6}
         centerOnInit
-        panning={{ disabled: herramientaActiva, velocityDisabled: false }}
+        panning={{ disabled: herramienta != null, velocityDisabled: false }}
         onZoomStop={actualizarDPRSegunZoom}
         onPanningStop={actualizarDPRSegunZoom}
       >
         {/* OJO: contentStyle NO debe forzar width/height/flex — la librería
             centra vía centerOnInit midiendo el tamaño NATURAL del
             contenido. Ver comentario histórico en el visor anterior. */}
-        <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} wrapperClass={cn("select-none", herramientaActiva ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}>
+        <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} wrapperClass={cn("select-none", herramienta != null ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}>
           <div style={{ position: "relative", display: "inline-block" }}>
             {doc.tipoArchivo === "PDF" ? (
               blob && (
@@ -754,25 +895,43 @@ function VisorPrincipal({
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
               className="absolute inset-0 w-full h-full"
-              style={{ pointerEvents: herramientaActiva ? "auto" : "none" }}
+              style={{ pointerEvents: herramienta != null ? "auto" : "none" }}
               onMouseDown={onSvgMouseDown}
               onMouseMove={onSvgMouseMove}
-              onMouseUp={finalizarDibujo}
-              onMouseLeave={finalizarDibujo}
+              onMouseUp={finalizarDibujoLinea}
+              onMouseLeave={onSvgMouseLeave}
+              onClick={onSvgClick}
             >
-              {mediciones.map((m) => (
-                <line
-                  key={m.id}
-                  x1={m.xInicio}
-                  y1={m.yInicio}
-                  x2={m.xFin}
-                  y2={m.yFin}
-                  stroke="#2563EB"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  vectorEffect="non-scaling-stroke"
-                />
-              ))}
+              {mediciones.map((m) => {
+                if (m.tipo === "AREA" && m.puntos && m.puntos.length >= 3) {
+                  return (
+                    <polygon
+                      key={m.id}
+                      points={m.puntos.map((p) => `${p.x},${p.y}`).join(" ")}
+                      fill="#2563EB"
+                      fillOpacity={0.12}
+                      stroke="#2563EB"
+                      strokeWidth={2}
+                      strokeLinejoin="round"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  );
+                }
+                if (m.xInicio == null || m.yInicio == null || m.xFin == null || m.yFin == null) return null;
+                return (
+                  <line
+                    key={m.id}
+                    x1={m.xInicio}
+                    y1={m.yInicio}
+                    x2={m.xFin}
+                    y2={m.yFin}
+                    stroke="#2563EB"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })}
               {dibujoActual && (
                 <line
                   x1={dibujoActual.xInicio}
@@ -786,15 +945,43 @@ function VisorPrincipal({
                   vectorEffect="non-scaling-stroke"
                 />
               )}
-              {lineaPendiente && (
+              {puntosArea.length > 0 && (
+                <>
+                  <polyline
+                    points={[...puntosArea, ...(cursorArea ? [cursorArea] : [])].map((p) => `${p.x},${p.y}`).join(" ")}
+                    fill="none"
+                    stroke="#2563EB"
+                    strokeWidth={2}
+                    strokeDasharray="6,4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  {puntosArea.map((p, i) => (
+                    <circle key={i} cx={p.x} cy={p.y} r={0.6} fill="#2563EB" stroke="white" strokeWidth={0.3} vectorEffect="non-scaling-stroke" />
+                  ))}
+                </>
+              )}
+              {medicionPendiente?.tipo === "LINEA" && (
                 <line
-                  x1={lineaPendiente.xInicio}
-                  y1={lineaPendiente.yInicio}
-                  x2={lineaPendiente.xFin}
-                  y2={lineaPendiente.yFin}
+                  x1={medicionPendiente.xInicio}
+                  y1={medicionPendiente.yInicio}
+                  x2={medicionPendiente.xFin}
+                  y2={medicionPendiente.yFin}
                   stroke="#F59E0B"
                   strokeWidth={2.5}
                   strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+              {medicionPendiente?.tipo === "AREA" && (
+                <polygon
+                  points={medicionPendiente.puntos.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="#F59E0B"
+                  fillOpacity={0.15}
+                  stroke="#F59E0B"
+                  strokeWidth={2.5}
+                  strokeLinejoin="round"
                   vectorEffect="non-scaling-stroke"
                 />
               )}
@@ -802,22 +989,29 @@ function VisorPrincipal({
           </div>
         </TransformComponent>
       </TransformWrapper>
-      {lineaPendiente && (
-        <ModalConfirmarLinea
-          longitudInicial={lineaPendiente.longitudReal}
+      {medicionPendiente && (
+        <ModalConfirmarMedicion
+          unidadLabel={medicionPendiente.tipo === "LINEA" ? "Longitud (m)" : "Área (m²)"}
+          valorInicial={medicionPendiente.valor}
           rubroNombre={rubroNombre}
-          onCancelar={() => setLineaPendiente(null)}
-          onGuardar={confirmarLinea}
+          onCancelar={() => setMedicionPendiente(null)}
+          onGuardar={confirmarMedicion}
         />
       )}
       {mediciones.length > 0 && (
         <div className="absolute bottom-4 right-4 z-10 w-64 max-h-52 overflow-y-auto bg-white rounded-[10px] border border-slate-200 shadow-md p-1.5 space-y-0.5">
           {mediciones.map((m) => (
             <div key={m.id} className="flex items-center gap-1.5 px-2 py-1.5 rounded-[6px] hover:bg-slate-50 transition-colors">
-              <Slash className="w-3 h-3 text-[#2563EB] flex-shrink-0" />
+              {m.tipo === "AREA" ? (
+                <Hexagon className="w-3 h-3 text-[#2563EB] flex-shrink-0" />
+              ) : (
+                <Slash className="w-3 h-3 text-[#2563EB] flex-shrink-0" />
+              )}
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-slate-600 truncate">{m.descripcion}</p>
-                <p className="text-[10px] text-slate-400">{m.longitudReal.toFixed(2)} m × {m.repeticiones}</p>
+                <p className="text-[10px] text-slate-400">
+                  {m.tipo === "AREA" ? `${(m.areaReal ?? 0).toFixed(2)} m²` : `${(m.longitudReal ?? 0).toFixed(2)} m`} × {m.repeticiones}
+                </p>
               </div>
               <button
                 onClick={() => handleEliminarMedicion(m.id)}
@@ -1171,18 +1365,18 @@ export default function Visor({
         {documentoPrincipal?.categoria === "PLANO" && documentoPrincipal.factorEscala != null && (
           <>
             <div className="w-px h-4 bg-slate-200 mx-1" />
-            {/* Herramientas de medición — hoy solo "Medir (línea)"; deja
-                lugar en este mismo grupo para Área y Punto cuando se
-                implementen (Etapa 3, rondas futuras). */}
+            {/* Herramientas de medición — Línea y Área hoy; deja lugar en
+                este mismo grupo para Punto cuando se implemente (Etapa 3,
+                ronda futura). */}
             <button
-              onClick={controlesMedicion?.onToggleHerramienta}
+              onClick={controlesMedicion?.onToggleLinea}
               disabled={!puedeActivarMedicion}
               title={
                 documentoPrincipal.tipoArchivo !== "PDF"
                   ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
                   : !controlesMedicion?.rubroSeleccionado
                   ? "Elegí un rubro antes de medir"
-                  : controlesMedicion?.herramientaActiva
+                  : controlesMedicion?.herramienta === "LINEA"
                   ? "Midiendo — clic y arrastre para dibujar una línea"
                   : "Medir una distancia trazando una línea sobre el plano"
               }
@@ -1190,12 +1384,42 @@ export default function Visor({
                 "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors",
                 !puedeActivarMedicion
                   ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : controlesMedicion?.herramientaActiva
+                  : controlesMedicion?.herramienta === "LINEA"
                   ? "bg-[#1D4ED8] text-white"
                   : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
               )}
             >
-              <Slash className="w-3.5 h-3.5" /> {controlesMedicion?.herramientaActiva ? "Midiendo…" : "Medir (línea)"}
+              <Slash className="w-3.5 h-3.5" /> {controlesMedicion?.herramienta === "LINEA" ? "Midiendo…" : "Medir (línea)"}
+            </button>
+            <button
+              onClick={controlesMedicion?.onToggleArea}
+              disabled={!puedeActivarMedicion}
+              title={
+                documentoPrincipal.tipoArchivo !== "PDF"
+                  ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
+                  : !controlesMedicion?.rubroSeleccionado
+                  ? "Elegí un rubro antes de medir"
+                  : controlesMedicion?.herramienta !== "AREA"
+                  ? "Medir una superficie dibujando un polígono sobre el plano — clic para cada vértice"
+                  : controlesMedicion.puntosAreaCount < 3
+                  ? "Agregá al menos 3 vértices — clic en el plano (volvé a clickear acá para cancelar)"
+                  : "Cerrar el polígono y calcular el área"
+              }
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors",
+                !puedeActivarMedicion
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : controlesMedicion?.herramienta === "AREA"
+                  ? "bg-[#1D4ED8] text-white"
+                  : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+              )}
+            >
+              <Hexagon className="w-3.5 h-3.5" />
+              {controlesMedicion?.herramienta === "AREA"
+                ? controlesMedicion.puntosAreaCount >= 3
+                  ? `Finalizar (${controlesMedicion.puntosAreaCount})`
+                  : `Dibujando… (${controlesMedicion.puntosAreaCount})`
+                : "Medir (área)"}
             </button>
           </>
         )}

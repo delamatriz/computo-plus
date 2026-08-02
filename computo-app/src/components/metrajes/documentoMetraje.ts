@@ -116,20 +116,31 @@ export function parsearEscala(texto: string): { factor: number; normalizada: str
 }
 
 // Marcas de medición trazadas sobre un plano — Etapa 3 de "Metrajes con
-// plano" (UI_UX_REDESIGN.md sección 6, Modo A manual), primera ronda:
-// solo tipo="LINEA". xInicio/yInicio/xFin/yFin son porcentajes (0-100)
-// del ancho/alto del documento, no píxeles.
+// plano" (UI_UX_REDESIGN.md sección 6, Modo A manual). Dos tipos hoy:
+// "LINEA" (dos puntos fijos, xInicio/yInicio/xFin/yFin) y "AREA"
+// (polígono de N vértices, campo puntos). Todos los puntos son
+// porcentajes (0-100) del ancho/alto del documento, no píxeles. Cada
+// tipo deja null los campos que no le corresponden (ver
+// prisma/schema.prisma — sin constraint a nivel de base, se valida en
+// la API).
 export type TipoMedicion = "LINEA" | "AREA" | "PUNTO";
+
+export interface PuntoMedicion {
+  x: number;
+  y: number;
+}
 
 export interface MedicionDocumento {
   id: string;
   documentoId: string;
   tipo: TipoMedicion;
-  xInicio: number;
-  yInicio: number;
-  xFin: number;
-  yFin: number;
-  longitudReal: number;
+  xInicio: number | null;
+  yInicio: number | null;
+  xFin: number | null;
+  yFin: number | null;
+  longitudReal: number | null;
+  puntos: PuntoMedicion[] | null;
+  areaReal: number | null;
   repeticiones: number;
   descripcion: string;
   rubroId: string | null;

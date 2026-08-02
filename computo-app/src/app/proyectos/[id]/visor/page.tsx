@@ -228,10 +228,15 @@ export default function VisorProyectoPage() {
     };
   }, [documentoAbierto, proyectoId]);
 
-  // Guarda una nueva marca de medición (Etapa 3, herramienta de Línea) y
-  // agrega la fila correspondiente a la Planilla — mismo mecanismo que ya
-  // usan "Analizar con IA"/agregarFilaIA: se agrega en memoria, no hay
-  // tabla de filas persistida (ver metrajeFila.ts).
+  // Guarda una nueva marca de medición (Etapa 3, Línea o Área) y agrega
+  // la fila correspondiente a la Planilla — mismo mecanismo que ya usan
+  // "Analizar con IA"/agregarFilaIA: se agrega en memoria, no hay tabla
+  // de filas persistida (ver metrajeFila.ts). Área no tiene columna
+  // propia en la Planilla (solo Largo/Ancho/Alto/Cantidad genéricos) —
+  // el valor calculado (m²) va en "largo", igual que la longitud de
+  // Línea (m) — mismo campo para el "número calculado por esta fila"
+  // sin importar la herramienta, en vez de repartirlo entre
+  // Ancho×Alto sin ningún significado real para un polígono irregular.
   async function guardarMedicion(input: NuevaMedicionInput) {
     if (!documentoAbierto) return;
     const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/mediciones`, {
@@ -251,7 +256,7 @@ export default function VisorProyectoPage() {
         ...nuevaFila(),
         id: data.medicion.id,
         descripcion: input.descripcion,
-        largo: input.longitudReal,
+        largo: input.tipo === "AREA" ? input.areaReal : input.longitudReal,
         cantidad: input.repeticiones,
         rubroId: input.rubroId,
       },

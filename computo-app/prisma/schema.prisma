@@ -429,12 +429,22 @@ model MedicionDocumento {
   id            String           @id @default(cuid())
   documentoId   String
   documento     DocumentoMetraje @relation(fields: [documentoId], references: [id], onDelete: Cascade)
-  tipo          String           @default("LINEA") // deja lugar a "AREA" | "PUNTO", rondas futuras
-  xInicio       Float
-  yInicio       Float
-  xFin          Float
-  yFin          Float
-  longitudReal  Float            // metros — resultado del cálculo (factorEscala × distancia en papel), editable a mano antes de guardar
+  tipo          String           @default("LINEA") // "LINEA" | "AREA" | "PUNTO" (futuro)
+
+  // LINEA — dos puntos fijos, en % del plano (0-100). Opcionales porque
+  // AREA no los usa (validado en la API, no acá — mismo criterio que el
+  // resto del modelo).
+  xInicio       Float?
+  yInicio       Float?
+  xFin          Float?
+  yFin          Float?
+  longitudReal  Float?           // metros — solo tipo=LINEA (factorEscala × distancia en papel)
+
+  // AREA — polígono de N vértices (N >= 3), mismo sistema de
+  // coordenadas (% del plano, 0-100) que xInicio/etc. de LINEA.
+  puntos        Json?            // [{ x: number, y: number }, ...] — solo tipo=AREA
+  areaReal      Float?           // m² — solo tipo=AREA (shoelace × factorEscala², editable a mano antes de guardar)
+
   repeticiones  Float            @default(1)
   descripcion   String
   rubroId       String?
