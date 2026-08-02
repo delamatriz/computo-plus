@@ -221,12 +221,22 @@ function ModalCalibrarEscala({
   );
 }
 
-function CalibracionBanner({
+// FILA 1 del Visor — antes eran dos filas separadas (banner de
+// calibración + barra de la herramienta de Línea con el selector de
+// rubro) — unificadas acá en una sola línea horizontal. El selector de
+// rubro solo aparece una vez calibrado, mismo principio no negociable
+// de siempre: sin calibrar no se puede medir, así que no tiene sentido
+// elegir rubro todavía.
+function FilaEstadoYRubro({
   doc,
   onGuardarCalibracion,
+  rubrosDisponibles,
+  controlesMedicion,
 }: {
   doc: DocumentoDetalle;
   onGuardarCalibracion: (escalaDeclarada: string, factorEscala: number) => Promise<void>;
+  rubrosDisponibles: RubroOption[];
+  controlesMedicion: ControlesMedicion | null;
 }) {
   const [modalAbierto, setModalAbierto] = useState(false);
   const calibrado = doc.factorEscala != null && doc.escalaDeclarada;
@@ -235,11 +245,11 @@ function CalibracionBanner({
     <>
       <div
         className={cn(
-          "flex-shrink-0 flex items-center justify-between gap-3 px-3 py-2 border-b",
+          "flex-shrink-0 flex items-center gap-3 px-4 py-2 border-b flex-wrap",
           calibrado ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"
         )}
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
           {calibrado ? (
             <Ruler className="w-4 h-4 text-emerald-600 flex-shrink-0" />
           ) : (
@@ -272,6 +282,28 @@ function CalibracionBanner({
           >
             <Ruler className="w-3.5 h-3.5" /> Calibrar escala
           </button>
+        )}
+        {calibrado && (
+          <select
+            value={controlesMedicion?.rubroSeleccionado ?? ""}
+            onChange={(e) => controlesMedicion?.onCambiarRubro(e.target.value)}
+            disabled={!controlesMedicion || controlesMedicion.herramientaActiva}
+            className="flex-1 min-w-[200px] max-w-sm text-xs text-slate-600 bg-white border border-slate-200 rounded-[8px] px-2 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/20"
+          >
+            <option value="">Elegí un rubro para medir…</option>
+            {Object.entries(
+              rubrosDisponibles.reduce<Record<string, RubroOption[]>>((acc, r) => {
+                (acc[r.capituloNombre] ??= []).push(r);
+                return acc;
+              }, {})
+            ).map(([capNombre, rubros]) => (
+              <optgroup key={capNombre} label={capNombre}>
+                {rubros.map((r) => (
+                  <option key={r.id} value={r.id}>{r.nombre}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
         )}
       </div>
       {modalAbierto && (
@@ -469,74 +501,6 @@ function ModalConfirmarLinea({
   );
 }
 
-function HerramientaMedicionBarra({
-  esPDF,
-  pageDimsListo,
-  rubrosDisponibles,
-  rubroSeleccionado,
-  onCambiarRubro,
-  herramientaActiva,
-  onToggleHerramienta,
-}: {
-  esPDF: boolean;
-  pageDimsListo: boolean;
-  rubrosDisponibles: RubroOption[];
-  rubroSeleccionado: string;
-  onCambiarRubro: (id: string) => void;
-  herramientaActiva: boolean;
-  onToggleHerramienta: () => void;
-}) {
-  const puedeActivar = esPDF && pageDimsListo && !!rubroSeleccionado;
-
-  return (
-    <div className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
-      <select
-        value={rubroSeleccionado}
-        onChange={(e) => onCambiarRubro(e.target.value)}
-        disabled={herramientaActiva}
-        className="flex-1 min-w-0 text-xs text-slate-600 bg-[#F8FAFC] border border-slate-200 rounded-[8px] px-2 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/20"
-      >
-        <option value="">Elegí un rubro para medir…</option>
-        {Object.entries(
-          rubrosDisponibles.reduce<Record<string, RubroOption[]>>((acc, r) => {
-            (acc[r.capituloNombre] ??= []).push(r);
-            return acc;
-          }, {})
-        ).map(([capNombre, rubros]) => (
-          <optgroup key={capNombre} label={capNombre}>
-            {rubros.map((r) => (
-              <option key={r.id} value={r.id}>{r.nombre}</option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-      <button
-        onClick={onToggleHerramienta}
-        disabled={!puedeActivar}
-        title={
-          !esPDF
-            ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
-            : !rubroSeleccionado
-            ? "Elegí un rubro antes de medir"
-            : herramientaActiva
-            ? "Trazando — clic y arrastre para dibujar una línea"
-            : "Trazar una línea sobre el plano"
-        }
-        className={cn(
-          "flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors",
-          !puedeActivar
-            ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-            : herramientaActiva
-            ? "bg-[#1D4ED8] text-white"
-            : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-        )}
-      >
-        <Slash className="w-3.5 h-3.5" /> {herramientaActiva ? "Trazando…" : "Línea"}
-      </button>
-    </div>
-  );
-}
-
 // Mínimo de la forma de PDFPageProxy que usamos — evitar depender del
 // tipo exacto exportado por pdfjs-dist/react-pdf.
 type PaginaPDFCargada = { getViewport: (opts: { scale: number }) => { width: number; height: number } };
@@ -576,6 +540,17 @@ export interface ControlesZoom {
   resetTransform: () => void;
 }
 
+/** Expone el estado + acciones de la herramienta de medición del
+ * VisorPrincipal hacia FILA 1 (selector de rubro) y FILA 2 (botón
+ * "Medir") del Visor — mismo patrón que ControlesZoom. */
+export interface ControlesMedicion {
+  pageDimsListo: boolean;
+  rubroSeleccionado: string;
+  onCambiarRubro: (id: string) => void;
+  herramientaActiva: boolean;
+  onToggleHerramienta: () => void;
+}
+
 function VisorPrincipal({
   doc,
   rubrosDisponibles,
@@ -583,6 +558,7 @@ function VisorPrincipal({
   onGuardarMedicion,
   onEliminarMedicion,
   onControlesZoomListos,
+  onControlesMedicionListos,
 }: {
   doc: DocumentoDetalle;
   rubrosDisponibles: RubroOption[];
@@ -595,6 +571,9 @@ function VisorPrincipal({
    * header del Visor (fuera de este árbol) — los botones de zoom viven
    * ahí, junto a expandir/cerrar, en vez de flotando sobre el documento. */
   onControlesZoomListos: (controles: ControlesZoom | null) => void;
+  /** Expone el estado del selector de rubro + la herramienta de Línea
+   * hacia FILA 1/FILA 2 del Visor (fuera de este árbol). */
+  onControlesMedicionListos: (controles: ControlesMedicion | null) => void;
 }) {
   const { cargando, progreso, blob, imgObjectUrl, error, setError } = useArchivoBlob(doc);
   const [eliminandoMedicionIds, setEliminandoMedicionIds] = useState<Set<string>>(new Set());
@@ -621,8 +600,6 @@ function VisorPrincipal({
   const [herramientaActiva, setHerramientaActiva] = useState(false);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
   const [lineaPendiente, setLineaPendiente] = useState<{ xInicio: number; yInicio: number; xFin: number; yFin: number; longitudReal: number } | null>(null);
-
-  const esPDF = doc.tipoArchivo === "PDF";
 
   const handlePaginaCargada = (page: PaginaPDFCargada) => {
     const viewport = page.getViewport({ scale: 1 });
@@ -684,6 +661,32 @@ function VisorPrincipal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.tipoArchivo]);
 
+  // Empuja el estado de la herramienta de medición hacia arriba en cada
+  // cambio relevante (no solo al montar) — a diferencia del efecto de
+  // zoom de arriba, FILA 1/FILA 2 necesitan reflejar valores que cambian
+  // todo el tiempo (rubro elegido, si está trazando), no solo funciones
+  // estables. El unmount (doc.id cambia, o se cierra el documento) se
+  // maneja aparte para no limpiar y volver a setear en cada cambio.
+  useEffect(() => {
+    if (doc.tipoArchivo === "DWG") {
+      onControlesMedicionListos(null);
+      return;
+    }
+    onControlesMedicionListos({
+      pageDimsListo: pageDimsMM != null,
+      rubroSeleccionado,
+      onCambiarRubro: setRubroSeleccionado,
+      herramientaActiva,
+      onToggleHerramienta: () => setHerramientaActiva((v) => !v),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.tipoArchivo, pageDimsMM, rubroSeleccionado, herramientaActiva]);
+
+  useEffect(() => {
+    return () => onControlesMedicionListos(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (doc.tipoArchivo === "DWG") return <SinVistaPrevia doc={doc} />;
 
   return (
@@ -706,17 +709,6 @@ function VisorPrincipal({
             </div>
           )}
         </div>
-      )}
-      {doc.factorEscala != null && (
-        <HerramientaMedicionBarra
-          esPDF={esPDF}
-          pageDimsListo={pageDimsMM != null}
-          rubrosDisponibles={rubrosDisponibles}
-          rubroSeleccionado={rubroSeleccionado}
-          onCambiarRubro={setRubroSeleccionado}
-          herramientaActiva={herramientaActiva}
-          onToggleHerramienta={() => setHerramientaActiva((v) => !v)}
-        />
       )}
       <TransformWrapper
         ref={transformRef}
@@ -1097,6 +1089,9 @@ export default function Visor({
   useEffect(() => setNotasLocal(notas), [notas]);
 
   const [controlesZoom, setControlesZoom] = useState<ControlesZoom | null>(null);
+  const [controlesMedicion, setControlesMedicion] = useState<ControlesMedicion | null>(null);
+  const puedeActivarMedicion =
+    documentoPrincipal?.tipoArchivo === "PDF" && !!controlesMedicion?.pageDimsListo && !!controlesMedicion?.rubroSeleccionado;
 
   const guardarNotasSiCambio = async () => {
     if (notasLocal === notas) return;
@@ -1128,7 +1123,7 @@ export default function Visor({
       className="fixed inset-0 z-50 bg-white flex flex-col lg:static lg:inset-auto lg:z-auto lg:h-full lg:flex-shrink-0 lg:border lg:border-slate-300 lg:rounded-[16px] lg:shadow-sm overflow-hidden"
       style={style}
     >
-      {/* Header */}
+      {/* Título */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-slate-200 flex-shrink-0">
         <div className="min-w-0">
           <h2 className="text-sm font-bold text-[#1A3A5C] truncate">{documentoPrincipal?.nombre ?? "Visor"}</h2>
@@ -1138,40 +1133,82 @@ export default function Visor({
               : "Sin documento seleccionado"}
           </p>
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {controlesZoom && (
-            <>
-              <button onClick={controlesZoom.zoomOut} title="Alejar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <button onClick={controlesZoom.zoomIn} title="Acercar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-                <ZoomIn className="w-4 h-4" />
-              </button>
-              <button onClick={controlesZoom.resetTransform} title="Restablecer vista" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-                <Maximize2 className="w-4 h-4" />
-              </button>
-              <div className="w-px h-4 bg-slate-200 mx-0.5" />
-            </>
-          )}
-          <button
-            onClick={onToggleExpandir}
-            title={expandido ? "Volver a vista de 3 columnas" : "Expandir visor a pantalla completa"}
-            className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-          >
-            {expandido ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
-          </button>
-          <button onClick={onClose} className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      </div>
+
+      {/* FILA 1 — estado de calibración + selector de rubro para medir */}
+      {documentoPrincipal?.categoria === "PLANO" && (
+        <FilaEstadoYRubro
+          doc={documentoPrincipal}
+          onGuardarCalibracion={onGuardarCalibracion}
+          rubrosDisponibles={rubrosDisponibles}
+          controlesMedicion={controlesMedicion}
+        />
+      )}
+
+      {/* FILA 2 — barra de herramientas única: zoom | expandir | medición | cerrar */}
+      <div className="flex items-center gap-1 px-4 py-2 bg-white border-b border-slate-200 flex-shrink-0 flex-wrap">
+        {controlesZoom && (
+          <>
+            <button onClick={controlesZoom.zoomOut} title="Alejar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <button onClick={controlesZoom.zoomIn} title="Acercar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button onClick={controlesZoom.resetTransform} title="Ajustar a vista" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+              <Maximize2 className="w-4 h-4" />
+            </button>
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+          </>
+        )}
+        <button
+          onClick={onToggleExpandir}
+          title={expandido ? "Volver a vista de 3 columnas" : "Expandir visor a pantalla completa"}
+          className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+        >
+          {expandido ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
+        </button>
+        {documentoPrincipal?.categoria === "PLANO" && documentoPrincipal.factorEscala != null && (
+          <>
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+            {/* Herramientas de medición — hoy solo "Medir (línea)"; deja
+                lugar en este mismo grupo para Área y Punto cuando se
+                implementen (Etapa 3, rondas futuras). */}
+            <button
+              onClick={controlesMedicion?.onToggleHerramienta}
+              disabled={!puedeActivarMedicion}
+              title={
+                documentoPrincipal.tipoArchivo !== "PDF"
+                  ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
+                  : !controlesMedicion?.rubroSeleccionado
+                  ? "Elegí un rubro antes de medir"
+                  : controlesMedicion?.herramientaActiva
+                  ? "Midiendo — clic y arrastre para dibujar una línea"
+                  : "Medir una distancia trazando una línea sobre el plano"
+              }
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors",
+                !puedeActivarMedicion
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : controlesMedicion?.herramientaActiva
+                  ? "bg-[#1D4ED8] text-white"
+                  : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+              )}
+            >
+              <Slash className="w-3.5 h-3.5" /> {controlesMedicion?.herramientaActiva ? "Midiendo…" : "Medir (línea)"}
+            </button>
+          </>
+        )}
+        <div className="flex-1" />
+        <div className="w-px h-4 bg-slate-200 mx-1" />
+        <button onClick={onClose} title="Cerrar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Documento principal + lista */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         <div className="flex-1 min-w-0 flex flex-col bg-slate-100">
-          {documentoPrincipal?.categoria === "PLANO" && (
-            <CalibracionBanner doc={documentoPrincipal} onGuardarCalibracion={onGuardarCalibracion} />
-          )}
           <div className="flex-1 min-h-0 relative">
             {documentoPrincipal ? (
               <VisorPrincipal
@@ -1182,6 +1219,7 @@ export default function Visor({
                 onGuardarMedicion={onGuardarMedicion}
                 onEliminarMedicion={onEliminarMedicion}
                 onControlesZoomListos={setControlesZoom}
+                onControlesMedicionListos={setControlesMedicion}
               />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6">
