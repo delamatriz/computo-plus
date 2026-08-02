@@ -397,6 +397,18 @@ model DocumentoMetraje {
   nombreArchivoOriginal String
   paginaPDF             Int?     // página elegida (1-indexed), solo relevante para categoria=PLANO, PDF multipágina
   tamano                Int?     // bytes, opcional
+
+  // Calibración de escala — Etapa 2 de "Metrajes con plano" (UI_UX_REDESIGN.md
+  // sección 6). Solo tiene sentido para categoria=PLANO (se valida a nivel
+  // de API/UI, no acá — no hay CHECK constraint por categoría en este
+  // modelo unificado). Principio no negociable del diseño: sin calibración
+  // no se puede medir. Método B (escala declarada, ej. "1:100") es el
+  // implementado en esta ronda; metodoCalibracion ya deja lugar para
+  // "COTA" (Método A — trazar una cota conocida), ronda futura.
+  escalaDeclarada       String?  // texto tal cual lo tipeó el usuario, ej. "1:100"
+  factorEscala          Float?   // factor numérico ya calculado (M/N de "N:M"), para los cálculos de medición futuros
+  metodoCalibracion     String?  // "DECLARADA" | "COTA" (Método A, futuro)
+
   createdAt             DateTime @default(now())
 }
 

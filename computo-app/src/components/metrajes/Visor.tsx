@@ -19,10 +19,12 @@ import {
   Download,
   GripHorizontal,
   Trash2,
+  Ruler,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { obtenerArchivoCacheado } from "@/lib/archivoCache";
-import { PDF_OPTIONS, type DocumentoDetalle, type DocumentoResumen } from "./documentoMetraje";
+import { PDF_OPTIONS, parsearEscala, type DocumentoDetalle, type DocumentoResumen } from "./documentoMetraje";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -117,6 +119,159 @@ function SinVistaPrevia({ doc }: { doc: DocumentoDetalle }) {
         <Download className="w-3.5 h-3.5" /> Descargar archivo
       </a>
     </div>
+  );
+}
+
+// ── Calibración de escala — Etapa 2 de "Metrajes con plano"
+// (UI_UX_REDESIGN.md sección 6). Solo aplica a categoria=PLANO. Principio
+// no negociable del diseño: sin calibrar no se puede medir — por ahora
+// esta ronda solo guarda el factor de escala, no lo usa todavía (eso es
+// la Etapa 3, herramientas de dibujo/medición, ronda futura). Método B
+// (escala declarada, ej. "1:100") implementado acá; Método A (por cota)
+// queda pendiente. ───────────────────────────────────────────────────
+
+function ModalCalibrarEscala({
+  escalaActual,
+  onClose,
+  onGuardar,
+}: {
+  escalaActual: string | null;
+  onClose: () => void;
+  onGuardar: (escalaDeclarada: string, factorEscala: number) => Promise<void>;
+}) {
+  const [valor, setValor] = useState(escalaActual ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+
+  const guardar = async () => {
+    const parseada = parsearEscala(valor);
+    if (!parseada) {
+      setError('Escribí la escala en formato 1:100');
+      return;
+    }
+    setGuardando(true);
+    setError(null);
+    try {
+      await onGuardar(parseada.normalizada, parseada.factor);
+      onClose();
+    } catch {
+      setError("No se pudo guardar la calibración. Probá de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-white rounded-[16px] shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <h2 className="text-base font-bold text-[#1A3A5C]">Calibrar escala</h2>
+          <button onClick={onClose} className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-5 py-4 space-y-2.5">
+          <label className="block text-sm font-semibold text-[#1A3A5C]">Escala del plano</label>
+          <input
+            type="text"
+            value={valor}
+            onChange={(e) => {
+              setValor(e.target.value);
+              if (error) setError(null);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && guardar()}
+            placeholder="Ej. 1:100"
+            autoFocus
+            className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
+          />
+          {error ? (
+            <p className="text-xs text-red-600">{error}</p>
+          ) : (
+            <p className="text-xs text-slate-400">
+              Ingresá la escala tal como figura en el plano (ej. &quot;1:50&quot;, &quot;1:100&quot;). Sin calibrar no se puede medir.
+            </p>
+          )}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={guardando}
+            className="px-4 py-2 rounded-[8px] text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={guardar}
+            disabled={!valor.trim() || guardando}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-sm font-semibold text-white transition-colors",
+              !valor.trim() || guardando ? "bg-slate-300 cursor-not-allowed" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+            )}
+          >
+            {guardando && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {guardando ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CalibracionBanner({
+  doc,
+  onGuardarCalibracion,
+}: {
+  doc: DocumentoDetalle;
+  onGuardarCalibracion: (escalaDeclarada: string, factorEscala: number) => Promise<void>;
+}) {
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const calibrado = doc.factorEscala != null && doc.escalaDeclarada;
+
+  return (
+    <>
+      <div
+        className={cn(
+          "flex-shrink-0 flex items-center justify-between gap-3 px-3 py-2 border-b",
+          calibrado ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"
+        )}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {calibrado ? (
+            <Ruler className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+          )}
+          <span className={cn("text-xs font-semibold truncate", calibrado ? "text-emerald-700" : "text-amber-700")}>
+            {calibrado
+              ? `Calibrado — Escala ${doc.escalaDeclarada}`
+              : "Sin calibrar — no se puede medir todavía"}
+          </span>
+        </div>
+        {calibrado ? (
+          <button
+            onClick={() => setModalAbierto(true)}
+            className="flex-shrink-0 text-xs font-medium text-emerald-700 hover:text-emerald-900 underline transition-colors"
+          >
+            Recalibrar
+          </button>
+        ) : (
+          <button
+            onClick={() => setModalAbierto(true)}
+            className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors"
+          >
+            <Ruler className="w-3.5 h-3.5" /> Calibrar escala
+          </button>
+        )}
+      </div>
+      {modalAbierto && (
+        <ModalCalibrarEscala
+          escalaActual={doc.escalaDeclarada}
+          onClose={() => setModalAbierto(false)}
+          onGuardar={onGuardarCalibracion}
+        />
+      )}
+    </>
   );
 }
 
@@ -390,6 +545,7 @@ export default function Visor({
   onGuardarNotas,
   imagenesParaIA,
   onAnalizarConIA,
+  onGuardarCalibracion,
   style,
 }: {
   /** null cuando el usuario entra al Visor sin tener ningún documento
@@ -412,6 +568,9 @@ export default function Visor({
   onGuardarNotas: (notas: string) => Promise<void> | void;
   imagenesParaIA: string[];
   onAnalizarConIA: (imagenes: string[], contexto: string | null) => Promise<void> | void;
+  /** Guarda la calibración de escala (Etapa 2 de "Metrajes con plano") del
+   * documento principal — solo se llama/muestra cuando es categoria=PLANO. */
+  onGuardarCalibracion: (escalaDeclarada: string, factorEscala: number) => Promise<void>;
   style?: React.CSSProperties;
 }) {
   const [notasLocal, setNotasLocal] = useState(notas);
@@ -474,18 +633,23 @@ export default function Visor({
 
       {/* Documento principal + lista */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        <div className="flex-1 min-w-0 relative bg-slate-100">
-          {documentoPrincipal ? (
-            <VisorPrincipal doc={documentoPrincipal} />
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6">
-              <FileGenerico className="w-10 h-10 text-slate-300" />
-              <p className="text-sm text-slate-500 max-w-xs">
-                Todavía no hay ningún documento — subí uno desde &quot;Documentación para metrar&quot;.
-              </p>
-            </div>
+        <div className="flex-1 min-w-0 flex flex-col bg-slate-100">
+          {documentoPrincipal?.categoria === "PLANO" && (
+            <CalibracionBanner doc={documentoPrincipal} onGuardarCalibracion={onGuardarCalibracion} />
           )}
-          {ventanaFlotante && <VentanaFlotante doc={ventanaFlotante} onClose={onCerrarVentanaFlotante} />}
+          <div className="flex-1 min-h-0 relative">
+            {documentoPrincipal ? (
+              <VisorPrincipal doc={documentoPrincipal} />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6">
+                <FileGenerico className="w-10 h-10 text-slate-300" />
+                <p className="text-sm text-slate-500 max-w-xs">
+                  Todavía no hay ningún documento — subí uno desde &quot;Documentación para metrar&quot;.
+                </p>
+              </div>
+            )}
+            {ventanaFlotante && <VentanaFlotante doc={ventanaFlotante} onClose={onCerrarVentanaFlotante} />}
+          </div>
         </div>
 
         {!expandido && (

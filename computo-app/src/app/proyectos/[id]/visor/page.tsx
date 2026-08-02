@@ -208,6 +208,23 @@ export default function VisorProyectoPage() {
     setNotas(nuevasNotas.trim());
   }
 
+  // Calibración de escala (Etapa 2 de "Metrajes con plano", Método B —
+  // escala declarada). Solo se llama para el documento principal cuando
+  // es categoria=PLANO (Visor solo muestra el banner/botón en ese caso).
+  // No recalcula nada todavía — eso llega con las herramientas de
+  // medición (Etapa 3, ronda futura).
+  async function guardarCalibracion(escalaDeclarada: string, factorEscala: number) {
+    if (!documentoAbierto) return;
+    const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ escalaDeclarada, factorEscala, metodoCalibracion: "DECLARADA" }),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    setDocumentoAbierto(data.documento);
+  }
+
   /* Filas de la planilla */
   const actualizarFila = (id: string, field: keyof MetrajeFila, value: string) => {
     setFilas((prev) =>
@@ -426,6 +443,7 @@ export default function VisorProyectoPage() {
               onGuardarNotas={guardarNotas}
               imagenesParaIA={imagenesParaIA}
               onAnalizarConIA={analizarConIA}
+              onGuardarCalibracion={guardarCalibracion}
             />
           </div>
         </div>

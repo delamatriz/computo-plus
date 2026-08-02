@@ -87,8 +87,32 @@ export interface DocumentoResumen {
   createdAt: string;
 }
 
+export type MetodoCalibracion = "DECLARADA" | "COTA";
+
 export interface DocumentoDetalle extends DocumentoResumen {
   archivo: string; // URL proxy (ver urlProxyDocumentoMetraje en @/lib/blob)
+  // Calibración de escala — Etapa 2 de "Metrajes con plano" (UI_UX_REDESIGN.md
+  // sección 6), solo relevante para categoria=PLANO. Sin calibrar
+  // (factorEscala null) no se puede medir — principio no negociable del
+  // diseño. Método B (escala declarada, ej. "1:100") es el implementado
+  // por ahora; Método A ("COTA" — trazar una cota conocida) queda para
+  // una ronda futura.
+  escalaDeclarada: string | null;
+  factorEscala: number | null;
+  metodoCalibracion: MetodoCalibracion | null;
+}
+
+// Parsea una escala en formato "N:M" (ej. "1:100") y devuelve el factor
+// numérico M/N — cuántas unidades reales representa una unidad del
+// plano. Devuelve null si el formato no es válido (N o M no numéricos,
+// o alguno <= 0).
+export function parsearEscala(texto: string): { factor: number; normalizada: string } | null {
+  const match = texto.trim().match(/^(\d+(?:[.,]\d+)?)\s*:\s*(\d+(?:[.,]\d+)?)$/);
+  if (!match) return null;
+  const n = parseFloat(match[1].replace(",", "."));
+  const m = parseFloat(match[2].replace(",", "."));
+  if (!isFinite(n) || !isFinite(m) || n <= 0 || m <= 0) return null;
+  return { factor: m / n, normalizada: `${match[1]}:${match[2]}` };
 }
 
 export function fileToBase64(file: File): Promise<string> {
