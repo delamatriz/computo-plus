@@ -408,6 +408,55 @@ asume ni inventa. Relacionado con FEAT-AI-001 (Asistente de Cómputo
 Métrico), aplicado sobre el plano completo en vez de descripción
 manual elemento por elemento.
 
+### Herramientas del Visor — estado y roadmap
+
+Detalle de implementación del Modo A (manual) de la Etapa 3 —
+actualizado a medida que cada herramienta se construye. La lista de
+herramientas de Modo A de más arriba queda como la intención
+original; esta sección es la fuente de verdad de qué está hecho, qué
+sigue, y en qué orden.
+
+#### Ya implementado
+
+- **Línea** (medición de longitud): dibujar sobre el plano ya
+  calibrado, calcula la longitud real, se asocia a un rubro, se
+  refleja en la Planilla de Cómputo. Con capacidad de eliminar.
+  (Commit `5c3d3f7`)
+
+#### Próximo: Área
+
+- Dibujar un polígono (click punto por punto) sobre el plano ya
+  calibrado, calcula el área real en m² (fórmula de polígono /
+  shoelace), se asocia a un rubro, se refleja en la Planilla de
+  Cómputo. Mismo patrón de UX que Línea (modal de confirmación,
+  panel de mediciones con papelera para eliminar).
+
+#### Después: Marca de referencia (nueva, no estaba en el diseño original)
+
+Herramienta de ANOTACIÓN, no de medición — permite dejar una marca
+simple (una letra, ej. "A", "B", "C") en un punto específico del
+plano, a modo de referencia visual rápida. NO se asocia a ningún
+rubro ni genera ninguna fila en la Planilla de Cómputo.
+
+El significado completo de cada letra se explica en el campo Notas
+que ya existe debajo del Visor (ej: el usuario escribe en Notas "A =
+revisar con el ingeniero, no queda claro el espesor del muro") — la
+marca en el plano es solo la referencia visual corta, el detalle
+vive en Notas, reutilizando lo que ya existe en vez de agregar texto
+libre por cada marca individual.
+
+Detalles de implementación a definir cuando se aborde (cómo se elige
+la letra siguiente, cómo se edita/borra la marca).
+
+#### Orden de implementación confirmado
+
+1. Línea ✅
+2. Área (próxima ronda)
+3. Marca de referencia (después de Área) — letra simple + explicación
+   en Notas
+4. Punto (conteo de elementos) — ya estaba en el diseño original,
+   reordenado después de estas dos según prioridad del usuario
+
 ### Etapa 4 — Asignación a rubro
 
 - El usuario (o la IA, con confirmación) asigna cada medición a un
