@@ -23,12 +23,15 @@ import {
   AlertTriangle,
   Slash,
   Hexagon,
-  MapPin,
+  Pencil,
+  Type as TypeIcon,
   Info,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { obtenerArchivoCacheado } from "@/lib/archivoCache";
-import { PDF_OPTIONS, parsearEscala, type DocumentoDetalle, type DocumentoResumen, type MedicionDocumento, type MarcaReferencia } from "./documentoMetraje";
+import { PDF_OPTIONS, parsearEscala, type DocumentoDetalle, type DocumentoResumen, type MedicionDocumento, type Anotacion } from "./documentoMetraje";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -337,6 +340,12 @@ export type NuevaMedicionInput =
       rubroId: string | null;
     };
 
+// Anotaciones libres — Trazo (mano alzada) y Texto, sin medida ni
+// rubro asociado (ver comentario en prisma/schema.prisma).
+export type NuevaAnotacionInput =
+  | { tipo: "TRAZO"; puntos: { x: number; y: number }[] }
+  | { tipo: "TEXTO"; x: number; y: number; texto: string; tamano: number };
+
 function calcularLongitudReal(
   xInicio: number,
   yInicio: number,
@@ -518,35 +527,46 @@ function ModalConfirmarMedicion({
   );
 }
 
-// Modal de la herramienta de Marca de referencia — mucho más chico que
-// el de Línea/Área a propósito: no mide nada, así que no hay valor
-// calculado ni rubro, solo la letra que el usuario elige a mano.
-function ModalNuevaMarca({
+// Modal de la herramienta de Texto — texto libre (letra o palabra) más
+// un control de tamaño con vista previa en vivo (el "agrandar o
+// achicar el tamaño después de colocarlo" se resuelve acá: el punto ya
+// quedó fijado en el plano al hacer click, y este paso deja ajustar el
+// tamaño ANTES de confirmar, viendo el resultado real en vez de un
+// número abstracto). Tamaño en px a escala 100% de zoom — el wrapper
+// que envuelve el documento ya escala con el zoom/pan, así que el
+// texto crece o achica junto con el plano sin ningún cálculo extra acá.
+const TEXTO_TAMANO_MIN = 10;
+const TEXTO_TAMANO_MAX = 48;
+const TEXTO_TAMANO_INICIAL = 18;
+const TEXTO_TAMANO_PASO = 4;
+
+function ModalNuevoTexto({
   onCancelar,
   onGuardar,
 }: {
   onCancelar: () => void;
-  onGuardar: (letra: string) => Promise<void>;
+  onGuardar: (texto: string, tamano: number) => Promise<void>;
 }) {
-  const [letra, setLetra] = useState("");
+  const [texto, setTexto] = useState("");
+  const [tamano, setTamano] = useState(TEXTO_TAMANO_INICIAL);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const guardar = async () => {
-    if (!letra.trim()) {
-      setError("Escribí una letra (ej. A).");
+    if (!texto.trim()) {
+      setError("Escribí un texto.");
       return;
     }
-    if (letra.trim().length > 4) {
-      setError("Máximo 4 caracteres.");
+    if (texto.trim().length > 200) {
+      setError("Máximo 200 caracteres.");
       return;
     }
     setGuardando(true);
     setError(null);
     try {
-      await onGuardar(letra.trim());
+      await onGuardar(texto.trim(), tamano);
     } catch {
-      setError("No se pudo guardar la marca. Probá de nuevo.");
+      setError("No se pudo guardar el texto. Probá de nuevo.");
     } finally {
       setGuardando(false);
     }
@@ -555,35 +575,58 @@ function ModalNuevaMarca({
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCancelar} />
-      <div className="relative w-full max-w-xs bg-white rounded-[16px] shadow-2xl">
+      <div className="relative w-full max-w-sm bg-white rounded-[16px] shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-          <h2 className="text-base font-bold text-[#1A3A5C]">Nueva marca</h2>
+          <h2 className="text-base font-bold text-[#1A3A5C]">Nuevo texto</h2>
           <button onClick={onCancelar} className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="px-5 py-4 space-y-2">
-          <label className="block text-sm font-semibold text-[#1A3A5C]">Letra</label>
-          <input
-            type="text"
-            value={letra}
-            onChange={(e) => {
-              setLetra(e.target.value);
-              if (error) setError(null);
-            }}
-            onKeyDown={(e) => e.key === "Enter" && guardar()}
-            placeholder="Ej. A"
-            maxLength={4}
-            autoFocus
-            className="w-20 px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 text-center placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
-          />
-          {error ? (
-            <p className="text-xs text-red-600">{error}</p>
-          ) : (
-            <p className="text-xs text-slate-400">
-              Explicá qué significa en el campo Notas, debajo del Visor.
-            </p>
-          )}
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <label className="block text-sm font-semibold text-[#1A3A5C] mb-1">Texto</label>
+            <input
+              type="text"
+              value={texto}
+              onChange={(e) => {
+                setTexto(e.target.value);
+                if (error) setError(null);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && guardar()}
+              placeholder="Ej. A, Ver detalle 3, Revisar nivel"
+              maxLength={200}
+              autoFocus
+              className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-[#1A3A5C] mb-1">Tamaño</label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setTamano((t) => Math.max(TEXTO_TAMANO_MIN, t - TEXTO_TAMANO_PASO))}
+                disabled={tamano <= TEXTO_TAMANO_MIN}
+                className="p-1.5 rounded-[8px] border border-slate-300 text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setTamano((t) => Math.min(TEXTO_TAMANO_MAX, t + TEXTO_TAMANO_PASO))}
+                disabled={tamano >= TEXTO_TAMANO_MAX}
+                className="p-1.5 rounded-[8px] border border-slate-300 text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+              <div className="flex-1 min-w-0 flex items-center justify-center px-3 py-2 rounded-[10px] bg-[#F8FAFC] border border-slate-200 overflow-hidden">
+                <span
+                  style={{ fontSize: `${Math.min(tamano, 28)}px` }}
+                  className="font-bold text-[#2563EB] whitespace-nowrap leading-none"
+                >
+                  {texto.trim() || "Vista previa"}
+                </span>
+              </div>
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
         <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
           <button
@@ -632,6 +675,22 @@ type PaginaPDFCargada = { getViewport: (opts: { scale: number }) => { width: num
 // para no explotar memoria/límites de canvas en pantallas retina con
 // planos grandes, aunque el multiplicador y el devicePixelRatio real de
 // la pantalla ya sumen más que eso.
+//
+// "Queda en blanco" al re-renderizar: confirmado leyendo
+// node_modules/react-pdf/src/Page/Canvas.tsx — cuando cambia
+// devicePixelRatio, react-pdf hace `canvas.width = ...` /
+// `canvas.height = ...` sobre el MISMO <canvas>, lo cual por spec del
+// navegador borra el contenido ya dibujado al instante (no es algo que
+// react-pdf elige, es cómo funciona <canvas> al cambiar su resolución
+// interna) — y de paso pone `canvas.style.visibility = "hidden"`
+// mientras corre `page.render()`, a propósito, para no mostrar un
+// frame a medio dibujar. No hay forma de "mantener el canvas viejo
+// visible" sin renderizar DOS <Page> en paralelo (una vieja, una
+// nueva, swap al terminar) — bastante más complejo y el doble de
+// carga de render por cada cambio de nitidez. En vez de eso, la
+// solución de acá es más simple y honesta: reemplazar el blanco sin
+// avisar por un indicador de carga breve, así se lee como "un
+// momento, ajustando nitidez" en vez de "esto se rompió".
 const DPR_MAXIMO = 4;
 
 function multiplicadorParaEscala(scale: number): number {
@@ -650,18 +709,19 @@ export interface ControlesZoom {
 }
 
 /** Expone el estado + acciones de las herramientas de medición/anotación
- * del VisorPrincipal hacia FILA 2 (botones "Medir"/"Marca") del Visor —
- * mismo patrón que ControlesZoom. Solo una herramienta puede estar
- * activa a la vez (Línea, Área o Marca). Sin rubro acá — se elige
+ * del VisorPrincipal hacia FILA 2 (botones "Medir"/"Área"/"Trazo"/
+ * "Texto") del Visor — mismo patrón que ControlesZoom. Solo una
+ * herramienta puede estar activa a la vez. Sin rubro acá — se elige
  * después en la Planilla. */
 export interface ControlesMedicion {
   pageDimsListo: boolean;
   /** null tanto cuando no hay ninguna herramienta activa como cuando la
-   * activa es Marca (ver marcaActiva) — así los botones de Línea/Área
-   * no se muestran "prendidos" mientras se está poniendo una marca. */
+   * activa es Trazo o Texto (ver trazoActivo/textoActivo) — así los
+   * botones de Línea/Área no se muestran "prendidos" con otra
+   * herramienta puesta. */
   herramienta: "LINEA" | "AREA" | null;
   onToggleLinea: () => void;
-  /** Click en el botón "Medir (área)" — arranca la herramienta si está
+  /** Click en el botón "Área" — arranca la herramienta si está
    * apagada; con la herramienta prendida y menos de 3 vértices puestos
    * la apaga (cancela); con 3+ vértices, cierra el polígono (mismo
    * botón hace de "Finalizar"). */
@@ -669,10 +729,12 @@ export interface ControlesMedicion {
   /** Vértices puestos del polígono en curso — FILA 2 lo usa para
    * decidir el texto del botón ("Dibujando…" vs "Finalizar (N)"). */
   puntosAreaCount: number;
-  /** Herramienta de Marca de referencia — sin calibración/rubro/PDF de
-   * por medio, así que se maneja aparte de herramienta (arriba). */
-  marcaActiva: boolean;
-  onToggleMarca: () => void;
+  /** Trazo libre y Texto — anotaciones sin calibración/rubro/PDF de
+   * por medio, así que se manejan aparte de herramienta (arriba). */
+  trazoActivo: boolean;
+  onToggleTrazo: () => void;
+  textoActivo: boolean;
+  onToggleTexto: () => void;
 }
 
 // Medición pendiente de confirmar en el modal — Línea o Área, cada
@@ -685,23 +747,23 @@ type MedicionPendiente =
 function VisorPrincipal({
   doc,
   mediciones,
-  marcas,
+  anotaciones,
   onGuardarMedicion,
   onEliminarMedicion,
-  onGuardarMarca,
-  onEliminarMarca,
+  onGuardarAnotacion,
+  onEliminarAnotacion,
   onControlesZoomListos,
   onControlesMedicionListos,
 }: {
   doc: DocumentoDetalle;
   mediciones: MedicionDocumento[];
-  marcas: MarcaReferencia[];
+  anotaciones: Anotacion[];
   onGuardarMedicion: (input: NuevaMedicionInput) => Promise<void>;
   /** Borra una marca de medición ya guardada (corrección de un trazo mal
    * hecho) — también saca la fila que había generado en la Planilla. */
   onEliminarMedicion: (medicionId: string) => Promise<void>;
-  onGuardarMarca: (input: { x: number; y: number; letra: string }) => Promise<void>;
-  onEliminarMarca: (marcaId: string) => Promise<void>;
+  onGuardarAnotacion: (input: NuevaAnotacionInput) => Promise<void>;
+  onEliminarAnotacion: (anotacionId: string) => Promise<void>;
   /** Expone zoomIn/zoomOut/resetTransform del TransformWrapper hacia el
    * header del Visor (fuera de este árbol) — los botones de zoom viven
    * ahí, junto a expandir/cerrar, en vez de flotando sobre el documento. */
@@ -728,15 +790,33 @@ function VisorPrincipal({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
   const [multiplicadorDPR, setMultiplicadorDPR] = useState(1);
-  const actualizarDPRSegunZoom = (ref: ReactZoomPanPinchRef) => setMultiplicadorDPR(multiplicadorParaEscala(ref.state.scale));
+  // true durante la ventana entre "el escalón de nitidez subió" y "el
+  // canvas terminó de redibujarse" — ver comentario en DPR_MAXIMO.
+  const [renderizandoPDF, setRenderizandoPDF] = useState(false);
+  const actualizarDPRSegunZoom = (ref: ReactZoomPanPinchRef) => {
+    const nuevoMultiplicador = multiplicadorParaEscala(ref.state.scale);
+    if (nuevoMultiplicador !== multiplicadorDPR) setRenderizandoPDF(true);
+    setMultiplicadorDPR(nuevoMultiplicador);
+  };
   const dprRender = Math.min((typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicadorDPR, DPR_MAXIMO);
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
-  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "MARCA" | null>(null);
+  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "TRAZO" | "TEXTO" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
   const [puntosArea, setPuntosArea] = useState<{ x: number; y: number }[]>([]);
   const [cursorArea, setCursorArea] = useState<{ x: number; y: number } | null>(null);
   const [medicionPendiente, setMedicionPendiente] = useState<MedicionPendiente | null>(null);
-  const [marcaPendiente, setMarcaPendiente] = useState<{ x: number; y: number } | null>(null);
+  // Trazo libre — path en curso (mientras se arrastra) y path ya
+  // terminado que se intenta guardar automáticamente al soltar el mouse
+  // (sin modal — no hay ningún dato que pedirle al usuario). Si el
+  // guardado falla, trazoPendiente se mantiene (banner de error con
+  // Reintentar/Cancelar más abajo) en vez de perderse.
+  const [trazoActual, setTrazoActual] = useState<{ x: number; y: number }[] | null>(null);
+  const [trazoPendiente, setTrazoPendiente] = useState<{ x: number; y: number }[] | null>(null);
+  const [guardandoTrazo, setGuardandoTrazo] = useState(false);
+  const [errorTrazo, setErrorTrazo] = useState<string | null>(null);
+  // Texto — punto ya clickeado, esperando que el usuario escriba el
+  // texto y confirme en ModalNuevoTexto.
+  const [textoPendientePunto, setTextoPendientePunto] = useState<{ x: number; y: number } | null>(null);
 
   const handlePaginaCargada = (page: PaginaPDFCargada) => {
     const viewport = page.getViewport({ scale: 1 });
@@ -744,10 +824,14 @@ function VisorPrincipal({
   };
 
   const onSvgMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (herramienta !== "LINEA" || medicionPendiente || !svgRef.current) return;
+    if (!svgRef.current) return;
     const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
     if (!p) return;
-    setDibujoActual({ xInicio: p.x, yInicio: p.y, xActual: p.x, yActual: p.y });
+    if (herramienta === "LINEA" && !medicionPendiente) {
+      setDibujoActual({ xInicio: p.x, yInicio: p.y, xActual: p.x, yActual: p.y });
+    } else if (herramienta === "TRAZO" && !trazoPendiente) {
+      setTrazoActual([p]);
+    }
   };
 
   const onSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -758,6 +842,17 @@ function VisorPrincipal({
       setDibujoActual((prev) => (prev ? { ...prev, xActual: p.x, yActual: p.y } : prev));
     } else if (herramienta === "AREA" && puntosArea.length > 0 && !medicionPendiente) {
       setCursorArea(p);
+    } else if (herramienta === "TRAZO" && trazoActual) {
+      // Umbral mínimo de distancia entre puntos capturados — mousemove
+      // dispara mucho más seguido de lo que hace falta para representar
+      // el trazo con fidelidad, y guardar cada evento infla el array de
+      // puntos sin necesidad.
+      setTrazoActual((prev) => {
+        if (!prev) return prev;
+        const ultimo = prev[prev.length - 1];
+        if (Math.hypot(p.x - ultimo.x, p.y - ultimo.y) < 0.4) return prev;
+        return [...prev, p];
+      });
     }
   };
 
@@ -771,18 +866,68 @@ function VisorPrincipal({
     setMedicionPendiente({ tipo: "LINEA", xInicio, yInicio, xFin, yFin, valor });
   };
 
-  // Click para AREA (agrega un vértice) y para MARCA (abre el modal de
-  // la letra en ese punto). mousedown/mouseup ya están ocupados por el
-  // drag de Línea, así que ambas usan onClick (un click "de verdad", sin
+  // Red de seguridad para el drag de Línea: el mouseup normal está atado
+  // al <svg> (onMouseUp más abajo), pero si el usuario suelta el botón
+  // fuera de sus límites (arrastra hacia la barra de herramientas, hacia
+  // el panel lateral, etc.) ese evento nunca llega al <svg> y el trazo
+  // gris de construcción se queda pegado en pantalla indefinidamente —
+  // bug reportado por el usuario. Escuchar mouseup en window (que sí
+  // recibe el evento sin importar sobre qué elemento se soltó) garantiza
+  // que dibujoActual siempre se resuelva. Se re-suscribe en cada cambio
+  // de dibujoActual (incluido cada mousemove del drag) a propósito: así
+  // finalizarDibujoLinea siempre cierra sobre el punto más reciente.
+  useEffect(() => {
+    if (!dibujoActual) return;
+    window.addEventListener("mouseup", finalizarDibujoLinea);
+    return () => window.removeEventListener("mouseup", finalizarDibujoLinea);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dibujoActual]);
+
+  const intentarGuardarTrazo = async (puntos: { x: number; y: number }[]) => {
+    setGuardandoTrazo(true);
+    setErrorTrazo(null);
+    try {
+      await onGuardarAnotacion({ tipo: "TRAZO", puntos });
+      setTrazoPendiente(null);
+    } catch {
+      setErrorTrazo("No se pudo guardar el trazo.");
+    } finally {
+      setGuardandoTrazo(false);
+    }
+  };
+
+  const finalizarTrazo = () => {
+    if (herramienta !== "TRAZO" || !trazoActual) return;
+    const puntos = trazoActual;
+    setTrazoActual(null);
+    if (puntos.length < 2) return;
+    setTrazoPendiente(puntos);
+    intentarGuardarTrazo(puntos);
+  };
+
+  // Misma red de seguridad que finalizarDibujoLinea (ver comentario
+  // arriba) — el trazo a mano alzada también se dibuja con
+  // mousedown+mousemove+mouseup, así que corre el mismo riesgo de que
+  // el mouseup se suelte fuera del <svg>.
+  useEffect(() => {
+    if (!trazoActual) return;
+    window.addEventListener("mouseup", finalizarTrazo);
+    return () => window.removeEventListener("mouseup", finalizarTrazo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trazoActual]);
+
+  // Click para AREA (agrega un vértice) y para TEXTO (abre el modal en
+  // ese punto). mousedown/mouseup ya están ocupados por el drag de
+  // Línea/Trazo, así que ambas usan onClick (un click "de verdad", sin
   // arrastre significativo de por medio) para no pisarse con esa lógica.
   const onSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current) return;
     if (herramienta === "AREA" && !medicionPendiente) {
       const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
       if (p) setPuntosArea((prev) => [...prev, p]);
-    } else if (herramienta === "MARCA" && !marcaPendiente) {
+    } else if (herramienta === "TEXTO" && !textoPendientePunto) {
       const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
-      if (p) setMarcaPendiente(p);
+      if (p) setTextoPendientePunto(p);
     }
   };
 
@@ -795,6 +940,8 @@ function VisorPrincipal({
       // instante del plano (ej. al ir a buscar la barra de zoom) sería
       // muy frustrante en un polígono de varios clicks.
       setCursorArea(null);
+    } else if (herramienta === "TRAZO") {
+      finalizarTrazo();
     }
   };
 
@@ -815,7 +962,8 @@ function VisorPrincipal({
     setHerramienta("LINEA");
     setPuntosArea([]);
     setCursorArea(null);
-    setMarcaPendiente(null);
+    setTrazoActual(null);
+    setTextoPendientePunto(null);
   };
 
   const toggleArea = () => {
@@ -824,7 +972,8 @@ function VisorPrincipal({
       setPuntosArea([]);
       setCursorArea(null);
       setDibujoActual(null);
-      setMarcaPendiente(null);
+      setTrazoActual(null);
+      setTextoPendientePunto(null);
       return;
     }
     if (puntosArea.length >= 3) {
@@ -836,27 +985,42 @@ function VisorPrincipal({
     }
   };
 
-  const toggleMarca = () => {
-    if (herramienta === "MARCA") {
+  const toggleTrazo = () => {
+    if (herramienta === "TRAZO") {
       setHerramienta(null);
-      setMarcaPendiente(null);
+      setTrazoActual(null);
       return;
     }
-    setHerramienta("MARCA");
+    setHerramienta("TRAZO");
     setDibujoActual(null);
     setPuntosArea([]);
     setCursorArea(null);
+    setTextoPendientePunto(null);
   };
 
-  const confirmarMarca = async (letra: string) => {
-    if (!marcaPendiente) return;
-    await onGuardarMarca({ x: marcaPendiente.x, y: marcaPendiente.y, letra });
-    setMarcaPendiente(null);
+  const toggleTexto = () => {
+    if (herramienta === "TEXTO") {
+      setHerramienta(null);
+      setTextoPendientePunto(null);
+      return;
+    }
+    setHerramienta("TEXTO");
+    setDibujoActual(null);
+    setPuntosArea([]);
+    setCursorArea(null);
+    setTrazoActual(null);
   };
 
-  const eliminarMarcaConConfirmacion = (marca: MarcaReferencia) => {
-    if (confirm(`¿Eliminar la marca "${marca.letra}"?`)) {
-      onEliminarMarca(marca.id);
+  const confirmarTexto = async (texto: string, tamano: number) => {
+    if (!textoPendientePunto) return;
+    await onGuardarAnotacion({ tipo: "TEXTO", x: textoPendientePunto.x, y: textoPendientePunto.y, texto, tamano });
+    setTextoPendientePunto(null);
+  };
+
+  const eliminarAnotacionConConfirmacion = (anotacion: Anotacion) => {
+    const etiqueta = anotacion.tipo === "TEXTO" ? `el texto "${anotacion.texto}"` : "el trazo";
+    if (confirm(`¿Eliminar ${etiqueta}?`)) {
+      onEliminarAnotacion(anotacion.id);
     }
   };
 
@@ -917,12 +1081,14 @@ function VisorPrincipal({
     }
     onControlesMedicionListos({
       pageDimsListo: pageDimsMM != null,
-      herramienta: herramienta === "MARCA" ? null : herramienta,
+      herramienta: herramienta === "LINEA" || herramienta === "AREA" ? herramienta : null,
       onToggleLinea: toggleLinea,
       onToggleArea: toggleArea,
       puntosAreaCount: puntosArea.length,
-      marcaActiva: herramienta === "MARCA",
-      onToggleMarca: toggleMarca,
+      trazoActivo: herramienta === "TRAZO",
+      onToggleTrazo: toggleTrazo,
+      textoActivo: herramienta === "TEXTO",
+      onToggleTexto: toggleTexto,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length]);
@@ -955,6 +1121,34 @@ function VisorPrincipal({
           )}
         </div>
       )}
+      {renderizandoPDF && !cargando && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 rounded-full px-3 py-1.5 shadow-md border border-slate-200 pointer-events-none">
+          <Loader2 className="w-3.5 h-3.5 text-[#2563EB] animate-spin" />
+          <span className="text-xs text-slate-500">Ajustando nitidez…</span>
+        </div>
+      )}
+      {errorTrazo && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-white rounded-[10px] px-3 py-2 shadow-lg border border-red-200">
+          <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+          <p className="text-xs text-red-600">{errorTrazo}</p>
+          <button
+            onClick={() => trazoPendiente && intentarGuardarTrazo(trazoPendiente)}
+            disabled={guardandoTrazo}
+            className="text-xs font-semibold text-[#2563EB] hover:underline disabled:opacity-40"
+          >
+            Reintentar
+          </button>
+          <button
+            onClick={() => {
+              setTrazoPendiente(null);
+              setErrorTrazo(null);
+            }}
+            className="text-xs font-semibold text-slate-500 hover:underline"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
       <TransformWrapper
         ref={transformRef}
         initialScale={1}
@@ -980,6 +1174,8 @@ function VisorPrincipal({
                     renderTextLayer={false}
                     renderAnnotationLayer={false}
                     onLoadSuccess={handlePaginaCargada}
+                    onRenderSuccess={() => setRenderizandoPDF(false)}
+                    onRenderError={() => setRenderizandoPDF(false)}
                   />
                 </Document>
               )
@@ -1002,10 +1198,20 @@ function VisorPrincipal({
               style={{ pointerEvents: herramienta != null ? "auto" : "none" }}
               onMouseDown={onSvgMouseDown}
               onMouseMove={onSvgMouseMove}
-              onMouseUp={finalizarDibujoLinea}
               onMouseLeave={onSvgMouseLeave}
               onClick={onSvgClick}
             >
+              {/* Tres estados, tres colores, sin ambigüedad posible entre
+                  "lo que ya guardé" y "lo que estoy dibujando ahora":
+                  gris (#64748B) = trazo activo, todavía dibujando/sin
+                  cerrar; ámbar (#F59E0B) = ya cerrado, esperando
+                  confirmación en el modal; azul (#2563EB) = guardado en
+                  la base, permanente. Antes el trazo activo también
+                  usaba azul (solo distinguido por el punteado), lo que
+                  generaba confusión con la medición recién guardada al
+                  arrancar la siguiente. Grosores más finos (1.25 en vez
+                  de 2) para más precisión visual sobre planos con
+                  detalle fino. */}
               {mediciones.map((m) => {
                 if (m.tipo === "AREA" && m.puntos && m.puntos.length >= 3) {
                   return (
@@ -1015,7 +1221,7 @@ function VisorPrincipal({
                       fill="#2563EB"
                       fillOpacity={0.12}
                       stroke="#2563EB"
-                      strokeWidth={2}
+                      strokeWidth={1.25}
                       strokeLinejoin="round"
                       vectorEffect="non-scaling-stroke"
                     />
@@ -1030,10 +1236,37 @@ function VisorPrincipal({
                     x2={m.xFin}
                     y2={m.yFin}
                     stroke="#2563EB"
-                    strokeWidth={2}
+                    strokeWidth={1.25}
                     strokeLinecap="round"
                     vectorEffect="non-scaling-stroke"
                   />
+                );
+              })}
+              {/* Trazos guardados — clickeables para borrar (mismo criterio
+                  que tenía Marca de referencia: click sobre el trazo +
+                  confirmación), a diferencia de Línea/Área que se borran
+                  desde el panel de la derecha. pointerEvents:"auto"
+                  explícito en el <g> para que funcione sin importar si
+                  hay una herramienta activa (el <svg> en sí solo recibe
+                  clicks cuando hay una activa — ver style más arriba). La
+                  franja invisible más ancha (strokeWidth 3) existe solo
+                  para hacer más fácil clickear un trazo fino de 1.25px. */}
+              {anotaciones.map((a) => {
+                if (a.tipo !== "TRAZO" || !a.puntos || a.puntos.length < 2) return null;
+                const puntosStr = a.puntos.map((p) => `${p.x},${p.y}`).join(" ");
+                return (
+                  <g
+                    key={a.id}
+                    style={{ pointerEvents: "auto", cursor: "pointer" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      eliminarAnotacionConConfirmacion(a);
+                    }}
+                  >
+                    <title>Trazo — click para eliminar</title>
+                    <polyline points={puntosStr} fill="none" stroke="transparent" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                    <polyline points={puntosStr} fill="none" stroke="#2563EB" strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                  </g>
                 );
               })}
               {dibujoActual && (
@@ -1042,9 +1275,9 @@ function VisorPrincipal({
                   y1={dibujoActual.yInicio}
                   x2={dibujoActual.xActual}
                   y2={dibujoActual.yActual}
-                  stroke="#2563EB"
-                  strokeWidth={2}
-                  strokeDasharray="6,4"
+                  stroke="#64748B"
+                  strokeWidth={1.25}
+                  strokeDasharray="5,3"
                   strokeLinecap="round"
                   vectorEffect="non-scaling-stroke"
                 />
@@ -1054,17 +1287,40 @@ function VisorPrincipal({
                   <polyline
                     points={[...puntosArea, ...(cursorArea ? [cursorArea] : [])].map((p) => `${p.x},${p.y}`).join(" ")}
                     fill="none"
-                    stroke="#2563EB"
-                    strokeWidth={2}
-                    strokeDasharray="6,4"
+                    stroke="#64748B"
+                    strokeWidth={1.25}
+                    strokeDasharray="5,3"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     vectorEffect="non-scaling-stroke"
                   />
                   {puntosArea.map((p, i) => (
-                    <circle key={i} cx={p.x} cy={p.y} r={0.6} fill="#2563EB" stroke="white" strokeWidth={0.3} vectorEffect="non-scaling-stroke" />
+                    <circle key={i} cx={p.x} cy={p.y} r={0.25} fill="#64748B" stroke="white" strokeWidth={0.12} vectorEffect="non-scaling-stroke" />
                   ))}
                 </>
+              )}
+              {trazoActual && trazoActual.length > 0 && (
+                <polyline
+                  points={trazoActual.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="none"
+                  stroke="#64748B"
+                  strokeWidth={1.25}
+                  strokeDasharray="5,3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+              {trazoPendiente && (
+                <polyline
+                  points={trazoPendiente.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="none"
+                  stroke="#F59E0B"
+                  strokeWidth={1.75}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
               )}
               {medicionPendiente?.tipo === "LINEA" && (
                 <line
@@ -1073,7 +1329,7 @@ function VisorPrincipal({
                   x2={medicionPendiente.xFin}
                   y2={medicionPendiente.yFin}
                   stroke="#F59E0B"
-                  strokeWidth={2.5}
+                  strokeWidth={1.75}
                   strokeLinecap="round"
                   vectorEffect="non-scaling-stroke"
                 />
@@ -1084,46 +1340,55 @@ function VisorPrincipal({
                   fill="#F59E0B"
                   fillOpacity={0.15}
                   stroke="#F59E0B"
-                  strokeWidth={2.5}
+                  strokeWidth={1.75}
                   strokeLinejoin="round"
                   vectorEffect="non-scaling-stroke"
                 />
               )}
             </svg>
-            {/* Marcas de referencia — capa HTML aparte (no dentro del
-                <svg>) a propósito: el viewBox de arriba usa
+            {/* Anotaciones TEXTO — capa HTML aparte (no dentro del <svg>)
+                a propósito: el viewBox de arriba usa
                 preserveAspectRatio="none", que estira todo de forma NO
-                uniforme según el aspecto del documento — un círculo con
-                letra adentro quedaría ovalado y el texto deformado.
-                Posicionado por % (left/top), así que sigue el pan/zoom
-                del documento igual que el resto (mismo wrapper
-                escalado por TransformComponent), pero se renderiza y
-                mide en el sistema de coordenadas HTML normal, sin
-                distorsión. El contenedor tiene pointer-events:none para
-                que los clicks en el resto del plano sigan llegando al
-                <svg> de abajo (dibujar línea/área/poner otra marca);
-                cada círculo reactiva pointer-events:auto individualmente
-                para poder clickearlo y borrarlo en cualquier momento,
-                sin importar qué herramienta esté activa. */}
+                uniforme según el aspecto del documento — el texto
+                quedaría deformado (letras más anchas o más altas de lo
+                que corresponde). Posicionado por % (left/top), así que
+                sigue el pan/zoom del documento igual que el resto (mismo
+                wrapper escalado por TransformComponent), pero se
+                renderiza y mide en el sistema de coordenadas HTML
+                normal, sin distorsión — mismo criterio que tenía Marca
+                de referencia. El contenedor tiene pointer-events:none
+                para que los clicks en el resto del plano sigan llegando
+                al <svg> de abajo; cada texto reactiva
+                pointer-events:auto individualmente para poder
+                clickearlo y borrarlo en cualquier momento, sin importar
+                qué herramienta esté activa. */}
             <div className="absolute inset-0" style={{ pointerEvents: "none" }}>
-              {marcas.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    eliminarMarcaConConfirmacion(m);
-                  }}
-                  title={`Marca "${m.letra}" — click para eliminar`}
-                  style={{ left: `${m.x}%`, top: `${m.y}%`, pointerEvents: "auto" }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#7C3AED] text-white text-[11px] font-bold flex items-center justify-center shadow-md border-2 border-white hover:bg-[#6D28D9] transition-colors"
-                >
-                  {m.letra}
-                </button>
-              ))}
-              {marcaPendiente && (
+              {anotaciones.map((a) => {
+                if (a.tipo !== "TEXTO" || a.x == null || a.y == null || !a.texto) return null;
+                return (
+                  <button
+                    key={a.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      eliminarAnotacionConConfirmacion(a);
+                    }}
+                    title={`"${a.texto}" — click para eliminar`}
+                    style={{
+                      left: `${a.x}%`,
+                      top: `${a.y}%`,
+                      pointerEvents: "auto",
+                      fontSize: `${a.tamano ?? 16}px`,
+                    }}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 font-bold text-[#2563EB] whitespace-nowrap leading-none hover:text-[#1D4ED8] transition-colors"
+                  >
+                    {a.texto}
+                  </button>
+                );
+              })}
+              {textoPendientePunto && (
                 <div
-                  style={{ left: `${marcaPendiente.x}%`, top: `${marcaPendiente.y}%` }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-amber-500/70 border-2 border-white shadow-md animate-pulse"
+                  style={{ left: `${textoPendientePunto.x}%`, top: `${textoPendientePunto.y}%` }}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-amber-500/70 border-2 border-white shadow-md animate-pulse"
                 />
               )}
             </div>
@@ -1138,8 +1403,8 @@ function VisorPrincipal({
           onGuardar={confirmarMedicion}
         />
       )}
-      {marcaPendiente && (
-        <ModalNuevaMarca onCancelar={() => setMarcaPendiente(null)} onGuardar={confirmarMarca} />
+      {textoPendientePunto && (
+        <ModalNuevoTexto onCancelar={() => setTextoPendientePunto(null)} onGuardar={confirmarTexto} />
       )}
       {mediciones.length > 0 && (
         <div className="absolute bottom-4 right-4 z-10 w-64 max-h-52 overflow-y-auto bg-white rounded-[10px] border border-slate-200 shadow-md p-1.5 space-y-0.5">
@@ -1380,9 +1645,9 @@ export default function Visor({
   mediciones,
   onGuardarMedicion,
   onEliminarMedicion,
-  marcas,
-  onGuardarMarca,
-  onEliminarMarca,
+  anotaciones,
+  onGuardarAnotacion,
+  onEliminarAnotacion,
   style,
 }: {
   /** null cuando el usuario entra al Visor sin tener ningún documento
@@ -1419,14 +1684,14 @@ export default function Visor({
   /** Borra una marca de medición ya guardada — también saca la fila que
    * había generado en la Planilla. */
   onEliminarMedicion: (medicionId: string) => Promise<void>;
-  /** Marcas de referencia (anotación, no medición) ya persistidas del
-   * documento principal — se dibujan sobre el plano. */
-  marcas: MarcaReferencia[];
-  /** Guarda una nueva marca de referencia — sin rubro, sin fila en la
-   * Planilla, solo se llama/muestra cuando es categoria=PLANO (no
-   * requiere calibración, a diferencia de Línea/Área). */
-  onGuardarMarca: (input: { x: number; y: number; letra: string }) => Promise<void>;
-  onEliminarMarca: (marcaId: string) => Promise<void>;
+  /** Anotaciones (Trazo libre / Texto — no son medición) ya persistidas
+   * del documento principal — se dibujan sobre el plano. */
+  anotaciones: Anotacion[];
+  /** Guarda una nueva anotación — sin rubro, sin fila en la Planilla,
+   * solo se llama/muestra cuando es categoria=PLANO (no requiere
+   * calibración, a diferencia de Línea/Área). */
+  onGuardarAnotacion: (input: NuevaAnotacionInput) => Promise<void>;
+  onEliminarAnotacion: (anotacionId: string) => Promise<void>;
   style?: React.CSSProperties;
 }) {
   const [notasLocal, setNotasLocal] = useState(notas);
@@ -1488,13 +1753,13 @@ export default function Visor({
       <div className="flex items-center gap-1 px-4 py-2 bg-white border-b border-slate-200 flex-shrink-0 flex-wrap">
         {controlesZoom && (
           <>
-            <button onClick={controlesZoom.zoomOut} title="Alejar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <button onClick={controlesZoom.zoomOut} title="Alejar" className="p-1.5 rounded-[6px] bg-brand-pale text-brand-deep hover:bg-brand-muted transition-colors">
               <ZoomOut className="w-4 h-4" />
             </button>
-            <button onClick={controlesZoom.zoomIn} title="Acercar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <button onClick={controlesZoom.zoomIn} title="Acercar" className="p-1.5 rounded-[6px] bg-brand-pale text-brand-deep hover:bg-brand-muted transition-colors">
               <ZoomIn className="w-4 h-4" />
             </button>
-            <button onClick={controlesZoom.resetTransform} title="Ajustar a vista" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <button onClick={controlesZoom.resetTransform} title="Ajustar a vista" className="p-1.5 rounded-[6px] bg-brand-pale text-brand-deep hover:bg-brand-muted transition-colors">
               <Maximize2 className="w-4 h-4" />
             </button>
             <div className="w-px h-4 bg-slate-200 mx-1" />
@@ -1503,7 +1768,7 @@ export default function Visor({
         <button
           onClick={onToggleExpandir}
           title={expandido ? "Volver a vista de 3 columnas" : "Expandir visor a pantalla completa"}
-          className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          className="p-1.5 rounded-[6px] bg-brand-pale text-brand-deep hover:bg-brand-muted transition-colors"
         >
           {expandido ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
         </button>
@@ -1524,15 +1789,15 @@ export default function Visor({
                   : "Medir una distancia trazando una línea sobre el plano"
               }
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors",
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
                 !puedeActivarMedicion
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
                   : controlesMedicion?.herramienta === "LINEA"
-                  ? "bg-[#1D4ED8] text-white"
-                  : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                  ? "border-brand-light bg-brand-light text-white"
+                  : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light"
               )}
             >
-              <Slash className="w-3.5 h-3.5" /> {controlesMedicion?.herramienta === "LINEA" ? "Midiendo…" : "Medir (línea)"}
+              <Ruler className="w-3.5 h-3.5" /> {controlesMedicion?.herramienta === "LINEA" ? "Midiendo…" : "Medir"}
             </button>
             <button
               onClick={controlesMedicion?.onToggleArea}
@@ -1547,12 +1812,12 @@ export default function Visor({
                   : "Cerrar el polígono y calcular el área"
               }
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors",
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
                 !puedeActivarMedicion
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
                   : controlesMedicion?.herramienta === "AREA"
-                  ? "bg-[#1D4ED8] text-white"
-                  : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                  ? "border-brand-light bg-brand-light text-white"
+                  : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light"
               )}
             >
               <Hexagon className="w-3.5 h-3.5" />
@@ -1560,35 +1825,54 @@ export default function Visor({
                 ? controlesMedicion.puntosAreaCount >= 3
                   ? `Finalizar (${controlesMedicion.puntosAreaCount})`
                   : `Dibujando… (${controlesMedicion.puntosAreaCount})`
-                : "Medir (área)"}
+                : "Área"}
             </button>
           </>
         )}
         {documentoPrincipal?.categoria === "PLANO" && (
           <>
             <div className="w-px h-4 bg-slate-200 mx-1" />
-            {/* Marca de referencia — herramienta de ANOTACIÓN, no de
-                medición: a diferencia de Línea/Área no requiere
-                calibración (no mide nada), así que su gate es solo
+            {/* Trazo libre y Texto — herramientas de ANOTACIÓN, no de
+                medición: a diferencia de Línea/Área no requieren
+                calibración (no miden nada), así que su gate es solo
                 categoria=PLANO, independiente de factorEscala. */}
             <button
-              onClick={controlesMedicion?.onToggleMarca}
+              onClick={controlesMedicion?.onToggleTrazo}
               disabled={!controlesMedicion}
               title={
-                controlesMedicion?.marcaActiva
-                  ? "Poniendo marcas — clic en el plano para cada una"
-                  : "Marca de referencia — dejá una letra en un punto del plano; explicá qué significa en Notas"
+                controlesMedicion?.trazoActivo
+                  ? "Dibujando — clic y arrastre para trazar a mano alzada"
+                  : "Trazo libre — dibujá a mano alzada sobre el plano (flecha, círculo, subrayado, etc.)"
               }
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors",
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
                 !controlesMedicion
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : controlesMedicion.marcaActiva
-                  ? "bg-[#1D4ED8] text-white"
-                  : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                  ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : controlesMedicion.trazoActivo
+                  ? "border-brand-light bg-brand-light text-white"
+                  : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light"
               )}
             >
-              <MapPin className="w-3.5 h-3.5" /> {controlesMedicion?.marcaActiva ? "Marcando…" : "Marca de referencia"}
+              <Pencil className="w-3.5 h-3.5" /> {controlesMedicion?.trazoActivo ? "Dibujando…" : "Trazo libre"}
+            </button>
+            <button
+              onClick={controlesMedicion?.onToggleTexto}
+              disabled={!controlesMedicion}
+              title={
+                controlesMedicion?.textoActivo
+                  ? "Poniendo texto — clic en el plano"
+                  : "Texto — dejá una letra o palabra en un punto del plano, con tamaño ajustable"
+              }
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
+                !controlesMedicion
+                  ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : controlesMedicion.textoActivo
+                  ? "border-brand-light bg-brand-light text-white"
+                  : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light"
+              )}
+            >
+              <TypeIcon className="w-3.5 h-3.5" /> {controlesMedicion?.textoActivo ? "Marcando…" : "Texto"}
             </button>
           </>
         )}
@@ -1608,11 +1892,11 @@ export default function Visor({
                 key={documentoPrincipal.id}
                 doc={documentoPrincipal}
                 mediciones={mediciones}
-                marcas={marcas}
+                anotaciones={anotaciones}
                 onGuardarMedicion={onGuardarMedicion}
                 onEliminarMedicion={onEliminarMedicion}
-                onGuardarMarca={onGuardarMarca}
-                onEliminarMarca={onEliminarMarca}
+                onGuardarAnotacion={onGuardarAnotacion}
+                onEliminarAnotacion={onEliminarAnotacion}
                 onControlesZoomListos={setControlesZoom}
                 onControlesMedicionListos={setControlesMedicion}
               />

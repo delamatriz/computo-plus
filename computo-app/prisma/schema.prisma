@@ -411,7 +411,7 @@ model DocumentoMetraje {
   metodoCalibracion     String?  // "DECLARADA" | "COTA" (Método A, futuro)
 
   mediciones            MedicionDocumento[]
-  marcas                MarcaReferencia[]
+  anotaciones           Anotacion[]
 
   createdAt             DateTime @default(now())
 }
@@ -453,22 +453,32 @@ model MedicionDocumento {
   createdAt     DateTime         @default(now())
 }
 
-// Marca de referencia — herramienta de ANOTACIÓN (no de medición) sobre
-// un plano: una letra simple (ej. "A", "B") en un punto, a modo de
-// referencia visual rápida. A propósito NO es un tipo más de
-// MedicionDocumento — no mide nada (no requiere calibración, no se
-// asocia a rubro, no genera fila en la Planilla), así que forzarla en
-// ese modelo dejaría un montón de campos (rubroId, repeticiones,
-// longitudReal, areaReal, puntos) sin sentido en cada fila. El
-// significado de cada letra se explica en el campo Notas del proyecto
-// (ya existente, debajo del Visor) — acá solo vive la marca visual.
-model MarcaReferencia {
+// Anotaciones libres sobre un plano — reemplaza a MarcaReferencia (que
+// solo servía para una letra fija en un punto). Dos herramientas, mismo
+// modelo con discriminador `tipo`, mismo criterio que MedicionDocumento
+// para LINEA/AREA: campos nullable según el tipo, sin CHECK constraint a
+// nivel de base (se valida en la API). Ninguna de las dos mide nada (no
+// requieren calibración), no se asocian a rubro, no generan fila en la
+// Planilla — se eliminan con click + confirmación, igual que tenía Marca
+// de referencia.
+model Anotacion {
   id          String           @id @default(cuid())
   documentoId String
   documento   DocumentoMetraje @relation(fields: [documentoId], references: [id], onDelete: Cascade)
-  letra       String           // ej. "A", "B" — la escribe el usuario, sin unicidad forzada
-  x           Float            // % del plano (0-100)
-  y           Float            // % del plano (0-100)
+  tipo        String           // "TRAZO" | "TEXTO"
+
+  // TEXTO — punto de anclaje + contenido + tamaño de fuente en px (a
+  // escala 100% de zoom — el contenedor que lo envuelve ya escala con
+  // el zoom/pan del documento, así que no hace falta expresarlo en %).
+  x           Float?           // % del plano (0-100)
+  y           Float?           // % del plano (0-100)
+  texto       String?
+  tamano      Float?           // tamaño de fuente en px
+
+  // TRAZO — path de N puntos a mano alzada (N >= 2), mismo sistema de
+  // coordenadas (% del plano, 0-100) que el resto de las herramientas.
+  puntos      Json?            // [{ x: number, y: number }, ...] — solo tipo=TRAZO
+
   createdAt   DateTime         @default(now())
 }
 

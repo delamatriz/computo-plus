@@ -9,8 +9,8 @@ import { X, Plus, Sparkles, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { urlProxyDocumentoMetraje } from "@/lib/blob";
 import { fmtNum, subtotalFila, nuevaFila, type MetrajeFila, type RubroOption } from "@/components/metrajes/metrajeFila";
-import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, MarcaReferencia } from "@/components/metrajes/documentoMetraje";
-import type { NuevaMedicionInput } from "@/components/metrajes/Visor";
+import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, Anotacion } from "@/components/metrajes/documentoMetraje";
+import type { NuevaMedicionInput, NuevaAnotacionInput } from "@/components/metrajes/Visor";
 
 // Visor y PlanillaComputo (vía Visor) importan react-pdf (pdf.js), que
 // revienta con "DOMMatrix is not defined" si su módulo se evalúa en el
@@ -75,10 +75,10 @@ export default function VisorProyectoPage() {
   // documento abierto.
   const [mediciones, setMediciones] = useState<MedicionDocumento[]>([]);
 
-  // Marcas de referencia (anotación, no medición — letra en un punto)
-  // del documento principal. Mismo mecanismo de carga que mediciones,
-  // pero endpoint y tabla separados (ver prisma/schema.prisma).
-  const [marcas, setMarcas] = useState<MarcaReferencia[]>([]);
+  // Anotaciones (Trazo libre / Texto — no son medición) del documento
+  // principal. Mismo mecanismo de carga que mediciones, pero endpoint y
+  // tabla separados (ver prisma/schema.prisma).
+  const [anotaciones, setAnotaciones] = useState<Anotacion[]>([]);
 
   // Notas — única por proyecto
   const [notas, setNotas] = useState("");
@@ -281,22 +281,22 @@ export default function VisorProyectoPage() {
     setFilas((prev) => prev.filter((f) => f.id !== medicionId));
   }
 
-  // Carga las marcas de referencia del documento principal — mismo
-  // mecanismo que mediciones, endpoint separado.
+  // Carga las anotaciones del documento principal — mismo mecanismo que
+  // mediciones, endpoint separado.
   useEffect(() => {
     if (!documentoAbierto || documentoAbierto.categoria !== "PLANO") {
-      setMarcas([]);
+      setAnotaciones([]);
       return;
     }
     let cancelado = false;
     (async () => {
       try {
-        const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/marcas`);
+        const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/anotaciones`);
         if (!res.ok) throw new Error();
         const data = await res.json();
-        if (!cancelado) setMarcas(data.marcas ?? []);
+        if (!cancelado) setAnotaciones(data.anotaciones ?? []);
       } catch {
-        if (!cancelado) setMarcas([]);
+        if (!cancelado) setAnotaciones([]);
       }
     })();
     return () => {
@@ -304,28 +304,28 @@ export default function VisorProyectoPage() {
     };
   }, [documentoAbierto, proyectoId]);
 
-  // Guarda una nueva marca de referencia — sin fila en la Planilla (no
-  // mide nada, ver comentario en prisma/schema.prisma).
-  async function guardarMarca(input: { x: number; y: number; letra: string }) {
+  // Guarda una nueva anotación — sin fila en la Planilla (no mide nada,
+  // ver comentario en prisma/schema.prisma).
+  async function guardarAnotacion(input: NuevaAnotacionInput) {
     if (!documentoAbierto) return;
-    const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/marcas`, {
+    const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/anotaciones`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
     if (!res.ok) throw new Error();
     const data = await res.json();
-    setMarcas((prev) => [...prev, data.marca]);
+    setAnotaciones((prev) => [...prev, data.anotacion]);
   }
 
-  async function eliminarMarca(marcaId: string) {
+  async function eliminarAnotacion(anotacionId: string) {
     if (!documentoAbierto) return;
     const res = await fetch(
-      `/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/marcas/${marcaId}`,
+      `/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/anotaciones/${anotacionId}`,
       { method: "DELETE" }
     );
     if (!res.ok) throw new Error();
-    setMarcas((prev) => prev.filter((m) => m.id !== marcaId));
+    setAnotaciones((prev) => prev.filter((a) => a.id !== anotacionId));
   }
 
   async function guardarNotas(nuevasNotas: string) {
@@ -577,9 +577,9 @@ export default function VisorProyectoPage() {
               mediciones={mediciones}
               onGuardarMedicion={guardarMedicion}
               onEliminarMedicion={eliminarMedicion}
-              marcas={marcas}
-              onGuardarMarca={guardarMarca}
-              onEliminarMarca={eliminarMarca}
+              anotaciones={anotaciones}
+              onGuardarAnotacion={guardarAnotacion}
+              onEliminarAnotacion={eliminarAnotacion}
             />
           </div>
         </div>

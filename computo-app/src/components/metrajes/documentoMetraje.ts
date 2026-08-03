@@ -147,17 +147,23 @@ export interface MedicionDocumento {
   createdAt: string;
 }
 
-// Marca de referencia — herramienta de ANOTACIÓN (no de medición) sobre
-// un plano: una letra en un punto, a modo de referencia visual rápida.
-// Ver comentario en prisma/schema.prisma — a propósito NO es un tipo
-// más de MedicionDocumento (no mide nada, no requiere calibración, no
-// se asocia a rubro). El significado de la letra se explica en Notas.
-export interface MarcaReferencia {
+// Anotaciones libres sobre un plano — herramientas de ANOTACIÓN (no de
+// medición): Trazo libre (mano alzada, path de puntos) y Texto (letra o
+// palabra en un punto, con tamaño ajustable). Ver comentario en
+// prisma/schema.prisma — a propósito NO son un tipo más de
+// MedicionDocumento (no miden nada, no requieren calibración, no se
+// asocian a rubro). Reemplaza a la vieja "Marca de referencia".
+export type TipoAnotacion = "TRAZO" | "TEXTO";
+
+export interface Anotacion {
   id: string;
   documentoId: string;
-  letra: string;
-  x: number;
-  y: number;
+  tipo: TipoAnotacion;
+  x: number | null;
+  y: number | null;
+  texto: string | null;
+  tamano: number | null;
+  puntos: PuntoMedicion[] | null;
   createdAt: string;
 }
 
