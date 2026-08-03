@@ -28,7 +28,6 @@ import {
 import { cn } from "@/lib/utils";
 import { obtenerArchivoCacheado } from "@/lib/archivoCache";
 import { PDF_OPTIONS, parsearEscala, type DocumentoDetalle, type DocumentoResumen, type MedicionDocumento } from "./documentoMetraje";
-import type { RubroOption } from "./metrajeFila";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -222,22 +221,20 @@ function ModalCalibrarEscala({
   );
 }
 
-// FILA 1 del Visor — antes eran dos filas separadas (banner de
-// calibración + barra de la herramienta de Línea con el selector de
-// rubro) — unificadas acá en una sola línea horizontal. El selector de
-// rubro solo aparece una vez calibrado, mismo principio no negociable
-// de siempre: sin calibrar no se puede medir, así que no tiene sentido
-// elegir rubro todavía.
-function FilaEstadoYRubro({
+// FILA 1 del Visor — indicador de calibración + botón para
+// calibrar/cambiar escala. El rubro de una medición YA NO se elige
+// acá ni en el modal de confirmación — se asocia después, directo en
+// la columna "Rubro vinculado" de la Planilla de Cómputo, igual que
+// cualquier otra fila tipeada a mano (ver investigación: el rubroId
+// de una fila/medición nunca actualizó Rubro.cantidad en la base, es
+// puramente informativo — no hay ninguna razón para forzar elegirlo
+// ANTES de medir).
+function FilaCalibracion({
   doc,
   onGuardarCalibracion,
-  rubrosDisponibles,
-  controlesMedicion,
 }: {
   doc: DocumentoDetalle;
   onGuardarCalibracion: (escalaDeclarada: string, factorEscala: number) => Promise<void>;
-  rubrosDisponibles: RubroOption[];
-  controlesMedicion: ControlesMedicion | null;
 }) {
   const [modalAbierto, setModalAbierto] = useState(false);
   const calibrado = doc.factorEscala != null && doc.escalaDeclarada;
@@ -283,28 +280,6 @@ function FilaEstadoYRubro({
           >
             <Ruler className="w-3.5 h-3.5" /> Calibrar escala
           </button>
-        )}
-        {calibrado && (
-          <select
-            value={controlesMedicion?.rubroSeleccionado ?? ""}
-            onChange={(e) => controlesMedicion?.onCambiarRubro(e.target.value)}
-            disabled={!controlesMedicion || controlesMedicion.herramienta != null}
-            className="flex-1 min-w-[200px] max-w-sm text-xs text-slate-600 bg-white border border-slate-200 rounded-[8px] px-2 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/20"
-          >
-            <option value="">Elegí un rubro para medir…</option>
-            {Object.entries(
-              rubrosDisponibles.reduce<Record<string, RubroOption[]>>((acc, r) => {
-                (acc[r.capituloNombre] ??= []).push(r);
-                return acc;
-              }, {})
-            ).map(([capNombre, rubros]) => (
-              <optgroup key={capNombre} label={capNombre}>
-                {rubros.map((r) => (
-                  <option key={r.id} value={r.id}>{r.nombre}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
         )}
       </div>
       {modalAbierto && (
@@ -415,18 +390,17 @@ function puntoDesdeEvento(svg: SVGSVGElement, clientX: number, clientY: number):
 
 // Modal de confirmación compartido entre Línea y Área — mismo patrón
 // de UX para ambas: valor calculado pre-cargado (editable a mano),
-// descripción, repeticiones, rubro ya elegido. Solo cambia la
-// etiqueta/unidad del valor numérico.
+// descripción, repeticiones. Sin rubro acá — se asigna después, directo
+// en la columna "Rubro vinculado" de la Planilla (ver comentario en
+// FilaCalibracion). Solo cambia la etiqueta/unidad del valor numérico.
 function ModalConfirmarMedicion({
   unidadLabel,
   valorInicial,
-  rubroNombre,
   onCancelar,
   onGuardar,
 }: {
   unidadLabel: string;
   valorInicial: number;
-  rubroNombre: string;
   onCancelar: () => void;
   onGuardar: (descripcion: string, repeticiones: number, valor: number) => Promise<void>;
 }) {
@@ -516,9 +490,6 @@ function ModalConfirmarMedicion({
               />
             </div>
           </div>
-          <p className="text-xs text-slate-400">
-            Rubro: <span className="font-medium text-slate-600">{rubroNombre}</span>
-          </p>
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
         <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
@@ -586,13 +557,11 @@ export interface ControlesZoom {
 }
 
 /** Expone el estado + acciones de las herramientas de medición del
- * VisorPrincipal hacia FILA 1 (selector de rubro) y FILA 2 (botones
- * "Medir") del Visor — mismo patrón que ControlesZoom. Solo una
- * herramienta puede estar activa a la vez. */
+ * VisorPrincipal hacia FILA 2 (botones "Medir") del Visor — mismo
+ * patrón que ControlesZoom. Solo una herramienta puede estar activa a
+ * la vez. Sin rubro acá — se elige después en la Planilla. */
 export interface ControlesMedicion {
   pageDimsListo: boolean;
-  rubroSeleccionado: string;
-  onCambiarRubro: (id: string) => void;
   herramienta: "LINEA" | "AREA" | null;
   onToggleLinea: () => void;
   /** Click en el botón "Medir (área)" — arranca la herramienta si está
@@ -614,7 +583,6 @@ type MedicionPendiente =
 
 function VisorPrincipal({
   doc,
-  rubrosDisponibles,
   mediciones,
   onGuardarMedicion,
   onEliminarMedicion,
@@ -622,7 +590,6 @@ function VisorPrincipal({
   onControlesMedicionListos,
 }: {
   doc: DocumentoDetalle;
-  rubrosDisponibles: RubroOption[];
   mediciones: MedicionDocumento[];
   onGuardarMedicion: (input: NuevaMedicionInput) => Promise<void>;
   /** Borra una marca de medición ya guardada (corrección de un trazo mal
@@ -632,8 +599,8 @@ function VisorPrincipal({
    * header del Visor (fuera de este árbol) — los botones de zoom viven
    * ahí, junto a expandir/cerrar, en vez de flotando sobre el documento. */
   onControlesZoomListos: (controles: ControlesZoom | null) => void;
-  /** Expone el estado del selector de rubro + las herramientas de
-   * medición hacia FILA 1/FILA 2 del Visor (fuera de este árbol). */
+  /** Expone el estado de las herramientas de medición hacia FILA 2 del
+   * Visor (fuera de este árbol). */
   onControlesMedicionListos: (controles: ControlesMedicion | null) => void;
 }) {
   const { cargando, progreso, blob, imgObjectUrl, error, setError } = useArchivoBlob(doc);
@@ -657,7 +624,6 @@ function VisorPrincipal({
   const actualizarDPRSegunZoom = (ref: ReactZoomPanPinchRef) => setMultiplicadorDPR(multiplicadorParaEscala(ref.state.scale));
   const dprRender = Math.min((typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicadorDPR, DPR_MAXIMO);
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
-  const [rubroSeleccionado, setRubroSeleccionado] = useState("");
   const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
   const [puntosArea, setPuntosArea] = useState<{ x: number; y: number }[]>([]);
@@ -756,10 +722,10 @@ function VisorPrincipal({
     }
   };
 
-  const rubroNombre = rubrosDisponibles.find((r) => r.id === rubroSeleccionado)?.nombre ?? "Sin rubro";
-
   const confirmarMedicion = async (descripcion: string, repeticiones: number, valor: number) => {
     if (!medicionPendiente) return;
+    // Sin rubro acá — se elige después en la columna "Rubro vinculado"
+    // de la Planilla, igual que cualquier otra fila.
     if (medicionPendiente.tipo === "LINEA") {
       await onGuardarMedicion({
         tipo: "LINEA",
@@ -770,7 +736,7 @@ function VisorPrincipal({
         longitudReal: valor,
         repeticiones,
         descripcion,
-        rubroId: rubroSeleccionado || null,
+        rubroId: null,
       });
     } else {
       await onGuardarMedicion({
@@ -779,7 +745,7 @@ function VisorPrincipal({
         areaReal: valor,
         repeticiones,
         descripcion,
-        rubroId: rubroSeleccionado || null,
+        rubroId: null,
       });
     }
     setMedicionPendiente(null);
@@ -801,11 +767,11 @@ function VisorPrincipal({
 
   // Empuja el estado de las herramientas de medición hacia arriba en
   // cada cambio relevante (no solo al montar) — a diferencia del efecto
-  // de zoom de arriba, FILA 1/FILA 2 necesitan reflejar valores que
-  // cambian todo el tiempo (rubro elegido, qué herramienta está activa,
-  // cuántos vértices lleva el polígono), no solo funciones estables. El
-  // unmount (doc.id cambia, o se cierra el documento) se maneja aparte
-  // para no limpiar y volver a setear en cada cambio.
+  // de zoom de arriba, FILA 2 necesita reflejar valores que cambian
+  // todo el tiempo (qué herramienta está activa, cuántos vértices lleva
+  // el polígono), no solo funciones estables. El unmount (doc.id
+  // cambia, o se cierra el documento) se maneja aparte para no limpiar
+  // y volver a setear en cada cambio.
   useEffect(() => {
     if (doc.tipoArchivo === "DWG") {
       onControlesMedicionListos(null);
@@ -813,15 +779,13 @@ function VisorPrincipal({
     }
     onControlesMedicionListos({
       pageDimsListo: pageDimsMM != null,
-      rubroSeleccionado,
-      onCambiarRubro: setRubroSeleccionado,
       herramienta,
       onToggleLinea: toggleLinea,
       onToggleArea: toggleArea,
       puntosAreaCount: puntosArea.length,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.tipoArchivo, pageDimsMM, rubroSeleccionado, herramienta, puntosArea.length]);
+  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length]);
 
   useEffect(() => {
     return () => onControlesMedicionListos(null);
@@ -993,7 +957,6 @@ function VisorPrincipal({
         <ModalConfirmarMedicion
           unidadLabel={medicionPendiente.tipo === "LINEA" ? "Longitud (m)" : "Área (m²)"}
           valorInicial={medicionPendiente.valor}
-          rubroNombre={rubroNombre}
           onCancelar={() => setMedicionPendiente(null)}
           onGuardar={confirmarMedicion}
         />
@@ -1234,7 +1197,6 @@ export default function Visor({
   imagenesParaIA,
   onAnalizarConIA,
   onGuardarCalibracion,
-  rubrosDisponibles,
   mediciones,
   onGuardarMedicion,
   onEliminarMedicion,
@@ -1263,15 +1225,13 @@ export default function Visor({
   /** Guarda la calibración de escala (Etapa 2 de "Metrajes con plano") del
    * documento principal — solo se llama/muestra cuando es categoria=PLANO. */
   onGuardarCalibracion: (escalaDeclarada: string, factorEscala: number) => Promise<void>;
-  /** Rubros del proyecto, para el selector de la herramienta de Línea
-   * (Etapa 3) — mismo listado que ya usa "Rubro vinculado" en la Planilla. */
-  rubrosDisponibles: RubroOption[];
   /** Marcas de medición ya persistidas del documento principal (se
    * recargan al abrir el documento) — se dibujan sobre el plano. */
   mediciones: MedicionDocumento[];
-  /** Guarda una nueva marca de medición (Etapa 3, herramienta de Línea)
-   * del documento principal — solo se llama/muestra cuando es
-   * categoria=PLANO && tipoArchivo=PDF && ya calibrado. */
+  /** Guarda una nueva marca de medición (Etapa 3, Línea o Área) del
+   * documento principal — solo se llama/muestra cuando es
+   * categoria=PLANO && tipoArchivo=PDF && ya calibrado. Sin rubro —
+   * se asigna después en la Planilla. */
   onGuardarMedicion: (input: NuevaMedicionInput) => Promise<void>;
   /** Borra una marca de medición ya guardada — también saca la fila que
    * había generado en la Planilla. */
@@ -1284,8 +1244,7 @@ export default function Visor({
 
   const [controlesZoom, setControlesZoom] = useState<ControlesZoom | null>(null);
   const [controlesMedicion, setControlesMedicion] = useState<ControlesMedicion | null>(null);
-  const puedeActivarMedicion =
-    documentoPrincipal?.tipoArchivo === "PDF" && !!controlesMedicion?.pageDimsListo && !!controlesMedicion?.rubroSeleccionado;
+  const puedeActivarMedicion = documentoPrincipal?.tipoArchivo === "PDF" && !!controlesMedicion?.pageDimsListo;
 
   const guardarNotasSiCambio = async () => {
     if (notasLocal === notas) return;
@@ -1329,14 +1288,9 @@ export default function Visor({
         </div>
       </div>
 
-      {/* FILA 1 — estado de calibración + selector de rubro para medir */}
+      {/* FILA 1 — estado de calibración */}
       {documentoPrincipal?.categoria === "PLANO" && (
-        <FilaEstadoYRubro
-          doc={documentoPrincipal}
-          onGuardarCalibracion={onGuardarCalibracion}
-          rubrosDisponibles={rubrosDisponibles}
-          controlesMedicion={controlesMedicion}
-        />
+        <FilaCalibracion doc={documentoPrincipal} onGuardarCalibracion={onGuardarCalibracion} />
       )}
 
       {/* FILA 2 — barra de herramientas única: zoom | expandir | medición | cerrar */}
@@ -1374,8 +1328,6 @@ export default function Visor({
               title={
                 documentoPrincipal.tipoArchivo !== "PDF"
                   ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
-                  : !controlesMedicion?.rubroSeleccionado
-                  ? "Elegí un rubro antes de medir"
                   : controlesMedicion?.herramienta === "LINEA"
                   ? "Midiendo — clic y arrastre para dibujar una línea"
                   : "Medir una distancia trazando una línea sobre el plano"
@@ -1397,8 +1349,6 @@ export default function Visor({
               title={
                 documentoPrincipal.tipoArchivo !== "PDF"
                   ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
-                  : !controlesMedicion?.rubroSeleccionado
-                  ? "Elegí un rubro antes de medir"
                   : controlesMedicion?.herramienta !== "AREA"
                   ? "Medir una superficie dibujando un polígono sobre el plano — clic para cada vértice"
                   : controlesMedicion.puntosAreaCount < 3
@@ -1438,7 +1388,6 @@ export default function Visor({
               <VisorPrincipal
                 key={documentoPrincipal.id}
                 doc={documentoPrincipal}
-                rubrosDisponibles={rubrosDisponibles}
                 mediciones={mediciones}
                 onGuardarMedicion={onGuardarMedicion}
                 onEliminarMedicion={onEliminarMedicion}

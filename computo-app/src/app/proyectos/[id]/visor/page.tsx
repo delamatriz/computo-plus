@@ -522,7 +522,6 @@ export default function VisorProyectoPage() {
               imagenesParaIA={imagenesParaIA}
               onAnalizarConIA={analizarConIA}
               onGuardarCalibracion={guardarCalibracion}
-              rubrosDisponibles={rubrosDisponibles}
               mediciones={mediciones}
               onGuardarMedicion={guardarMedicion}
               onEliminarMedicion={eliminarMedicion}
