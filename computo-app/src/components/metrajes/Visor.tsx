@@ -23,11 +23,12 @@ import {
   AlertTriangle,
   Slash,
   Hexagon,
+  MapPin,
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { obtenerArchivoCacheado } from "@/lib/archivoCache";
-import { PDF_OPTIONS, parsearEscala, type DocumentoDetalle, type DocumentoResumen, type MedicionDocumento } from "./documentoMetraje";
+import { PDF_OPTIONS, parsearEscala, type DocumentoDetalle, type DocumentoResumen, type MedicionDocumento, type MarcaReferencia } from "./documentoMetraje";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -517,6 +518,98 @@ function ModalConfirmarMedicion({
   );
 }
 
+// Modal de la herramienta de Marca de referencia — mucho más chico que
+// el de Línea/Área a propósito: no mide nada, así que no hay valor
+// calculado ni rubro, solo la letra que el usuario elige a mano.
+function ModalNuevaMarca({
+  onCancelar,
+  onGuardar,
+}: {
+  onCancelar: () => void;
+  onGuardar: (letra: string) => Promise<void>;
+}) {
+  const [letra, setLetra] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const guardar = async () => {
+    if (!letra.trim()) {
+      setError("Escribí una letra (ej. A).");
+      return;
+    }
+    if (letra.trim().length > 4) {
+      setError("Máximo 4 caracteres.");
+      return;
+    }
+    setGuardando(true);
+    setError(null);
+    try {
+      await onGuardar(letra.trim());
+    } catch {
+      setError("No se pudo guardar la marca. Probá de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onCancelar} />
+      <div className="relative w-full max-w-xs bg-white rounded-[16px] shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <h2 className="text-base font-bold text-[#1A3A5C]">Nueva marca</h2>
+          <button onClick={onCancelar} className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-5 py-4 space-y-2">
+          <label className="block text-sm font-semibold text-[#1A3A5C]">Letra</label>
+          <input
+            type="text"
+            value={letra}
+            onChange={(e) => {
+              setLetra(e.target.value);
+              if (error) setError(null);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && guardar()}
+            placeholder="Ej. A"
+            maxLength={4}
+            autoFocus
+            className="w-20 px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 text-center placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
+          />
+          {error ? (
+            <p className="text-xs text-red-600">{error}</p>
+          ) : (
+            <p className="text-xs text-slate-400">
+              Explicá qué significa en el campo Notas, debajo del Visor.
+            </p>
+          )}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+          <button
+            onClick={onCancelar}
+            disabled={guardando}
+            className="px-4 py-2 rounded-[8px] text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={guardar}
+            disabled={guardando}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-sm font-semibold text-white transition-colors",
+              guardando ? "bg-slate-300 cursor-not-allowed" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+            )}
+          >
+            {guardando && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {guardando ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Mínimo de la forma de PDFPageProxy que usamos — evitar depender del
 // tipo exacto exportado por pdfjs-dist/react-pdf.
 type PaginaPDFCargada = { getViewport: (opts: { scale: number }) => { width: number; height: number } };
@@ -556,12 +649,16 @@ export interface ControlesZoom {
   resetTransform: () => void;
 }
 
-/** Expone el estado + acciones de las herramientas de medición del
- * VisorPrincipal hacia FILA 2 (botones "Medir") del Visor — mismo
- * patrón que ControlesZoom. Solo una herramienta puede estar activa a
- * la vez. Sin rubro acá — se elige después en la Planilla. */
+/** Expone el estado + acciones de las herramientas de medición/anotación
+ * del VisorPrincipal hacia FILA 2 (botones "Medir"/"Marca") del Visor —
+ * mismo patrón que ControlesZoom. Solo una herramienta puede estar
+ * activa a la vez (Línea, Área o Marca). Sin rubro acá — se elige
+ * después en la Planilla. */
 export interface ControlesMedicion {
   pageDimsListo: boolean;
+  /** null tanto cuando no hay ninguna herramienta activa como cuando la
+   * activa es Marca (ver marcaActiva) — así los botones de Línea/Área
+   * no se muestran "prendidos" mientras se está poniendo una marca. */
   herramienta: "LINEA" | "AREA" | null;
   onToggleLinea: () => void;
   /** Click en el botón "Medir (área)" — arranca la herramienta si está
@@ -572,6 +669,10 @@ export interface ControlesMedicion {
   /** Vértices puestos del polígono en curso — FILA 2 lo usa para
    * decidir el texto del botón ("Dibujando…" vs "Finalizar (N)"). */
   puntosAreaCount: number;
+  /** Herramienta de Marca de referencia — sin calibración/rubro/PDF de
+   * por medio, así que se maneja aparte de herramienta (arriba). */
+  marcaActiva: boolean;
+  onToggleMarca: () => void;
 }
 
 // Medición pendiente de confirmar en el modal — Línea o Área, cada
@@ -584,17 +685,23 @@ type MedicionPendiente =
 function VisorPrincipal({
   doc,
   mediciones,
+  marcas,
   onGuardarMedicion,
   onEliminarMedicion,
+  onGuardarMarca,
+  onEliminarMarca,
   onControlesZoomListos,
   onControlesMedicionListos,
 }: {
   doc: DocumentoDetalle;
   mediciones: MedicionDocumento[];
+  marcas: MarcaReferencia[];
   onGuardarMedicion: (input: NuevaMedicionInput) => Promise<void>;
   /** Borra una marca de medición ya guardada (corrección de un trazo mal
    * hecho) — también saca la fila que había generado en la Planilla. */
   onEliminarMedicion: (medicionId: string) => Promise<void>;
+  onGuardarMarca: (input: { x: number; y: number; letra: string }) => Promise<void>;
+  onEliminarMarca: (marcaId: string) => Promise<void>;
   /** Expone zoomIn/zoomOut/resetTransform del TransformWrapper hacia el
    * header del Visor (fuera de este árbol) — los botones de zoom viven
    * ahí, junto a expandir/cerrar, en vez de flotando sobre el documento. */
@@ -624,11 +731,12 @@ function VisorPrincipal({
   const actualizarDPRSegunZoom = (ref: ReactZoomPanPinchRef) => setMultiplicadorDPR(multiplicadorParaEscala(ref.state.scale));
   const dprRender = Math.min((typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicadorDPR, DPR_MAXIMO);
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
-  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | null>(null);
+  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "MARCA" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
   const [puntosArea, setPuntosArea] = useState<{ x: number; y: number }[]>([]);
   const [cursorArea, setCursorArea] = useState<{ x: number; y: number } | null>(null);
   const [medicionPendiente, setMedicionPendiente] = useState<MedicionPendiente | null>(null);
+  const [marcaPendiente, setMarcaPendiente] = useState<{ x: number; y: number } | null>(null);
 
   const handlePaginaCargada = (page: PaginaPDFCargada) => {
     const viewport = page.getViewport({ scale: 1 });
@@ -663,15 +771,19 @@ function VisorPrincipal({
     setMedicionPendiente({ tipo: "LINEA", xInicio, yInicio, xFin, yFin, valor });
   };
 
-  // Click para AREA — cada click agrega un vértice. mousedown/mouseup ya
-  // están ocupados por el drag de Línea, así que el punteo de Área usa
-  // onClick (un click "de verdad", sin arrastre significativo de por
-  // medio) para no pisarse con esa lógica.
+  // Click para AREA (agrega un vértice) y para MARCA (abre el modal de
+  // la letra en ese punto). mousedown/mouseup ya están ocupados por el
+  // drag de Línea, así que ambas usan onClick (un click "de verdad", sin
+  // arrastre significativo de por medio) para no pisarse con esa lógica.
   const onSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (herramienta !== "AREA" || medicionPendiente || !svgRef.current) return;
-    const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
-    if (!p) return;
-    setPuntosArea((prev) => [...prev, p]);
+    if (!svgRef.current) return;
+    if (herramienta === "AREA" && !medicionPendiente) {
+      const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
+      if (p) setPuntosArea((prev) => [...prev, p]);
+    } else if (herramienta === "MARCA" && !marcaPendiente) {
+      const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
+      if (p) setMarcaPendiente(p);
+    }
   };
 
   const onSvgMouseLeave = () => {
@@ -703,6 +815,7 @@ function VisorPrincipal({
     setHerramienta("LINEA");
     setPuntosArea([]);
     setCursorArea(null);
+    setMarcaPendiente(null);
   };
 
   const toggleArea = () => {
@@ -711,6 +824,7 @@ function VisorPrincipal({
       setPuntosArea([]);
       setCursorArea(null);
       setDibujoActual(null);
+      setMarcaPendiente(null);
       return;
     }
     if (puntosArea.length >= 3) {
@@ -719,6 +833,30 @@ function VisorPrincipal({
       setHerramienta(null);
       setPuntosArea([]);
       setCursorArea(null);
+    }
+  };
+
+  const toggleMarca = () => {
+    if (herramienta === "MARCA") {
+      setHerramienta(null);
+      setMarcaPendiente(null);
+      return;
+    }
+    setHerramienta("MARCA");
+    setDibujoActual(null);
+    setPuntosArea([]);
+    setCursorArea(null);
+  };
+
+  const confirmarMarca = async (letra: string) => {
+    if (!marcaPendiente) return;
+    await onGuardarMarca({ x: marcaPendiente.x, y: marcaPendiente.y, letra });
+    setMarcaPendiente(null);
+  };
+
+  const eliminarMarcaConConfirmacion = (marca: MarcaReferencia) => {
+    if (confirm(`¿Eliminar la marca "${marca.letra}"?`)) {
+      onEliminarMarca(marca.id);
     }
   };
 
@@ -779,10 +917,12 @@ function VisorPrincipal({
     }
     onControlesMedicionListos({
       pageDimsListo: pageDimsMM != null,
-      herramienta,
+      herramienta: herramienta === "MARCA" ? null : herramienta,
       onToggleLinea: toggleLinea,
       onToggleArea: toggleArea,
       puntosAreaCount: puntosArea.length,
+      marcaActiva: herramienta === "MARCA",
+      onToggleMarca: toggleMarca,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length]);
@@ -950,6 +1090,43 @@ function VisorPrincipal({
                 />
               )}
             </svg>
+            {/* Marcas de referencia — capa HTML aparte (no dentro del
+                <svg>) a propósito: el viewBox de arriba usa
+                preserveAspectRatio="none", que estira todo de forma NO
+                uniforme según el aspecto del documento — un círculo con
+                letra adentro quedaría ovalado y el texto deformado.
+                Posicionado por % (left/top), así que sigue el pan/zoom
+                del documento igual que el resto (mismo wrapper
+                escalado por TransformComponent), pero se renderiza y
+                mide en el sistema de coordenadas HTML normal, sin
+                distorsión. El contenedor tiene pointer-events:none para
+                que los clicks en el resto del plano sigan llegando al
+                <svg> de abajo (dibujar línea/área/poner otra marca);
+                cada círculo reactiva pointer-events:auto individualmente
+                para poder clickearlo y borrarlo en cualquier momento,
+                sin importar qué herramienta esté activa. */}
+            <div className="absolute inset-0" style={{ pointerEvents: "none" }}>
+              {marcas.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    eliminarMarcaConConfirmacion(m);
+                  }}
+                  title={`Marca "${m.letra}" — click para eliminar`}
+                  style={{ left: `${m.x}%`, top: `${m.y}%`, pointerEvents: "auto" }}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#7C3AED] text-white text-[11px] font-bold flex items-center justify-center shadow-md border-2 border-white hover:bg-[#6D28D9] transition-colors"
+                >
+                  {m.letra}
+                </button>
+              ))}
+              {marcaPendiente && (
+                <div
+                  style={{ left: `${marcaPendiente.x}%`, top: `${marcaPendiente.y}%` }}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-amber-500/70 border-2 border-white shadow-md animate-pulse"
+                />
+              )}
+            </div>
           </div>
         </TransformComponent>
       </TransformWrapper>
@@ -960,6 +1137,9 @@ function VisorPrincipal({
           onCancelar={() => setMedicionPendiente(null)}
           onGuardar={confirmarMedicion}
         />
+      )}
+      {marcaPendiente && (
+        <ModalNuevaMarca onCancelar={() => setMarcaPendiente(null)} onGuardar={confirmarMarca} />
       )}
       {mediciones.length > 0 && (
         <div className="absolute bottom-4 right-4 z-10 w-64 max-h-52 overflow-y-auto bg-white rounded-[10px] border border-slate-200 shadow-md p-1.5 space-y-0.5">
@@ -1200,6 +1380,9 @@ export default function Visor({
   mediciones,
   onGuardarMedicion,
   onEliminarMedicion,
+  marcas,
+  onGuardarMarca,
+  onEliminarMarca,
   style,
 }: {
   /** null cuando el usuario entra al Visor sin tener ningún documento
@@ -1236,6 +1419,14 @@ export default function Visor({
   /** Borra una marca de medición ya guardada — también saca la fila que
    * había generado en la Planilla. */
   onEliminarMedicion: (medicionId: string) => Promise<void>;
+  /** Marcas de referencia (anotación, no medición) ya persistidas del
+   * documento principal — se dibujan sobre el plano. */
+  marcas: MarcaReferencia[];
+  /** Guarda una nueva marca de referencia — sin rubro, sin fila en la
+   * Planilla, solo se llama/muestra cuando es categoria=PLANO (no
+   * requiere calibración, a diferencia de Línea/Área). */
+  onGuardarMarca: (input: { x: number; y: number; letra: string }) => Promise<void>;
+  onEliminarMarca: (marcaId: string) => Promise<void>;
   style?: React.CSSProperties;
 }) {
   const [notasLocal, setNotasLocal] = useState(notas);
@@ -1373,6 +1564,34 @@ export default function Visor({
             </button>
           </>
         )}
+        {documentoPrincipal?.categoria === "PLANO" && (
+          <>
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+            {/* Marca de referencia — herramienta de ANOTACIÓN, no de
+                medición: a diferencia de Línea/Área no requiere
+                calibración (no mide nada), así que su gate es solo
+                categoria=PLANO, independiente de factorEscala. */}
+            <button
+              onClick={controlesMedicion?.onToggleMarca}
+              disabled={!controlesMedicion}
+              title={
+                controlesMedicion?.marcaActiva
+                  ? "Poniendo marcas — clic en el plano para cada una"
+                  : "Marca de referencia — dejá una letra en un punto del plano; explicá qué significa en Notas"
+              }
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors",
+                !controlesMedicion
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : controlesMedicion.marcaActiva
+                  ? "bg-[#1D4ED8] text-white"
+                  : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+              )}
+            >
+              <MapPin className="w-3.5 h-3.5" /> {controlesMedicion?.marcaActiva ? "Marcando…" : "Marca de referencia"}
+            </button>
+          </>
+        )}
         <div className="flex-1" />
         <div className="w-px h-4 bg-slate-200 mx-1" />
         <button onClick={onClose} title="Cerrar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
@@ -1389,8 +1608,11 @@ export default function Visor({
                 key={documentoPrincipal.id}
                 doc={documentoPrincipal}
                 mediciones={mediciones}
+                marcas={marcas}
                 onGuardarMedicion={onGuardarMedicion}
                 onEliminarMedicion={onEliminarMedicion}
+                onGuardarMarca={onGuardarMarca}
+                onEliminarMarca={onEliminarMarca}
                 onControlesZoomListos={setControlesZoom}
                 onControlesMedicionListos={setControlesMedicion}
               />

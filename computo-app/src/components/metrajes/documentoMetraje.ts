@@ -147,6 +147,20 @@ export interface MedicionDocumento {
   createdAt: string;
 }
 
+// Marca de referencia — herramienta de ANOTACIÓN (no de medición) sobre
+// un plano: una letra en un punto, a modo de referencia visual rápida.
+// Ver comentario en prisma/schema.prisma — a propósito NO es un tipo
+// más de MedicionDocumento (no mide nada, no requiere calibración, no
+// se asocia a rubro). El significado de la letra se explica en Notas.
+export interface MarcaReferencia {
+  id: string;
+  documentoId: string;
+  letra: string;
+  x: number;
+  y: number;
+  createdAt: string;
+}
+
 export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

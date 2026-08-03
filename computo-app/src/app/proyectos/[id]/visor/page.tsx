@@ -9,7 +9,7 @@ import { X, Plus, Sparkles, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { urlProxyDocumentoMetraje } from "@/lib/blob";
 import { fmtNum, subtotalFila, nuevaFila, type MetrajeFila, type RubroOption } from "@/components/metrajes/metrajeFila";
-import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento } from "@/components/metrajes/documentoMetraje";
+import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, MarcaReferencia } from "@/components/metrajes/documentoMetraje";
 import type { NuevaMedicionInput } from "@/components/metrajes/Visor";
 
 // Visor y PlanillaComputo (vía Visor) importan react-pdf (pdf.js), que
@@ -70,10 +70,15 @@ export default function VisorProyectoPage() {
   const [ventanaFlotante, setVentanaFlotante] = useState<DocumentoDetalle | null>(null);
   const [cargandoDetalleDoc, setCargandoDetalleDoc] = useState(false);
 
-  // Marcas de medición (Etapa 3 — herramienta de Línea) del documento
-  // principal, para dibujarlas sobre el plano. Se recargan cada vez que
-  // cambia el documento abierto.
+  // Marcas de medición (Etapa 3 — Línea/Área) del documento principal,
+  // para dibujarlas sobre el plano. Se recargan cada vez que cambia el
+  // documento abierto.
   const [mediciones, setMediciones] = useState<MedicionDocumento[]>([]);
+
+  // Marcas de referencia (anotación, no medición — letra en un punto)
+  // del documento principal. Mismo mecanismo de carga que mediciones,
+  // pero endpoint y tabla separados (ver prisma/schema.prisma).
+  const [marcas, setMarcas] = useState<MarcaReferencia[]>([]);
 
   // Notas — única por proyecto
   const [notas, setNotas] = useState("");
@@ -274,6 +279,53 @@ export default function VisorProyectoPage() {
     if (!res.ok) throw new Error();
     setMediciones((prev) => prev.filter((m) => m.id !== medicionId));
     setFilas((prev) => prev.filter((f) => f.id !== medicionId));
+  }
+
+  // Carga las marcas de referencia del documento principal — mismo
+  // mecanismo que mediciones, endpoint separado.
+  useEffect(() => {
+    if (!documentoAbierto || documentoAbierto.categoria !== "PLANO") {
+      setMarcas([]);
+      return;
+    }
+    let cancelado = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/marcas`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!cancelado) setMarcas(data.marcas ?? []);
+      } catch {
+        if (!cancelado) setMarcas([]);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [documentoAbierto, proyectoId]);
+
+  // Guarda una nueva marca de referencia — sin fila en la Planilla (no
+  // mide nada, ver comentario en prisma/schema.prisma).
+  async function guardarMarca(input: { x: number; y: number; letra: string }) {
+    if (!documentoAbierto) return;
+    const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/marcas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    setMarcas((prev) => [...prev, data.marca]);
+  }
+
+  async function eliminarMarca(marcaId: string) {
+    if (!documentoAbierto) return;
+    const res = await fetch(
+      `/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/marcas/${marcaId}`,
+      { method: "DELETE" }
+    );
+    if (!res.ok) throw new Error();
+    setMarcas((prev) => prev.filter((m) => m.id !== marcaId));
   }
 
   async function guardarNotas(nuevasNotas: string) {
@@ -525,6 +577,9 @@ export default function VisorProyectoPage() {
               mediciones={mediciones}
               onGuardarMedicion={guardarMedicion}
               onEliminarMedicion={eliminarMedicion}
+              marcas={marcas}
+              onGuardarMarca={guardarMarca}
+              onEliminarMarca={eliminarMarca}
             />
           </div>
         </div>

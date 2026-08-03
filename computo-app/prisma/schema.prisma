@@ -411,6 +411,7 @@ model DocumentoMetraje {
   metodoCalibracion     String?  // "DECLARADA" | "COTA" (Método A, futuro)
 
   mediciones            MedicionDocumento[]
+  marcas                MarcaReferencia[]
 
   createdAt             DateTime @default(now())
 }
@@ -450,6 +451,25 @@ model MedicionDocumento {
   rubroId       String?
   rubro         Rubro?           @relation(fields: [rubroId], references: [id], onDelete: SetNull)
   createdAt     DateTime         @default(now())
+}
+
+// Marca de referencia — herramienta de ANOTACIÓN (no de medición) sobre
+// un plano: una letra simple (ej. "A", "B") en un punto, a modo de
+// referencia visual rápida. A propósito NO es un tipo más de
+// MedicionDocumento — no mide nada (no requiere calibración, no se
+// asocia a rubro, no genera fila en la Planilla), así que forzarla en
+// ese modelo dejaría un montón de campos (rubroId, repeticiones,
+// longitudReal, areaReal, puntos) sin sentido en cada fila. El
+// significado de cada letra se explica en el campo Notas del proyecto
+// (ya existente, debajo del Visor) — acá solo vive la marca visual.
+model MarcaReferencia {
+  id          String           @id @default(cuid())
+  documentoId String
+  documento   DocumentoMetraje @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  letra       String           // ej. "A", "B" — la escribe el usuario, sin unicidad forzada
+  x           Float            // % del plano (0-100)
+  y           Float            // % del plano (0-100)
+  createdAt   DateTime         @default(now())
 }
 
 model SubrubroEstandar {
