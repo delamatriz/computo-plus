@@ -148,12 +148,13 @@ export interface MedicionDocumento {
 }
 
 // Anotaciones libres sobre un plano — herramientas de ANOTACIÓN (no de
-// medición): Trazo libre (mano alzada, path de puntos) y Texto (letra o
-// palabra en un punto, con tamaño ajustable). Ver comentario en
-// prisma/schema.prisma — a propósito NO son un tipo más de
-// MedicionDocumento (no miden nada, no requieren calibración, no se
+// medición): Trazo libre (mano alzada, path de puntos), Línea recta
+// (2 puntos — mismo campo `puntos` que Trazo, sin duplicar geometría)
+// y Texto (letra o palabra en un punto, con tamaño ajustable). Ver
+// comentario en prisma/schema.prisma — a propósito NO son un tipo más
+// de MedicionDocumento (no miden nada, no requieren calibración, no se
 // asocian a rubro). Reemplaza a la vieja "Marca de referencia".
-export type TipoAnotacion = "TRAZO" | "TEXTO";
+export type TipoAnotacion = "TRAZO" | "RECTA" | "TEXTO";
 
 export interface Anotacion {
   id: string;
@@ -164,6 +165,7 @@ export interface Anotacion {
   texto: string | null;
   tamano: number | null;
   puntos: PuntoMedicion[] | null;
+  color: string | null;
   createdAt: string;
 }
 

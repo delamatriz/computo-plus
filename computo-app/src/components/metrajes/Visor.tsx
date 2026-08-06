@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Hexagon,
   Pencil,
+  Slash,
   Type as TypeIcon,
   Info,
 } from "lucide-react";
@@ -340,8 +341,24 @@ export type NuevaMedicionInput =
 // Anotaciones libres — Trazo (mano alzada) y Texto, sin medida ni
 // rubro asociado (ver comentario en prisma/schema.prisma).
 export type NuevaAnotacionInput =
-  | { tipo: "TRAZO"; puntos: { x: number; y: number }[] }
+  | { tipo: "TRAZO"; puntos: { x: number; y: number }[]; color: string }
+  | { tipo: "RECTA"; puntos: [{ x: number; y: number }, { x: number; y: number }]; color: string }
   | { tipo: "TEXTO"; x: number; y: number; texto: string; tamano: number };
+
+export type CambiosAnotacion = { x?: number; y?: number; tamano?: number };
+
+// Paleta cerrada de colores para Trazo libre — 6 opciones alcanzan
+// para diferenciar visualmente sin la complejidad de un color picker
+// completo. Misma lista (mismos hex) que COLORES_TRAZO_VALIDOS en la
+// ruta API — si se agrega un color acá hay que agregarlo ahí también.
+const COLORES_TRAZO = [
+  { nombre: "Azul", valor: "#2563EB" },
+  { nombre: "Rojo", valor: "#DC2626" },
+  { nombre: "Verde", valor: "#16A34A" },
+  { nombre: "Negro", valor: "#1E293B" },
+  { nombre: "Naranja", valor: "#F97316" },
+  { nombre: "Violeta", valor: "#7C3AED" },
+] as const;
 
 function calcularLongitudReal(
   xInicio: number,
@@ -392,21 +409,91 @@ function calcularAreaReal(
 // polígono, no un dibujo a mano) porque <polyline> solo sabe unir
 // puntos con líneas rectas — la curva no agrega puntos nuevos, solo
 // interpola una curva suave que PASA por los mismos puntos capturados.
-function puntosASuavePath(puntos: { x: number; y: number }[]): string {
-  if (puntos.length < 2) return "";
+// Catmull-Rom CENTRÍPETA (alpha=0.5), no uniforme. La primera versión
+// (tension fija 1/6, "uniforme") asume que los puntos están más o
+// menos parejo espaciados — en una prueba automatizada con puntos
+// generados a mano eso era cierto y se veía bien, pero un trazo real
+// con mouse NO tiene espaciado uniforme (la mano acelera y frena todo
+// el tiempo). Con espaciado irregular, la variante uniforme genera
+// sobrepasos/loops visibles en las curvas — exactamente el "cortado"
+// que reportó el usuario pese al suavizado. La parametrización
+// centrípeta usa la distancia real entre puntos (raíz cuadrada de la
+// distancia, de ahí "centrípeta") para las tangentes, lo que la hace
+// robusta a espaciado desparejo — es el estándar para suavizar trazos
+// de mouse/lápiz óptico. Fuente: Catmull-Rom-a-Bézier no uniforme,
+// misma familia de fórmulas que usan la mayoría de los editores
+// vectoriales para "freehand smoothing".
+// Ventana del promedio móvil (puntos a cada lado) y tensión de la
+// curva — ver comentario completo en puntosASuavePath más abajo.
+const SUAVIZADO_VENTANA = 2;
+const SUAVIZADO_TENSION = 0.8;
+
+// Promedio móvil sobre los puntos CRUDOS, antes de interpolar. Por qué
+// hace falta además de Catmull-Rom centrípeta (que ya soluciona el
+// problema de espaciado irregular): un mouse real nunca entrega una
+// posición perfectamente limpia — hay ruido/jitter de un par de
+// centésimas todo el tiempo, más el temblor natural de la mano. Una
+// curva que INTERPOLA (pasa exacto por cada punto) se ve obligada a
+// desviarse para tocar cada micro-ruido, y esas correcciones
+// constantes de rumbo son justamente lo que se percibe como "cortado"
+// aunque la curva sea matemáticamente suave. Promediar cada punto con
+// sus vecinos antes de interpolar borra ese ruido de alta frecuencia
+// sin perder la forma real del trazo. El primer y último punto NO se
+// promedian — así el trazo sigue empezando/terminando exacto donde el
+// usuario apretó/soltó el mouse.
+function promedioMovil(puntos: { x: number; y: number }[], ventana: number): { x: number; y: number }[] {
+  if (puntos.length <= 2) return puntos;
+  const resultado = puntos.map((_, i) => {
+    let sx = 0, sy = 0, n = 0;
+    for (let k = -ventana; k <= ventana; k++) {
+      const idx = i + k;
+      if (idx >= 0 && idx < puntos.length) {
+        sx += puntos[idx].x;
+        sy += puntos[idx].y;
+        n++;
+      }
+    }
+    return { x: sx / n, y: sy / n };
+  });
+  resultado[0] = puntos[0];
+  resultado[resultado.length - 1] = puntos[puntos.length - 1];
+  return resultado;
+}
+
+// Catmull-Rom CENTRÍPETA (alpha=0.5, no uniforme) sobre los puntos ya
+// pre-suavizados por promedioMovil — la parametrización centrípeta
+// (distancia real entre puntos, no un paso fijo) es lo que la hace
+// robusta al espaciado desparejo de un trazo real; el promedio móvil
+// de arriba es lo que le saca el ruido antes de interpolar. Fuente:
+// Catmull-Rom-a-Bézier no uniforme, misma familia de fórmulas que usan
+// la mayoría de los editores vectoriales para "freehand smoothing".
+// SUAVIZADO_TENSION < 1 acorta un poco las tangentes de la curva
+// (menos "tirón" hacia cada punto de control) para una interpolación
+// más generosa/redondeada, con menos margen para sobrepasos visibles.
+function puntosASuavePath(puntosCrudos: { x: number; y: number }[]): string {
+  if (puntosCrudos.length < 2) return "";
+  const puntos = promedioMovil(puntosCrudos, SUAVIZADO_VENTANA);
   if (puntos.length === 2) {
     return `M ${puntos[0].x},${puntos[0].y} L ${puntos[1].x},${puntos[1].y}`;
   }
+  const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.max(Math.hypot(b.x - a.x, b.y - a.y), 0.0001);
   let d = `M ${puntos[0].x},${puntos[0].y}`;
   for (let i = 0; i < puntos.length - 1; i++) {
     const p0 = puntos[i - 1] ?? puntos[i];
     const p1 = puntos[i];
     const p2 = puntos[i + 1];
     const p3 = puntos[i + 2] ?? p2;
-    const c1x = p1.x + (p2.x - p0.x) / 6;
-    const c1y = p1.y + (p2.y - p0.y) / 6;
-    const c2x = p2.x - (p3.x - p1.x) / 6;
-    const c2y = p2.y - (p3.y - p1.y) / 6;
+
+    const t0 = 0;
+    const t1 = t0 + Math.sqrt(dist(p0, p1));
+    const t2 = t1 + Math.sqrt(dist(p1, p2));
+    const t3 = t2 + Math.sqrt(dist(p2, p3));
+
+    const c1x = p1.x + (SUAVIZADO_TENSION * (p2.x - p0.x) * (t2 - t1)) / (3 * (t2 - t0));
+    const c1y = p1.y + (SUAVIZADO_TENSION * (p2.y - p0.y) * (t2 - t1)) / (3 * (t2 - t0));
+    const c2x = p2.x - (SUAVIZADO_TENSION * (p3.x - p1.x) * (t2 - t1)) / (3 * (t3 - t1));
+    const c2y = p2.y - (SUAVIZADO_TENSION * (p3.y - p1.y) * (t2 - t1)) / (3 * (t3 - t1));
+
     d += ` C ${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
   }
   return d;
@@ -561,9 +648,14 @@ function ModalConfirmarMedicion({
 // textoPendiente/iniciarRedimensionTexto en VisorPrincipal) con un
 // handle para arrastrar y cambiar el tamaño viendo el resultado real
 // en contexto — mismo patrón que la ventana flotante de fotos/detalles.
-const TEXTO_TAMANO_MIN = 8;
+// Mínimo bajado a 4 (desde 8) — el usuario quiere poder achicar el
+// texto hasta integrarse a la escala real de las cotas/etiquetas ya
+// impresas en el plano, que suelen ser bastante más chicas que 8px a
+// como se renderiza el documento acá. El tamaño inicial también baja
+// un poco (10, antes 14) para arrancar más cerca de esa escala.
+const TEXTO_TAMANO_MIN = 4;
 const TEXTO_TAMANO_MAX = 64;
-const TEXTO_TAMANO_INICIAL = 14;
+const TEXTO_TAMANO_INICIAL = 10;
 
 function ModalNuevoTexto({
   onCancelar,
@@ -717,6 +809,8 @@ export interface ControlesMedicion {
    * por medio, así que se manejan aparte de herramienta (arriba). */
   trazoActivo: boolean;
   onToggleTrazo: () => void;
+  rectaActiva: boolean;
+  onToggleRecta: () => void;
   textoActivo: boolean;
   onToggleTexto: () => void;
 }
@@ -736,6 +830,7 @@ function VisorPrincipal({
   onEliminarMedicion,
   onGuardarAnotacion,
   onEliminarAnotacion,
+  onActualizarAnotacion,
   onControlesZoomListos,
   onControlesMedicionListos,
 }: {
@@ -748,6 +843,11 @@ function VisorPrincipal({
   onEliminarMedicion: (medicionId: string) => Promise<void>;
   onGuardarAnotacion: (input: NuevaAnotacionInput) => Promise<void>;
   onEliminarAnotacion: (anotacionId: string) => Promise<void>;
+  /** Mueve y/o redimensiona un Texto ya guardado — arrastrar el texto o
+   * su handle de tamaño directo sobre el plano. Optimista + revert en
+   * el padre (page.tsx) si el PATCH falla; acá no hace falta manejar
+   * error explícito. Solo aplica a TEXTO, Trazo libre no se edita así. */
+  onActualizarAnotacion: (anotacionId: string, cambios: CambiosAnotacion) => void;
   /** Expone zoomIn/zoomOut/resetTransform del TransformWrapper hacia el
    * header del Visor (fuera de este árbol) — los botones de zoom viven
    * ahí, junto a expandir/cerrar, en vez de flotando sobre el documento. */
@@ -771,7 +871,7 @@ function VisorPrincipal({
   };
   const dprRender = Math.min((typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicadorDPR, DPR_MAXIMO);
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
-  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "TRAZO" | "TEXTO" | null>(null);
+  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "TRAZO" | "RECTA" | "TEXTO" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
   const [puntosArea, setPuntosArea] = useState<{ x: number; y: number }[]>([]);
   const [cursorArea, setCursorArea] = useState<{ x: number; y: number } | null>(null);
@@ -782,18 +882,45 @@ function VisorPrincipal({
   // guardado falla, trazoPendiente se mantiene (banner de error con
   // Reintentar/Cancelar más abajo) en vez de perderse.
   const [trazoActual, setTrazoActual] = useState<{ x: number; y: number }[] | null>(null);
-  const [trazoPendiente, setTrazoPendiente] = useState<{ x: number; y: number }[] | null>(null);
+  const [trazoPendiente, setTrazoPendiente] = useState<{ puntos: { x: number; y: number }[]; color: string } | null>(null);
   const [guardandoTrazo, setGuardandoTrazo] = useState(false);
   const [errorTrazo, setErrorTrazo] = useState<string | null>(null);
+  // Color elegido para el próximo Trazo o Línea recta — compartido
+  // entre las dos herramientas a propósito (mismo selector, mismo
+  // criterio de "elegís una vez, se mantiene hasta que lo cambiés" —
+  // no tiene sentido que cambiar de Trazo a Recta resetee el color).
+  const [colorTrazo, setColorTrazo] = useState<string>(COLORES_TRAZO[0].valor);
+  // Línea recta — interacción híbrida (clic-clic o clic-arrastre, ver
+  // onSvgMouseDown/onSvgClick): rectaActual cubre el arrastre en vivo
+  // (mismo patrón que dibujoActual de Línea/Medir); rectaPrimerPunto +
+  // rectaCursor cubren el modo "ya clickeé el punto A, esperando el
+  // segundo click" (mismo patrón que puntosArea/cursorArea de Área).
+  // rectaPendiente/guardandoRecta/errorRecta — mismo patrón de
+  // guardado automático + reintento que trazoPendiente.
+  const [rectaActual, setRectaActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
+  const [rectaPrimerPunto, setRectaPrimerPunto] = useState<{ x: number; y: number } | null>(null);
+  const [rectaCursor, setRectaCursor] = useState<{ x: number; y: number } | null>(null);
+  const [rectaPendiente, setRectaPendiente] = useState<{ puntos: [{ x: number; y: number }, { x: number; y: number }]; color: string } | null>(null);
+  const [guardandoRecta, setGuardandoRecta] = useState(false);
+  const [errorRecta, setErrorRecta] = useState<string | null>(null);
   // Texto — dos pasos. 1) textoPendientePunto: punto ya clickeado,
   // esperando que el usuario escriba el texto en ModalNuevoTexto.
   // 2) textoPendiente: texto ya escrito, mostrado DIRECTO sobre el
-  // plano con su tamaño real (ajustable arrastrando un handle — ver
-  // iniciarRedimensionTexto) hasta que el usuario confirma o cancela.
+  // plano con su tamaño real (arrastrable/redimensionable — ver
+  // iniciarMoverTextoPendiente/iniciarRedimensionTexto) hasta que el
+  // usuario confirma o cancela.
   const [textoPendientePunto, setTextoPendientePunto] = useState<{ x: number; y: number } | null>(null);
   const [textoPendiente, setTextoPendiente] = useState<{ x: number; y: number; texto: string; tamano: number } | null>(null);
   const [guardandoTexto, setGuardandoTexto] = useState(false);
   const [errorTexto, setErrorTexto] = useState<string | null>(null);
+  // Mover/redimensionar un Texto YA GUARDADO — mismo mecanismo que
+  // textoPendiente pero para anotaciones que ya están en la base.
+  // ajusteTextoId marca cuál anotación se está arrastrando (para que su
+  // render use ajusteTextoValores en vez del x/y/tamano del prop
+  // mientras dura el drag); se persiste con onActualizarAnotacion recién
+  // al soltar el mouse, no en cada mousemove.
+  const [ajusteTextoId, setAjusteTextoId] = useState<string | null>(null);
+  const [ajusteTextoValores, setAjusteTextoValores] = useState<{ x: number; y: number; tamano: number } | null>(null);
 
   const handlePaginaCargada = (page: PaginaPDFCargada) => {
     const viewport = page.getViewport({ scale: 1 });
@@ -808,6 +935,12 @@ function VisorPrincipal({
       setDibujoActual({ xInicio: p.x, yInicio: p.y, xActual: p.x, yActual: p.y });
     } else if (herramienta === "TRAZO" && !trazoPendiente) {
       setTrazoActual([p]);
+    } else if (herramienta === "RECTA" && !rectaPrimerPunto && !rectaPendiente) {
+      // Mismo patrón que Línea/Medir: mousedown arranca un posible
+      // arrastre. Si en finalizarRectaDrag resulta que casi no se
+      // movió (un click simple, no un arrastre), se reinterpreta como
+      // el punto A del modo "clic + clic" en vez de descartarse.
+      setRectaActual({ xInicio: p.x, yInicio: p.y, xActual: p.x, yActual: p.y });
     }
   };
 
@@ -820,19 +953,30 @@ function VisorPrincipal({
     } else if (herramienta === "AREA" && puntosArea.length > 0 && !medicionPendiente) {
       setCursorArea(p);
     } else if (herramienta === "TRAZO" && trazoActual) {
-      // Umbral mínimo de distancia entre puntos capturados — mousemove
-      // dispara mucho más seguido de lo que hace falta, y guardar cada
-      // evento infla el array de puntos sin necesidad. 0.15 (en vez del
-      // 0.4 original) captura más puntos por trazo — más resolución
-      // para que la curva Catmull-Rom (puntosASuavePath) tenga de dónde
-      // interpolar y el trazo se sienta fluido, no "cortado" en pocos
-      // segmentos largos.
+      // Umbral casi nulo (0.02, contra 0.15/0.4 de rondas anteriores):
+      // en pruebas automatizadas con puntos generados a mano el umbral
+      // más alto no se notaba (los puntos ya venían parejo espaciados),
+      // pero con un mouse real la tasa de mousemove varía mucho con la
+      // velocidad de la mano — en un trazo rápido, un umbral de 0.15
+      // podía terminar capturando muy pocos puntos en los tramos
+      // veloces, y ahí es donde se ve "cortado" incluso con curva
+      // suave: si faltan puntos, la curva no tiene de dónde seguir la
+      // forma real de la mano, por más Catmull-Rom que se le aplique.
+      // Solo se descartan duplicados literales (mismo pixel, mouse
+      // quieto) — el límite real de cuántos puntos se capturan lo pone
+      // el navegador/hardware, no este umbral.
       setTrazoActual((prev) => {
         if (!prev) return prev;
         const ultimo = prev[prev.length - 1];
-        if (Math.hypot(p.x - ultimo.x, p.y - ultimo.y) < 0.15) return prev;
+        if (Math.hypot(p.x - ultimo.x, p.y - ultimo.y) < 0.02) return prev;
         return [...prev, p];
       });
+    } else if (herramienta === "RECTA" && rectaActual) {
+      setRectaActual((prev) => (prev ? { ...prev, xActual: p.x, yActual: p.y } : prev));
+    } else if (herramienta === "RECTA" && rectaPrimerPunto) {
+      // Modo "clic + clic": ya está el punto A, esto solo actualiza la
+      // línea de previsualización hasta la posición actual del mouse.
+      setRectaCursor(p);
     }
   };
 
@@ -863,11 +1007,11 @@ function VisorPrincipal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dibujoActual]);
 
-  const intentarGuardarTrazo = async (puntos: { x: number; y: number }[]) => {
+  const intentarGuardarTrazo = async (puntos: { x: number; y: number }[], color: string) => {
     setGuardandoTrazo(true);
     setErrorTrazo(null);
     try {
-      await onGuardarAnotacion({ tipo: "TRAZO", puntos });
+      await onGuardarAnotacion({ tipo: "TRAZO", puntos, color });
       setTrazoPendiente(null);
     } catch {
       setErrorTrazo("No se pudo guardar el trazo.");
@@ -881,8 +1025,12 @@ function VisorPrincipal({
     const puntos = trazoActual;
     setTrazoActual(null);
     if (puntos.length < 2) return;
-    setTrazoPendiente(puntos);
-    intentarGuardarTrazo(puntos);
+    // El color se fija acá (al terminar de dibujar), no se relee de
+    // colorTrazo en cada reintento — así un cambio de color mientras
+    // hay un trazo con error pendiente no le cambia el color después
+    // de haberlo dibujado.
+    setTrazoPendiente({ puntos, color: colorTrazo });
+    intentarGuardarTrazo(puntos, colorTrazo);
   };
 
   // Misma red de seguridad que finalizarDibujoLinea (ver comentario
@@ -896,9 +1044,53 @@ function VisorPrincipal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trazoActual]);
 
-  // Click para AREA (agrega un vértice) y para TEXTO (abre el modal en
-  // ese punto). mousedown/mouseup ya están ocupados por el drag de
-  // Línea/Trazo, así que ambas usan onClick (un click "de verdad", sin
+  const intentarGuardarRecta = async (puntos: [{ x: number; y: number }, { x: number; y: number }], color: string) => {
+    setGuardandoRecta(true);
+    setErrorRecta(null);
+    try {
+      await onGuardarAnotacion({ tipo: "RECTA", puntos, color });
+      setRectaPendiente(null);
+    } catch {
+      setErrorRecta("No se pudo guardar la línea recta.");
+    } finally {
+      setGuardandoRecta(false);
+    }
+  };
+
+  // Cierra el gesto de ARRASTRE de Línea recta (mousedown -> mousemove
+  // -> mouseup). Si casi no hubo movimiento, NO se descarta como en
+  // Línea/Medir — se reinterpreta como el punto A del modo "clic +
+  // clic" (ver onSvgClick), que es la otra forma válida de dibujar la
+  // recta descrita en el pedido.
+  const finalizarRectaDrag = () => {
+    if (herramienta !== "RECTA" || !rectaActual) return;
+    const { xInicio, yInicio, xActual, yActual } = rectaActual;
+    setRectaActual(null);
+    const dist = Math.hypot(xActual - xInicio, yActual - yInicio);
+    if (dist < 0.5) {
+      setRectaPrimerPunto({ x: xInicio, y: yInicio });
+      return;
+    }
+    const puntos: [{ x: number; y: number }, { x: number; y: number }] = [
+      { x: xInicio, y: yInicio },
+      { x: xActual, y: yActual },
+    ];
+    setRectaPendiente({ puntos, color: colorTrazo });
+    intentarGuardarRecta(puntos, colorTrazo);
+  };
+
+  // Misma red de seguridad que finalizarDibujoLinea/finalizarTrazo.
+  useEffect(() => {
+    if (!rectaActual) return;
+    window.addEventListener("mouseup", finalizarRectaDrag);
+    return () => window.removeEventListener("mouseup", finalizarRectaDrag);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rectaActual]);
+
+  // Click para AREA (agrega un vértice), TEXTO (abre el modal en ese
+  // punto) y el segundo click del modo "clic + clic" de Línea recta.
+  // mousedown/mouseup ya están ocupados por el drag de Línea/Trazo/
+  // Recta, así que estas usan onClick (un click "de verdad", sin
   // arrastre significativo de por medio) para no pisarse con esa lógica.
   const onSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current) return;
@@ -908,6 +1100,20 @@ function VisorPrincipal({
     } else if (herramienta === "TEXTO" && !textoPendientePunto) {
       const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
       if (p) setTextoPendientePunto(p);
+    } else if (herramienta === "RECTA" && rectaPrimerPunto) {
+      const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
+      if (!p) return;
+      // Si el segundo click cae casi en el mismo punto que el primero
+      // (mismo umbral que el resto de las herramientas), lo ignora en
+      // vez de guardar una "línea" de largo cero — el punto A se
+      // mantiene puesto, el usuario simplemente clickea de nuevo donde
+      // corresponde.
+      if (Math.hypot(p.x - rectaPrimerPunto.x, p.y - rectaPrimerPunto.y) < 0.5) return;
+      const puntos: [{ x: number; y: number }, { x: number; y: number }] = [rectaPrimerPunto, p];
+      setRectaPrimerPunto(null);
+      setRectaCursor(null);
+      setRectaPendiente({ puntos, color: colorTrazo });
+      intentarGuardarRecta(puntos, colorTrazo);
     }
   };
 
@@ -922,6 +1128,13 @@ function VisorPrincipal({
       setCursorArea(null);
     } else if (herramienta === "TRAZO") {
       finalizarTrazo();
+    } else if (herramienta === "RECTA") {
+      // Cierra un arrastre en curso si lo había (no-op si no — ver
+      // guard interno de finalizarRectaDrag); si estaba en modo "clic
+      // + clic" solo limpia el preview, igual que Área — el punto A ya
+      // puesto se mantiene.
+      finalizarRectaDrag();
+      setRectaCursor(null);
     }
   };
 
@@ -943,6 +1156,9 @@ function VisorPrincipal({
     setPuntosArea([]);
     setCursorArea(null);
     setTrazoActual(null);
+    setRectaActual(null);
+    setRectaPrimerPunto(null);
+    setRectaCursor(null);
     setTextoPendientePunto(null);
   };
 
@@ -953,6 +1169,9 @@ function VisorPrincipal({
       setCursorArea(null);
       setDibujoActual(null);
       setTrazoActual(null);
+      setRectaActual(null);
+      setRectaPrimerPunto(null);
+      setRectaCursor(null);
       setTextoPendientePunto(null);
       return;
     }
@@ -975,6 +1194,25 @@ function VisorPrincipal({
     setDibujoActual(null);
     setPuntosArea([]);
     setCursorArea(null);
+    setRectaActual(null);
+    setRectaPrimerPunto(null);
+    setRectaCursor(null);
+    setTextoPendientePunto(null);
+  };
+
+  const toggleRecta = () => {
+    if (herramienta === "RECTA") {
+      setHerramienta(null);
+      setRectaActual(null);
+      setRectaPrimerPunto(null);
+      setRectaCursor(null);
+      return;
+    }
+    setHerramienta("RECTA");
+    setDibujoActual(null);
+    setPuntosArea([]);
+    setCursorArea(null);
+    setTrazoActual(null);
     setTextoPendientePunto(null);
   };
 
@@ -989,9 +1227,32 @@ function VisorPrincipal({
     setPuntosArea([]);
     setCursorArea(null);
     setTrazoActual(null);
+    setRectaActual(null);
+    setRectaPrimerPunto(null);
+    setRectaCursor(null);
   };
 
-  // Arrastrar el handle cambia el tamaño en vivo — mismo patrón que
+  // Arrastrar el texto mismo lo mueve — sigue el mouse en vivo, sin
+  // pedir confirmación (todavía no está guardado, es puro estado local).
+  const iniciarMoverTextoPendiente = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!textoPendiente || !svgRef.current) return;
+    const svg = svgRef.current;
+    const onMove = (ev: MouseEvent) => {
+      const p = puntoDesdeEvento(svg, ev.clientX, ev.clientY);
+      if (p) setTextoPendiente((prev) => (prev ? { ...prev, x: p.x, y: p.y } : prev));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  // Arrastrar el handle (esquina, visible solo al pasar el mouse — ver
+  // render) cambia el tamaño en vivo — mismo patrón que
   // iniciarRedimension de VentanaFlotante (listeners en window para que
   // el arrastre siga funcionando aunque el mouse se salga del handle).
   // Un solo eje (vertical) alcanza acá: no hay ancho/alto que
@@ -1028,8 +1289,79 @@ function VisorPrincipal({
     }
   };
 
+  // Texto YA GUARDADO — mover (arrastrar el texto) y borrar (click sin
+  // arrastre) comparten el mismo mousedown en el mismo elemento, así
+  // que hay que distinguirlos: si el mouse se movió más de
+  // UMBRAL_DRAG_PX antes de soltar, fue un arrastre (mover, se persiste
+  // con onActualizarAnotacion al soltar); si no, fue un click (borrar,
+  // mismo flujo de confirmación que ya tenía). Ambas interacciones solo
+  // se ofrecen cuando NO hay otra herramienta activa (ver pointerEvents
+  // condicional en el render) — mismo criterio que el resto de "click
+  // sobre una forma guardada" en este componente.
+  const UMBRAL_DRAG_PX = 4;
+
+  const iniciarMoverTextoGuardado = (a: Anotacion) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!svgRef.current || a.x == null || a.y == null) return;
+    const svg = svgRef.current;
+    const inicioX = e.clientX, inicioY = e.clientY;
+    let arrastrado = false;
+    let valores = { x: a.x, y: a.y, tamano: a.tamano ?? 16 };
+    const onMove = (ev: MouseEvent) => {
+      if (!arrastrado && Math.hypot(ev.clientX - inicioX, ev.clientY - inicioY) > UMBRAL_DRAG_PX) {
+        arrastrado = true;
+        setAjusteTextoId(a.id);
+      }
+      if (!arrastrado) return;
+      const p = puntoDesdeEvento(svg, ev.clientX, ev.clientY);
+      if (p) {
+        valores = { ...valores, x: p.x, y: p.y };
+        setAjusteTextoValores(valores);
+      }
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      if (arrastrado) {
+        onActualizarAnotacion(a.id, { x: valores.x, y: valores.y });
+        setAjusteTextoId(null);
+        setAjusteTextoValores(null);
+      } else {
+        eliminarAnotacionConConfirmacion(a);
+      }
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  const iniciarRedimensionarTextoGuardado = (a: Anotacion) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (a.tamano == null || a.x == null || a.y == null) return;
+    const inicioY = e.clientY;
+    const tamanoInicial = a.tamano;
+    let tamanoActual = tamanoInicial;
+    setAjusteTextoId(a.id);
+    setAjusteTextoValores({ x: a.x, y: a.y, tamano: tamanoInicial });
+    const onMove = (ev: MouseEvent) => {
+      const delta = ev.clientY - inicioY;
+      tamanoActual = clamp(tamanoInicial + delta, TEXTO_TAMANO_MIN, TEXTO_TAMANO_MAX);
+      setAjusteTextoValores({ x: a.x!, y: a.y!, tamano: tamanoActual });
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      onActualizarAnotacion(a.id, { tamano: tamanoActual });
+      setAjusteTextoId(null);
+      setAjusteTextoValores(null);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
   const eliminarAnotacionConConfirmacion = (anotacion: Anotacion) => {
-    const etiqueta = anotacion.tipo === "TEXTO" ? `el texto "${anotacion.texto}"` : "el trazo";
+    const etiqueta =
+      anotacion.tipo === "TEXTO" ? `el texto "${anotacion.texto}"` : anotacion.tipo === "RECTA" ? "la línea recta" : "el trazo";
     if (confirm(`¿Eliminar ${etiqueta}?`)) {
       onEliminarAnotacion(anotacion.id);
     }
@@ -1107,6 +1439,8 @@ function VisorPrincipal({
       puntosAreaCount: puntosArea.length,
       trazoActivo: herramienta === "TRAZO",
       onToggleTrazo: toggleTrazo,
+      rectaActiva: herramienta === "RECTA",
+      onToggleRecta: toggleRecta,
       textoActivo: herramienta === "TEXTO",
       onToggleTexto: toggleTexto,
     });
@@ -1147,6 +1481,22 @@ function VisorPrincipal({
           un texto recién colocado), que se apilen en vez de dibujarse
           uno encima del otro. */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
+        {(herramienta === "TRAZO" || herramienta === "RECTA") && (
+          <div className="flex items-center gap-1.5 bg-white rounded-full px-2.5 py-1.5 shadow-md border border-slate-200">
+            {COLORES_TRAZO.map((c) => (
+              <button
+                key={c.valor}
+                onClick={() => setColorTrazo(c.valor)}
+                title={c.nombre}
+                className={cn(
+                  "w-5 h-5 rounded-full border-2 transition-transform",
+                  colorTrazo === c.valor ? "border-slate-700 scale-110" : "border-white"
+                )}
+                style={{ backgroundColor: c.valor }}
+              />
+            ))}
+          </div>
+        )}
         {renderizandoPDF && !cargando && (
           <div className="flex items-center gap-2 bg-white/95 rounded-full px-3 py-1.5 shadow-md border border-slate-200 pointer-events-none">
             <Loader2 className="w-3.5 h-3.5 text-[#2563EB] animate-spin" />
@@ -1158,7 +1508,7 @@ function VisorPrincipal({
             <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
             <p className="text-xs text-red-600">{errorTrazo}</p>
             <button
-              onClick={() => trazoPendiente && intentarGuardarTrazo(trazoPendiente)}
+              onClick={() => trazoPendiente && intentarGuardarTrazo(trazoPendiente.puntos, trazoPendiente.color)}
               disabled={guardandoTrazo}
               className="text-xs font-semibold text-[#2563EB] hover:underline disabled:opacity-40"
             >
@@ -1168,6 +1518,28 @@ function VisorPrincipal({
               onClick={() => {
                 setTrazoPendiente(null);
                 setErrorTrazo(null);
+              }}
+              className="text-xs font-semibold text-slate-500 hover:underline"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+        {errorRecta && (
+          <div className="flex items-center gap-2 bg-white rounded-[10px] px-3 py-2 shadow-lg border border-red-200">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+            <p className="text-xs text-red-600">{errorRecta}</p>
+            <button
+              onClick={() => rectaPendiente && intentarGuardarRecta(rectaPendiente.puntos, rectaPendiente.color)}
+              disabled={guardandoRecta}
+              className="text-xs font-semibold text-[#2563EB] hover:underline disabled:opacity-40"
+            >
+              Reintentar
+            </button>
+            <button
+              onClick={() => {
+                setRectaPendiente(null);
+                setErrorRecta(null);
               }}
               className="text-xs font-semibold text-slate-500 hover:underline"
             >
@@ -1314,9 +1686,13 @@ function VisorPrincipal({
                   ancha (strokeWidth 3) existe solo para hacer más fácil
                   clickear un trazo fino. */}
               {anotaciones.map((a) => {
-                if (a.tipo !== "TRAZO" || !a.puntos || a.puntos.length < 2) return null;
+                if ((a.tipo !== "TRAZO" && a.tipo !== "RECTA") || !a.puntos || a.puntos.length < 2) return null;
+                // puntosASuavePath con exactamente 2 puntos devuelve una
+                // línea recta (M...L...), no una curva — por eso RECTA
+                // reusa esta misma función sin ningún caso especial.
                 const d = puntosASuavePath(a.puntos);
                 const clickeable = herramienta === null;
+                const color = a.color ?? COLORES_TRAZO[0].valor;
                 return (
                   <g
                     key={a.id}
@@ -1326,9 +1702,9 @@ function VisorPrincipal({
                       eliminarAnotacionConConfirmacion(a);
                     }}
                   >
-                    <title>Trazo — click para eliminar</title>
+                    <title>{a.tipo === "RECTA" ? "Línea recta — click para eliminar" : "Trazo — click para eliminar"}</title>
                     <path d={d} fill="none" stroke="transparent" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-                    <path d={d} fill="none" stroke="#2563EB" strokeWidth={0.8} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                    <path d={d} fill="none" stroke={color} strokeWidth={0.8} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                   </g>
                 );
               })}
@@ -1376,12 +1752,60 @@ function VisorPrincipal({
               )}
               {trazoPendiente && (
                 <path
-                  d={puntosASuavePath(trazoPendiente)}
+                  d={puntosASuavePath(trazoPendiente.puntos)}
                   fill="none"
                   stroke="#F59E0B"
                   strokeWidth={1}
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+              {/* Línea recta — dos modos de guía, mismo gris/punteado
+                  que el resto: rectaActual mientras se arrastra
+                  (mousedown->mousemove), rectaPrimerPunto+rectaCursor
+                  mientras espera el segundo click del modo "clic +
+                  clic" (con un punto marcando dónde quedó el punto A). */}
+              {rectaActual && (
+                <line
+                  x1={rectaActual.xInicio}
+                  y1={rectaActual.yInicio}
+                  x2={rectaActual.xActual}
+                  y2={rectaActual.yActual}
+                  stroke="#64748B"
+                  strokeWidth={0.7}
+                  strokeDasharray="5,3"
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+              {rectaPrimerPunto && (
+                <>
+                  {rectaCursor && (
+                    <line
+                      x1={rectaPrimerPunto.x}
+                      y1={rectaPrimerPunto.y}
+                      x2={rectaCursor.x}
+                      y2={rectaCursor.y}
+                      stroke="#64748B"
+                      strokeWidth={0.7}
+                      strokeDasharray="5,3"
+                      strokeLinecap="round"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  )}
+                  <circle cx={rectaPrimerPunto.x} cy={rectaPrimerPunto.y} r={0.15} fill="#64748B" stroke="white" strokeWidth={0.08} vectorEffect="non-scaling-stroke" />
+                </>
+              )}
+              {rectaPendiente && (
+                <line
+                  x1={rectaPendiente.puntos[0].x}
+                  y1={rectaPendiente.puntos[0].y}
+                  x2={rectaPendiente.puntos[1].x}
+                  y2={rectaPendiente.puntos[1].y}
+                  stroke="#F59E0B"
+                  strokeWidth={1}
+                  strokeLinecap="round"
                   vectorEffect="non-scaling-stroke"
                 />
               )}
@@ -1425,28 +1849,43 @@ function VisorPrincipal({
                 individualmente, pero solo cuando NO hay una herramienta
                 activa (mismo motivo que Línea/Área/Trazo en el <svg>:
                 evitar que clickear para poner un vértice o un punto
-                termine borrando un texto existente que está debajo). */}
+                termine moviendo/borrando un texto existente que está
+                debajo). Solo se ve la letra — sin círculo ni decoración
+                permanente (el usuario reportó que el círculo anterior
+                tapaba el texto); el handle de tamaño aparece nada más
+                al pasar el mouse (`group-hover`), y mover es arrastrar
+                el texto mismo — un click sin arrastre borra (ver
+                iniciarMoverTextoGuardado). */}
             <div className="absolute inset-0" style={{ pointerEvents: "none" }}>
               {anotaciones.map((a) => {
                 if (a.tipo !== "TEXTO" || a.x == null || a.y == null || !a.texto) return null;
+                const enAjuste = ajusteTextoId === a.id && ajusteTextoValores;
+                const x = enAjuste ? ajusteTextoValores!.x : a.x;
+                const y = enAjuste ? ajusteTextoValores!.y : a.y;
+                const tamano = enAjuste ? ajusteTextoValores!.tamano : a.tamano ?? 16;
+                const interactivo = herramienta === null;
                 return (
-                  <button
+                  <div
                     key={a.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      eliminarAnotacionConConfirmacion(a);
-                    }}
-                    title={`"${a.texto}" — click para eliminar`}
-                    style={{
-                      left: `${a.x}%`,
-                      top: `${a.y}%`,
-                      pointerEvents: herramienta === null ? "auto" : "none",
-                      fontSize: `${a.tamano ?? 16}px`,
-                    }}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 font-bold text-[#2563EB] whitespace-nowrap leading-none hover:text-[#1D4ED8] transition-colors"
+                    className="absolute -translate-x-1/2 -translate-y-1/2 group"
+                    style={{ left: `${x}%`, top: `${y}%`, pointerEvents: interactivo ? "auto" : "none" }}
                   >
-                    {a.texto}
-                  </button>
+                    <div className="relative inline-block">
+                      <span
+                        onMouseDown={iniciarMoverTextoGuardado(a)}
+                        title={`"${a.texto}" — arrastrar para mover, click para eliminar`}
+                        style={{ fontSize: `${tamano}px` }}
+                        className="font-bold text-[#2563EB] whitespace-nowrap leading-none inline-block select-none cursor-move hover:text-[#1D4ED8] transition-colors"
+                      >
+                        {a.texto}
+                      </span>
+                      <div
+                        onMouseDown={iniciarRedimensionarTextoGuardado(a)}
+                        title="Arrastrar para cambiar el tamaño"
+                        className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-white border border-[#2563EB] opacity-0 group-hover:opacity-100 transition-opacity cursor-ns-resize"
+                      />
+                    </div>
+                  </div>
                 );
               })}
               {textoPendientePunto && (
@@ -1456,18 +1895,19 @@ function VisorPrincipal({
                 />
               )}
               {textoPendiente && (
-                <div style={{ left: `${textoPendiente.x}%`, top: `${textoPendiente.y}%`, pointerEvents: "auto" }} className="absolute -translate-x-1/2 -translate-y-1/2">
+                <div style={{ left: `${textoPendiente.x}%`, top: `${textoPendiente.y}%`, pointerEvents: "auto" }} className="absolute -translate-x-1/2 -translate-y-1/2 group">
                   <div className="relative inline-block">
                     <span
+                      onMouseDown={iniciarMoverTextoPendiente}
                       style={{ fontSize: `${textoPendiente.tamano}px` }}
-                      className="font-bold text-amber-600 whitespace-nowrap leading-none inline-block select-none"
+                      className="font-bold text-amber-600 whitespace-nowrap leading-none inline-block select-none cursor-move"
                     >
                       {textoPendiente.texto}
                     </span>
                     <div
                       onMouseDown={iniciarRedimensionTexto}
                       title="Arrastrar para cambiar el tamaño"
-                      className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-white border-2 border-amber-500 cursor-ns-resize shadow"
+                      className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-white border border-amber-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-ns-resize"
                     />
                   </div>
                 </div>
@@ -1708,6 +2148,7 @@ export default function Visor({
   anotaciones,
   onGuardarAnotacion,
   onEliminarAnotacion,
+  onActualizarAnotacion,
   style,
 }: {
   /** null cuando el usuario entra al Visor sin tener ningún documento
@@ -1752,6 +2193,7 @@ export default function Visor({
    * calibración, a diferencia de Línea/Área). */
   onGuardarAnotacion: (input: NuevaAnotacionInput) => Promise<void>;
   onEliminarAnotacion: (anotacionId: string) => Promise<void>;
+  onActualizarAnotacion: (anotacionId: string, cambios: CambiosAnotacion) => void;
   style?: React.CSSProperties;
 }) {
   const [notasLocal, setNotasLocal] = useState(notas);
@@ -1916,6 +2358,25 @@ export default function Visor({
               <Pencil className="w-3.5 h-3.5" /> {controlesMedicion?.trazoActivo ? "Dibujando…" : "Trazo libre"}
             </button>
             <button
+              onClick={controlesMedicion?.onToggleRecta}
+              disabled={!controlesMedicion}
+              title={
+                controlesMedicion?.rectaActiva
+                  ? "Dibujando — clic para el punto A, clic o arrastre hasta el punto B"
+                  : "Línea recta — dibujá una línea recta sobre el plano (sin medir, solo visual)"
+              }
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
+                !controlesMedicion
+                  ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : controlesMedicion.rectaActiva
+                  ? "border-brand-light bg-brand-light text-white"
+                  : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light"
+              )}
+            >
+              <Slash className="w-3.5 h-3.5" /> {controlesMedicion?.rectaActiva ? "Dibujando…" : "Línea recta"}
+            </button>
+            <button
               onClick={controlesMedicion?.onToggleTexto}
               disabled={!controlesMedicion}
               title={
@@ -1957,6 +2418,7 @@ export default function Visor({
                 onEliminarMedicion={onEliminarMedicion}
                 onGuardarAnotacion={onGuardarAnotacion}
                 onEliminarAnotacion={onEliminarAnotacion}
+                onActualizarAnotacion={onActualizarAnotacion}
                 onControlesZoomListos={setControlesZoom}
                 onControlesMedicionListos={setControlesMedicion}
               />

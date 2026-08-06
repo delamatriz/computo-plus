@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { urlProxyDocumentoMetraje } from "@/lib/blob";
 import { fmtNum, subtotalFila, nuevaFila, type MetrajeFila, type RubroOption } from "@/components/metrajes/metrajeFila";
 import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, Anotacion } from "@/components/metrajes/documentoMetraje";
-import type { NuevaMedicionInput, NuevaAnotacionInput } from "@/components/metrajes/Visor";
+import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion } from "@/components/metrajes/Visor";
 
 // Visor y PlanillaComputo (vía Visor) importan react-pdf (pdf.js), que
 // revienta con "DOMMatrix is not defined" si su módulo se evalúa en el
@@ -328,6 +328,30 @@ export default function VisorProyectoPage() {
     setAnotaciones((prev) => prev.filter((a) => a.id !== anotacionId));
   }
 
+  // Mueve/redimensiona un Texto ya guardado (arrastrar sobre el plano).
+  // Optimista: actualiza el estado local de una — el usuario ya vio el
+  // resultado en vivo mientras arrastraba (ver ajusteTextoValores en
+  // Visor.tsx) — y si el PATCH falla, revierte solo. Sin manejo de
+  // error visible a propósito: es una edición de bajo riesgo (se puede
+  // reintentar arrastrando de nuevo), no amerita un modal ni un banner.
+  function actualizarAnotacion(anotacionId: string, cambios: CambiosAnotacion) {
+    if (!documentoAbierto) return;
+    const anterior = anotaciones.find((a) => a.id === anotacionId);
+    if (!anterior) return;
+    setAnotaciones((prev) => prev.map((a) => (a.id === anotacionId ? { ...a, ...cambios } : a)));
+    fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/anotaciones/${anotacionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cambios),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error();
+      })
+      .catch(() => {
+        setAnotaciones((prev) => prev.map((a) => (a.id === anotacionId ? anterior : a)));
+      });
+  }
+
   async function guardarNotas(nuevasNotas: string) {
     const res = await fetch(`/api/proyectos/${proyectoId}`, {
       method: "PATCH",
@@ -580,6 +604,7 @@ export default function VisorProyectoPage() {
               anotaciones={anotaciones}
               onGuardarAnotacion={guardarAnotacion}
               onEliminarAnotacion={eliminarAnotacion}
+              onActualizarAnotacion={actualizarAnotacion}
             />
           </div>
         </div>

@@ -478,6 +478,7 @@ model Anotacion {
   // TRAZO — path de N puntos a mano alzada (N >= 2), mismo sistema de
   // coordenadas (% del plano, 0-100) que el resto de las herramientas.
   puntos      Json?            // [{ x: number, y: number }, ...] — solo tipo=TRAZO
+  color       String?          // hex, ej. "#2563EB" — solo tipo=TRAZO; null en filas viejas cae al azul default al renderizar
 
   createdAt   DateTime         @default(now())
 }
