@@ -120,6 +120,14 @@ model Rubro {
   descripcion String
   unidad      String
   cantidad    Float    @default(0)
+  // Origen del valor actual de `cantidad` — "MANUAL" (cargado a mano,
+  // default) o "COMPUTO" (última vez que se escribió fue desde "Aplicar
+  // al presupuesto" en la Planilla de cómputo). Sin esto no hay forma de
+  // saber si aplicar el cómputo va a pisar un valor que el usuario cargó
+  // a mano — ver aviso de confirmación en POST .../aplicar-computo.
+  // PATCH /api/rubros/[id] vuelve a poner "MANUAL" apenas se edita
+  // cantidad a mano, así el origen siempre refleja la última escritura.
+  cantidadOrigen String @default("MANUAL")
   precioUnit  Float    @default(0)
   tipo        String   @default("GLOBAL")
   trabajoEnAltura Boolean @default(false)
@@ -129,6 +137,7 @@ model Rubro {
   certificacionItems CertificacionItem[]
   cotizaciones CotizacionProveedor[]
   mediciones  MedicionDocumento[]
+  filasMetraje FilaMetraje[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -412,6 +421,7 @@ model DocumentoMetraje {
 
   mediciones            MedicionDocumento[]
   anotaciones           Anotacion[]
+  filasMetraje          FilaMetraje[]
 
   createdAt             DateTime @default(now())
 }
@@ -419,13 +429,12 @@ model DocumentoMetraje {
 // Marcas de medición trazadas sobre un plano — Etapa 3 de "Metrajes con
 // plano" (UI_UX_REDESIGN.md sección 6, Modo A manual), primera ronda:
 // solo tipo="LINEA". Persisten para trazabilidad visual (la línea queda
-// dibujada sobre el plano al reabrirlo) — a diferencia de las filas de
-// la Planilla de Cómputo, que siguen siendo estado local efímero (no
-// hay tabla de filas hoy; ver metrajeFila.ts). xInicio/yInicio/xFin/yFin
-// son porcentajes (0-100) del ancho/alto del documento, no píxeles —
-// así el mapeo de coordenadas no depende del zoom/pan actual ni del
-// ancho de render (900px en el visor principal, variable en la ventana
-// flotante).
+// dibujada sobre el plano al reabrirlo). Al crearse genera además una
+// FilaMetraje puente (ver FilaMetraje.medicionId) para que aparezca en
+// la Planilla de cómputo. xInicio/yInicio/xFin/yFin son porcentajes
+// (0-100) del ancho/alto del documento, no píxeles — así el mapeo de
+// coordenadas no depende del zoom/pan actual ni del ancho de render
+// (900px en el visor principal, variable en la ventana flotante).
 model MedicionDocumento {
   id            String           @id @default(cuid())
   documentoId   String
@@ -451,6 +460,42 @@ model MedicionDocumento {
   rubroId       String?
   rubro         Rubro?           @relation(fields: [rubroId], references: [id], onDelete: SetNull)
   createdAt     DateTime         @default(now())
+
+  // Puente con la fila de Planilla que esta medición generó (ver
+  // FilaMetraje.medicionId) — lado inverso, no se usa para escribir.
+  filaMetraje   FilaMetraje?
+}
+
+// Fila de la Planilla de cómputo — reemplaza al estado local efímero
+// que tenía este dato antes (ver metrajeFila.ts). Vive a nivel de
+// documento porque nace de medir/describir algo sobre un plano puntual,
+// pero el vínculo a Rubro y la suma de cantidades para "Aplicar al
+// presupuesto" es a nivel de PROYECTO (varias filas de distintos
+// documentos pueden sumar al mismo Rubro — ver POST
+// .../proyectos/[id]/aplicar-computo). medicionId es el puente opcional
+// con una MedicionDocumento (fila nacida de un trazo en el plano) — se
+// borra en cascada si se borra la medición, mismo comportamiento que
+// tenía antes eliminarMedicion() al sacar la fila del estado local.
+// Filas manuales o generadas por IA no tienen medicionId.
+model FilaMetraje {
+  id          String            @id @default(cuid())
+  documentoId String
+  documento   DocumentoMetraje  @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  descripcion String
+  largo       Float?
+  ancho       Float?
+  alto        Float?
+  cantidad    Float?
+  // Unidad de la fila (m², m³, ml, etc.) — se autocompleta con la del
+  // Rubro al vincular si estaba vacía; se valida contra Rubro.unidad en
+  // el PATCH si ya tenía una propia (no se puede vincular si no coinciden).
+  unidad      String?
+  rubroId     String?
+  rubro       Rubro?            @relation(fields: [rubroId], references: [id], onDelete: SetNull)
+  medicionId  String?           @unique
+  medicion    MedicionDocumento? @relation(fields: [medicionId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 }
 
 // Anotaciones libres sobre un plano — reemplaza a MarcaReferencia (que

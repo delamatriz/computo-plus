@@ -8,7 +8,7 @@ import * as XLSX from "xlsx";
 import { X, Plus, Sparkles, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { urlProxyDocumentoMetraje } from "@/lib/blob";
-import { fmtNum, subtotalFila, nuevaFila, type MetrajeFila, type RubroOption } from "@/components/metrajes/metrajeFila";
+import { fmtNum, subtotalFila, type MetrajeFila, type RubroOption } from "@/components/metrajes/metrajeFila";
 import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, Anotacion } from "@/components/metrajes/documentoMetraje";
 import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion } from "@/components/metrajes/Visor";
 
@@ -46,7 +46,11 @@ export default function VisorProyectoPage() {
 
   const [proyectoNombre, setProyectoNombre] = useState("");
   const [rubrosDisponibles, setRubrosDisponibles] = useState<RubroOption[]>([]);
-  const [filas, setFilas] = useState<MetrajeFila[]>([nuevaFila()]);
+  // Filas de la Planilla de cómputo — persistidas (FilaMetraje), a nivel
+  // de PROYECTO (acumula filas de todos los documentos, no solo el
+  // abierto — ver GET /api/proyectos/[id]/filas-metraje y el diseño
+  // confirmado de "Aplicar al presupuesto").
+  const [filas, setFilas] = useState<MetrajeFila[]>([]);
 
   // Fila con IA
   const [iaTexto, setIaTexto] = useState("");
@@ -123,10 +127,31 @@ export default function VisorProyectoPage() {
               id: rubro.id,
               nombre: rubro.descripcion || "Rubro sin nombre",
               capituloNombre: cap.nombre,
+              unidad: rubro.unidad ?? "",
             });
           }
         }
         setRubrosDisponibles(opciones);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [proyectoId]);
+
+  /* Filas de la Planilla de cómputo — a nivel de proyecto (ver comentario
+     en la declaración de `filas` arriba). */
+  useEffect(() => {
+    if (!proyectoId) return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/proyectos/${proyectoId}/filas-metraje`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!cancelado) setFilas(data.filas ?? []);
+      } catch {
+        if (!cancelado) setFilas([]);
       }
     })();
     return () => {
@@ -233,15 +258,19 @@ export default function VisorProyectoPage() {
     };
   }, [documentoAbierto, proyectoId]);
 
-  // Guarda una nueva marca de medición (Etapa 3, Línea o Área) y agrega
-  // la fila correspondiente a la Planilla — mismo mecanismo que ya usan
-  // "Analizar con IA"/agregarFilaIA: se agrega en memoria, no hay tabla
-  // de filas persistida (ver metrajeFila.ts). Área no tiene columna
-  // propia en la Planilla (solo Largo/Ancho/Alto/Cantidad genéricos) —
-  // el valor calculado (m²) va en "largo", igual que la longitud de
-  // Línea (m) — mismo campo para el "número calculado por esta fila"
-  // sin importar la herramienta, en vez de repartirlo entre
-  // Ancho×Alto sin ningún significado real para un polígono irregular.
+  // Guarda una nueva marca de medición (Etapa 3, Línea o Área) y la fila
+  // puente correspondiente en la Planilla (FilaMetraje.medicionId — ver
+  // prisma/schema.prisma). Área no tiene columna propia en la Planilla
+  // (solo Largo/Ancho/Alto/Cantidad genéricos) — el valor calculado (m²)
+  // va en "largo", igual que la longitud de Línea (m) — mismo campo para
+  // el "número calculado por esta fila" sin importar la herramienta, en
+  // vez de repartirlo entre Ancho×Alto sin ningún significado real para
+  // un polígono irregular. unidad nace null (igual que una fila manual)
+  // en vez de autocompletarse por herramienta (ML/M2) — fijarla de
+  // entrada bloqueaba el <select> de "Rubro vinculado" contra la mayoría
+  // de los rubros del proyecto ni bien se creaba la fila, antes de que el
+  // usuario eligiera nada. Hereda la unidad del primer rubro que se
+  // vincule, como cualquier fila (ver PATCH /api/proyectos/[id]/filas-metraje/[filaId]).
   async function guardarMedicion(input: NuevaMedicionInput) {
     if (!documentoAbierto) return;
     const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/mediciones`, {
@@ -252,24 +281,29 @@ export default function VisorProyectoPage() {
     if (!res.ok) throw new Error();
     const data = await res.json();
     setMediciones((prev) => [...prev, data.medicion]);
-    // La fila usa el id de la medición (en vez del id random de
-    // nuevaFila()) para poder encontrarla y sacarla de la Planilla si la
-    // medición se borra después — ver eliminarMedicion.
-    setFilas((prev) => [
-      ...prev,
-      {
-        ...nuevaFila(),
-        id: data.medicion.id,
+
+    const resFila = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/filas-metraje`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         descripcion: input.descripcion,
         largo: input.tipo === "AREA" ? input.areaReal : input.longitudReal,
         cantidad: input.repeticiones,
-        rubroId: input.rubroId,
-      },
-    ]);
+        unidad: null,
+        rubroId: input.rubroId ?? null,
+        medicionId: data.medicion.id,
+      }),
+    });
+    if (resFila.ok) {
+      const dataFila = await resFila.json();
+      setFilas((prev) => [...prev, dataFila.fila]);
+    }
   }
 
-  // Borra una marca de medición (corrección de un trazo mal hecho) — y la
-  // fila que había generado en la Planilla, ya que comparten id.
+  // Borra una marca de medición (corrección de un trazo mal hecho) — la
+  // fila que había generado en la Planilla se borra en cascada en la base
+  // (FilaMetraje.medicionId, onDelete: Cascade), acá solo hace falta
+  // sacarla del estado local.
   async function eliminarMedicion(medicionId: string) {
     if (!documentoAbierto) return;
     const res = await fetch(
@@ -278,7 +312,7 @@ export default function VisorProyectoPage() {
     );
     if (!res.ok) throw new Error();
     setMediciones((prev) => prev.filter((m) => m.id !== medicionId));
-    setFilas((prev) => prev.filter((f) => f.id !== medicionId));
+    setFilas((prev) => prev.filter((f) => f.medicionId !== medicionId));
   }
 
   // Carga las anotaciones del documento principal — mismo mecanismo que
@@ -379,28 +413,67 @@ export default function VisorProyectoPage() {
     setDocumentoAbierto(data.documento);
   }
 
-  /* Filas de la planilla */
-  const actualizarFila = (id: string, field: keyof MetrajeFila, value: string) => {
-    setFilas((prev) =>
-      prev.map((f) =>
-        f.id !== id
-          ? f
-          : {
-              ...f,
-              [field]:
-                field === "descripcion" || field === "rubroId"
-                  ? value || null
-                  : value === ""
-                  ? null
-                  : parseFloat(value),
-            }
-      )
-    );
+  /* Filas de la planilla — persistidas, ver FilaMetraje en
+     prisma/schema.prisma. crearFila() necesita un documento abierto
+     (dueño de la fila nueva); actualizar/eliminar son a nivel de
+     proyecto y no lo necesitan (ver rutas en /api/proyectos/[id]/filas-metraje). */
+  async function crearFila(datos: {
+    descripcion: string;
+    largo?: number | null;
+    ancho?: number | null;
+    alto?: number | null;
+    cantidad?: number | null;
+    unidad?: string | null;
+  }): Promise<MetrajeFila | null> {
+    if (!documentoAbierto) return null;
+    const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/filas-metraje`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(datos),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.fila as MetrajeFila;
+  }
+
+  const actualizarFila = async (id: string, field: keyof MetrajeFila, value: string) => {
+    const nuevoValor: string | number | null =
+      field === "descripcion" || field === "rubroId" || field === "unidad"
+        ? value || null
+        : value === ""
+        ? null
+        : parseFloat(value);
+
+    // Optimista para todo menos rubroId — ahí esperamos la respuesta del
+    // server porque puede autocompletar `unidad` (ver diseño confirmado,
+    // sección 4) y necesitamos ese valor reflejado en el estado.
+    if (field !== "rubroId") {
+      setFilas((prev) => prev.map((f) => (f.id === id ? { ...f, [field]: nuevoValor } : f)));
+    }
+
+    const res = await fetch(`/api/proyectos/${proyectoId}/filas-metraje/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: nuevoValor }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      alert(data?.error || "No se pudo actualizar la fila");
+      return;
+    }
+    const data = await res.json();
+    setFilas((prev) => prev.map((f) => (f.id === id ? data.fila : f)));
   };
 
-  const agregarFila = () => setFilas((prev) => [...prev, nuevaFila()]);
+  const agregarFila = async () => {
+    const fila = await crearFila({ descripcion: "" });
+    if (fila) setFilas((prev) => [...prev, fila]);
+  };
 
-  const eliminarFila = (id: string) => setFilas((prev) => prev.filter((f) => f.id !== id));
+  const eliminarFila = async (id: string) => {
+    setFilas((prev) => prev.filter((f) => f.id !== id));
+    await fetch(`/api/proyectos/${proyectoId}/filas-metraje/${id}`, { method: "DELETE" }).catch(() => {});
+  };
 
   /* Fila generada a partir de descripción en lenguaje natural vía IA */
   const agregarFilaIA = async () => {
@@ -415,17 +488,15 @@ export default function VisorProyectoPage() {
       if (!res.ok) throw new Error("Error al generar la fila");
       const data = await res.json();
 
-      setFilas((prev) => [
-        ...prev,
-        {
-          ...nuevaFila(),
-          descripcion: data.nota ? `${data.descripcion} (${data.nota})` : data.descripcion,
-          largo: data.largo ?? null,
-          ancho: data.ancho ?? null,
-          alto: data.alto ?? null,
-          cantidad: data.cantidad ?? 1,
-        },
-      ]);
+      const fila = await crearFila({
+        descripcion: data.nota ? `${data.descripcion} (${data.nota})` : data.descripcion,
+        largo: data.largo ?? null,
+        ancho: data.ancho ?? null,
+        alto: data.alto ?? null,
+        cantidad: data.cantidad ?? 1,
+        unidad: typeof data.unidad === "string" ? data.unidad.toUpperCase() : null,
+      });
+      if (fila) setFilas((prev) => [...prev, fila]);
       setIaTexto("");
     } catch (err) {
       console.error("[visor] agregarFilaIA", err);
@@ -472,19 +543,23 @@ export default function VisorProyectoPage() {
     setSeleccionados(new Set());
   };
 
-  const agregarElementosSeleccionados = () => {
+  const agregarElementosSeleccionados = async () => {
     if (!elementosDetectados) return;
-    const nuevasFilas = elementosDetectados
-      .filter((_, i) => seleccionados.has(i))
-      .map((el) => ({
-        ...nuevaFila(),
-        descripcion: el.nota ? `${el.descripcion} (${el.nota})` : el.descripcion,
-        largo: el.largo,
-        ancho: el.ancho,
-        alto: el.alto,
-        cantidad: el.cantidad ?? 1,
-      }));
-    if (nuevasFilas.length > 0) setFilas((prev) => [...prev, ...nuevasFilas]);
+    const elegidos = elementosDetectados.filter((_, i) => seleccionados.has(i));
+    const nuevasFilas = await Promise.all(
+      elegidos.map((el) =>
+        crearFila({
+          descripcion: el.nota ? `${el.descripcion} (${el.nota})` : el.descripcion,
+          largo: el.largo,
+          ancho: el.ancho,
+          alto: el.alto,
+          cantidad: el.cantidad ?? 1,
+          unidad: el.unidad,
+        })
+      )
+    );
+    const creadas = nuevasFilas.filter((f): f is MetrajeFila => f !== null);
+    if (creadas.length > 0) setFilas((prev) => [...prev, ...creadas]);
     cerrarPanelAnalisis();
   };
 

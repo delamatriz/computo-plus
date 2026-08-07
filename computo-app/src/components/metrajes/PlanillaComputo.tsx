@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, Plus, X, ChevronDown, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fmtNum, subtotalFila, type MetrajeFila, type RubroOption } from "./metrajeFila";
+import { fmtNum, subtotalFila, unidadesCoinciden, type MetrajeFila, type RubroOption } from "./metrajeFila";
 
 // Planilla de cómputo — vive dentro del Visor (Página 2), arriba del
 // documento principal (ver UI_UX_REDESIGN.md 2quinquies). El estado de
@@ -175,9 +175,23 @@ export default function PlanillaComputo({
                         }, {})
                       ).map(([capNombre, rubros]) => (
                         <optgroup key={capNombre} label={capNombre}>
-                          {rubros.map((r) => (
-                            <option key={r.id} value={r.id}>{r.nombre}</option>
-                          ))}
+                          {rubros.map((r) => {
+                            // Si la fila ya tiene una unidad propia (cargada a
+                            // mano o heredada de una medición — ver
+                            // guardarMedicion en page.tsx), no se puede vincular
+                            // a un rubro de unidad distinta (m² vs m³, etc).
+                            const incompatible = !!fila.unidad && !unidadesCoinciden(fila.unidad, r.unidad);
+                            return (
+                              <option
+                                key={r.id}
+                                value={r.id}
+                                disabled={incompatible}
+                                title={incompatible ? `Unidad distinta: fila en ${fila.unidad}, rubro en ${r.unidad}` : undefined}
+                              >
+                                {r.nombre} ({r.unidad}){incompatible ? " — unidad distinta" : ""}
+                              </option>
+                            );
+                          })}
                         </optgroup>
                       ))}
                     </select>
