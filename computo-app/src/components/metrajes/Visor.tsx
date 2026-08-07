@@ -707,7 +707,9 @@ function ModalNuevoTexto({
           {error ? (
             <p className="text-xs text-red-600">{error}</p>
           ) : (
-            <p className="text-xs text-slate-400">El tamaño se ajusta después, directo sobre el plano.</p>
+            <p className="text-xs text-slate-400">
+              Una vez puesto, arrastrá la esquina inferior derecha del texto (cursor de flechas) para cambiarle el tamaño directo sobre el plano.
+            </p>
           )}
         </div>
         <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
@@ -760,14 +762,33 @@ type PaginaPDFCargada = { getViewport: (opts: { scale: number }) => { width: num
 // react-pdf elige, es cómo funciona <canvas> al cambiar su resolución
 // interna) — y de paso pone `canvas.style.visibility = "hidden"`
 // mientras corre `page.render()`, a propósito, para no mostrar un
-// frame a medio dibujar. No hay forma de "mantener el canvas viejo
-// visible" sin renderizar DOS <Page> en paralelo (una vieja, una
-// nueva, swap al terminar) — bastante más complejo y el doble de
-// carga de render por cada cambio de nitidez. En vez de eso, la
-// solución de acá es más simple y honesta: reemplazar el blanco sin
-// avisar por un indicador de carga breve, así se lee como "un
-// momento, ajustando nitidez" en vez de "esto se rompió".
+// frame a medio dibujar. Evitar el blanco sin recurrir a DOS <Page> en
+// paralelo (una vieja, una nueva, swap al terminar — el doble de carga
+// de render por cada cambio de nitidez): justo antes de disparar el
+// cambio de devicePixelRatio, se copia el contenido actual del canvas
+// real a un <canvas> "congelado" del mismo tamaño (drawImage, no
+// toDataURL — no hace falta codificar nada, solo una copia de píxeles)
+// y se lo muestra superpuesto mientras dura el re-render. Se ve
+// pixelado un instante (es una copia de la resolución VIEJA, estirada
+// al nuevo zoom) pero sigue siendo el plano, no una pantalla en blanco
+// — ver canvasRef/canvasCongeladoRef y congelarCanvasActual().
 const DPR_MAXIMO = 4;
+
+// Píldora de herramienta de la barra FILA 2 (Medir/Área/Trazo/Recta/
+// Texto/Descargar PDF) — un solo lugar para las tres variantes en vez de
+// repetir el mismo condicional largo en cada botón. Deshabilitada: gris
+// plano, sin borde. Inactiva: píldora neutra (blanco + borde sutil),
+// mismo lenguaje que "Cambiar escala"/"Exportar Excel" en el resto de
+// la app — no el azul pálido de antes, que hacía que todos los botones
+// (prendidos o no) pesaran igual. Activa: azul sólido #2563EB (el mismo
+// accent que "Aplicar al presupuesto" y el resto de los CTA primarios
+// de la plataforma, no el brand-light más clavado que tenía esta barra
+// antes) — para que se identifique de un vistazo cuál está prendida.
+function clasePildoraHerramienta(activa: boolean, habilitada: boolean): string {
+  if (!habilitada) return "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border border-transparent bg-slate-100 text-slate-400 text-xs font-semibold cursor-not-allowed";
+  if (activa) return "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border border-[#2563EB] bg-[#2563EB] text-white text-xs font-semibold transition-colors";
+  return "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border border-slate-300 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 hover:border-slate-400 transition-colors";
+}
 
 function multiplicadorParaEscala(scale: number): number {
   if (scale <= 1.3) return 1;
@@ -867,13 +888,34 @@ function VisorPrincipal({
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
+  // canvasRef = el canvas real que dibuja react-pdf; canvasCongeladoRef =
+  // la copia que se muestra encima mientras el real se re-renderiza más
+  // nítido (ver congelarCanvasActual y el comentario grande de arriba).
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasCongeladoRef = useRef<HTMLCanvasElement | null>(null);
   const [multiplicadorDPR, setMultiplicadorDPR] = useState(1);
   // true durante la ventana entre "el escalón de nitidez subió" y "el
   // canvas terminó de redibujarse" — ver comentario en DPR_MAXIMO.
   const [renderizandoPDF, setRenderizandoPDF] = useState(false);
+  // Copia los píxeles del canvas real al canvas congelado, en el mismo
+  // tick en que se decide subir la nitidez — todavía tiene el contenido
+  // VIEJO en ese momento (react-pdf recién lo va a limpiar/redibujar en
+  // un efecto posterior). width===0 → todavía no renderizó nada, no hay
+  // nada que copiar (primer render del documento).
+  const congelarCanvasActual = () => {
+    const origen = canvasRef.current;
+    const destino = canvasCongeladoRef.current;
+    if (!origen || !destino || origen.width === 0) return;
+    destino.width = origen.width;
+    destino.height = origen.height;
+    destino.getContext("2d")?.drawImage(origen, 0, 0);
+  };
   const actualizarDPRSegunZoom = (ref: ReactZoomPanPinchRef) => {
     const nuevoMultiplicador = multiplicadorParaEscala(ref.state.scale);
-    if (nuevoMultiplicador !== multiplicadorDPR) setRenderizandoPDF(true);
+    if (nuevoMultiplicador !== multiplicadorDPR) {
+      congelarCanvasActual();
+      setRenderizandoPDF(true);
+    }
     setMultiplicadorDPR(nuevoMultiplicador);
   };
   const dprRender = Math.min((typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicadorDPR, DPR_MAXIMO);
@@ -1243,6 +1285,39 @@ function VisorPrincipal({
     setRectaCursor(null);
   };
 
+  // ESC — cancela la herramienta activa y descarta cualquier trazo
+  // parcial sin guardar nada (mismo efecto que clickear el botón de la
+  // herramienta para apagarla, pero incondicional: a diferencia de
+  // toggleArea, que con 3+ vértices puestos CIERRA el polígono en vez
+  // de cancelarlo, acá siempre descarta, nunca confirma). También cubre
+  // "hay un modal abierto" sin necesidad de un handler aparte en cada
+  // uno: medicionPendiente (ModalConfirmarMedicion) y textoPendientePunto
+  // (ModalNuevoTexto) se ponen SIN apagar herramienta — el usuario sigue
+  // "con la herramienta puesta" mientras esos modales están abiertos —
+  // así que limpiarlos acá alcanza para cerrarlos también.
+  const cancelarHerramienta = () => {
+    setHerramienta(null);
+    setDibujoActual(null);
+    setPuntosArea([]);
+    setCursorArea(null);
+    setTrazoActual(null);
+    setRectaActual(null);
+    setRectaPrimerPunto(null);
+    setRectaCursor(null);
+    setTextoPendientePunto(null);
+    setMedicionPendiente(null);
+  };
+
+  useEffect(() => {
+    if (!herramienta) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelarHerramienta();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [herramienta]);
+
   // Se guarda directo al confirmar el texto en el modal — sin paso
   // intermedio "pendiente" ni banner flotante pidiendo Guardar/Cancelar
   // (el usuario reportó que ese cartel tapaba textos chicos en el
@@ -1560,6 +1635,7 @@ function VisorPrincipal({
               blob && (
                 <Document file={blob} options={PDF_OPTIONS} onLoadError={() => setError("No se pudo cargar el PDF.")} loading={null}>
                   <Page
+                    canvasRef={canvasRef}
                     pageNumber={doc.paginaPDF ?? 1}
                     width={900}
                     devicePixelRatio={dprRender}
@@ -1576,6 +1652,22 @@ function VisorPrincipal({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={imgObjectUrl} alt={doc.nombre} className="max-w-none select-none" onError={() => setError("No se pudo cargar la imagen.")} />
               )
+            )}
+            {doc.tipoArchivo === "PDF" && (
+              // Congelado del canvas viejo — ver congelarCanvasActual() y
+              // el comentario grande arriba de DPR_MAXIMO. Mismo tamaño
+              // que el canvas real (position:relative del wrapper +
+              // absolute/inset-0/w-full/h-full), así que el navegador lo
+              // estira exactamente como el <canvas> real — se ve
+              // pixelado si el zoom subió, pero sigue siendo el plano.
+              // display:none cuando no hace falta, en vez de desmontarlo,
+              // para no perder los píxeles ya copiados entre un
+              // congelado y el siguiente.
+              <canvas
+                ref={canvasCongeladoRef}
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ display: renderizandoPDF ? "block" : "none" }}
+              />
             )}
             {/* Overlay de medición — mismo tamaño exacto que el documento
                 (wrapper de arriba shrink-wrappea al contenido), viewBox
@@ -1685,22 +1777,23 @@ function VisorPrincipal({
                   vectorEffect="non-scaling-stroke"
                 />
               )}
+              {/* Sin círculos de vértice — mismo criterio que Trazo libre
+                  (sin ningún marcador). strokeWidth 0.8 — mismo grosor
+                  fino que el punteado de Línea recta (no el 1.25 del
+                  polígono ya guardado, que probamos en la ronda anterior:
+                  con el Área quedaba más grueso que el resto de los
+                  punteados de preview mientras se dibuja). */}
               {puntosArea.length > 0 && (
-                <>
-                  <polyline
-                    points={[...puntosArea, ...(cursorArea ? [cursorArea] : [])].map((p) => `${p.x},${p.y}`).join(" ")}
-                    fill="none"
-                    stroke="#64748B"
-                    strokeWidth={0.7}
-                    strokeDasharray="5,3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                  {puntosArea.map((p, i) => (
-                    <circle key={i} cx={p.x} cy={p.y} r={0.15} fill="#64748B" stroke="white" strokeWidth={0.08} vectorEffect="non-scaling-stroke" />
-                  ))}
-                </>
+                <polyline
+                  points={[...puntosArea, ...(cursorArea ? [cursorArea] : [])].map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="none"
+                  stroke="#64748B"
+                  strokeWidth={0.8}
+                  strokeDasharray="5,3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
               )}
               {trazoActual && trazoActual.length > 0 && (
                 <path
@@ -1729,11 +1822,13 @@ function VisorPrincipal({
                   que el resto: rectaActual mientras se arrastra
                   (mousedown->mousemove), rectaPrimerPunto+rectaCursor
                   mientras espera el segundo click del modo "clic +
-                  clic" (con un punto marcando dónde quedó el punto A).
-                  strokeWidth/strokeDasharray finos (1.5 / "3,2" en vez
-                  de 0.7 / "5,3") — el guión anterior quedaba
-                  desproporcionado para una línea tan fina, se veía
-                  como un punteado grueso/tosco en vez de prolijo. */}
+                  clic". Sin marcador de punto A — mismo criterio que
+                  Trazo libre/Área (sin ningún círculo). strokeWidth 0.8
+                  — igual que la línea ya guardada (ver bloque de
+                  TRAZO/RECTA guardados más arriba), no el 1.5 que tenía
+                  antes: la línea de preview cambiaba de grosor al
+                  confirmarse, quedaba una discontinuidad visual entre
+                  "dibujando" y "guardado". */}
               {rectaActual && (
                 <line
                   x1={rectaActual.xInicio}
@@ -1741,49 +1836,24 @@ function VisorPrincipal({
                   x2={rectaActual.xActual}
                   y2={rectaActual.yActual}
                   stroke="#64748B"
-                  strokeWidth={1.5}
+                  strokeWidth={0.8}
                   strokeDasharray="3,2"
                   strokeLinecap="round"
                   vectorEffect="non-scaling-stroke"
                 />
               )}
-              {rectaPrimerPunto && (
-                <>
-                  {rectaCursor && (
-                    <line
-                      x1={rectaPrimerPunto.x}
-                      y1={rectaPrimerPunto.y}
-                      x2={rectaCursor.x}
-                      y2={rectaCursor.y}
-                      stroke="#64748B"
-                      strokeWidth={1.5}
-                      strokeDasharray="3,2"
-                      strokeLinecap="round"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  )}
-                  {/* Marcador del punto A — línea de largo cero con
-                      remate redondo en vez de <circle r=...>: r se
-                      define en unidades del viewBox (0-100) y NO tiene
-                      protección contra zoom como el stroke, así que un
-                      círculo normal crece junto con el plano al hacer
-                      zoom (por eso "se veía muy grande" pese a r=0.15
-                      chico en pantalla al 100%). Con
-                      vector-effect="non-scaling-stroke" el remate
-                      redondo de una línea de largo cero SÍ mantiene un
-                      tamaño constante en pantalla sin importar el
-                      zoom — mismo truco, ahora aplicado también acá. */}
-                  <line
-                    x1={rectaPrimerPunto.x}
-                    y1={rectaPrimerPunto.y}
-                    x2={rectaPrimerPunto.x}
-                    y2={rectaPrimerPunto.y}
-                    stroke="#64748B"
-                    strokeWidth={4}
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </>
+              {rectaPrimerPunto && rectaCursor && (
+                <line
+                  x1={rectaPrimerPunto.x}
+                  y1={rectaPrimerPunto.y}
+                  x2={rectaCursor.x}
+                  y2={rectaCursor.y}
+                  stroke="#64748B"
+                  strokeWidth={0.8}
+                  strokeDasharray="3,2"
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
               )}
               {rectaPendiente && (
                 <line
@@ -1838,12 +1908,17 @@ function VisorPrincipal({
                 activa (mismo motivo que Línea/Área/Trazo en el <svg>:
                 evitar que clickear para poner un vértice o un punto
                 termine moviendo/borrando un texto existente que está
-                debajo). Solo se ve la letra — sin círculo ni decoración
-                permanente (el usuario reportó que el círculo anterior
-                tapaba el texto); el handle de tamaño aparece nada más
-                al pasar el mouse (`group-hover`), y mover es arrastrar
-                el texto mismo — un click sin arrastre borra (ver
-                iniciarMoverTextoGuardado). */}
+                debajo). Solo se ve la letra — sin círculo ni ícono de
+                esquina (el usuario reportó que un círculo tapaba el
+                texto, y después que el ícono de esquina que lo
+                reemplazó se seguía viendo mal por más que se achicara);
+                el área para redimensionar en la esquina inferior
+                derecha existe pero es invisible — el cursor
+                nwse-resize al pasar por ahí ya es señal suficiente, sin
+                nada permanente flotando sobre el plano (la explicación
+                de cómo redimensionar vive una sola vez en
+                ModalNuevoTexto). Mover es arrastrar el texto mismo — un
+                click sin arrastre borra (ver iniciarMoverTextoGuardado). */}
             <div className="absolute inset-0" style={{ pointerEvents: "none" }}>
               {anotaciones.map((a) => {
                 if (a.tipo !== "TEXTO" || a.x == null || a.y == null || !a.texto) return null;
@@ -1851,11 +1926,24 @@ function VisorPrincipal({
                 const x = enAjuste ? ajusteTextoValores!.x : a.x;
                 const y = enAjuste ? ajusteTextoValores!.y : a.y;
                 const tamano = enAjuste ? ajusteTextoValores!.tamano : a.tamano ?? 16;
-                const interactivo = herramienta === null;
+                // Incluye "TEXTO" además de null a propósito: la
+                // herramienta Texto queda prendida después de crear uno
+                // (para poder poner varios seguidos, ver toggleTexto),
+                // así que un texto recién escrito seguía con
+                // pointer-events:none — el click para borrarlo pasaba de
+                // largo hasta el <svg> de abajo, que lo interpretaba como
+                // "poner un texto nuevo acá" en vez de borrar el
+                // existente (bug reportado: "no se puede borrar después
+                // de escribirlo"). Clickear un texto puntual sigue
+                // andando igual con la herramienta prendida porque el
+                // span hace stopPropagation antes de llegar al <svg>;
+                // clickear el resto del plano (sin texto debajo) sigue
+                // colocando uno nuevo, sin cambios.
+                const interactivo = herramienta === null || herramienta === "TEXTO";
                 return (
                   <div
                     key={a.id}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 group"
+                    className="absolute -translate-x-1/2 -translate-y-1/2"
                     style={{ left: `${x}%`, top: `${y}%`, pointerEvents: interactivo ? "auto" : "none" }}
                   >
                     <div className="relative inline-block">
@@ -1863,27 +1951,27 @@ function VisorPrincipal({
                         onMouseDown={iniciarMoverTextoGuardado(a)}
                         title={`"${a.texto}" — arrastrar para mover, click para eliminar`}
                         style={{ fontSize: `${tamano}px` }}
-                        className="font-bold text-[#2563EB] whitespace-nowrap leading-none inline-block select-none cursor-move hover:text-[#1D4ED8] transition-colors"
+                        className="font-bold text-[#2563EB] whitespace-nowrap leading-none inline-block select-none cursor-pointer hover:text-[#1D4ED8] transition-colors"
                       >
                         {a.texto}
                       </span>
-                      {/* Ícono de esquina de redimensionar (mismo que
-                          VentanaFlotante) en vez del círculo anterior —
-                          separa visualmente "arrastrar para
-                          redimensionar" de los círculos de vértice que
-                          usan Medir/Área/Trazo libre, para que no se
-                          confundan. Sin title — el usuario reportó que
-                          el tooltip flotante se superponía y tapaba
-                          textos chicos; el ícono ya es bastante
-                          explícito por sí solo. */}
+                      {/* Área de arrastre para redimensionar — sin ícono
+                          visible (ronda anterior ya lo había achicado dos
+                          veces y seguía viéndose mal). El cursor
+                          nwse-resize al pasar por la esquina ya es señal
+                          suficiente; la explicación de "arrastrá la
+                          esquina para cambiar el tamaño" vive una sola
+                          vez en ModalNuevoTexto, no como tooltip
+                          permanente sobre el plano (mismo motivo por el
+                          que el ícono anterior tampoco tenía title — se
+                          superponía y tapaba textos chicos). Un poco más
+                          grande que el ícono que reemplaza (12px vs 10px)
+                          porque ahora es la única superficie de hit para
+                          esta interacción, sin ayuda visual. */}
                       <div
                         onMouseDown={iniciarRedimensionarTextoGuardado(a)}
-                        className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 flex items-end justify-end opacity-0 group-hover:opacity-100 transition-opacity cursor-nwse-resize text-[#2563EB]"
-                      >
-                        <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-                          <path d="M9 1L1 9M9 5L5 9M9 9L9 9" />
-                        </svg>
-                      </div>
+                        className="absolute -bottom-0.5 -right-0.5 w-3 h-3 cursor-nwse-resize"
+                      />
                     </div>
                   </div>
                 );
@@ -2222,6 +2310,7 @@ export default function Visor({
         escala: documentoPrincipal.escalaDeclarada,
         imagenDataUrl,
         orientacion,
+        notas: notasLocal,
       });
 
       const url = URL.createObjectURL(blob);
@@ -2286,26 +2375,39 @@ export default function Visor({
         <FilaCalibracion doc={documentoPrincipal} onGuardarCalibracion={onGuardarCalibracion} />
       )}
 
-      {/* FILA 2 — barra de herramientas única: zoom | expandir | medición | cerrar */}
+      {/* FILA 2 — barra de herramientas: tres grupos con separación
+          visual clara (divider vertical entre cada uno) — zoom/vista,
+          herramientas de dibujo/anotación, y Descargar PDF (acción
+          puntual, no una herramienta que queda prendida, por eso vive
+          en su propio grupo en vez de mezclada con las demás). Zoom/
+          Expandir son controles de vista, no "herramientas" con estado
+          on/off — quedan como íconos sueltos, sin borde ni fondo
+          permanente (el nivel más bajo de peso visual). Medir/Área/
+          Trazo/Recta/Texto/Descargar PDF usan clasePildoraHerramienta:
+          píldora neutra en reposo (blanco + borde sutil, mismo lenguaje
+          que "Cambiar escala"/"Exportar Excel"), azul sólido #2563EB
+          solo cuando la herramienta está prendida — antes todos estos
+          botones usaban el mismo azul pálido siempre, prendidos o no,
+          así que no había forma de distinguir de un vistazo cuál estaba
+          activa. */}
       <div className="flex items-center gap-1 px-4 py-2 bg-white border-b border-slate-200 flex-shrink-0 flex-wrap">
         {controlesZoom && (
           <>
-            <button onClick={controlesZoom.zoomOut} title="Alejar" className="p-1.5 rounded-[6px] bg-brand-pale text-brand-deep hover:bg-brand-muted transition-colors">
+            <button onClick={controlesZoom.zoomOut} title="Alejar" className="p-1.5 rounded-[8px] text-slate-500 hover:text-[#1A3A5C] hover:bg-slate-100 transition-colors">
               <ZoomOut className="w-4 h-4" />
             </button>
-            <button onClick={controlesZoom.zoomIn} title="Acercar" className="p-1.5 rounded-[6px] bg-brand-pale text-brand-deep hover:bg-brand-muted transition-colors">
+            <button onClick={controlesZoom.zoomIn} title="Acercar" className="p-1.5 rounded-[8px] text-slate-500 hover:text-[#1A3A5C] hover:bg-slate-100 transition-colors">
               <ZoomIn className="w-4 h-4" />
             </button>
-            <button onClick={controlesZoom.resetTransform} title="Ajustar a vista" className="p-1.5 rounded-[6px] bg-brand-pale text-brand-deep hover:bg-brand-muted transition-colors">
+            <button onClick={controlesZoom.resetTransform} title="Ajustar a vista" className="p-1.5 rounded-[8px] text-slate-500 hover:text-[#1A3A5C] hover:bg-slate-100 transition-colors">
               <Maximize2 className="w-4 h-4" />
             </button>
-            <div className="w-px h-4 bg-slate-200 mx-1" />
           </>
         )}
         <button
           onClick={onToggleExpandir}
           title={expandido ? "Volver a vista de 3 columnas" : "Expandir visor a pantalla completa"}
-          className="p-1.5 rounded-[6px] bg-brand-pale text-brand-deep hover:bg-brand-muted transition-colors"
+          className="p-1.5 rounded-[8px] text-slate-500 hover:text-[#1A3A5C] hover:bg-slate-100 transition-colors"
         >
           {expandido ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
         </button>
@@ -2325,14 +2427,7 @@ export default function Visor({
                   ? "Midiendo — clic y arrastre para dibujar una línea"
                   : "Medir una distancia trazando una línea sobre el plano"
               }
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
-                !puedeActivarMedicion
-                  ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : controlesMedicion?.herramienta === "LINEA"
-                  ? "border-brand-light bg-brand-light text-white"
-                  : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light"
-              )}
+              className={clasePildoraHerramienta(controlesMedicion?.herramienta === "LINEA", puedeActivarMedicion)}
             >
               <Ruler className="w-3.5 h-3.5" /> {controlesMedicion?.herramienta === "LINEA" ? "Midiendo…" : "Medir"}
             </button>
@@ -2348,14 +2443,7 @@ export default function Visor({
                   ? "Agregá al menos 3 vértices — clic en el plano (volvé a clickear acá para cancelar)"
                   : "Cerrar el polígono y calcular el área"
               }
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
-                !puedeActivarMedicion
-                  ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : controlesMedicion?.herramienta === "AREA"
-                  ? "border-brand-light bg-brand-light text-white"
-                  : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light"
-              )}
+              className={clasePildoraHerramienta(controlesMedicion?.herramienta === "AREA", puedeActivarMedicion)}
             >
               <Hexagon className="w-3.5 h-3.5" />
               {controlesMedicion?.herramienta === "AREA"
@@ -2381,14 +2469,7 @@ export default function Visor({
                   ? "Dibujando — clic y arrastre para trazar a mano alzada"
                   : "Trazo libre — dibujá a mano alzada sobre el plano (flecha, círculo, subrayado, etc.)"
               }
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
-                !controlesMedicion
-                  ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : controlesMedicion.trazoActivo
-                  ? "border-brand-light bg-brand-light text-white"
-                  : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light"
-              )}
+              className={clasePildoraHerramienta(!!controlesMedicion?.trazoActivo, !!controlesMedicion)}
             >
               <Pencil className="w-3.5 h-3.5" /> {controlesMedicion?.trazoActivo ? "Dibujando…" : "Trazo libre"}
             </button>
@@ -2400,14 +2481,7 @@ export default function Visor({
                   ? "Dibujando — clic para el punto A, clic o arrastre hasta el punto B"
                   : "Línea recta — dibujá una línea recta sobre el plano (sin medir, solo visual)"
               }
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
-                !controlesMedicion
-                  ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : controlesMedicion.rectaActiva
-                  ? "border-brand-light bg-brand-light text-white"
-                  : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light"
-              )}
+              className={clasePildoraHerramienta(!!controlesMedicion?.rectaActiva, !!controlesMedicion)}
             >
               <Slash className="w-3.5 h-3.5" /> {controlesMedicion?.rectaActiva ? "Dibujando…" : "Línea recta"}
             </button>
@@ -2419,41 +2493,30 @@ export default function Visor({
                   ? "Poniendo texto — clic en el plano"
                   : "Texto — dejá una letra o palabra en un punto del plano, con tamaño ajustable"
               }
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
-                !controlesMedicion
-                  ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : controlesMedicion.textoActivo
-                  ? "border-brand-light bg-brand-light text-white"
-                  : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light"
-              )}
+              className={clasePildoraHerramienta(!!controlesMedicion?.textoActivo, !!controlesMedicion)}
             >
               <TypeIcon className="w-3.5 h-3.5" /> {controlesMedicion?.textoActivo ? "Marcando…" : "Texto"}
             </button>
           </>
         )}
         <div className="flex-1" />
+        <div className="w-px h-4 bg-slate-200 mx-1" />
         {/* Descarga exactamente lo que se ve en el viewport ahora mismo
             (zoom/pan y anotaciones incluidos) — ver descargarPDF. Acción
-            de una sola vez, no una herramienta que quede "prendida", así
-            que va del lado del botón Cerrar, separada de Medir/Área/
-            Trazo libre/Línea recta/Texto. */}
+            de una sola vez, no una herramienta que queda "prendida" —
+            nunca pasa a la variante azul de clasePildoraHerramienta,
+            solo alterna entre neutra y deshabilitada. */}
         <button
           onClick={descargarPDF}
           disabled={!controlesZoom || !documentoPrincipal || exportandoPDF}
           title="Descargar el plano visible (con las anotaciones) como PDF"
-          className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
-            !controlesZoom || !documentoPrincipal
-              ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
-              : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light disabled:opacity-60 disabled:cursor-wait"
-          )}
+          className={cn(clasePildoraHerramienta(false, !!controlesZoom && !!documentoPrincipal), exportandoPDF && "opacity-60 cursor-wait")}
         >
           {exportandoPDF ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
           {exportandoPDF ? "Generando…" : "Descargar PDF"}
         </button>
         <div className="w-px h-4 bg-slate-200 mx-1" />
-        <button onClick={onClose} title="Cerrar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+        <button onClick={onClose} title="Cerrar" className="p-1.5 rounded-[8px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
           <X className="w-4 h-4" />
         </button>
       </div>
