@@ -782,6 +782,13 @@ export interface ControlesZoom {
   zoomIn: () => void;
   zoomOut: () => void;
   resetTransform: () => void;
+  /** Nodo DOM del wrapper de react-zoom-pan-pinch (overflow:hidden) — el
+   * límite real de "lo que se ve" con el zoom/pan actual, sin el resto
+   * del contenido que quede fuera de vista. Usado por "Descargar PDF"
+   * para capturar exactamente el viewport visible, no el documento
+   * completo. null si el documento no tiene TransformWrapper montado
+   * (categoria DWG, sin vista previa). */
+  obtenerContenedorCaptura: () => HTMLElement | null;
 }
 
 /** Expone el estado + acciones de las herramientas de medición/anotación
@@ -1379,6 +1386,7 @@ function VisorPrincipal({
       zoomIn: () => transformRef.current?.zoomIn(),
       zoomOut: () => transformRef.current?.zoomOut(),
       resetTransform: () => transformRef.current?.resetTransform(),
+      obtenerContenedorCaptura: () => transformRef.current?.instance.wrapperComponent ?? null,
     });
     return () => onControlesZoomListos(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2101,6 +2109,7 @@ function ListaDocumentos({
 // ── Componente principal del Visor ──────────────────────────────────────
 
 export default function Visor({
+  nombreProyecto,
   documentoPrincipal,
   todosLosDocumentos,
   onSeleccionarDocumento,
@@ -2168,6 +2177,10 @@ export default function Visor({
   onGuardarAnotacion: (input: NuevaAnotacionInput) => Promise<void>;
   onEliminarAnotacion: (anotacionId: string) => Promise<void>;
   onActualizarAnotacion: (anotacionId: string, cambios: CambiosAnotacion) => void;
+  /** Nombre del proyecto — solo para la cabecera del PDF exportado
+   * ("Descargar PDF"), no se muestra en ningún otro lado del Visor (el
+   * header con el nombre ya vive en la página que lo contiene). */
+  nombreProyecto: string;
   style?: React.CSSProperties;
 }) {
   const [notasLocal, setNotasLocal] = useState(notas);
@@ -2177,6 +2190,54 @@ export default function Visor({
   const [controlesZoom, setControlesZoom] = useState<ControlesZoom | null>(null);
   const [controlesMedicion, setControlesMedicion] = useState<ControlesMedicion | null>(null);
   const puedeActivarMedicion = documentoPrincipal?.tipoArchivo === "PDF" && !!controlesMedicion?.pageDimsListo;
+  const [exportandoPDF, setExportandoPDF] = useState(false);
+
+  // "Descargar PDF" — captura EXACTAMENTE lo que se ve en el viewport
+  // ahora mismo (zoom/pan incluidos, no el documento completo) porque
+  // apunta al wrapper de react-zoom-pan-pinch, que tiene overflow:hidden
+  // y por eso ya recorta a lo visible — ver obtenerContenedorCaptura en
+  // ControlesZoom. html2canvas y @react-pdf/renderer se cargan con
+  // import() dinámico, no en el top-level del archivo: son pesadas y
+  // solo hacen falta si el usuario realmente aprieta el botón.
+  const descargarPDF = async () => {
+    const contenedor = controlesZoom?.obtenerContenedorCaptura();
+    if (!contenedor || !documentoPrincipal) return;
+    setExportandoPDF(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const canvasCapturado = await html2canvas(contenedor, {
+        backgroundColor: "#ffffff",
+        scale: typeof window !== "undefined" ? window.devicePixelRatio || 2 : 2,
+        useCORS: true,
+      });
+      const imagenDataUrl = canvasCapturado.toDataURL("image/png");
+      const orientacion = canvasCapturado.width >= canvasCapturado.height ? "landscape" : "portrait";
+      const fecha = new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+      const { generarPdfVisor } = await import("./VisorExportPDF");
+      const blob = await generarPdfVisor({
+        nombreProyecto,
+        nombreDocumento: documentoPrincipal.nombre,
+        fecha,
+        escala: documentoPrincipal.escalaDeclarada,
+        imagenDataUrl,
+        orientacion,
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const nombreBase = `${nombreProyecto || "plano"}-${documentoPrincipal.nombre || "documento"}`.replace(/\s+/g, "-");
+      a.download = `${nombreBase}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[descargarPDF]", err);
+      alert("No se pudo generar el PDF. Probá de nuevo.");
+    } finally {
+      setExportandoPDF(false);
+    }
+  };
 
   const guardarNotasSiCambio = async () => {
     if (notasLocal === notas) return;
@@ -2372,6 +2433,25 @@ export default function Visor({
           </>
         )}
         <div className="flex-1" />
+        {/* Descarga exactamente lo que se ve en el viewport ahora mismo
+            (zoom/pan y anotaciones incluidos) — ver descargarPDF. Acción
+            de una sola vez, no una herramienta que quede "prendida", así
+            que va del lado del botón Cerrar, separada de Medir/Área/
+            Trazo libre/Línea recta/Texto. */}
+        <button
+          onClick={descargarPDF}
+          disabled={!controlesZoom || !documentoPrincipal || exportandoPDF}
+          title="Descargar el plano visible (con las anotaciones) como PDF"
+          className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border text-xs font-semibold transition-colors",
+            !controlesZoom || !documentoPrincipal
+              ? "border-transparent bg-slate-100 text-slate-400 cursor-not-allowed"
+              : "border-brand-muted bg-brand-pale text-brand-deep hover:bg-brand-muted hover:border-brand-light disabled:opacity-60 disabled:cursor-wait"
+          )}
+        >
+          {exportandoPDF ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+          {exportandoPDF ? "Generando…" : "Descargar PDF"}
+        </button>
         <div className="w-px h-4 bg-slate-200 mx-1" />
         <button onClick={onClose} title="Cerrar" className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
           <X className="w-4 h-4" />

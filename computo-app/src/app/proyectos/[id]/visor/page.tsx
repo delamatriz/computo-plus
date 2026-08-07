@@ -583,6 +583,7 @@ export default function VisorProyectoPage() {
 
           <div className="h-[600px]">
             <Visor
+              nombreProyecto={proyectoNombre}
               documentoPrincipal={documentoAbierto}
               todosLosDocumentos={todosLosDocumentos}
               onSeleccionarDocumento={seleccionarDesdeVisor}
