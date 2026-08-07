@@ -26,6 +26,30 @@ export interface RubroOption {
   unidad: string;
 }
 
+// "Aplicar al presupuesto" (POST /api/proyectos/[id]/aplicar-computo) —
+// suma FilaMetraje por rubroId a nivel de PROYECTO (cruza documentos, ver
+// diseño confirmado). Tipos compartidos entre esa ruta y el modal de
+// PlanillaComputo.tsx para que el preview y el resultado aplicado usen
+// exactamente la misma forma.
+export interface DesgloseDocumento {
+  documentoNombre: string;
+  paginaPDF: number | null;
+  cantidad: number;
+}
+
+export interface ActualizacionComputo {
+  rubroId: string;
+  nombre: string;
+  capituloNombre: string;
+  unidad: string;
+  cantidadActual: number;
+  cantidadNueva: number;
+  // true si Rubro.cantidadOrigen === "MANUAL" y cantidadActual !== 0 — hay
+  // un valor cargado a mano que "Aplicar" pisaría, hace falta avisar.
+  requiereConfirmacion: boolean;
+  desglosePorDocumento: DesgloseDocumento[];
+}
+
 export function fmtNum(v: number, decimales = 2): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
 }
@@ -39,7 +63,7 @@ export function unidadesCoinciden(a: string, b: string): boolean {
   return a.trim().toUpperCase() === b.trim().toUpperCase();
 }
 
-export function subtotalFila(f: MetrajeFila): number {
+export function subtotalFila(f: Pick<MetrajeFila, "largo" | "ancho" | "alto" | "cantidad">): number {
   const valores = [f.largo, f.ancho, f.alto, f.cantidad];
   if (valores.every((v) => v == null)) return 0;
   return valores.reduce((acc: number, v) => acc * (v ?? 1), 1);

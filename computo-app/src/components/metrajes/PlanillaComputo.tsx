@@ -2,9 +2,20 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Plus, X, ChevronDown, Sparkles, Loader2 } from "lucide-react";
+import { Download, Plus, X, ChevronDown, Sparkles, Loader2, Calculator, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fmtNum, subtotalFila, unidadesCoinciden, type MetrajeFila, type RubroOption } from "./metrajeFila";
+import { fmtNum, subtotalFila, unidadesCoinciden, type MetrajeFila, type RubroOption, type ActualizacionComputo } from "./metrajeFila";
+
+// Estado del modal de "Aplicar al presupuesto" — dos pasos (preview sin
+// tocar la base → confirmar y aplicar de verdad) más los estados de
+// carga/error de cada uno. Ver diseño confirmado y
+// POST /api/proyectos/[id]/aplicar-computo.
+type EstadoModalAplicar =
+  | { paso: "cargando" }
+  | { paso: "preview"; actualizaciones: ActualizacionComputo[] }
+  | { paso: "aplicando"; actualizaciones: ActualizacionComputo[] }
+  | { paso: "resultado"; actualizaciones: ActualizacionComputo[] }
+  | { paso: "error"; mensaje: string };
 
 // Planilla de cómputo — vive dentro del Visor (Página 2), arriba del
 // documento principal (ver UI_UX_REDESIGN.md 2quinquies). El estado de
@@ -25,6 +36,8 @@ export default function PlanillaComputo({
   onIaTextoChange,
   onAgregarFilaIA,
   onExportarExcel,
+  onAplicarComputoPreview,
+  onAplicarComputoConfirmar,
 }: {
   filas: MetrajeFila[];
   rubrosDisponibles: RubroOption[];
@@ -37,6 +50,8 @@ export default function PlanillaComputo({
   onIaTextoChange: (value: string) => void;
   onAgregarFilaIA: () => void;
   onExportarExcel: () => void;
+  onAplicarComputoPreview: () => Promise<ActualizacionComputo[]>;
+  onAplicarComputoConfirmar: () => Promise<ActualizacionComputo[]>;
 }) {
   const inputCls =
     "w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300";
@@ -48,6 +63,28 @@ export default function PlanillaComputo({
   // visible"), con la opción de colapsarla para recuperar alto para el
   // documento — ver nota en SeccionMetrajesPresupuesto.tsx.
   const [expandido, setExpandido] = useState(true);
+
+  const [modalAplicar, setModalAplicar] = useState<EstadoModalAplicar | null>(null);
+
+  const abrirModalAplicar = async () => {
+    setModalAplicar({ paso: "cargando" });
+    try {
+      const actualizaciones = await onAplicarComputoPreview();
+      setModalAplicar({ paso: "preview", actualizaciones });
+    } catch {
+      setModalAplicar({ paso: "error", mensaje: "No se pudo calcular la actualización. Probá de nuevo." });
+    }
+  };
+
+  const confirmarAplicar = async () => {
+    setModalAplicar((m) => (m && m.paso === "preview" ? { paso: "aplicando", actualizaciones: m.actualizaciones } : m));
+    try {
+      const actualizaciones = await onAplicarComputoConfirmar();
+      setModalAplicar({ paso: "resultado", actualizaciones });
+    } catch {
+      setModalAplicar({ paso: "error", mensaje: "No se pudo aplicar al presupuesto. Probá de nuevo." });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -68,12 +105,20 @@ export default function PlanillaComputo({
               )}
             />
           </button>
-          <button
-            onClick={onExportarExcel}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors flex-shrink-0"
-          >
-            <Download className="w-3.5 h-3.5" /> Exportar Excel
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={abrirModalAplicar}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[#2563EB] text-white text-xs font-semibold hover:bg-[#1D4ED8] transition-colors"
+            >
+              <Calculator className="w-3.5 h-3.5" /> Aplicar al presupuesto
+            </button>
+            <button
+              onClick={onExportarExcel}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Exportar Excel
+            </button>
+          </div>
         </div>
 
         <AnimatePresence initial={false}>
@@ -266,6 +311,147 @@ export default function PlanillaComputo({
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── Modal "Aplicar al presupuesto" — preview → confirmar → resultado.
+          Mismo patrón visual que el modal de actualización de precios por
+          índice (SeccionActualizacionPrecios.tsx): overlay + card centrada. ── */}
+      <AnimatePresence>
+        {modalAplicar && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+            onClick={() => modalAplicar.paso !== "aplicando" && modalAplicar.paso !== "cargando" && setModalAplicar(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[16px] shadow-xl max-w-2xl w-full p-6"
+            >
+              {modalAplicar.paso === "cargando" && (
+                <div className="flex items-center gap-3 py-6 justify-center text-slate-500">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm">Calculando totales por rubro...</span>
+                </div>
+              )}
+
+              {modalAplicar.paso === "error" && (
+                <>
+                  <h3 className="text-base font-bold text-[#1A3A5C] mb-2">Aplicar al presupuesto</h3>
+                  <div className="flex items-start gap-2 rounded-[10px] bg-red-50 border border-red-200 px-4 py-3 mb-5">
+                    <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-red-800">{modalAplicar.mensaje}</p>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => setModalAplicar(null)}
+                      className="px-4 py-2.5 rounded-[10px] text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {(modalAplicar.paso === "preview" || modalAplicar.paso === "aplicando" || modalAplicar.paso === "resultado") && (
+                <>
+                  <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
+                    {modalAplicar.paso === "resultado" ? "Presupuesto actualizado" : "Aplicar al presupuesto"}
+                  </h3>
+                  <p className="text-sm text-slate-600 mb-4">
+                    {modalAplicar.paso === "resultado"
+                      ? `${modalAplicar.actualizaciones.length} ${modalAplicar.actualizaciones.length === 1 ? "rubro actualizado" : "rubros actualizados"}.`
+                      : "Suma las filas de la Planilla vinculadas a cada rubro, cruzando todos los documentos del proyecto."}
+                  </p>
+
+                  {modalAplicar.actualizaciones.length === 0 ? (
+                    <p className="text-sm text-slate-500 py-4">
+                      No hay filas vinculadas a ningún rubro todavía — vinculá filas en la columna &quot;Rubro vinculado&quot; antes de aplicar.
+                    </p>
+                  ) : (
+                    <div className="max-h-[360px] overflow-y-auto rounded-[10px] border border-slate-200 mb-5">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 sticky top-0">
+                          <tr>
+                            <th className="text-left px-3 py-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Rubro</th>
+                            <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Actual</th>
+                            <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Nuevo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {modalAplicar.actualizaciones.map((a) => (
+                            <tr key={a.rubroId} className={cn("border-t border-slate-100", a.requiereConfirmacion && "bg-amber-50")}>
+                              <td className="px-3 py-2 align-top">
+                                <p className="text-slate-700">{a.nombre}</p>
+                                <p className="text-[11px] text-slate-400">{a.capituloNombre}</p>
+                                {a.desglosePorDocumento.length > 1 && (
+                                  <p className="text-[11px] text-slate-500 mt-0.5">
+                                    {a.desglosePorDocumento.map((d, i) => (
+                                      <span key={i}>
+                                        {i > 0 && " + "}
+                                        {fmtNum(d.cantidad)} {a.unidad} ({d.documentoNombre}
+                                        {d.paginaPDF ? `, pág ${d.paginaPDF}` : ""})
+                                      </span>
+                                    ))}
+                                  </p>
+                                )}
+                                {a.requiereConfirmacion && (
+                                  <p className="text-[11px] text-amber-700 flex items-center gap-1 mt-0.5">
+                                    <AlertTriangle className="w-3 h-3 flex-shrink-0" /> Tiene una cantidad cargada a mano
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums text-slate-500 align-top whitespace-nowrap">
+                                {fmtNum(a.cantidadActual)} {a.unidad}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums font-semibold align-top whitespace-nowrap" style={{ color: "#1A3A5C" }}>
+                                {fmtNum(a.cantidadNueva)} {a.unidad}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-3">
+                    {modalAplicar.paso === "resultado" ? (
+                      <button
+                        onClick={() => setModalAplicar(null)}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-medium hover:bg-[#1A3A5C] transition-colors"
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Listo
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setModalAplicar(null)}
+                          disabled={modalAplicar.paso === "aplicando"}
+                          className="px-4 py-2.5 rounded-[10px] text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-60"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={confirmarAplicar}
+                          disabled={modalAplicar.paso === "aplicando" || modalAplicar.actualizaciones.length === 0}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-medium hover:bg-[#1A3A5C] transition-colors disabled:opacity-60"
+                        >
+                          {modalAplicar.paso === "aplicando" && <Loader2 className="w-4 h-4 animate-spin" />}
+                          {modalAplicar.paso === "aplicando" ? "Aplicando..." : "Confirmar y aplicar"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

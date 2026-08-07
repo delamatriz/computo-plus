@@ -8,7 +8,7 @@ import * as XLSX from "xlsx";
 import { X, Plus, Sparkles, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { urlProxyDocumentoMetraje } from "@/lib/blob";
-import { fmtNum, subtotalFila, type MetrajeFila, type RubroOption } from "@/components/metrajes/metrajeFila";
+import { fmtNum, subtotalFila, type MetrajeFila, type RubroOption, type ActualizacionComputo } from "@/components/metrajes/metrajeFila";
 import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, Anotacion } from "@/components/metrajes/documentoMetraje";
 import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion } from "@/components/metrajes/Visor";
 
@@ -602,6 +602,33 @@ export default function VisorProyectoPage() {
     XLSX.writeFile(wb, `Metrajes-${(proyectoNombre || "proyecto").replace(/\s+/g, "-")}.xlsx`);
   };
 
+  /* "Aplicar al presupuesto" — mismo endpoint para las dos etapas del
+     flujo (ver /api/proyectos/[id]/aplicar-computo): sin `confirmar` es
+     solo preview (no toca la base), con `confirmar: true` aplica de
+     verdad. El modal en PlanillaComputo.tsx llama primero a la preview y
+     recién en el segundo click a la de aplicar. */
+  async function aplicarComputoPreview(): Promise<ActualizacionComputo[]> {
+    const res = await fetch(`/api/proyectos/${proyectoId}/aplicar-computo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) throw new Error("No se pudo calcular la actualización");
+    const data = await res.json();
+    return data.actualizaciones as ActualizacionComputo[];
+  }
+
+  async function aplicarComputoConfirmar(): Promise<ActualizacionComputo[]> {
+    const res = await fetch(`/api/proyectos/${proyectoId}/aplicar-computo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmar: true }),
+    });
+    if (!res.ok) throw new Error("No se pudo aplicar al presupuesto");
+    const data = await res.json();
+    return data.actualizaciones as ActualizacionComputo[];
+  }
+
   return (
     <div className="min-h-full flex flex-col" style={{ background: "#F8FAFC" }}>
       {/* ── Header simple — nombre del proyecto + volver. Sin el header
@@ -652,6 +679,8 @@ export default function VisorProyectoPage() {
                 onIaTextoChange={setIaTexto}
                 onAgregarFilaIA={agregarFilaIA}
                 onExportarExcel={exportarExcel}
+                onAplicarComputoPreview={aplicarComputoPreview}
+                onAplicarComputoConfirmar={aplicarComputoConfirmar}
               />
             </div>
           )}
