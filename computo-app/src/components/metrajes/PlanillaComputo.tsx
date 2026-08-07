@@ -17,6 +17,68 @@ type EstadoModalAplicar =
   | { paso: "resultado"; actualizaciones: ActualizacionComputo[] }
   | { paso: "error"; mensaje: string };
 
+// Input de Largo/Ancho/Alto/Cantidad — comparten el mismo problema: un
+// <input type="number"> nativo solo acepta punto como separador
+// decimal, así que tipear "0,45" (convención uruguaya) pierde la coma y
+// termina guardando 45. Acá se usa type="text" + inputMode="decimal" en
+// su lugar, aceptando coma o punto al tipear (se normaliza a punto antes
+// de subir el cambio, así onActualizarFila/parseFloat en page.tsx no
+// necesitan cambiar). En reposo (sin foco) se muestra fmtNum(value) —
+// 2 decimales fijos con coma, igual que el resto de la Planilla — pero
+// mientras el campo está enfocado se muestra el texto tal cual se está
+// tipeando, sin reformatear a mitad de edición (forzar el redondeo ahí
+// pelearía con la posición del cursor).
+function InputNumericoFila({
+  value,
+  onChange,
+  placeholder = "—",
+  className,
+}: {
+  value: number | null;
+  /** Ya normalizado (coma convertida a punto) — se pasa directo a
+   * onActualizarFila, que hace value === "" ? null : parseFloat(value). */
+  onChange: (valorCrudo: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [enfocado, setEnfocado] = useState(false);
+  const [texto, setTexto] = useState("");
+
+  const manejarFoco = () => {
+    // Arranca la edición desde el valor real guardado (con coma, sin
+    // redondear a 2 decimales) — así se edita el número tal cual está,
+    // no la versión recortada que se ve en reposo.
+    setTexto(value != null ? String(value).replace(".", ",") : "");
+    setEnfocado(true);
+  };
+
+  const manejarCambio = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const crudo = e.target.value;
+    setTexto(crudo);
+    const normalizado = crudo.replace(",", ".");
+    // No propaga estados intermedios claramente inválidos (una coma o un
+    // guión solos, recién tipeados) — evita guardar NaN/0 espurios a
+    // mitad de tipeo; en cuanto el texto vuelve a parsear bien (o queda
+    // vacío del todo) se propaga normal.
+    if (normalizado === "" || !isNaN(parseFloat(normalizado))) {
+      onChange(normalizado);
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={enfocado ? texto : value != null ? fmtNum(value) : ""}
+      onFocus={manejarFoco}
+      onBlur={() => setEnfocado(false)}
+      onChange={manejarCambio}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+}
+
 // Planilla de cómputo — vive dentro del Visor (Página 2), arriba del
 // documento principal (ver UI_UX_REDESIGN.md 2quinquies). El estado de
 // las filas lo dueña la página /proyectos/[id]/visor (necesita `filas`
@@ -174,21 +236,17 @@ export default function PlanillaComputo({
                     />
                   </div>
                   <div style={{ width: 88, flexShrink: 0 }} className="px-2">
-                    <input
-                      type="number"
-                      value={fila.largo ?? ""}
-                      onChange={(e) => onActualizarFila(fila.id, "largo", e.target.value)}
-                      placeholder="—"
-                      className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                    <InputNumericoFila
+                      value={fila.largo}
+                      onChange={(v) => onActualizarFila(fila.id, "largo", v)}
+                      className={cn(inputCls, "text-right")}
                     />
                   </div>
                   <div style={{ width: 88, flexShrink: 0 }} className="px-2 flex items-center gap-1">
-                    <input
-                      type="number"
-                      value={fila.ancho ?? ""}
-                      onChange={(e) => onActualizarFila(fila.id, "ancho", e.target.value)}
-                      placeholder="—"
-                      className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                    <InputNumericoFila
+                      value={fila.ancho}
+                      onChange={(v) => onActualizarFila(fila.id, "ancho", v)}
+                      className={cn(inputCls, "text-right")}
                     />
                     {fila.medicionId && onMedirAnchoParaFila && (
                       <button
@@ -202,21 +260,17 @@ export default function PlanillaComputo({
                     )}
                   </div>
                   <div style={{ width: 88, flexShrink: 0 }} className="px-2">
-                    <input
-                      type="number"
-                      value={fila.alto ?? ""}
-                      onChange={(e) => onActualizarFila(fila.id, "alto", e.target.value)}
-                      placeholder="—"
-                      className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                    <InputNumericoFila
+                      value={fila.alto}
+                      onChange={(v) => onActualizarFila(fila.id, "alto", v)}
+                      className={cn(inputCls, "text-right")}
                     />
                   </div>
                   <div style={{ width: 80, flexShrink: 0 }} className="px-2">
-                    <input
-                      type="number"
-                      value={fila.cantidad ?? ""}
-                      onChange={(e) => onActualizarFila(fila.id, "cantidad", e.target.value)}
-                      placeholder="—"
-                      className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                    <InputNumericoFila
+                      value={fila.cantidad}
+                      onChange={(v) => onActualizarFila(fila.id, "cantidad", v)}
+                      className={cn(inputCls, "text-right")}
                     />
                   </div>
                   <div style={{ width: 110, flexShrink: 0 }} className="px-2 text-right">
