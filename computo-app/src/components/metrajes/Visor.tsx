@@ -643,11 +643,11 @@ function ModalConfirmarMedicion({
 // con una vista previa aislada dentro del modal, sin relación real con
 // el plano/zoom — el usuario reportó que hasta el tamaño "mínimo" del
 // modal quedaba enorme una vez puesto en el plano real, sin ninguna
-// referencia confiable mientras lo ajustaba. Ahora, después de este
-// paso, el texto aparece directamente sobre el plano (ver
-// textoPendiente/iniciarRedimensionTexto en VisorPrincipal) con un
-// handle para arrastrar y cambiar el tamaño viendo el resultado real
-// en contexto — mismo patrón que la ventana flotante de fotos/detalles.
+// referencia confiable mientras lo ajustaba. Ahora, al confirmar acá,
+// el texto se guarda directo con un tamaño default (ver crearTexto en
+// VisorPrincipal) y el tamaño se ajusta DESPUÉS arrastrando su propio
+// handle en el plano — mismo patrón que la ventana flotante de fotos/
+// detalles — viendo el resultado real en contexto.
 // Mínimo bajado a 4 (desde 8) — el usuario quiere poder achicar el
 // texto hasta integrarse a la escala real de las cotas/etiquetas ya
 // impresas en el plano, que suelen ser bastante más chicas que 8px a
@@ -903,19 +903,23 @@ function VisorPrincipal({
   const [rectaPendiente, setRectaPendiente] = useState<{ puntos: [{ x: number; y: number }, { x: number; y: number }]; color: string } | null>(null);
   const [guardandoRecta, setGuardandoRecta] = useState(false);
   const [errorRecta, setErrorRecta] = useState<string | null>(null);
-  // Texto — dos pasos. 1) textoPendientePunto: punto ya clickeado,
-  // esperando que el usuario escriba el texto en ModalNuevoTexto.
-  // 2) textoPendiente: texto ya escrito, mostrado DIRECTO sobre el
-  // plano con su tamaño real (arrastrable/redimensionable — ver
-  // iniciarMoverTextoPendiente/iniciarRedimensionTexto) hasta que el
-  // usuario confirma o cancela.
+  // Texto — un solo paso real: textoPendientePunto es el punto ya
+  // clickeado, esperando que el usuario escriba el texto en
+  // ModalNuevoTexto; en cuanto lo confirma, se guarda directo (sin un
+  // estado "pendiente" intermedio ni banner flotante pidiendo
+  // Guardar/Cancelar — eso generaba un cartel superpuesto que tapaba
+  // textos chicos). Una vez guardado, ya es una anotación más y se
+  // mueve/redimensiona con el mismo mecanismo que cualquier Texto
+  // guardado (ver iniciarMoverTextoGuardado/
+  // iniciarRedimensionarTextoGuardado). errorCrearTexto solo cubre el
+  // caso borde de que ESE primer guardado falle — guarda punto+texto
+  // para poder reintentar sin reabrir el modal.
   const [textoPendientePunto, setTextoPendientePunto] = useState<{ x: number; y: number } | null>(null);
-  const [textoPendiente, setTextoPendiente] = useState<{ x: number; y: number; texto: string; tamano: number } | null>(null);
-  const [guardandoTexto, setGuardandoTexto] = useState(false);
-  const [errorTexto, setErrorTexto] = useState<string | null>(null);
-  // Mover/redimensionar un Texto YA GUARDADO — mismo mecanismo que
-  // textoPendiente pero para anotaciones que ya están en la base.
-  // ajusteTextoId marca cuál anotación se está arrastrando (para que su
+  const [errorCrearTexto, setErrorCrearTexto] = useState<{ x: number; y: number; texto: string } | null>(null);
+  // Mover/redimensionar un Texto YA GUARDADO — único mecanismo de
+  // ajuste que existe ahora que el guardado es directo (ver
+  // crearTexto). ajusteTextoId marca cuál anotación se está arrastrando
+  // (para que su
   // render use ajusteTextoValores en vez del x/y/tamano del prop
   // mientras dura el drag); se persiste con onActualizarAnotacion recién
   // al soltar el mouse, no en cada mousemove.
@@ -1232,60 +1236,21 @@ function VisorPrincipal({
     setRectaCursor(null);
   };
 
-  // Arrastrar el texto mismo lo mueve — sigue el mouse en vivo, sin
-  // pedir confirmación (todavía no está guardado, es puro estado local).
-  const iniciarMoverTextoPendiente = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!textoPendiente || !svgRef.current) return;
-    const svg = svgRef.current;
-    const onMove = (ev: MouseEvent) => {
-      const p = puntoDesdeEvento(svg, ev.clientX, ev.clientY);
-      if (p) setTextoPendiente((prev) => (prev ? { ...prev, x: p.x, y: p.y } : prev));
-    };
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  };
-
-  // Arrastrar el handle (esquina, visible solo al pasar el mouse — ver
-  // render) cambia el tamaño en vivo — mismo patrón que
-  // iniciarRedimension de VentanaFlotante (listeners en window para que
-  // el arrastre siga funcionando aunque el mouse se salga del handle).
-  // Un solo eje (vertical) alcanza acá: no hay ancho/alto que
-  // redimensionar, solo un tamaño de fuente.
-  const iniciarRedimensionTexto = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!textoPendiente) return;
-    const inicioY = e.clientY;
-    const tamanoInicial = textoPendiente.tamano;
-    const onMove = (ev: MouseEvent) => {
-      const delta = ev.clientY - inicioY;
-      setTextoPendiente((prev) => (prev ? { ...prev, tamano: clamp(tamanoInicial + delta, TEXTO_TAMANO_MIN, TEXTO_TAMANO_MAX) } : prev));
-    };
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  };
-
-  const confirmarTexto = async () => {
-    if (!textoPendiente) return;
-    setGuardandoTexto(true);
-    setErrorTexto(null);
+  // Se guarda directo al confirmar el texto en el modal — sin paso
+  // intermedio "pendiente" ni banner flotante pidiendo Guardar/Cancelar
+  // (el usuario reportó que ese cartel tapaba textos chicos en el
+  // plano). Una vez creado, ya aparece como una anotación guardada más
+  // y se ajusta con el mismo mecanismo que cualquier Texto existente
+  // (mover/redimensionar arrastrando directo — ver
+  // iniciarMoverTextoGuardado/iniciarRedimensionarTextoGuardado). Si
+  // ESTE primer guardado falla, se guarda el punto+texto en
+  // errorCrearTexto para poder reintentar sin reabrir el modal.
+  const crearTexto = async (x: number, y: number, texto: string) => {
+    setErrorCrearTexto(null);
     try {
-      await onGuardarAnotacion({ tipo: "TEXTO", x: textoPendiente.x, y: textoPendiente.y, texto: textoPendiente.texto, tamano: textoPendiente.tamano });
-      setTextoPendiente(null);
+      await onGuardarAnotacion({ tipo: "TEXTO", x, y, texto, tamano: TEXTO_TAMANO_INICIAL });
     } catch {
-      setErrorTexto("No se pudo guardar el texto.");
-    } finally {
-      setGuardandoTexto(false);
+      setErrorCrearTexto({ x, y, texto });
     }
   };
 
@@ -1547,32 +1512,23 @@ function VisorPrincipal({
             </button>
           </div>
         )}
-        {textoPendiente && (
-          <div className="flex items-center gap-2 bg-white rounded-[10px] px-3 py-2 shadow-lg border border-amber-200">
-            {errorTexto ? (
-              <>
-                <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                <p className="text-xs text-red-600">{errorTexto}</p>
-              </>
-            ) : (
-              <p className="text-xs text-slate-500">Arrastrá el punto amarillo para cambiar el tamaño</p>
-            )}
+        {/* Sin banner en el camino feliz — el texto se guarda solo al
+            confirmar el modal, sin pedir Guardar/Cancelar (ver
+            crearTexto). Este banner SOLO aparece si ese guardado
+            falló, para poder reintentar sin reabrir el modal ni perder
+            lo escrito. */}
+        {errorCrearTexto && (
+          <div className="flex items-center gap-2 bg-white rounded-[10px] px-3 py-2 shadow-lg border border-red-200">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+            <p className="text-xs text-red-600">No se pudo guardar el texto.</p>
             <button
-              onClick={confirmarTexto}
-              disabled={guardandoTexto}
-              className="text-xs font-semibold text-[#2563EB] hover:underline disabled:opacity-40"
+              onClick={() => errorCrearTexto && crearTexto(errorCrearTexto.x, errorCrearTexto.y, errorCrearTexto.texto)}
+              className="text-xs font-semibold text-[#2563EB] hover:underline"
             >
-              {guardandoTexto ? "Guardando…" : "Guardar"}
+              Reintentar
             </button>
-            <button
-              onClick={() => {
-                setTextoPendiente(null);
-                setErrorTexto(null);
-              }}
-              disabled={guardandoTexto}
-              className="text-xs font-semibold text-slate-500 hover:underline disabled:opacity-40"
-            >
-              Cancelar
+            <button onClick={() => setErrorCrearTexto(null)} className="text-xs font-semibold text-slate-500 hover:underline">
+              Descartar
             </button>
           </div>
         )}
@@ -1765,7 +1721,11 @@ function VisorPrincipal({
                   que el resto: rectaActual mientras se arrastra
                   (mousedown->mousemove), rectaPrimerPunto+rectaCursor
                   mientras espera el segundo click del modo "clic +
-                  clic" (con un punto marcando dónde quedó el punto A). */}
+                  clic" (con un punto marcando dónde quedó el punto A).
+                  strokeWidth/strokeDasharray finos (1.5 / "3,2" en vez
+                  de 0.7 / "5,3") — el guión anterior quedaba
+                  desproporcionado para una línea tan fina, se veía
+                  como un punteado grueso/tosco en vez de prolijo. */}
               {rectaActual && (
                 <line
                   x1={rectaActual.xInicio}
@@ -1773,8 +1733,8 @@ function VisorPrincipal({
                   x2={rectaActual.xActual}
                   y2={rectaActual.yActual}
                   stroke="#64748B"
-                  strokeWidth={0.7}
-                  strokeDasharray="5,3"
+                  strokeWidth={1.5}
+                  strokeDasharray="3,2"
                   strokeLinecap="round"
                   vectorEffect="non-scaling-stroke"
                 />
@@ -1788,13 +1748,33 @@ function VisorPrincipal({
                       x2={rectaCursor.x}
                       y2={rectaCursor.y}
                       stroke="#64748B"
-                      strokeWidth={0.7}
-                      strokeDasharray="5,3"
+                      strokeWidth={1.5}
+                      strokeDasharray="3,2"
                       strokeLinecap="round"
                       vectorEffect="non-scaling-stroke"
                     />
                   )}
-                  <circle cx={rectaPrimerPunto.x} cy={rectaPrimerPunto.y} r={0.15} fill="#64748B" stroke="white" strokeWidth={0.08} vectorEffect="non-scaling-stroke" />
+                  {/* Marcador del punto A — línea de largo cero con
+                      remate redondo en vez de <circle r=...>: r se
+                      define en unidades del viewBox (0-100) y NO tiene
+                      protección contra zoom como el stroke, así que un
+                      círculo normal crece junto con el plano al hacer
+                      zoom (por eso "se veía muy grande" pese a r=0.15
+                      chico en pantalla al 100%). Con
+                      vector-effect="non-scaling-stroke" el remate
+                      redondo de una línea de largo cero SÍ mantiene un
+                      tamaño constante en pantalla sin importar el
+                      zoom — mismo truco, ahora aplicado también acá. */}
+                  <line
+                    x1={rectaPrimerPunto.x}
+                    y1={rectaPrimerPunto.y}
+                    x2={rectaPrimerPunto.x}
+                    y2={rectaPrimerPunto.y}
+                    stroke="#64748B"
+                    strokeWidth={4}
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
                 </>
               )}
               {rectaPendiente && (
@@ -1879,11 +1859,23 @@ function VisorPrincipal({
                       >
                         {a.texto}
                       </span>
+                      {/* Ícono de esquina de redimensionar (mismo que
+                          VentanaFlotante) en vez del círculo anterior —
+                          separa visualmente "arrastrar para
+                          redimensionar" de los círculos de vértice que
+                          usan Medir/Área/Trazo libre, para que no se
+                          confundan. Sin title — el usuario reportó que
+                          el tooltip flotante se superponía y tapaba
+                          textos chicos; el ícono ya es bastante
+                          explícito por sí solo. */}
                       <div
                         onMouseDown={iniciarRedimensionarTextoGuardado(a)}
-                        title="Arrastrar para cambiar el tamaño"
-                        className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-white border border-[#2563EB] opacity-0 group-hover:opacity-100 transition-opacity cursor-ns-resize"
-                      />
+                        className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 flex items-end justify-end opacity-0 group-hover:opacity-100 transition-opacity cursor-nwse-resize text-[#2563EB]"
+                      >
+                        <svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                          <path d="M9 1L1 9M9 5L5 9M9 9L9 9" />
+                        </svg>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1893,24 +1885,6 @@ function VisorPrincipal({
                   style={{ left: `${textoPendientePunto.x}%`, top: `${textoPendientePunto.y}%` }}
                   className="absolute -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-amber-500/70 border-2 border-white shadow-md animate-pulse"
                 />
-              )}
-              {textoPendiente && (
-                <div style={{ left: `${textoPendiente.x}%`, top: `${textoPendiente.y}%`, pointerEvents: "auto" }} className="absolute -translate-x-1/2 -translate-y-1/2 group">
-                  <div className="relative inline-block">
-                    <span
-                      onMouseDown={iniciarMoverTextoPendiente}
-                      style={{ fontSize: `${textoPendiente.tamano}px` }}
-                      className="font-bold text-amber-600 whitespace-nowrap leading-none inline-block select-none cursor-move"
-                    >
-                      {textoPendiente.texto}
-                    </span>
-                    <div
-                      onMouseDown={iniciarRedimensionTexto}
-                      title="Arrastrar para cambiar el tamaño"
-                      className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-white border border-amber-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-ns-resize"
-                    />
-                  </div>
-                </div>
               )}
             </div>
           </div>
@@ -1928,7 +1902,7 @@ function VisorPrincipal({
         <ModalNuevoTexto
           onCancelar={() => setTextoPendientePunto(null)}
           onContinuar={(texto) => {
-            setTextoPendiente({ x: textoPendientePunto.x, y: textoPendientePunto.y, texto, tamano: TEXTO_TAMANO_INICIAL });
+            crearTexto(textoPendientePunto.x, textoPendientePunto.y, texto);
             setTextoPendientePunto(null);
           }}
         />
