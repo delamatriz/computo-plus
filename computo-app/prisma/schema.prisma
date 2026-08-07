@@ -463,7 +463,11 @@ model MedicionDocumento {
 
   // Puente con la fila de Planilla que esta medición generó (ver
   // FilaMetraje.medicionId) — lado inverso, no se usa para escribir.
-  filaMetraje   FilaMetraje?
+  filaMetraje       FilaMetraje?  @relation("FilaMedicionLargo")
+  // Puente con la fila cuyo ANCHO se midió apuntando a ESTA medición en
+  // vez de crear una fila nueva (ver FilaMetraje.medicionAnchoId) —
+  // lado inverso, no se usa para escribir.
+  filaMetrajeAncho  FilaMetraje?  @relation("FilaMedicionAncho")
 }
 
 // Fila de la Planilla de cómputo — reemplaza al estado local efímero
@@ -477,25 +481,39 @@ model MedicionDocumento {
 // borra en cascada si se borra la medición, mismo comportamiento que
 // tenía antes eliminarMedicion() al sacar la fila del estado local.
 // Filas manuales o generadas por IA no tienen medicionId.
+//
+// medicionAnchoId — segundo puente opcional, para medir el ANCHO de un
+// elemento (ej. zapata) directo en el plano hacia una fila YA EXISTENTE
+// en vez de crear una fila nueva (ver "ícono de regla" en
+// PlanillaComputo.tsx). A propósito NO usa onDelete:Cascade como
+// medicionId: borrar el trazo de ancho no tiene que borrar toda la fila
+// (largo incluido) — solo dejar ancho en null. Con SetNull el FK se
+// limpia solo a nivel de base, pero `ancho` y `unidad` no — esa parte
+// se resuelve a nivel de aplicación (ver src/lib/recalculoUnidadFila.ts,
+// usado tanto en el PATCH de filas-metraje como en el DELETE de
+// mediciones) para que el número y la etiqueta nunca queden
+// desincronizados del vínculo.
 model FilaMetraje {
-  id          String            @id @default(cuid())
-  documentoId String
-  documento   DocumentoMetraje  @relation(fields: [documentoId], references: [id], onDelete: Cascade)
-  descripcion String
-  largo       Float?
-  ancho       Float?
-  alto        Float?
-  cantidad    Float?
+  id              String              @id @default(cuid())
+  documentoId     String
+  documento       DocumentoMetraje    @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  descripcion     String
+  largo           Float?
+  ancho           Float?
+  alto            Float?
+  cantidad        Float?
   // Unidad de la fila (m², m³, ml, etc.) — se autocompleta con la del
   // Rubro al vincular si estaba vacía; se valida contra Rubro.unidad en
   // el PATCH si ya tenía una propia (no se puede vincular si no coinciden).
-  unidad      String?
-  rubroId     String?
-  rubro       Rubro?            @relation(fields: [rubroId], references: [id], onDelete: SetNull)
-  medicionId  String?           @unique
-  medicion    MedicionDocumento? @relation(fields: [medicionId], references: [id], onDelete: Cascade)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  unidad          String?
+  rubroId         String?
+  rubro           Rubro?              @relation(fields: [rubroId], references: [id], onDelete: SetNull)
+  medicionId      String?             @unique
+  medicion        MedicionDocumento?  @relation("FilaMedicionLargo", fields: [medicionId], references: [id], onDelete: Cascade)
+  medicionAnchoId String?             @unique
+  medicionAncho   MedicionDocumento?  @relation("FilaMedicionAncho", fields: [medicionAnchoId], references: [id], onDelete: SetNull)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 }
 
 // Anotaciones libres sobre un plano — reemplaza a MarcaReferencia (que

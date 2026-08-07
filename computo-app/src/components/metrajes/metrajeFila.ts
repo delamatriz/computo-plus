@@ -17,6 +17,12 @@ export interface MetrajeFila {
   // Puente con la medición que generó esta fila (Etapa 3, trazo sobre un
   // plano) — null en filas manuales o generadas por IA.
   medicionId: string | null;
+  // Puente con la medición del ANCHO, si se midió directo en el plano
+  // hacia esta fila en vez de escribirlo a mano (ver ícono de regla en
+  // PlanillaComputo.tsx) — null si ancho está vacío, es manual, o la
+  // fila no tiene medicionId (no se ofrece esta opción para filas
+  // manuales/IA).
+  medicionAnchoId: string | null;
 }
 
 export interface RubroOption {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Upload, FileText, FileImage, Download, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { Upload, FileText, FileImage, Eye, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -108,6 +108,36 @@ export default function SeccionDocumentacionLlamado({ proyectoId }: Props) {
       setError("No se pudo subir el archivo. Probá de nuevo.");
     } finally {
       setSubiendo(false);
+    }
+  }
+
+  // Abrir un data: URI directo con <a target="_blank"> es poco confiable
+  // para PDFs — varios navegadores lo bajan en vez de mostrarlo inline
+  // (no hay Content-Disposition/Content-Type real de por medio, solo
+  // sniffing), y hay límites de largo de URL más chicos que aplican a
+  // href que a un fetch. Convertir a Blob + Object URL evita los dos
+  // problemas: URL.createObjectURL usa el tipo real del Blob y no tiene
+  // ese límite. La ventana se abre ANTES del fetch (síncrono, en el
+  // mismo gesto del click) para no chocar con el bloqueador de popups;
+  // se le asigna la URL real una vez que el Blob está listo.
+  async function verDocumento(doc: DocumentoLlamado) {
+    const ventana = window.open("", "_blank");
+    if (ventana) ventana.opener = null; // corta la referencia sin necesitar rel=noopener (la necesitamos para navegar la ventana después)
+    try {
+      const res = await fetch(doc.url);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      if (ventana) {
+        ventana.location.href = objectUrl;
+      } else {
+        setError("El navegador bloqueó la ventana nueva — permití popups para este sitio y probá de nuevo.");
+      }
+      // La ventana ya cargó el recurso para cuando el usuario podría
+      // volver a pedirlo — se libera después sin apuro.
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch {
+      ventana?.close();
+      setError("No se pudo abrir el archivo.");
     }
   }
 
@@ -229,14 +259,21 @@ export default function SeccionDocumentacionLlamado({ proyectoId }: Props) {
                           {fmtFecha(doc.createdAt)}
                           {doc.tamano != null && ` · ${fmtTamano(doc.tamano)}`}
                         </span>
-                        <a
-                          href={doc.url}
-                          download={doc.nombreArchivo}
-                          title="Descargar"
+                        {/* Antes bajaba el archivo directo (download=...) — el
+                            usuario recién lo subió, lo que quiere es verlo,
+                            no que el navegador lo guarde de nuevo. Ver
+                            verDocumento arriba: convierte el data: URI a
+                            Blob + Object URL antes de mostrarlo, así el
+                            navegador lo abre con su visor nativo (PDF o
+                            imagen) en vez de bajarlo; sigue pudiendo
+                            guardarlo desde ahí (Ctrl+S) si lo necesita. */}
+                        <button
+                          onClick={() => verDocumento(doc)}
+                          title="Ver"
                           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-[6px] text-slate-400 hover:text-[#2563EB] hover:bg-blue-50 transition-colors"
                         >
-                          <Download className="w-3.5 h-3.5" />
-                        </a>
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => eliminarDocumento(doc.id)}
                           title="Eliminar"

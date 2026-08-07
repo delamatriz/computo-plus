@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Plus, X, ChevronDown, Sparkles, Loader2, Calculator, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Download, Plus, X, ChevronDown, Sparkles, Loader2, Calculator, AlertTriangle, CheckCircle2, Ruler } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtNum, subtotalFila, unidadesCoinciden, type MetrajeFila, type RubroOption, type ActualizacionComputo } from "./metrajeFila";
 
@@ -38,6 +38,7 @@ export default function PlanillaComputo({
   onExportarExcel,
   onAplicarComputoPreview,
   onAplicarComputoConfirmar,
+  onMedirAnchoParaFila,
 }: {
   filas: MetrajeFila[];
   rubrosDisponibles: RubroOption[];
@@ -52,6 +53,13 @@ export default function PlanillaComputo({
   onExportarExcel: () => void;
   onAplicarComputoPreview: () => Promise<ActualizacionComputo[]>;
   onAplicarComputoConfirmar: () => Promise<ActualizacionComputo[]>;
+  /** Arranca el modo "medir ANCHO hacia esta fila" directo en el plano
+   * (ícono de regla, ver Visor.tsx ControlesMedicion.medicionObjetivo) —
+   * undefined mientras el Visor no expuso sus controles todavía (recién
+   * montado, o documento principal sin PDF/calibración). Solo se ofrece
+   * en filas con medicionId (nacidas de un trazo) — una fila manual/IA
+   * no tiene un plano de origen del que medir nada. */
+  onMedirAnchoParaFila?: (filaId: string, descripcion: string) => void;
 }) {
   const inputCls =
     "w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300";
@@ -174,7 +182,7 @@ export default function PlanillaComputo({
                       className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
                     />
                   </div>
-                  <div style={{ width: 88, flexShrink: 0 }} className="px-2">
+                  <div style={{ width: 88, flexShrink: 0 }} className="px-2 flex items-center gap-1">
                     <input
                       type="number"
                       value={fila.ancho ?? ""}
@@ -182,6 +190,16 @@ export default function PlanillaComputo({
                       placeholder="—"
                       className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
                     />
+                    {fila.medicionId && onMedirAnchoParaFila && (
+                      <button
+                        type="button"
+                        onClick={() => onMedirAnchoParaFila(fila.id, fila.descripcion || "elemento sin descripción")}
+                        title="Medir el ancho directo en el plano"
+                        className="flex-shrink-0 p-0.5 rounded text-slate-300 hover:text-[#2563EB] hover:bg-blue-50 transition-colors"
+                      >
+                        <Ruler className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                   <div style={{ width: 88, flexShrink: 0 }} className="px-2">
                     <input

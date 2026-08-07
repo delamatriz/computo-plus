@@ -5,12 +5,12 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import * as XLSX from "xlsx";
-import { X, Plus, Sparkles, Loader2, ArrowLeft } from "lucide-react";
+import { X, Plus, Sparkles, Loader2, ArrowLeft, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { urlProxyDocumentoMetraje } from "@/lib/blob";
 import { fmtNum, subtotalFila, type MetrajeFila, type RubroOption, type ActualizacionComputo } from "@/components/metrajes/metrajeFila";
 import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, Anotacion } from "@/components/metrajes/documentoMetraje";
-import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion } from "@/components/metrajes/Visor";
+import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion, ControlesMedicion } from "@/components/metrajes/Visor";
 
 // Visor y PlanillaComputo (vía Visor) importan react-pdf (pdf.js), que
 // revienta con "DOMMatrix is not defined" si su módulo se evalúa en el
@@ -51,6 +51,11 @@ export default function VisorProyectoPage() {
   // abierto — ver GET /api/proyectos/[id]/filas-metraje y el diseño
   // confirmado de "Aplicar al presupuesto").
   const [filas, setFilas] = useState<MetrajeFila[]>([]);
+  // Aviso breve cuando completar/borrar Alto cambia la unidad de una
+  // fila (ml→m² o m²→m³) y eso desvincula automáticamente el Rubro que
+  // tenía puesto — ver actualizarFila. Se autolimpia solo, no requiere
+  // que el usuario lo cierre a mano.
+  const [avisoUnidad, setAvisoUnidad] = useState<string | null>(null);
 
   // Fila con IA
   const [iaTexto, setIaTexto] = useState("");
@@ -78,6 +83,14 @@ export default function VisorProyectoPage() {
   // para dibujarlas sobre el plano. Se recargan cada vez que cambia el
   // documento abierto.
   const [mediciones, setMediciones] = useState<MedicionDocumento[]>([]);
+
+  // Controles de medición expuestos por el Visor (incluye
+  // onIniciarAsignacionAncho) — el ícono de regla que arranca el modo
+  // asignación vive en PlanillaComputo.tsx, renderizado acá como
+  // hermano del Visor, así que necesita pasar por este estado para
+  // bajar de un componente al otro (ver Visor.tsx, prop
+  // onControlesMedicionListos del Visor exterior).
+  const [controlesMedicion, setControlesMedicion] = useState<ControlesMedicion | null>(null);
 
   // Anotaciones (Trazo libre / Texto — no son medición) del documento
   // principal. Mismo mecanismo de carga que mediciones, pero endpoint y
@@ -300,10 +313,14 @@ export default function VisorProyectoPage() {
     }
   }
 
-  // Borra una marca de medición (corrección de un trazo mal hecho) — la
-  // fila que había generado en la Planilla se borra en cascada en la base
-  // (FilaMetraje.medicionId, onDelete: Cascade), acá solo hace falta
-  // sacarla del estado local.
+  // Borra una marca de medición (corrección de un trazo mal hecho) — si
+  // era el LARGO de una fila (medicionId), la fila se borra en cascada en
+  // la base (FilaMetraje.medicionId, onDelete: Cascade), acá solo hace
+  // falta sacarla del estado local. Si era el ANCHO de una fila
+  // (medicionAnchoId), la fila NO se borra — el server la recalcula
+  // (ancho/unidad vuelven a lo que tenía antes de asignarle ese ancho,
+  // y puede desvincular el Rubro si la unidad degradada ya no coincide,
+  // ver DELETE .../mediciones/[medicionId]) y la devuelve actualizada.
   async function eliminarMedicion(medicionId: string) {
     if (!documentoAbierto) return;
     const res = await fetch(
@@ -311,8 +328,54 @@ export default function VisorProyectoPage() {
       { method: "DELETE" }
     );
     if (!res.ok) throw new Error();
+    const data = await res.json();
     setMediciones((prev) => prev.filter((m) => m.id !== medicionId));
-    setFilas((prev) => prev.filter((f) => f.medicionId !== medicionId));
+    if (data.filaActualizada) {
+      setFilas((prev) => prev.map((f) => (f.id === data.filaActualizada.id ? data.filaActualizada : f)));
+    } else {
+      setFilas((prev) => prev.filter((f) => f.medicionId !== medicionId));
+    }
+    if (data.desvinculado) {
+      setAvisoUnidad(`Se desvinculó de "${data.desvinculado.nombre}" porque la unidad cambió a ${data.desvinculado.unidadNueva}`);
+      setTimeout(() => setAvisoUnidad(null), 5000);
+    }
+  }
+
+  // Modo asignación (ver ControlesMedicion.medicionObjetivo en Visor.tsx)
+  // — guarda el trazo de ancho como una medición más (queda visible en el
+  // plano, mismo mecanismo que guardarMedicion) y completa el ANCHO de
+  // filaId en vez de crear una fila nueva. El PATCH dispara el mismo
+  // recálculo de unidad que editar Alto/Ancho a mano (Parte 1) y, si la
+  // fila ya tenía una medición de ancho previa, el server la borra sola
+  // (ver PATCH .../filas-metraje/[filaId]) — acá solo hace falta reflejar
+  // esa baja en el estado local para que no quede un trazo huérfano.
+  async function asignarAncho(filaId: string, input: NuevaMedicionInput) {
+    if (!documentoAbierto) return;
+    const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/mediciones`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    setMediciones((prev) => [...prev, data.medicion]);
+
+    const anchoReal = input.tipo === "LINEA" ? input.longitudReal : input.areaReal;
+    const resFila = await fetch(`/api/proyectos/${proyectoId}/filas-metraje/${filaId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ancho: anchoReal, medicionAnchoId: data.medicion.id }),
+    });
+    if (!resFila.ok) throw new Error();
+    const dataFila = await resFila.json();
+    setFilas((prev) => prev.map((f) => (f.id === filaId ? dataFila.fila : f)));
+    if (dataFila.desvinculado) {
+      setAvisoUnidad(`Se desvinculó de "${dataFila.desvinculado.nombre}" porque la unidad cambió a ${dataFila.desvinculado.unidadNueva}`);
+      setTimeout(() => setAvisoUnidad(null), 5000);
+    }
+    if (dataFila.medicionEliminada) {
+      setMediciones((prev) => prev.filter((m) => m.id !== dataFila.medicionEliminada));
+    }
   }
 
   // Carga las anotaciones del documento principal — mismo mecanismo que
@@ -463,6 +526,18 @@ export default function VisorProyectoPage() {
     }
     const data = await res.json();
     setFilas((prev) => prev.map((f) => (f.id === id ? data.fila : f)));
+    // Completar/borrar Alto puede haber cambiado la unidad y desvinculado
+    // el Rubro que la fila tenía puesto — ver PATCH .../filas-metraje/[filaId].
+    if (data.desvinculado) {
+      setAvisoUnidad(`Se desvinculó de "${data.desvinculado.nombre}" porque la unidad cambió a ${data.desvinculado.unidadNueva}`);
+      setTimeout(() => setAvisoUnidad(null), 5000);
+    }
+    // Vaciar Ancho a mano en una fila que tenía un ancho medido (ver
+    // ícono de regla) borra esa medición vieja en el server para no
+    // dejarla como trazo huérfano en el plano — hay que reflejarlo acá.
+    if (data.medicionEliminada) {
+      setMediciones((prev) => prev.filter((m) => m.id !== data.medicionEliminada));
+    }
   };
 
   const agregarFila = async () => {
@@ -472,7 +547,21 @@ export default function VisorProyectoPage() {
 
   const eliminarFila = async (id: string) => {
     setFilas((prev) => prev.filter((f) => f.id !== id));
-    await fetch(`/api/proyectos/${proyectoId}/filas-metraje/${id}`, { method: "DELETE" }).catch(() => {});
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/filas-metraje/${id}`, { method: "DELETE" });
+      if (!res.ok) return;
+      const data = await res.json();
+      // Borrar la fila borra también sus mediciones asociadas (largo y/o
+      // ancho medido con el ícono de regla) — ver DELETE
+      // .../filas-metraje/[filaId]. Sin esto el trazo seguía visible en
+      // el plano hasta el próximo reload, ya sin ninguna fila detrás.
+      if (data.medicionesEliminadas?.length) {
+        setMediciones((prev) => prev.filter((m) => !data.medicionesEliminadas.includes(m.id)));
+      }
+    } catch {
+      // silencioso — la fila ya se sacó optimistamente; un fallo acá solo
+      // deja el trazo en el plano hasta el próximo reload, no es crítico.
+    }
   };
 
   /* Fila generada a partir de descripción en lenguaje natural vía IA */
@@ -681,6 +770,7 @@ export default function VisorProyectoPage() {
                 onExportarExcel={exportarExcel}
                 onAplicarComputoPreview={aplicarComputoPreview}
                 onAplicarComputoConfirmar={aplicarComputoConfirmar}
+                onMedirAnchoParaFila={controlesMedicion?.onIniciarAsignacionAncho}
               />
             </div>
           )}
@@ -705,11 +795,13 @@ export default function VisorProyectoPage() {
               onGuardarCalibracion={guardarCalibracion}
               mediciones={mediciones}
               onGuardarMedicion={guardarMedicion}
+              onAsignarAncho={asignarAncho}
               onEliminarMedicion={eliminarMedicion}
               anotaciones={anotaciones}
               onGuardarAnotacion={guardarAnotacion}
               onEliminarAnotacion={eliminarAnotacion}
               onActualizarAnotacion={actualizarAnotacion}
+              onControlesMedicionListos={setControlesMedicion}
             />
           </div>
         </div>
@@ -720,6 +812,22 @@ export default function VisorProyectoPage() {
           <Loader2 className="w-6 h-6 animate-spin text-white" />
         </div>
       )}
+
+      {/* Aviso breve de desvinculación automática (Alto cambió la unidad
+          de la fila) — se autolimpia solo, ver actualizarFila. */}
+      <AnimatePresence>
+        {avisoUnidad && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[120] flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-[10px] px-4 py-2.5 shadow-lg max-w-md"
+          >
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <p className="text-xs text-amber-800">{avisoUnidad}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Modal: elementos detectados por IA ────────────── */}
       <AnimatePresence>

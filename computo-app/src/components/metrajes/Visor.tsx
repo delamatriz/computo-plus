@@ -841,6 +841,13 @@ export interface ControlesMedicion {
   onToggleRecta: () => void;
   textoActivo: boolean;
   onToggleTexto: () => void;
+  /** Modo "medir ANCHO hacia una fila existente" (ver ícono de regla en
+   * PlanillaComputo.tsx) — no null mientras dura: fuerza herramienta a
+   * LINEA, deshabilita el resto, y el próximo trazo confirmado no crea
+   * una fila nueva, completa el ANCHO de esta. ESC lo cancela igual que
+   * cualquier otra herramienta (ver cancelarHerramienta). */
+  medicionObjetivo: { filaId: string; descripcion: string } | null;
+  onIniciarAsignacionAncho: (filaId: string, descripcion: string) => void;
 }
 
 // Medición pendiente de confirmar en el modal — Línea o Área, cada
@@ -855,6 +862,7 @@ function VisorPrincipal({
   mediciones,
   anotaciones,
   onGuardarMedicion,
+  onAsignarAncho,
   onEliminarMedicion,
   onGuardarAnotacion,
   onEliminarAnotacion,
@@ -866,6 +874,10 @@ function VisorPrincipal({
   mediciones: MedicionDocumento[];
   anotaciones: Anotacion[];
   onGuardarMedicion: (input: NuevaMedicionInput) => Promise<void>;
+  /** Modo asignación (ver ControlesMedicion.medicionObjetivo) — el trazo
+   * de Línea recién confirmado no crea una fila, completa el ANCHO de
+   * filaId. */
+  onAsignarAncho: (filaId: string, input: NuevaMedicionInput) => Promise<void>;
   /** Borra una marca de medición ya guardada (corrección de un trazo mal
    * hecho) — también saca la fila que había generado en la Planilla. */
   onEliminarMedicion: (medicionId: string) => Promise<void>;
@@ -925,6 +937,11 @@ function VisorPrincipal({
   const [puntosArea, setPuntosArea] = useState<{ x: number; y: number }[]>([]);
   const [cursorArea, setCursorArea] = useState<{ x: number; y: number } | null>(null);
   const [medicionPendiente, setMedicionPendiente] = useState<MedicionPendiente | null>(null);
+  // Modo "medir ANCHO hacia una fila existente" — ver ControlesMedicion.
+  // No null mientras dura: el próximo trazo de Línea confirmado no pasa
+  // por medicionPendiente/el modal, se guarda directo contra filaId
+  // (ver finalizarDibujoLinea/asignarAnchoDesdeDrag).
+  const [medicionObjetivo, setMedicionObjetivo] = useState<{ filaId: string; descripcion: string } | null>(null);
   // Trazo libre — path en curso (mientras se arrastra) y path ya
   // terminado que se intenta guardar automáticamente al soltar el mouse
   // (sin modal — no hay ningún dato que pedirle al usuario). Si el
@@ -1040,7 +1057,42 @@ function VisorPrincipal({
     const distPercent = Math.hypot(xFin - xInicio, yFin - yInicio);
     if (distPercent < 0.5 || !pageDimsMM || doc.factorEscala == null) return;
     const valor = calcularLongitudReal(xInicio, yInicio, xFin, yFin, pageDimsMM, doc.factorEscala);
+    if (medicionObjetivo) {
+      asignarAnchoDesdeDrag(xInicio, yInicio, xFin, yFin, valor);
+      return;
+    }
     setMedicionPendiente({ tipo: "LINEA", xInicio, yInicio, xFin, yFin, valor });
+  };
+
+  // Modo asignación (ver ControlesMedicion.medicionObjetivo) — guarda
+  // directo sin pasar por medicionPendiente/el modal de confirmación: la
+  // fila objetivo ya tiene su propia descripción/repeticiones, pedírselas
+  // de nuevo acá sería redundante (mismo criterio que Texto, que también
+  // guarda directo sin modal intermedio). Un solo uso — se apaga la
+  // herramienta después; el ícono de regla se vuelve a clickear para
+  // medir de nuevo.
+  const asignarAnchoDesdeDrag = async (
+    xInicio: number,
+    yInicio: number,
+    xFin: number,
+    yFin: number,
+    valor: number
+  ) => {
+    const objetivo = medicionObjetivo;
+    if (!objetivo) return;
+    setMedicionObjetivo(null);
+    setHerramienta(null);
+    await onAsignarAncho(objetivo.filaId, {
+      tipo: "LINEA",
+      xInicio,
+      yInicio,
+      xFin,
+      yFin,
+      longitudReal: valor,
+      repeticiones: 1,
+      descripcion: `Ancho de "${objetivo.descripcion}"`,
+      rubroId: null,
+    });
   };
 
   // Red de seguridad para el drag de Línea: el mouseup normal está atado
@@ -1203,6 +1255,7 @@ function VisorPrincipal({
     if (herramienta === "LINEA") {
       setHerramienta(null);
       setDibujoActual(null);
+      setMedicionObjetivo(null);
       return;
     }
     setHerramienta("LINEA");
@@ -1226,6 +1279,7 @@ function VisorPrincipal({
       setRectaPrimerPunto(null);
       setRectaCursor(null);
       setTextoPendientePunto(null);
+      setMedicionObjetivo(null);
       return;
     }
     if (puntosArea.length >= 3) {
@@ -1251,6 +1305,7 @@ function VisorPrincipal({
     setRectaPrimerPunto(null);
     setRectaCursor(null);
     setTextoPendientePunto(null);
+    setMedicionObjetivo(null);
   };
 
   const toggleRecta = () => {
@@ -1265,6 +1320,7 @@ function VisorPrincipal({
     setDibujoActual(null);
     setPuntosArea([]);
     setCursorArea(null);
+    setMedicionObjetivo(null);
     setTrazoActual(null);
     setTextoPendientePunto(null);
   };
@@ -1283,6 +1339,25 @@ function VisorPrincipal({
     setRectaActual(null);
     setRectaPrimerPunto(null);
     setRectaCursor(null);
+    setMedicionObjetivo(null);
+  };
+
+  // Arranca el modo asignación (ver ControlesMedicion.medicionObjetivo)
+  // — fuerza LINEA, resetea cualquier otro trazo en curso, igual que
+  // los demás toggle*. A diferencia de esos, no es un toggle: cada click
+  // en el ícono de regla arranca de cero (si ya estaba en asignación
+  // para otra fila, la cambia a esta).
+  const iniciarAsignacionAncho = (filaId: string, descripcion: string) => {
+    setHerramienta("LINEA");
+    setDibujoActual(null);
+    setPuntosArea([]);
+    setCursorArea(null);
+    setTrazoActual(null);
+    setRectaActual(null);
+    setRectaPrimerPunto(null);
+    setRectaCursor(null);
+    setTextoPendientePunto(null);
+    setMedicionObjetivo({ filaId, descripcion });
   };
 
   // ESC — cancela la herramienta activa y descarta cualquier trazo
@@ -1306,6 +1381,7 @@ function VisorPrincipal({
     setRectaCursor(null);
     setTextoPendientePunto(null);
     setMedicionPendiente(null);
+    setMedicionObjetivo(null);
   };
 
   useEffect(() => {
@@ -1491,9 +1567,11 @@ function VisorPrincipal({
       onToggleRecta: toggleRecta,
       textoActivo: herramienta === "TEXTO",
       onToggleTexto: toggleTexto,
+      medicionObjetivo,
+      onIniciarAsignacionAncho: iniciarAsignacionAncho,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length]);
+  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length, medicionObjetivo]);
 
   useEffect(() => {
     return () => onControlesMedicionListos(null);
@@ -2215,11 +2293,13 @@ export default function Visor({
   onGuardarCalibracion,
   mediciones,
   onGuardarMedicion,
+  onAsignarAncho,
   onEliminarMedicion,
   anotaciones,
   onGuardarAnotacion,
   onEliminarAnotacion,
   onActualizarAnotacion,
+  onControlesMedicionListos,
   style,
 }: {
   /** null cuando el usuario entra al Visor sin tener ningún documento
@@ -2253,6 +2333,10 @@ export default function Visor({
    * categoria=PLANO && tipoArchivo=PDF && ya calibrado. Sin rubro —
    * se asigna después en la Planilla. */
   onGuardarMedicion: (input: NuevaMedicionInput) => Promise<void>;
+  /** Modo asignación (ver ControlesMedicion.medicionObjetivo) — ícono de
+   * regla en PlanillaComputo.tsx, ver onControlesMedicionListos abajo
+   * para cómo llega hasta ahí. */
+  onAsignarAncho: (filaId: string, input: NuevaMedicionInput) => Promise<void>;
   /** Borra una marca de medición ya guardada — también saca la fila que
    * había generado en la Planilla. */
   onEliminarMedicion: (medicionId: string) => Promise<void>;
@@ -2265,6 +2349,12 @@ export default function Visor({
   onGuardarAnotacion: (input: NuevaAnotacionInput) => Promise<void>;
   onEliminarAnotacion: (anotacionId: string) => Promise<void>;
   onActualizarAnotacion: (anotacionId: string, cambios: CambiosAnotacion) => void;
+  /** Expone los controles de medición (incluye onIniciarAsignacionAncho)
+   * un nivel más arriba, hacia page.tsx — el ícono de regla que arranca
+   * el modo asignación vive en PlanillaComputo.tsx, un componente
+   * hermano de este Visor, no un hijo, así que necesita subir hasta el
+   * dueño de ambos para bajar de nuevo. */
+  onControlesMedicionListos?: (controles: ControlesMedicion | null) => void;
   /** Nombre del proyecto — solo para la cabecera del PDF exportado
    * ("Descargar PDF"), no se muestra en ningún otro lado del Visor (el
    * header con el nombre ya vive en la página que lo contiene). */
@@ -2433,9 +2523,11 @@ export default function Visor({
             </button>
             <button
               onClick={controlesMedicion?.onToggleArea}
-              disabled={!puedeActivarMedicion}
+              disabled={!puedeActivarMedicion || !!controlesMedicion?.medicionObjetivo}
               title={
-                documentoPrincipal.tipoArchivo !== "PDF"
+                controlesMedicion?.medicionObjetivo
+                  ? "No disponible mientras se está midiendo un ANCHO — cancelá con ESC o con el ícono de regla"
+                  : documentoPrincipal.tipoArchivo !== "PDF"
                   ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
                   : controlesMedicion?.herramienta !== "AREA"
                   ? "Medir una superficie dibujando un polígono sobre el plano — clic para cada vértice"
@@ -2443,7 +2535,7 @@ export default function Visor({
                   ? "Agregá al menos 3 vértices — clic en el plano (volvé a clickear acá para cancelar)"
                   : "Cerrar el polígono y calcular el área"
               }
-              className={clasePildoraHerramienta(controlesMedicion?.herramienta === "AREA", puedeActivarMedicion)}
+              className={clasePildoraHerramienta(controlesMedicion?.herramienta === "AREA", puedeActivarMedicion && !controlesMedicion?.medicionObjetivo)}
             >
               <Hexagon className="w-3.5 h-3.5" />
               {controlesMedicion?.herramienta === "AREA"
@@ -2463,37 +2555,43 @@ export default function Visor({
                 categoria=PLANO, independiente de factorEscala. */}
             <button
               onClick={controlesMedicion?.onToggleTrazo}
-              disabled={!controlesMedicion}
+              disabled={!controlesMedicion || !!controlesMedicion?.medicionObjetivo}
               title={
-                controlesMedicion?.trazoActivo
+                controlesMedicion?.medicionObjetivo
+                  ? "No disponible mientras se está midiendo un ANCHO — cancelá con ESC o con el ícono de regla"
+                  : controlesMedicion?.trazoActivo
                   ? "Dibujando — clic y arrastre para trazar a mano alzada"
                   : "Trazo libre — dibujá a mano alzada sobre el plano (flecha, círculo, subrayado, etc.)"
               }
-              className={clasePildoraHerramienta(!!controlesMedicion?.trazoActivo, !!controlesMedicion)}
+              className={clasePildoraHerramienta(!!controlesMedicion?.trazoActivo, !!controlesMedicion && !controlesMedicion?.medicionObjetivo)}
             >
               <Pencil className="w-3.5 h-3.5" /> {controlesMedicion?.trazoActivo ? "Dibujando…" : "Trazo libre"}
             </button>
             <button
               onClick={controlesMedicion?.onToggleRecta}
-              disabled={!controlesMedicion}
+              disabled={!controlesMedicion || !!controlesMedicion?.medicionObjetivo}
               title={
-                controlesMedicion?.rectaActiva
+                controlesMedicion?.medicionObjetivo
+                  ? "No disponible mientras se está midiendo un ANCHO — cancelá con ESC o con el ícono de regla"
+                  : controlesMedicion?.rectaActiva
                   ? "Dibujando — clic para el punto A, clic o arrastre hasta el punto B"
                   : "Línea recta — dibujá una línea recta sobre el plano (sin medir, solo visual)"
               }
-              className={clasePildoraHerramienta(!!controlesMedicion?.rectaActiva, !!controlesMedicion)}
+              className={clasePildoraHerramienta(!!controlesMedicion?.rectaActiva, !!controlesMedicion && !controlesMedicion?.medicionObjetivo)}
             >
               <Slash className="w-3.5 h-3.5" /> {controlesMedicion?.rectaActiva ? "Dibujando…" : "Línea recta"}
             </button>
             <button
               onClick={controlesMedicion?.onToggleTexto}
-              disabled={!controlesMedicion}
+              disabled={!controlesMedicion || !!controlesMedicion?.medicionObjetivo}
               title={
-                controlesMedicion?.textoActivo
+                controlesMedicion?.medicionObjetivo
+                  ? "No disponible mientras se está midiendo un ANCHO — cancelá con ESC o con el ícono de regla"
+                  : controlesMedicion?.textoActivo
                   ? "Poniendo texto — clic en el plano"
                   : "Texto — dejá una letra o palabra en un punto del plano, con tamaño ajustable"
               }
-              className={clasePildoraHerramienta(!!controlesMedicion?.textoActivo, !!controlesMedicion)}
+              className={clasePildoraHerramienta(!!controlesMedicion?.textoActivo, !!controlesMedicion && !controlesMedicion?.medicionObjetivo)}
             >
               <TypeIcon className="w-3.5 h-3.5" /> {controlesMedicion?.textoActivo ? "Marcando…" : "Texto"}
             </button>
@@ -2520,6 +2618,20 @@ export default function Visor({
           <X className="w-4 h-4" />
         </button>
       </div>
+      {/* Banner de modo asignación (ver ControlesMedicion.medicionObjetivo)
+          — arrancado desde el ícono de regla en PlanillaComputo.tsx. El
+          próximo trazo de Línea confirmado no crea una fila nueva, completa
+          el ANCHO de esta. ESC ya cancela (mismo listener que las demás
+          herramientas, ver cancelarHerramienta en VisorPrincipal). */}
+      {controlesMedicion?.medicionObjetivo && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-[#2563EB]/10 border-b border-[#2563EB]/20 text-sm text-[#1A3A5C] flex-shrink-0">
+          <Ruler className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0" />
+          <span>
+            Midiendo ANCHO para: <span className="font-medium">{controlesMedicion.medicionObjetivo.descripcion}</span>
+            {" — "}dibujá una línea sobre el plano (ESC para cancelar)
+          </span>
+        </div>
+      )}
 
       {/* Documento principal + lista */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
@@ -2532,12 +2644,16 @@ export default function Visor({
                 mediciones={mediciones}
                 anotaciones={anotaciones}
                 onGuardarMedicion={onGuardarMedicion}
+                onAsignarAncho={onAsignarAncho}
                 onEliminarMedicion={onEliminarMedicion}
                 onGuardarAnotacion={onGuardarAnotacion}
                 onEliminarAnotacion={onEliminarAnotacion}
                 onActualizarAnotacion={onActualizarAnotacion}
                 onControlesZoomListos={setControlesZoom}
-                onControlesMedicionListos={setControlesMedicion}
+                onControlesMedicionListos={(c) => {
+                  setControlesMedicion(c);
+                  onControlesMedicionListos?.(c);
+                }}
               />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6">
