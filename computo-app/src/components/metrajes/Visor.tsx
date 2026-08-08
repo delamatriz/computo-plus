@@ -2444,8 +2444,18 @@ export default function Visor({
   };
 
   return (
+    // Antes "fixed inset-0 z-50 ... lg:static lg:inset-auto ..." — modo
+    // pantalla completa en mobile heredado de cuando este componente
+    // vivía embebido en el layout de 3 columnas de la pestaña
+    // Presupuesto. Hoy <Visor> se usa en un solo lugar (grep confirmado
+    // — /proyectos/[id]/visor/page.tsx), una página propia que ya es
+    // "pantalla de trabajo enfocada" con su propio header — el overlay
+    // fijo quedó como código muerto que tapaba la Planilla (que vive
+    // arriba, en el flujo normal del documento) en cualquier viewport
+    // por debajo de 1024px. Ahora se comporta siempre como la variante
+    // lg: de antes — tarjeta normal en el flujo, en todos los tamaños.
     <div
-      className="fixed inset-0 z-50 bg-white flex flex-col lg:static lg:inset-auto lg:z-auto lg:h-full lg:flex-shrink-0 lg:border lg:border-slate-300 lg:rounded-[16px] lg:shadow-sm overflow-hidden"
+      className="bg-white flex flex-col h-full flex-shrink-0 border border-slate-300 rounded-[16px] shadow-sm overflow-hidden"
       style={style}
     >
       {/* Título */}
