@@ -44,6 +44,19 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL, ssl: 
 const db = new PrismaClient({ adapter });
 
 const DERIVADO_MARCADOR = "Derivado — ver nota";
+// Señal adicional de precio derivado/interpolado — se agregó después de
+// encontrar 3 códigos que NO usaban el marcador exacto de arriba (venían
+// de tandas de migración distintas, con su propia convención de texto:
+// "Interpolado — proveedorA (...) y proveedorB (...)" en vez de
+// "Derivado — ver nota") y por eso se colaban como "retail directo" en
+// la etapa 3 — el job de verificación les hacía una búsqueda web genérica
+// en vez de excluirlos para la lógica de recálculo proporcional que
+// necesitan (ver MAT-CANO-GALV-12 en la corrida de prueba --sample=35).
+// Chequea proveedor Y nombreProducto porque en 2 de los 3 casos el dato
+// solo aparecía en nombreProducto ("...interpolado linealmente entre...",
+// "...extrapolación lineal desde...").
+const PATRON_PROVEEDOR_DERIVADO = /^interpolad/i;
+const PATRON_PRODUCTO_DERIVADO = /interpolad|extrapolaci/i;
 const TARIFA_OFICIAL_PATRONES = ["Lista Oficial MTOP", "OSE", "MontevideoGas", "Dirección Nacional de Catastro"];
 
 type MapeoItem = {
@@ -57,13 +70,11 @@ type MapeoItem = {
 };
 
 function clasificar(item: MapeoItem): { motivoVerificacion: string | null; proveedorFinal: string; nombreProductoFinal: string } {
-  if (item.proveedor === DERIVADO_MARCADOR) {
-    return {
-      motivoVerificacion: "derivado_recalculo_proporcional",
-      proveedorFinal: `Derivado de ${item.nota ? item.nota.split(".")[0] : "material ancla (ver nota completa en auditoría)"}`,
-      nombreProductoFinal: `${item.nombreProducto} — ${item.nota ?? ""}`.trim(),
-    };
-  }
+  // Tarifa oficial primero: algunos derivados (ej. chapa ondulada, con
+  // peso/m² interpolado por espesor) tienen como fuente BASE un
+  // organismo oficial — ese es el dato que importa para rutear la
+  // reconsulta en etapa 3, no el detalle de que hubo una interpolación
+  // intermedia.
   const esTarifaOficial = TARIFA_OFICIAL_PATRONES.some((p) => item.proveedor.includes(p));
   if (esTarifaOficial) {
     return {
@@ -72,6 +83,19 @@ function clasificar(item: MapeoItem): { motivoVerificacion: string | null; prove
       nombreProductoFinal: item.nombreProducto,
     };
   }
+
+  const esDerivado =
+    item.proveedor === DERIVADO_MARCADOR ||
+    PATRON_PROVEEDOR_DERIVADO.test(item.proveedor) ||
+    PATRON_PRODUCTO_DERIVADO.test(item.nombreProducto);
+  if (esDerivado) {
+    return {
+      motivoVerificacion: "derivado_recalculo_proporcional",
+      proveedorFinal: `Derivado de ${item.nota ? item.nota.split(".")[0] : "material ancla (ver nota completa en auditoría)"}`,
+      nombreProductoFinal: `${item.nombreProducto} — ${item.nota ?? ""}`.trim(),
+    };
+  }
+
   return { motivoVerificacion: null, proveedorFinal: item.proveedor, nombreProductoFinal: item.nombreProducto };
 }
 
