@@ -24,10 +24,15 @@ type EstadoModalAplicar =
 // su lugar, aceptando coma o punto al tipear (se normaliza a punto antes
 // de subir el cambio, así onActualizarFila/parseFloat en page.tsx no
 // necesitan cambiar). En reposo (sin foco) se muestra fmtNum(value) —
-// 2 decimales fijos con coma, igual que el resto de la Planilla — pero
-// mientras el campo está enfocado se muestra el texto tal cual se está
-// tipeando, sin reformatear a mitad de edición (forzar el redondeo ahí
-// pelearía con la posición del cursor).
+// 2 decimales fijos con coma, igual que el resto de la Planilla — y al
+// enfocar arranca la edición desde esa misma versión redondeada (no
+// desde el valor crudo guardado, que en filas medidas sobre el plano
+// puede traer ruido de punto flotante — ej. 0.6125099412434896 — y se
+// veía horrible apenas se tocaba el campo). Esto es solo lo que se
+// MUESTRA al arrancar a editar: no dispara ningún guardado — el PATCH
+// solo sale de manejarCambio, cuando el usuario efectivamente tipea
+// algo, así que enfocar y desenfocar sin tocar nada nunca reescribe el
+// valor guardado con la versión redondeada.
 function InputNumericoFila({
   value,
   onChange,
@@ -45,10 +50,7 @@ function InputNumericoFila({
   const [texto, setTexto] = useState("");
 
   const manejarFoco = () => {
-    // Arranca la edición desde el valor real guardado (con coma, sin
-    // redondear a 2 decimales) — así se edita el número tal cual está,
-    // no la versión recortada que se ve en reposo.
-    setTexto(value != null ? String(value).replace(".", ",") : "");
+    setTexto(value != null ? fmtNum(value) : "");
     setEnfocado(true);
   };
 
@@ -201,12 +203,12 @@ export default function PlanillaComputo({
               className="overflow-hidden"
             >
         <div className="overflow-x-auto">
-          <div className="min-w-[860px]">
+          <div className="min-w-[880px]">
             {/* Cabecera */}
             <div className="flex items-center bg-slate-50 border-b border-slate-200" style={{ height: 32 }}>
               <div className="flex-1 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Descripción</div>
               <div style={{ width: 88, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Largo</div>
-              <div style={{ width: 88, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Ancho</div>
+              <div style={{ width: 108, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Ancho</div>
               <div style={{ width: 88, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Alto</div>
               <div style={{ width: 80, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Cant.</div>
               <div style={{ width: 110, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Subtotal</div>
@@ -242,22 +244,30 @@ export default function PlanillaComputo({
                       className={cn(inputCls, "text-right")}
                     />
                   </div>
-                  <div style={{ width: 88, flexShrink: 0 }} className="px-2 flex items-center gap-1">
+                  <div style={{ width: 108, flexShrink: 0 }} className="px-2 flex items-center gap-1">
                     <InputNumericoFila
                       value={fila.ancho}
                       onChange={(v) => onActualizarFila(fila.id, "ancho", v)}
                       className={cn(inputCls, "text-right")}
                     />
-                    {fila.medicionId && onMedirAnchoParaFila && (
-                      <button
-                        type="button"
-                        onClick={() => onMedirAnchoParaFila(fila.id, fila.descripcion || "elemento sin descripción")}
-                        title="Medir el ancho directo en el plano"
-                        className="flex-shrink-0 p-0.5 rounded text-slate-300 hover:text-[#2563EB] hover:bg-blue-50 transition-colors"
-                      >
-                        <Ruler className="w-3 h-3" />
-                      </button>
-                    )}
+                    {/* Espacio del ícono reservado con ancho fijo SIEMPRE
+                        presente (tenga o no medicionId la fila) — si no,
+                        el input de Ancho competía por ese ancho contra el
+                        ícono cuando aparecía, quedando ~20px más angosto
+                        que Largo/Alto/Cantidad y descolocando toda la fila
+                        (ver ronda de investigación del bug "descentrado"). */}
+                    <div style={{ width: 16, flexShrink: 0 }} className="flex items-center justify-center">
+                      {fila.medicionId && onMedirAnchoParaFila && (
+                        <button
+                          type="button"
+                          onClick={() => onMedirAnchoParaFila(fila.id, fila.descripcion || "elemento sin descripción")}
+                          title="Medir el ancho directo en el plano"
+                          className="p-0.5 rounded text-slate-300 hover:text-[#2563EB] hover:bg-blue-50 transition-colors"
+                        >
+                          <Ruler className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div style={{ width: 88, flexShrink: 0 }} className="px-2">
                     <InputNumericoFila
@@ -366,7 +376,7 @@ export default function PlanillaComputo({
             <div className="flex items-center border-t-2 border-slate-300 bg-white" style={{ height: 40 }}>
               <div className="flex-1 px-3 text-sm font-bold text-slate-400 uppercase tracking-wide">Total general</div>
               <div style={{ width: 88 }} />
-              <div style={{ width: 88 }} />
+              <div style={{ width: 108 }} />
               <div style={{ width: 88 }} />
               <div style={{ width: 80 }} />
               <div style={{ width: 110, flexShrink: 0 }} className="px-2 text-right">
