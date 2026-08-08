@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Bell, HelpCircle, ChevronDown, Menu } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Bell, HelpCircle, ChevronDown, Menu, LogOut, Gauge } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -11,9 +11,53 @@ interface HeaderProps {
   showMenuButton?: boolean;
 }
 
+// La app es mono-tenant y hoy no tiene sistema de autenticación (sin
+// modelo User, sin sesión, sin login) — la única "cuenta" que existe es
+// la fila única de Empresa en la base. El dropdown de usuario refleja
+// eso: "Mi cuenta" muestra los datos reales de esa Empresa (vía el
+// mismo GET /api/empresa/perfil que ya usa /configuracion) en vez de
+// inventar un usuario que no existe.
+interface EmpresaHeader {
+  nombre: string;
+  email: string | null;
+}
+
 export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [empresa, setEmpresa] = useState<EmpresaHeader | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/empresa/perfil")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelado) setEmpresa({ nombre: data.nombre, email: data.email ?? null });
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const nombreEmpresa = empresa?.nombre || "Empresa";
+  const iniciales =
+    nombreEmpresa
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join("") || "EM";
+
+  // Cerrar sesión — no hay sesión real que destruir (ver comentario de
+  // arriba), así que en vez de simular un logout que no existe, este
+  // botón navega a la landing. Cuando exista auth de verdad, acá va la
+  // llamada real a signOut().
+  const cerrarSesion = () => {
+    setUserMenuOpen(false);
+    router.push("/inicio");
+  };
 
   const isHome = pathname === "/inicio";
 
@@ -90,18 +134,79 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
 
         <div className="w-px h-5 bg-border mx-1" />
 
-        <button
-          onClick={() => setUserMenuOpen(!userMenuOpen)}
-          className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-[8px] hover:bg-bg-base transition-colors"
-        >
-          <div className="w-7 h-7 rounded-full bg-brand-deep flex items-center justify-center">
-            <span className="text-[11px] font-semibold text-white">EM</span>
-          </div>
-          <span className="hidden sm:block text-sm font-medium text-text-primary">
-            Empresa
-          </span>
-          <ChevronDown className="w-3.5 h-3.5 text-text-muted" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-[8px] hover:bg-bg-base transition-colors"
+          >
+            <div className="w-7 h-7 rounded-full bg-brand-deep flex items-center justify-center flex-shrink-0">
+              <span className="text-[11px] font-semibold text-white">{iniciales}</span>
+            </div>
+            <span className="hidden sm:block text-sm font-medium text-text-primary truncate max-w-[140px]">
+              {nombreEmpresa}
+            </span>
+            <ChevronDown
+              className={cn(
+                "w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0",
+                userMenuOpen && "rotate-180"
+              )}
+            />
+          </button>
+
+          {userMenuOpen && (
+            <>
+              {/* Overlay invisible para cerrar al clickear afuera — mismo
+                  patrón que CalculadoraFlotante.tsx (overlay con onClick
+                  que cierra + stopPropagation en el panel). */}
+              <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+              <div
+                className="absolute right-0 top-full mt-2 w-72 bg-bg-card border border-border rounded-[12px] shadow-modal z-50 overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Mi cuenta */}
+                <div className="px-4 py-3 border-b border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-brand-deep flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-semibold text-white">{iniciales}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-text-primary truncate">{nombreEmpresa}</p>
+                      <p className="text-xs text-text-muted truncate">{empresa?.email || "Sin email configurado"}</p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/configuracion"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="mt-2.5 inline-block text-xs font-medium text-brand-accent hover:underline"
+                  >
+                    Editar datos de la empresa
+                  </Link>
+                </div>
+
+                {/* Plan y uso — sin detalle de consumo de IA todavía (ese
+                    sistema de límites no está implementado); espacio
+                    reservado para cuando se defina. */}
+                <div className="px-4 py-3 border-b border-border">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-text-muted uppercase tracking-wide">
+                    <Gauge className="w-3.5 h-3.5" />
+                    Plan y uso
+                  </div>
+                  <p className="mt-1.5 text-sm font-medium text-text-primary">Plan: Empresa</p>
+                </div>
+
+                {/* Cerrar sesión — ver comentario de cerrarSesion() arriba:
+                    no hay sesión real que destruir todavía. */}
+                <button
+                  onClick={cerrarSesion}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-text-secondary hover:bg-bg-base transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Cerrar sesión
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );
