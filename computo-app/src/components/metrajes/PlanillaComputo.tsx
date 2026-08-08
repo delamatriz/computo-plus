@@ -160,7 +160,7 @@ export default function PlanillaComputo({
     <div className="space-y-4">
       {/* ── Planilla de cómputo ───────────────────────────── */}
       <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-3.5 border-b border-slate-200">
           <button
             onClick={() => setExpandido((v) => !v)}
             className="flex items-center gap-2 text-left group flex-1 min-w-0"
@@ -175,7 +175,7 @@ export default function PlanillaComputo({
               )}
             />
           </button>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
             <button
               onClick={abrirModalAplicar}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[#2563EB] text-white text-xs font-semibold hover:bg-[#1D4ED8] transition-colors"

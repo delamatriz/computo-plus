@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, Component, type ReactNode } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,35 +19,6 @@ import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion, Control
 // ssr:false nunca se evalúan ahí, solo en el browser.
 const Visor = dynamic(() => import("@/components/metrajes/Visor"), { ssr: false });
 const PlanillaComputo = dynamic(() => import("@/components/metrajes/PlanillaComputo"), { ssr: false });
-
-// TEMPORAL — diagnóstico del bug "Planilla no aparece en mobile real"
-// (ver comentario junto al banner de debug más abajo). Si PlanillaComputo
-// (o algo que importa) revienta al renderizar SOLO en el dispositivo real
-// de Luis, sin este boundary React desmontaría hacia arriba sin dejar
-// rastro visible de por qué — con esto, si crashea, se ve el motivo acá
-// mismo en vez de que la Planilla simplemente "no aparezca". Sacar junto
-// con el resto de lo marcado DEBUG-TEMP.
-class PlanillaErrorBoundaryTemp extends Component<{ children: ReactNode }, { error: string | null }> {
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.state = { error: null };
-  }
-  static getDerivedStateFromError(error: unknown) {
-    const mensaje = error instanceof Error ? `${error.message}\n${(error.stack ?? "").slice(0, 400)}` : String(error);
-    return { error: mensaje };
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="bg-red-100 border-2 border-red-500 text-red-900 text-xs p-3 font-mono whitespace-pre-wrap">
-          [DEBUG-TEMP] PlanillaComputo CRASHEÓ al renderizar:{"\n"}
-          {this.state.error}
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 interface ElementoDetectado {
   descripcion: string;
@@ -134,70 +105,6 @@ export default function VisorProyectoPage() {
   // principal. No se persiste a propósito.
   const [visorExpandido, setVisorExpandido] = useState(false);
 
-  // TEMPORAL — diagnóstico del bug "Planilla no aparece en mobile real"
-  // (reportado por Luis, Redmi Note 14, producción — no reproducido con
-  // viewport angosto emulado en Chrome desktop, y sin acceso posible a
-  // devtools remoto ni LAN). En vez de console.log (inútil sin devtools),
-  // esto alimenta un banner FIJO y SIEMPRE VISIBLE en pantalla (ver el
-  // <div id="debug-temp-banner"> en el JSX) para que se pueda leer
-  // directo de una foto del celular. Sacar todo lo marcado DEBUG-TEMP
-  // (este bloque + el banner + el ErrorBoundary de abajo) en cuanto
-  // tengamos la causa confirmada.
-  const [debugViewport, setDebugViewport] = useState("?");
-  const [debugFilasStatus, setDebugFilasStatus] = useState("pendiente");
-  const [debugFilasCount, setDebugFilasCount] = useState<number | null>(null);
-  const [debugUltimoError, setDebugUltimoError] = useState<string | null>(null);
-  const [debugPlanillaRect, setDebugPlanillaRect] = useState("sin medir");
-  const debugPlanillaRef = useRef<HTMLDivElement | null>(null);
-
-  // TEMPORAL — mide el contenedor real de la Planilla en el DOM (ronda 2
-  // del diagnóstico: la evidencia del banner por sí sola no distinguía
-  // "no existe", "existe con alto 0" y "existe pero display:none/oculto"
-  // — esto lo saca de dudas directo en el texto del banner, sin
-  // necesitar una foto). Se remide en resize y con un timeout corto por
-  // si el layout tarda en asentarse (animación de framer-motion).
-  useEffect(() => {
-    const medir = () => {
-      const el = debugPlanillaRef.current;
-      if (!el) {
-        setDebugPlanillaRect("contenedor NO existe en el DOM");
-        return;
-      }
-      const r = el.getBoundingClientRect();
-      const cs = getComputedStyle(el);
-      setDebugPlanillaRect(
-        `${Math.round(r.width)}x${Math.round(r.height)} @(${Math.round(r.x)},${Math.round(r.y)}) display:${cs.display} visibility:${cs.visibility} opacity:${cs.opacity}`
-      );
-    };
-    medir();
-    const t = setTimeout(medir, 500);
-    window.addEventListener("resize", medir);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener("resize", medir);
-    };
-  }, [visorExpandido, filas.length]);
-
-  useEffect(() => {
-    setDebugViewport(`${window.innerWidth}x${window.innerHeight}`);
-    // Captura errores de JS que escapen al render normal de React (o
-    // promesas rechazadas sin catch) — sin esto, un crash silencioso en
-    // el celular de Luis no deja ningún rastro visible.
-    const onError = (e: ErrorEvent) => {
-      setDebugUltimoError(`${e.message} (${e.filename ? e.filename.split("/").pop() : "?"}:${e.lineno})`);
-    };
-    const onRejection = (e: PromiseRejectionEvent) => {
-      const motivo = e.reason;
-      setDebugUltimoError(`Promise rechazada: ${motivo?.message || String(motivo)}`);
-    };
-    window.addEventListener("error", onError);
-    window.addEventListener("unhandledrejection", onRejection);
-    return () => {
-      window.removeEventListener("error", onError);
-      window.removeEventListener("unhandledrejection", onRejection);
-    };
-  }, []);
-
   /* Carga de las 3 categorías + proyecto (nombre, notas, rubros) */
   useEffect(() => {
     if (!proyectoId) return;
@@ -253,13 +160,10 @@ export default function VisorProyectoPage() {
     (async () => {
       try {
         const res = await fetch(`/api/proyectos/${proyectoId}/filas-metraje`);
-        setDebugFilasStatus(String(res.status)); // TEMPORAL
-        if (!res.ok) throw new Error(`status ${res.status}`);
+        if (!res.ok) throw new Error();
         const data = await res.json();
-        setDebugFilasCount((data.filas ?? []).length); // TEMPORAL
         if (!cancelado) setFilas(data.filas ?? []);
-      } catch (err) {
-        setDebugFilasStatus(`error: ${err instanceof Error ? err.message : String(err)}`); // TEMPORAL
+      } catch {
         if (!cancelado) setFilas([]);
       }
     })();
@@ -816,31 +720,6 @@ export default function VisorProyectoPage() {
 
   return (
     <div className="min-h-full flex flex-col" style={{ background: "#F8FAFC" }}>
-      {/* TEMPORAL — banner de debug SIEMPRE visible (sin condición
-          alguna) para diagnosticar el bug "Planilla no aparece en mobile
-          real" sin acceso a devtools ni consola remota — Luis lo va a
-          capturar con una foto del celular. Sacar junto con el resto de
-          lo marcado DEBUG-TEMP (este banner + el ErrorBoundary + los
-          estados debug* de arriba) en cuanto tengamos la causa. */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 99999,
-          background: "#FEF08A",
-          color: "#000",
-          fontSize: 11,
-          fontFamily: "monospace",
-          padding: "6px 8px",
-          borderBottom: "3px solid #DC2626",
-          whiteSpace: "pre-wrap",
-          lineHeight: 1.4,
-        }}
-      >
-        [DEBUG-TEMP] viewport: {debugViewport} · visorExpandido: {String(visorExpandido)} · filas-metraje: {debugFilasStatus} · filas recibidas: {debugFilasCount ?? "—"} · último error: {debugUltimoError ?? "ninguno"} · contenedor Planilla: {debugPlanillaRect}
-      </div>
       {/* ── Header simple — nombre del proyecto + volver. Sin el header
           completo del proyecto (Editar/Excel/PDF/Eliminar) ni las
           pestañas Presupuesto/Gestión de Obra/Certificación — pantalla
@@ -876,25 +755,23 @@ export default function VisorProyectoPage() {
       <div className="px-4 md:px-6 py-4">
         <div className="flex flex-col gap-4">
           {!visorExpandido && (
-            <div ref={debugPlanillaRef} className="flex-shrink-0 max-h-[280px] overflow-y-auto">
-              <PlanillaErrorBoundaryTemp>
-                <PlanillaComputo
-                  filas={filas}
-                  rubrosDisponibles={rubrosDisponibles}
-                  totalGeneral={totalGeneral}
-                  iaTexto={iaTexto}
-                  iaCargando={iaCargando}
-                  onActualizarFila={actualizarFila}
-                  onAgregarFila={agregarFila}
-                  onEliminarFila={eliminarFila}
-                  onIaTextoChange={setIaTexto}
-                  onAgregarFilaIA={agregarFilaIA}
-                  onExportarExcel={exportarExcel}
-                  onAplicarComputoPreview={aplicarComputoPreview}
-                  onAplicarComputoConfirmar={aplicarComputoConfirmar}
-                  onMedirAnchoParaFila={controlesMedicion?.onIniciarAsignacionAncho}
-                />
-              </PlanillaErrorBoundaryTemp>
+            <div className="flex-shrink-0 max-h-[280px] overflow-y-auto">
+              <PlanillaComputo
+                filas={filas}
+                rubrosDisponibles={rubrosDisponibles}
+                totalGeneral={totalGeneral}
+                iaTexto={iaTexto}
+                iaCargando={iaCargando}
+                onActualizarFila={actualizarFila}
+                onAgregarFila={agregarFila}
+                onEliminarFila={eliminarFila}
+                onIaTextoChange={setIaTexto}
+                onAgregarFilaIA={agregarFilaIA}
+                onExportarExcel={exportarExcel}
+                onAplicarComputoPreview={aplicarComputoPreview}
+                onAplicarComputoConfirmar={aplicarComputoConfirmar}
+                onMedirAnchoParaFila={controlesMedicion?.onIniciarAsignacionAncho}
+              />
             </div>
           )}
 
