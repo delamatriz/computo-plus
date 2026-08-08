@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, Component, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useRef, Component, type ReactNode } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
@@ -147,6 +147,36 @@ export default function VisorProyectoPage() {
   const [debugFilasStatus, setDebugFilasStatus] = useState("pendiente");
   const [debugFilasCount, setDebugFilasCount] = useState<number | null>(null);
   const [debugUltimoError, setDebugUltimoError] = useState<string | null>(null);
+  const [debugPlanillaRect, setDebugPlanillaRect] = useState("sin medir");
+  const debugPlanillaRef = useRef<HTMLDivElement | null>(null);
+
+  // TEMPORAL — mide el contenedor real de la Planilla en el DOM (ronda 2
+  // del diagnóstico: la evidencia del banner por sí sola no distinguía
+  // "no existe", "existe con alto 0" y "existe pero display:none/oculto"
+  // — esto lo saca de dudas directo en el texto del banner, sin
+  // necesitar una foto). Se remide en resize y con un timeout corto por
+  // si el layout tarda en asentarse (animación de framer-motion).
+  useEffect(() => {
+    const medir = () => {
+      const el = debugPlanillaRef.current;
+      if (!el) {
+        setDebugPlanillaRect("contenedor NO existe en el DOM");
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      setDebugPlanillaRect(
+        `${Math.round(r.width)}x${Math.round(r.height)} @(${Math.round(r.x)},${Math.round(r.y)}) display:${cs.display} visibility:${cs.visibility} opacity:${cs.opacity}`
+      );
+    };
+    medir();
+    const t = setTimeout(medir, 500);
+    window.addEventListener("resize", medir);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", medir);
+    };
+  }, [visorExpandido, filas.length]);
 
   useEffect(() => {
     setDebugViewport(`${window.innerWidth}x${window.innerHeight}`);
@@ -809,7 +839,7 @@ export default function VisorProyectoPage() {
           lineHeight: 1.4,
         }}
       >
-        [DEBUG-TEMP] viewport: {debugViewport} · visorExpandido: {String(visorExpandido)} · filas-metraje: {debugFilasStatus} · filas recibidas: {debugFilasCount ?? "—"} · último error: {debugUltimoError ?? "ninguno"}
+        [DEBUG-TEMP] viewport: {debugViewport} · visorExpandido: {String(visorExpandido)} · filas-metraje: {debugFilasStatus} · filas recibidas: {debugFilasCount ?? "—"} · último error: {debugUltimoError ?? "ninguno"} · contenedor Planilla: {debugPlanillaRect}
       </div>
       {/* ── Header simple — nombre del proyecto + volver. Sin el header
           completo del proyecto (Editar/Excel/PDF/Eliminar) ni las
@@ -846,7 +876,7 @@ export default function VisorProyectoPage() {
       <div className="px-4 md:px-6 py-4">
         <div className="flex flex-col gap-4">
           {!visorExpandido && (
-            <div className="flex-shrink-0 max-h-[280px] overflow-y-auto">
+            <div ref={debugPlanillaRef} className="flex-shrink-0 max-h-[280px] overflow-y-auto">
               <PlanillaErrorBoundaryTemp>
                 <PlanillaComputo
                   filas={filas}
