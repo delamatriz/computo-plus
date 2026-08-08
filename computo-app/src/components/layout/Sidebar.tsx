@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
+  Building2,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -17,10 +18,18 @@ import {
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
+// "Mis Proyectos" también vive como píldora en el nav central del Header
+// (hidden md:flex — ver Header.tsx), pero ese nav desaparece por debajo
+// de md y el único acceso mobile pasa a ser este drawer (mismo Sidebar,
+// reusado con mobileOpen). No había ningún ítem acá que llevara a
+// /proyectos — el link quedaba inalcanzable en mobile puro. Mismo
+// destino/comportamiento que la píldora de desktop (startsWith para el
+// estado activo, ver el check de `active` más abajo).
 const navItems = [
   {
     section: "Presupuestación",
     items: [
+      { href: "/proyectos", icon: Building2, label: "Mis Proyectos" },
       { href: "/metrajes", icon: Ruler, label: "Metrajes" },
       { href: "/rubros", icon: BookOpen, label: "Biblioteca" },
     ],
@@ -40,9 +49,21 @@ interface SidebarProps {
   onToggle?: () => void;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  /** Si queda fijo/visible como columna en desktop (lg+) o si se
+   * comporta como drawer también en desktop (fixed + translate-x-full
+   * en reposo, siempre) — ver AppShell.tsx. Páginas como /inicio no
+   * quieren la columna fija (landing centrada, sin nav docked), pero sí
+   * necesitan el drawer mobile para poder navegar desde el celular. */
+  dockedOnDesktop?: boolean;
 }
 
-export function Sidebar({ collapsed = false, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({
+  collapsed = false,
+  onToggle,
+  mobileOpen = false,
+  onMobileClose,
+  dockedOnDesktop = true,
+}: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -62,7 +83,7 @@ export function Sidebar({ collapsed = false, onToggle, mobileOpen = false, onMob
         "flex flex-col bg-bg-sidebar overflow-hidden",
         "fixed inset-y-0 left-0 z-50 transform transition-transform duration-200",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
-        "lg:relative lg:inset-auto lg:z-auto lg:translate-x-0 lg:h-full lg:flex-shrink-0"
+        dockedOnDesktop && "lg:relative lg:inset-auto lg:z-auto lg:translate-x-0 lg:h-full lg:flex-shrink-0"
       )}
       onClick={(e) => {
         // Cerrar el drawer mobile al tocar un ítem del menú
