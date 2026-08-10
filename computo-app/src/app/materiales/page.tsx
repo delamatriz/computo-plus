@@ -1,4 +1,18 @@
 import { Package } from "lucide-react";
+import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
+
+const referencias: ReferenciaLink[] = [
+  {
+    titulo: "Lista de Precios MTOP N°599",
+    descripcion: "Precios de materiales de construcción — Ministerio de Transporte",
+    url: "https://www.gub.uy/ministerio-transporte-obras-publicas/tematica/precios-construccion",
+  },
+  {
+    titulo: "Índice ICCV — INE",
+    descripcion: "Índice del Costo de la Construcción de Vivienda",
+    url: "https://www.ine.gub.uy",
+  },
+];
 
 export default function MaterialesPage() {
   return (
@@ -10,7 +24,9 @@ export default function MaterialesPage() {
         Catálogo de materiales de construcción y sus precios de referencia.
       </p>
 
-      <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6">
+      <ListaReferencias items={referencias} />
+
+      <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6 mt-6">
         <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
           <Package className="w-5 h-5 text-[#2563EB]" />
         </div>

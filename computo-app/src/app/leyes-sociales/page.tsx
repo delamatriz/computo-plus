@@ -1,4 +1,21 @@
 import { Scale } from "lucide-react";
+import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
+
+// Info general de BPS (no el texto de una ley puntual) — base de esta
+// sección práctica. El esquema propio redactado por Luis se suma después,
+// en otra ronda.
+const referencias: ReferenciaLink[] = [
+  {
+    titulo: "Leyes Sociales — BPS",
+    descripcion: "Aportes patronales y personales de la construcción",
+    url: "https://www.bps.gub.uy",
+  },
+  {
+    titulo: "Pequeñas Obras de Mantenimiento — BPS",
+    descripcion: "Condiciones y requisitos para obras de mantenimiento menores",
+    url: "https://www.bps.gub.uy/9037/",
+  },
+];
 
 export default function LeyesSocialesPage() {
   return (
@@ -11,7 +28,9 @@ export default function LeyesSocialesPage() {
         construcción.
       </p>
 
-      <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6">
+      <ListaReferencias items={referencias} />
+
+      <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6 mt-6">
         <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
           <Scale className="w-5 h-5 text-[#2563EB]" />
         </div>

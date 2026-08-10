@@ -1,4 +1,13 @@
 import { Hammer } from "lucide-react";
+import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
+
+const referencias: ReferenciaLink[] = [
+  {
+    titulo: "Convenio SUNCA",
+    descripcion: "Escalas salariales y convenio colectivo vigente",
+    url: "https://sunca.uy/category/convenios/",
+  },
+];
 
 export default function ManoDeObraPage() {
   return (
@@ -10,7 +19,9 @@ export default function ManoDeObraPage() {
         Categorías laborales, jornales y rendimientos de referencia.
       </p>
 
-      <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6">
+      <ListaReferencias items={referencias} />
+
+      <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6 mt-6">
         <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
           <Hammer className="w-5 h-5 text-[#2563EB]" />
         </div>
