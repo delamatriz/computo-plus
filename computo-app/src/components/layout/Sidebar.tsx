@@ -1,20 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BookOpen,
-  Building2,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Ruler,
-  Library,
-  MessageSquare,
-  Calculator,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -25,24 +14,47 @@ import { motion, AnimatePresence } from "framer-motion";
 // /proyectos — el link quedaba inalcanzable en mobile puro. Mismo
 // destino/comportamiento que la píldora de desktop (startsWith para el
 // estado activo, ver el check de `active` más abajo).
+//
+// Sin íconos a propósito — navegación solo texto para consistencia
+// visual en todo el Sidebar (antes cada ítem tenía un ícono propio).
+// `dividerBefore` en Materiales dibuja una línea divisoria fina antes
+// de ese ítem, separando el cluster de proyecto (Mis Proyectos/
+// Metrajes/Catálogo de Rubros) del cluster de recursos de referencia
+// (Materiales/Mano de Obra/Leyes Sociales) sin agregar un label de
+// sub-sección — la sección "Presupuestación" ya cubre a los 6.
 const navItems = [
   {
     section: "Presupuestación",
     items: [
-      { href: "/proyectos", icon: Building2, label: "Mis Proyectos" },
-      { href: "/metrajes", icon: Ruler, label: "Metrajes" },
-      { href: "/rubros", icon: BookOpen, label: "Biblioteca" },
+      { href: "/proyectos", label: "Mis Proyectos" },
+      { href: "/metrajes", label: "Metrajes" },
+      { href: "/rubros", label: "Catálogo de Rubros" },
+      { href: "/materiales", label: "Materiales", dividerBefore: true },
+      { href: "/mano-de-obra", label: "Mano de Obra" },
+      { href: "/leyes-sociales", label: "Leyes Sociales" },
     ],
   },
   {
     section: "Sistema",
     items: [
-      { href: "/configuracion", icon: Settings, label: "Configuración" },
-      { href: "/referencias", icon: Library, label: "Referencias" },
-      { href: "/sugerencias", icon: MessageSquare, label: "Sugerencias" },
+      { href: "/configuracion", label: "Configuración" },
+      { href: "/biblioteca", label: "Biblioteca" },
+      { href: "/referencias", label: "Referencias" },
+      { href: "/sugerencias", label: "Sugerencias" },
     ],
   },
 ];
+
+// Sin ícono, el Sidebar colapsado (rail angosto, solo desktop — ver
+// sidebarCollapsed en AppShell.tsx) se quedaba sin nada que mostrar por
+// ítem. Mismo criterio que ya usa el avatar de Header.tsx (iniciales
+// en vez de ícono): monograma de 2 letras — primera+última palabra si
+// el label tiene más de una, o las primeras 2 letras si es una sola.
+function monograma(label: string): string {
+  const palabras = label.trim().split(/\s+/);
+  if (palabras.length === 1) return palabras[0].slice(0, 2).toUpperCase();
+  return (palabras[0][0] + palabras[palabras.length - 1][0]).toUpperCase();
+}
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -165,32 +177,40 @@ export function Sidebar({
                 const active =
                   pathname === item.href ||
                   (item.href !== "/dashboard" && pathname.startsWith(item.href));
-                const Icon = item.icon;
                 return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      title={collapsed ? item.label : undefined}
-                      className={cn(
-                        "flex items-center gap-3 rounded-[8px] transition-colors text-sm font-medium",
-                        collapsed ? "justify-center p-2.5" : "px-3 py-2.5",
-                        active
-                          ? "bg-white/15 text-white"
-                          : "text-white/55 hover:text-white hover:bg-white/8"
-                      )}
-                    >
-                      <Icon
+                  <Fragment key={item.href}>
+                    {item.dividerBefore && (
+                      <li key={`${item.href}-divider`} aria-hidden="true" className="py-1.5">
+                        <div className="border-t border-white/10" />
+                      </li>
+                    )}
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        title={collapsed ? item.label : undefined}
                         className={cn(
-                          "w-4.5 h-4.5 flex-shrink-0",
-                          active ? "text-brand-accent" : ""
+                          "flex items-center rounded-[8px] transition-colors text-sm font-medium",
+                          collapsed ? "justify-center p-2.5" : "px-3 py-2.5",
+                          active
+                            ? "bg-white/15 text-white"
+                            : "text-white/55 hover:text-white hover:bg-white/8"
                         )}
-                        strokeWidth={active ? 2.5 : 1.75}
-                      />
-                      {!collapsed && (
-                        <span>{item.label}</span>
-                      )}
-                    </Link>
-                  </li>
+                      >
+                        {collapsed ? (
+                          <span
+                            className={cn(
+                              "text-[11px] font-bold tracking-wide",
+                              active && "text-brand-accent"
+                            )}
+                          >
+                            {monograma(item.label)}
+                          </span>
+                        ) : (
+                          <span>{item.label}</span>
+                        )}
+                      </Link>
+                    </li>
+                  </Fragment>
                 );
               })}
             </ul>
