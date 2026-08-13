@@ -17,6 +17,189 @@ interface CategoriaGlosario {
   terminos: Termino[];
 }
 
+// Marca inline de "todavía no construido" — mismo criterio de color que
+// el badge ámbar "Requiere verificación" de /rubros, reusado acá para
+// mantener el mismo lenguaje visual de "pendiente" en toda la app.
+function Proximamente() {
+  return <span className="text-amber-600 font-semibold">Próximamente</span>;
+}
+
+// Estructura del sistema — relevamiento real de qué existe hoy en
+// producción (recorrido del Sidebar completo + el detalle de proyecto),
+// confirmado antes de redactar. No es el roadmap: si algo todavía no
+// está construido, se marca con <Proximamente /> en vez de omitirlo.
+interface ItemEstructura {
+  nombre: string;
+  contenido: React.ReactNode;
+}
+
+const navPrincipal: ItemEstructura[] = [
+  {
+    nombre: "Mis Proyectos",
+    contenido: <>La lista de todos tus proyectos, con acceso a cada uno.</>,
+  },
+  {
+    nombre: "Metrajes",
+    contenido: (
+      <>
+        Hoy te lleva directo a tu proyecto más reciente. La idea de tener
+        acá una Biblioteca de Metrajes (consultar cómo se midió en obras
+        anteriores) está <Proximamente />. Para medir un proyecto puntual
+        hoy, entrá a ese proyecto y usá la pestaña Presupuesto.
+      </>
+    ),
+  },
+  {
+    nombre: "Catálogo de Rubros",
+    contenido: (
+      <>
+        El catálogo maestro con cientos de rubros ya armados, cada uno con
+        su descompuesto completo (materiales, mano de obra, equipos). Es
+        de consulta — sirve para ver cómo está armado un precio antes de
+        usarlo en tu presupuesto.
+      </>
+    ),
+  },
+  {
+    nombre: "Materiales",
+    contenido: (
+      <>
+        Hoy tiene links a fuentes oficiales de precios (Lista MTOP, Índice
+        ICCV del INE). El catálogo propio de materiales de Cómputo+ está{" "}
+        <Proximamente />.
+      </>
+    ),
+  },
+  {
+    nombre: "Mano de Obra",
+    contenido: (
+      <>
+        Hoy tiene el link al Convenio SUNCA. El catálogo propio de
+        categorías laborales y jornales está <Proximamente />.
+      </>
+    ),
+  },
+  {
+    nombre: "Leyes Sociales",
+    contenido: (
+      <>
+        Guía de referencia general: cuánto se aporta, por qué, con
+        ejemplos de cálculo (AUC, BPS, fondos).{" "}
+        <strong className="text-slate-700">Importante</strong>: esto es
+        distinto de la calculadora de Leyes Sociales que tiene cada
+        presupuesto — ver más abajo.
+      </>
+    ),
+  },
+  {
+    nombre: "Configuración",
+    contenido: (
+      <>
+        Los datos de tu empresa, las categorías laborales (jornales SUNCA)
+        y algunos precios de referencia que podés ajustar vos mismo.
+      </>
+    ),
+  },
+  {
+    nombre: "Biblioteca",
+    contenido: (
+      <>
+        Hoy tiene el texto de las leyes puntuales más relevantes para
+        presupuestar (tercerización, régimen de aportes, responsabilidad
+        por defectos de construcción). Las guías y procedimientos propios
+        de Cómputo+ están <Proximamente />.
+      </>
+    ),
+  },
+  {
+    nombre: "Referencias",
+    contenido: (
+      <>
+        Donde estás parado ahora: el glosario de términos de obra, y más
+        adelante tutoriales y ejemplos de uso.
+      </>
+    ),
+  },
+  {
+    nombre: "Sugerencias",
+    contenido: (
+      <>
+        Pensado para que mandes ideas o reportes problemas. Todavía{" "}
+        <Proximamente />.
+      </>
+    ),
+  },
+];
+
+const dentroDePresupuesto: ItemEstructura[] = [
+  {
+    nombre: "Capítulos y rubros",
+    contenido: <>El presupuesto en sí, la tabla que armás rubro por rubro.</>,
+  },
+  {
+    nombre: "Documentación para metrar, Planilla de Cómputo, Calculadora y Visor de planos",
+    contenido: (
+      <>
+        Acá subís los planos, los medís, y volcás las cantidades directo a
+        tu presupuesto.
+      </>
+    ),
+  },
+  {
+    nombre: "Leyes Sociales de este presupuesto",
+    contenido: (
+      <>
+        A diferencia de la guía general del menú, esta calcula el aporte
+        real sobre la mano de obra de este presupuesto puntual, con los
+        números concretos de tu obra.
+      </>
+    ),
+  },
+  {
+    nombre: "Resumen del presupuesto",
+    contenido: <>Gastos generales y utilidad.</>,
+  },
+  {
+    nombre: "Garantías",
+    contenido: <>Fiel cumplimiento y afines.</>,
+  },
+  {
+    nombre: "Certificaciones",
+    contenido: <>Vas registrando el avance de obra, con fotos, mes a mes.</>,
+  },
+  {
+    nombre: "Comparativo de ofertas",
+    contenido: (
+      <>Para comparar cotizaciones de distintos proveedores sobre un mismo rubro.</>
+    ),
+  },
+  {
+    nombre: "Detección de rubros faltantes",
+    contenido: <>Te avisa si parece faltar algo en el presupuesto.</>,
+  },
+  {
+    nombre: "Cronograma",
+    contenido: <>Un Gantt armado a partir de tus capítulos y certificaciones.</>,
+  },
+  {
+    nombre: "Memoria del presupuesto",
+    contenido: <>Genera el texto de memoria descriptiva de la obra.</>,
+  },
+  {
+    nombre: "Actualización de precios por índice ICCV",
+    contenido: <>Para actualizar precios viejos con el índice del INE.</>,
+  },
+  {
+    nombre: "Cómputo global de materiales",
+    contenido: (
+      <>
+        La lista de materiales de todos los documentos del proyecto,
+        juntada en un solo lugar.
+      </>
+    ),
+  },
+];
+
 const glosario: CategoriaGlosario[] = [
   {
     nombre: "Estructura de un Presupuesto",
@@ -385,7 +568,7 @@ export default function ReferenciasPage() {
         Documentación propia del sistema — tutoriales, glosario, ejemplos.
       </p>
 
-      <h2 className="text-lg font-bold text-[#1A3A5C] mb-3">Glosario</h2>
+      <h2 id="glosario" className="text-lg font-bold text-[#1A3A5C] mb-3 scroll-mt-20">Glosario</h2>
 
       <div className="relative mb-6">
         <Search className="w-4 h-4 text-slate-300 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -431,17 +614,67 @@ export default function ReferenciasPage() {
         </div>
       )}
 
-      <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6 mt-10">
-        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-          <FileText className="w-5 h-5 text-[#2563EB]" />
-        </div>
-        <h2 className="text-sm font-semibold text-[#1E293B] mb-1">
-          Próximamente
+      <div className="mt-12 pt-8 border-t border-slate-200">
+        <h2 id="estructura-del-sistema" className="text-lg font-bold text-[#1A3A5C] mb-1 scroll-mt-20">
+          Estructura del sistema
         </h2>
-        <p className="text-sm text-slate-500 max-w-sm">
-          Acá vas a encontrar también tutoriales y ejemplos de uso de
-          Cómputo+.
+        <p className="text-sm text-slate-500 mb-6 max-w-2xl">
+          Guía rápida para orientarte en Cómputo+: qué hay en el menú, y qué
+          encontrás dentro de cada proyecto.
         </p>
+
+        <h3 className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2.5">
+          Navegación principal (menú de la izquierda)
+        </h3>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 mb-8">
+          <dl className="space-y-3.5">
+            {navPrincipal.map((item) => (
+              <div key={item.nombre}>
+                <dt className="text-sm font-semibold text-[#1E293B]">{item.nombre}</dt>
+                <dd className="text-sm text-slate-600 leading-relaxed mt-0.5">{item.contenido}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <h3 className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2.5">
+          Dentro de un proyecto
+        </h3>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 mb-3">
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Al entrar a un proyecto puntual hay tres pestañas:{" "}
+            <strong className="text-slate-700">Presupuesto</strong>,{" "}
+            <strong className="text-slate-700">Gestión de Obra</strong> y{" "}
+            <strong className="text-slate-700">Certificación</strong>. Hoy
+            casi todo vive en <strong className="text-slate-700">Presupuesto</strong> —
+            Gestión de Obra y Certificación, como pestañas propias, todavía
+            están <Proximamente />.
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <p className="text-sm font-semibold text-slate-700 mb-3.5">
+            Dentro de Presupuesto encontrás, todo en una misma pantalla:
+          </p>
+          <dl className="space-y-3.5">
+            {dentroDePresupuesto.map((item) => (
+              <div key={item.nombre}>
+                <dt className="text-sm font-semibold text-[#1E293B]">{item.nombre}</dt>
+                <dd className="text-sm text-slate-600 leading-relaxed mt-0.5">{item.contenido}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="flex items-start gap-3 bg-white rounded-xl border border-slate-200 p-5 mt-8">
+          <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <FileText className="w-4 h-4 text-[#2563EB]" />
+          </div>
+          <p className="text-sm text-slate-500">
+            Tutoriales y ejemplos de uso paso a paso todavía están{" "}
+            <Proximamente /> — esta sección de Referencias se va a ir
+            completando en rondas futuras.
+          </p>
+        </div>
       </div>
     </div>
   );
