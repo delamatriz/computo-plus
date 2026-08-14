@@ -8,6 +8,7 @@ import {
   FileQuestion,
   AlertTriangle,
   BadgeCheck,
+  HelpCircle,
   Loader2,
   Hammer,
   Wrench,
@@ -257,6 +258,21 @@ function ArbolBiblioteca({
 // ── Badge de gobernanza FEAT-AI-006 ─────────────────────────────────────
 
 function BadgeVerificacion({ fuente }: { fuente: FuenteMaterial }) {
+  // Marca puntual para los 10 insumos de los 8 códigos documentados en
+  // PENDIENTES-FASE2.md sin fuente de mercado confiable (Fase 2, bug
+  // "clona a $0") — no es un estado general, solo estos casos concretos
+  // tienen este motivoVerificacion exacto.
+  if (fuente.motivoVerificacion === "sin_precio_referencia") {
+    return (
+      <span
+        title="Sin precio de referencia — a cotizar directamente"
+        className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-slate-100 text-slate-500 border border-slate-200 uppercase tracking-wide whitespace-nowrap"
+      >
+        <HelpCircle className="w-2.5 h-2.5" />
+        A cotizar
+      </span>
+    );
+  }
   if (fuente.requiereVerificacion) {
     return (
       <span
