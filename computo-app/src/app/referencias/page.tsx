@@ -200,6 +200,156 @@ const dentroDePresupuesto: ItemEstructura[] = [
   },
 ];
 
+// Primer tutorial de la sección — el flujo principal end-to-end (crear
+// proyecto → medir un plano → armar el presupuesto), el que conecta directo
+// con el tagline "De la medición al presupuesto en minutos". Investigado
+// navegando la app real (proyecto Matisse + un proyecto descartable para
+// probar la confirmación real de "Aplicar al presupuesto" sin tocar datos
+// reales) — nombres de botones y orden de pasos confirmados en pantalla,
+// no de memoria.
+interface PasoTutorial {
+  numero: number;
+  titulo: string;
+  contenido: React.ReactNode;
+}
+
+const tutorialFlujoPrincipal: PasoTutorial[] = [
+  {
+    numero: 1,
+    titulo: "Creá el proyecto",
+    contenido: (
+      <>
+        Desde <strong className="text-slate-700">Mis Proyectos</strong>, hacé
+        clic en <strong className="text-slate-700">+ Nuevo proyecto</strong>.
+        Lo único que te pide para arrancar es el{" "}
+        <strong className="text-slate-700">Nombre del proyecto</strong>. El
+        resto —Tipo de obra, Cliente, RUT, dirección, fotos, documentos— lo
+        podés completar ahora o después, desde{" "}
+        <strong className="text-slate-700">Editar</strong>.
+      </>
+    ),
+  },
+  {
+    numero: 2,
+    titulo: "Subí el plano",
+    contenido: (
+      <>
+        Ya dentro del proyecto, abrí la sección{" "}
+        <strong className="text-slate-700">Documentación para metrar</strong>.
+        Vas a ver tres bandejas:{" "}
+        <strong className="text-slate-700">Planos y documentos</strong>,{" "}
+        <strong className="text-slate-700">Fotos de relevamiento</strong> y{" "}
+        <strong className="text-slate-700">Detalles</strong>. Subí tu plano en
+        PDF con el botón <strong className="text-slate-700">Subir</strong> de
+        la primera, y después hacé clic en{" "}
+        <strong className="text-slate-700">
+          Ir al visor y planilla de metraje
+        </strong>
+        .
+      </>
+    ),
+  },
+  {
+    numero: 3,
+    titulo: "Calibrá la escala",
+    contenido: (
+      <>
+        Antes de poder medir, el plano necesita saber a qué escala está
+        dibujado. Hacé clic en{" "}
+        <strong className="text-slate-700">Calibrar escala</strong> (te va a
+        decir <strong className="text-slate-700">Cambiar escala</strong> si ya
+        la habías puesto antes) y escribí la escala tal como figura en el
+        plano — por ejemplo <strong className="text-slate-700">1:100</strong>.
+        Sin este paso, las herramientas de medir quedan bloqueadas.
+      </>
+    ),
+  },
+  {
+    numero: 4,
+    titulo: "Medí algo en el plano",
+    contenido: (
+      <>
+        En la barra de herramientas del Visor tenés cinco opciones:{" "}
+        <strong className="text-slate-700">Medir</strong>,{" "}
+        <strong className="text-slate-700">Área</strong>,{" "}
+        <strong className="text-slate-700">Trazo libre</strong>,{" "}
+        <strong className="text-slate-700">Línea recta</strong> y{" "}
+        <strong className="text-slate-700">Texto</strong> — una para cada tipo
+        de medición o anotación que necesites. Para este ejemplo usamos{" "}
+        <strong className="text-slate-700">Medir</strong>: hacés clic y
+        arrastrás sobre el plano, de una punta a la otra de lo que querés
+        medir (un muro, por ejemplo), y soltás. Se abre un cuadro{" "}
+        <strong className="text-slate-700">Nueva medición</strong> con la
+        longitud ya calculada —la podés corregir a mano si hace falta—, más
+        los campos <strong className="text-slate-700">Descripción</strong> y{" "}
+        <strong className="text-slate-700">Repeticiones</strong>. Guardás con{" "}
+        <strong className="text-slate-700">Guardar</strong>.
+      </>
+    ),
+  },
+  {
+    numero: 5,
+    titulo: "La medida aparece sola en la Planilla",
+    contenido: (
+      <>
+        Ni bien guardás, la fila aparece en la{" "}
+        <strong className="text-slate-700">Planilla de Cómputo</strong>, con
+        su largo, ancho, alto y subtotal según corresponda. No hay que hacer
+        nada más para que llegue ahí.
+      </>
+    ),
+  },
+  {
+    numero: 6,
+    titulo: "Vinculala a un Rubro",
+    contenido: (
+      <>
+        Cada fila de la planilla tiene una columna{" "}
+        <strong className="text-slate-700">Rubro vinculado</strong>: es un
+        desplegable con todos los rubros de tu presupuesto, agrupados por
+        capítulo. Elegí el que corresponde a esa medición.
+      </>
+    ),
+  },
+  {
+    numero: 7,
+    titulo: "Aplicá al presupuesto",
+    contenido: (
+      <>
+        <p>
+          Con el botón{" "}
+          <strong className="text-slate-700">Aplicar al presupuesto</strong>,
+          arriba de la Planilla, Cómputo+ te muestra antes de nada un
+          resumen: para cada rubro afectado, la cantidad que tiene hoy y la
+          cantidad nueva que va a quedar.
+        </p>
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-amber-800">
+          <span className="font-semibold">Ojo con esto:</span> el botón
+          aplica <span className="font-semibold">todas</span> las filas
+          vinculadas que tengas pendientes en el proyecto, no solo la que
+          acabás de medir. Si venís acumulando mediciones de varios planos o
+          de varios días, revisá bien el resumen antes de confirmar — se van
+          a actualizar todos los rubros que aparezcan en esa lista, de una
+          sola vez.
+        </div>
+      </>
+    ),
+  },
+  {
+    numero: 8,
+    titulo: "Mirá el resultado en el presupuesto",
+    contenido: (
+      <>
+        Confirmás, y el rubro queda con la cantidad que sacaste del plano.
+        Como beneficio extra: Cómputo+ recuerda que esa cantidad vino de una
+        medición (y no la escribiste a mano), así que si más adelante volvés
+        a aplicar un cómputo sobre ese mismo rubro, te va a avisar antes de
+        pisar un valor cargado manualmente.
+      </>
+    ),
+  },
+];
+
 const glosario: CategoriaGlosario[] = [
   {
     nombre: "Estructura de un Presupuesto",
@@ -665,14 +815,49 @@ export default function ReferenciasPage() {
           </dl>
         </div>
 
+      </div>
+
+      <div className="mt-12 pt-8 border-t border-slate-200">
+        <h2
+          id="tutorial-flujo-principal"
+          className="text-lg font-bold text-[#1A3A5C] mb-1 scroll-mt-20"
+        >
+          De la medición al presupuesto, paso a paso
+        </h2>
+        <p className="text-sm text-slate-500 mb-6 max-w-2xl">
+          El camino más corto entre un plano y un presupuesto: crear el
+          proyecto, subir el plano, medirlo, y que esa medida llegue sola al
+          rubro que corresponde.
+        </p>
+
+        <ol className="space-y-3">
+          {tutorialFlujoPrincipal.map((paso) => (
+            <li
+              key={paso.numero}
+              className="flex gap-4 bg-white rounded-xl border border-slate-200 p-5"
+            >
+              <div className="w-7 h-7 rounded-full bg-blue-50 text-[#2563EB] flex items-center justify-center text-xs font-bold flex-shrink-0">
+                {paso.numero}
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-sm font-semibold text-[#1E293B] mb-1.5">
+                  {paso.titulo}
+                </h4>
+                <div className="text-sm text-slate-600 leading-relaxed">
+                  {paso.contenido}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ol>
+
         <div className="flex items-start gap-3 bg-white rounded-xl border border-slate-200 p-5 mt-8">
           <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
             <FileText className="w-4 h-4 text-[#2563EB]" />
           </div>
           <p className="text-sm text-slate-500">
-            Tutoriales y ejemplos de uso paso a paso todavía están{" "}
-            <Proximamente /> — esta sección de Referencias se va a ir
-            completando en rondas futuras.
+            Este es el primer tutorial de esta sección. Más tutoriales y
+            ejemplos de uso van a ir apareciendo en rondas futuras.
           </p>
         </div>
       </div>
