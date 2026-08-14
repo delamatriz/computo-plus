@@ -748,11 +748,19 @@ type PaginaPDFCargada = { getViewport: (opts: { scale: number }) => { width: num
 //
 // Cuantizado en escalones (no continuo) y solo al soltar el gesto
 // (onZoomStop/onPanningStop, no onTransform) para no redibujar el canvas
-// en cada frame de un pinch/wheel — page.render() no es gratis. Tope
-// duro en dpr efectivo 4 (⇒ ~3600px de ancho de canvas sobre width=900)
-// para no explotar memoria/límites de canvas en pantallas retina con
-// planos grandes, aunque el multiplicador y el devicePixelRatio real de
-// la pantalla ya sumen más que eso.
+// en cada frame de un pinch/wheel — page.render() no es gratis.
+//
+// Tope duro en dpr efectivo — DISTINTO por dispositivo (ver esMobile más
+// abajo, en VisorPrincipal): 6 en desktop (empareja maxScale={6} del
+// TransformWrapper — a zoom máximo el canvas queda 1:1 con la pantalla,
+// nítido de verdad, ~165MB pico entre canvas real+congelado, margen de
+// sobra en desktop) vs. 4 en mobile (sin cambios — el límite de área de
+// canvas de Safari/iOS ronda los 4096×4096px, y 6 ya lo supera; 4 se
+// queda cómodo debajo). Antes era un único 4 para todos, que dejaba el
+// tramo de zoom 4-6 cada vez más borroso cuanto más cerca del máximo —
+// confirmado con el historial completo de este archivo que ese desajuste
+// (maxScale=6 vs DPR_MAXIMO=4) estuvo así desde el commit que introdujo
+// la nitidez dinámica, nunca estuvieron sincronizados.
 //
 // "Queda en blanco" al re-renderizar: confirmado leyendo
 // node_modules/react-pdf/src/Page/Canvas.tsx — cuando cambia
@@ -772,7 +780,8 @@ type PaginaPDFCargada = { getViewport: (opts: { scale: number }) => { width: num
 // pixelado un instante (es una copia de la resolución VIEJA, estirada
 // al nuevo zoom) pero sigue siendo el plano, no una pantalla en blanco
 // — ver canvasRef/canvasCongeladoRef y congelarCanvasActual().
-const DPR_MAXIMO = 4;
+const DPR_MAXIMO_DESKTOP = 6;
+const DPR_MAXIMO_MOBILE = 4;
 
 // Píldora de herramienta de la barra FILA 2 (Medir/Área/Trazo/Recta/
 // Texto/Descargar PDF) — un solo lugar para las tres variantes en vez de
@@ -790,11 +799,18 @@ function clasePildoraHerramienta(activa: boolean, habilitada: boolean): string {
   return "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border border-slate-300 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 hover:border-slate-400 transition-colors";
 }
 
+// Techo en 6 (antes 4) para emparejar maxScale={6} del TransformWrapper —
+// en desktop (DPR_MAXIMO_DESKTOP=6) esto es lo que permite llegar a
+// nitidez 1:1 real a zoom máximo. En mobile (DPR_MAXIMO_MOBILE=4) el
+// Math.min(...) de dprRender lo recorta de vuelta a 4 igual que antes —
+// esta función no necesita saber de dispositivo, el tope por dispositivo
+// ya lo aplica dprRender más abajo.
 function multiplicadorParaEscala(scale: number): number {
   if (scale <= 1.3) return 1;
   if (scale <= 2.5) return 2;
   if (scale <= 4) return 3;
-  return 4;
+  if (scale <= 5) return 5;
+  return 6;
 }
 
 // ── Visor principal — documento fijo y grande, con zoom/pan ────────────
@@ -906,6 +922,14 @@ function VisorPrincipal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvasCongeladoRef = useRef<HTMLCanvasElement | null>(null);
   const [multiplicadorDPR, setMultiplicadorDPR] = useState(1);
+  // Decide qué tope de nitidez aplica (DPR_MAXIMO_DESKTOP vs. _MOBILE, ver
+  // comentario grande arriba) — mismo criterio de breakpoint (768px, el
+  // "md" de Tailwind) que ya usa el resto de la app para mobile/desktop,
+  // pero no había ningún lugar en JS que lo leyera todavía (todo el
+  // responsive existente es CSS puro). Lazy init + sin listener de resize
+  // a propósito: el tope de nitidez no necesita reaccionar en vivo si la
+  // ventana cambia de tamaño, alcanza con el valor al montar el Visor.
+  const [esMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   // true durante la ventana entre "el escalón de nitidez subió" y "el
   // canvas terminó de redibujarse" — ver comentario en DPR_MAXIMO.
   const [renderizandoPDF, setRenderizandoPDF] = useState(false);
@@ -930,7 +954,10 @@ function VisorPrincipal({
     }
     setMultiplicadorDPR(nuevoMultiplicador);
   };
-  const dprRender = Math.min((typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicadorDPR, DPR_MAXIMO);
+  const dprRender = Math.min(
+    (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicadorDPR,
+    esMobile ? DPR_MAXIMO_MOBILE : DPR_MAXIMO_DESKTOP
+  );
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
   const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "TRAZO" | "RECTA" | "TEXTO" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);

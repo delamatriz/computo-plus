@@ -2149,6 +2149,86 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   );
 }
 
+// Modal "Agregar capítulo" — antes un window.prompt() nativo. Mismo
+// patrón que ModalCalibrarEscala en Visor.tsx (título + X, un input,
+// error inline, Cancelar/Guardar) para el mismo nivel de pulido que el
+// resto de los modales chicos de la app.
+function ModalAgregarCapitulo({
+  onClose,
+  onGuardar,
+}: {
+  onClose: () => void;
+  onGuardar: (nombre: string) => Promise<void>;
+}) {
+  const [nombre, setNombre] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+
+  const guardar = async () => {
+    if (!nombre.trim()) return;
+    setGuardando(true);
+    setError(null);
+    try {
+      await onGuardar(nombre.trim());
+      onClose();
+    } catch {
+      setError("No se pudo agregar el capítulo. Probá de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-white rounded-[16px] shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <h2 className="text-base font-bold text-[#1A3A5C]">Agregar capítulo</h2>
+          <button onClick={onClose} className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-5 py-4 space-y-2.5">
+          <label className="block text-sm font-semibold text-[#1A3A5C]">Nombre del capítulo</label>
+          <input
+            type="text"
+            value={nombre}
+            onChange={(e) => {
+              setNombre(e.target.value);
+              if (error) setError(null);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && guardar()}
+            placeholder="Ej. Instalación eléctrica"
+            autoFocus
+            className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
+          />
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={guardando}
+            className="px-4 py-2 rounded-[8px] text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={guardar}
+            disabled={!nombre.trim() || guardando}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2 rounded-[8px] text-sm font-semibold text-white transition-colors",
+              !nombre.trim() || guardando ? "bg-slate-300 cursor-not-allowed" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+            )}
+          >
+            {guardando && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {guardando ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Componente principal ────────────────────────────────── */
 export default function ProyectoPage() {
   const params = useParams();
@@ -2159,6 +2239,10 @@ export default function ProyectoPage() {
   const [proyecto, setProyecto] = useState<ProyectoData | null>(null);
   const [mostrarConfirmEliminar, setMostrarConfirmEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  // Modal "Agregar capítulo" — antes era un window.prompt() nativo, ver
+  // ModalAgregarCapitulo más abajo (mismo patrón que ModalCalibrarEscala
+  // en Visor.tsx: título, un input, Cancelar/Guardar).
+  const [mostrarModalCapitulo, setMostrarModalCapitulo] = useState(false);
   // Rubro cuya descripción está siendo editada — mientras tanto se muestra el valor real, no toTitleCase
   const [descripcionEnFoco, setDescripcionEnFoco] = useState<string | null>(null);
   // Rubro cuyo precio unitario está siendo editado — mientras tanto se muestra sin separador de miles
@@ -3297,6 +3381,22 @@ export default function ProyectoPage() {
 
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 
+          {/* Barra de título + "Agregar capítulo" — antes vivía como botón
+              fantasma al final de toda la tabla (después de los totales),
+              casi invisible y solo alcanzable scrolleando todo. Reubicado
+              acá arriba, mismo estilo que "+ Agregar rubro" (texto azul de
+              marca, no borde punteado), para que sea igual de descubrible
+              que agregar un rubro dentro de un capítulo. */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+            <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Presupuesto</span>
+            <button
+              onClick={() => setMostrarModalCapitulo(true)}
+              className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Agregar capítulo
+            </button>
+          </div>
+
           {/* Cabecera de la tabla — usa GRID_CAPITULO, la misma plantilla de columnas que la fila de Capítulo más abajo y que comparte Total/% Incid. con GRID_RUBRO */}
           <div className="grid border-b border-slate-200 px-5 py-2.5" style={{ gridTemplateColumns: GRID_CAPITULO }}>
             <div className="flex items-center gap-3">
@@ -3677,24 +3777,20 @@ export default function ProyectoPage() {
 
         </div>
 
-        {/* Botón agregar capítulo */}
-        <div className="mt-4 flex justify-start">
-          <button
-            onClick={async () => {
-              const nombre = window.prompt("Nombre del capítulo nuevo:");
-              if (!nombre || !nombre.trim()) return;
-              await fetch(`/api/proyectos/${proyectoActivo.id}/capitulos`, {
+        {mostrarModalCapitulo && (
+          <ModalAgregarCapitulo
+            onClose={() => setMostrarModalCapitulo(false)}
+            onGuardar={async (nombre) => {
+              const res = await fetch(`/api/proyectos/${proyectoActivo.id}/capitulos`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nombre: nombre.trim() }),
+                body: JSON.stringify({ nombre }),
               });
+              if (!res.ok) throw new Error("No se pudo agregar el capítulo");
               window.location.reload();
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] border border-dashed border-slate-300 text-sm font-medium text-slate-400 hover:text-[#2563EB] hover:border-[#2563EB]/40 transition-colors bg-white"
-          >
-            <Plus className="w-4 h-4" /> Agregar capítulo
-          </button>
-        </div>
+          />
+        )}
 
         {/* ── Leyes Sociales / BPS ─────────────────────────── */}
         {leyesSociales && (
