@@ -142,7 +142,7 @@ export default function SeccionPartidasFaltantes({ proyectoId, moneda, capitulos
       setAgregados((prev) => new Set(prev).add(idx));
       onAgregado?.();
     } catch {
-      setError("No se pudo agregar la partida. Probá de nuevo.");
+      setError("No se pudo agregar el rubro. Probá de nuevo.");
     } finally {
       setAgregandoIdx(null);
     }
@@ -157,7 +157,7 @@ export default function SeccionPartidasFaltantes({ proyectoId, moneda, capitulos
       >
         <div className="flex items-center gap-2.5">
           <Sparkles className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Detección de partidas faltantes</h2>
+          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Detección de rubros faltantes</h2>
         </div>
         <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
           {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -193,7 +193,7 @@ export default function SeccionPartidasFaltantes({ proyectoId, moneda, capitulos
 
               {faltantes !== null && faltantes.length === 0 && !error && (
                 <p className="text-xs text-slate-400 italic">
-                  No se detectaron partidas faltantes evidentes en este presupuesto.
+                  No se detectaron rubros faltantes evidentes en este presupuesto.
                 </p>
               )}
 

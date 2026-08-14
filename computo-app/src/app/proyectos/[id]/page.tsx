@@ -3744,7 +3744,7 @@ export default function ProyectoPage() {
         {/* ── Comparativo de ofertas ────────────────────────── */}
         <SeccionComparativoOfertas proyectoId={proyectoActivo.id} moneda={moneda} />
 
-        {/* ── Detección de partidas faltantes ─────────────────── */}
+        {/* ── Detección de rubros faltantes ─────────────────── */}
         <SeccionPartidasFaltantes
           proyectoId={proyectoActivo.id}
           moneda={moneda}

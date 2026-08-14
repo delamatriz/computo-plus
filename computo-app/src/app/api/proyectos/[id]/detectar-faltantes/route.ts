@@ -96,7 +96,7 @@ Devolvé SOLO un JSON con esta estructura exacta:
 }
 
 Reglas:
-- Detectá como máximo 5 partidas faltantes, priorizando las más relevantes.
+- Detectá como máximo 5 rubros faltantes, priorizando los más relevantes.
 - "capitulo" debe coincidir con el nombre de un capítulo existente cuando corresponda, o proponer uno nuevo si es necesario.
 - "rendimiento" en materiales = cantidad de material por unidad de rubro. "rendimiento" en mano de obra = unidades de rubro producidas por jornada de 8hs.
 - "precioUnitarioEstimado" debe ser coherente con la suma de materiales (rendimiento × precioUnit) + mano de obra (jornal / rendimiento), con un margen razonable de gastos generales y utilidad.
@@ -106,11 +106,11 @@ Reglas:
       model: "claude-sonnet-4-6",
       max_tokens: 8192,
       system: `Eres un arquitecto senior y presupuestador experto en construcción uruguaya.
-Analiza el siguiente presupuesto de obra y detecta partidas que probablemente faltan,
-basándote en las que sí están y en el tipo de obra (por ejemplo: si hay mampostería pero
+Analiza el siguiente presupuesto de obra y detecta rubros que probablemente faltan,
+basándote en los que sí están y en el tipo de obra (por ejemplo: si hay mampostería pero
 no revoques, si hay instalación sanitaria pero faltan desagües, si hay estructura pero
 falta su correspondiente encofrado o armadura, etc.).
-Para cada partida faltante proponé un capítulo, código, descripción, unidad, cantidad
+Para cada rubro faltante proponé un capítulo, código, descripción, unidad, cantidad
 estimada, una breve justificación de obra, y un APU (análisis de precios unitarios)
 estimado con materiales y mano de obra, usando los precios MTOP y jornales SUNCA
 provistos como referencia.`,
