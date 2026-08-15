@@ -1010,6 +1010,21 @@ function VisorPrincipal({
     setMultiplicadorDPR(nuevoMultiplicador);
   };
   const dprRender = calcularDprRender(multiplicadorDPR);
+  // TEMP-DEBUG 2026-08-17 — banner temporal (ver JSX, buscar "DEBUG
+  // NITIDEZ") para conseguir de Luis una captura con los valores reales
+  // de su pantalla mientras hace zoom: sospecha de que su
+  // devicePixelRatio real (escalado de Windows + zoom del navegador) sea
+  // mayor a 2, el tope de seguridad DPR_REAL_MAXIMO_DESKTOP que decidimos
+  // no perseguir. No se puede medir desde el sandbox de pruebas. Sacar
+  // este bloque completo (este useState/useEffect y el <div> del JSX)
+  // apenas tengamos el dato.
+  const [debugCanvasWReal, setDebugCanvasWReal] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setDebugCanvasWReal(canvasRef.current?.width ?? 0);
+    }, 300);
+    return () => clearInterval(id);
+  }, []);
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
   const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "TRAZO" | "RECTA" | "TEXTO" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
@@ -1661,6 +1676,20 @@ function VisorPrincipal({
 
   return (
     <>
+      {/* TEMP-DEBUG 2026-08-17 — banner temporal, sacar apenas tengamos
+          la captura de Luis (ver comentario junto a debugCanvasWReal). */}
+      <div
+        style={{ position: "fixed", top: 8, right: 8, zIndex: 9999 }}
+        className="bg-black/85 text-white text-[11px] font-mono px-3 py-2 rounded-lg pointer-events-none leading-relaxed"
+      >
+        DEBUG NITIDEZ
+        <br />
+        devicePixelRatio: {typeof window !== "undefined" ? window.devicePixelRatio : "?"}
+        <br />
+        dprRender: {dprRender}
+        <br />
+        canvas.width: {debugCanvasWReal}
+      </div>
       {error && (
         <div className="absolute inset-0 flex items-center justify-center">
           <p className="text-sm text-red-500">{error}</p>
