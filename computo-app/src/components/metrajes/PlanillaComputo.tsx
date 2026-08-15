@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, Plus, X, ChevronDown, Sparkles, Loader2, Calculator, AlertTriangle, CheckCircle2, Ruler } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fmtNum, subtotalFila, rubroCompatibleConFila, type MetrajeFila, type RubroOption, type ActualizacionComputo } from "./metrajeFila";
+import { fmtNum, fmtUnidad, subtotalFila, rubroCompatibleConFila, type MetrajeFila, type RubroOption, type ActualizacionComputo } from "./metrajeFila";
 
 // Estado del modal de "Aplicar al presupuesto" — dos pasos (preview sin
 // tocar la base → confirmar y aplicar de verdad) más los estados de
@@ -284,9 +284,12 @@ export default function PlanillaComputo({
                     />
                   </div>
                   <div style={{ width: 110, flexShrink: 0 }} className="px-2 text-right">
-                    <span className={cn("text-sm font-semibold tabular-nums", subtotal > 0 ? "text-[#2563EB]" : "text-slate-300")}>
+                    <span className={cn("text-sm font-semibold tabular-nums whitespace-nowrap", subtotal > 0 ? "text-[#2563EB]" : "text-slate-300")}>
                       {subtotal > 0 ? fmtNum(subtotal) : "—"}
                     </span>
+                    {subtotal > 0 && fila.unidad && (
+                      <span className="text-[10px] font-normal text-slate-400 ml-0.5">{fmtUnidad(fila.unidad)}</span>
+                    )}
                   </div>
                   <div style={{ width: 220, flexShrink: 0 }} className="px-3 py-1.5">
                     <select

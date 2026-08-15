@@ -60,6 +60,29 @@ export function fmtNum(v: number, decimales = 2): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
 }
 
+// Etiqueta compacta para mostrar junto al Subtotal en la Planilla — mismo
+// carácter unicode m²/m³ que ya usa el resto de la app (Área total, medir
+// Área en el Visor), no <sup>. "jornada" se abrevia a "jorn." para que no
+// desborde la columna angosta del Subtotal; el resto de los códigos ya son
+// cortos de por sí. Códigos no reconocidos caen a minúsculas tal cual.
+const UNIDADES_DISPLAY: Record<string, string> = {
+  M2: "m²",
+  M3: "m³",
+  ML: "ml",
+  GL: "gl",
+  U: "u",
+  KG: "kg",
+  TN: "tn",
+  HR: "hr",
+  JORNADA: "jorn.",
+};
+
+export function fmtUnidad(unidad: string | null | undefined): string {
+  if (!unidad) return "";
+  const codigo = unidad.trim().toUpperCase();
+  return UNIDADES_DISPLAY[codigo] ?? unidad.trim().toLowerCase();
+}
+
 // Compara unidades tolerando mayúsculas/espacios — la unidad de una fila
 // puede venir de la IA ("m2", "M2" según el endpoint) mientras que
 // Rubro.unidad hoy en la base son códigos en mayúscula ("M2", "ML",
