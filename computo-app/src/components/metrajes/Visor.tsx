@@ -946,18 +946,32 @@ function VisorPrincipal({
     destino.height = origen.height;
     destino.getContext("2d")?.drawImage(origen, 0, 0);
   };
+  // Bug 2026-08-15: compara el multiplicador CRUDO (nuevoMultiplicador !==
+  // multiplicadorDPR) — pero lo que decide si <Page> va a re-renderizar
+  // (y por lo tanto si onRenderSuccess va a llegar a cerrar el cartel) es
+  // dprRender, el valor YA recortado por Math.min más abajo. Si dos pasos
+  // crudos distintos recortan al mismo dprRender (típico en mobile con
+  // devicePixelRatio ≥ 2, donde el tope de 4 se satura temprano), el
+  // cartel "Ajustando nitidez…" se dispara pero <Page> nunca vuelve a
+  // renderizar porque su prop no cambió — queda colgado para siempre.
+  // Fix: comparar el dprRender recortado, no el multiplicador crudo, así
+  // el cartel solo se muestra cuando realmente va a haber un re-render
+  // que lo cierre — sin importar el devicePixelRatio real ni los huecos
+  // que tenga la escalera de multiplicadorParaEscala.
+  const calcularDprRender = (multiplicador: number) =>
+    Math.min(
+      (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicador,
+      esMobile ? DPR_MAXIMO_MOBILE : DPR_MAXIMO_DESKTOP
+    );
   const actualizarDPRSegunZoom = (ref: ReactZoomPanPinchRef) => {
     const nuevoMultiplicador = multiplicadorParaEscala(ref.state.scale);
-    if (nuevoMultiplicador !== multiplicadorDPR) {
+    if (calcularDprRender(nuevoMultiplicador) !== calcularDprRender(multiplicadorDPR)) {
       congelarCanvasActual();
       setRenderizandoPDF(true);
     }
     setMultiplicadorDPR(nuevoMultiplicador);
   };
-  const dprRender = Math.min(
-    (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicadorDPR,
-    esMobile ? DPR_MAXIMO_MOBILE : DPR_MAXIMO_DESKTOP
-  );
+  const dprRender = calcularDprRender(multiplicadorDPR);
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
   const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "TRAZO" | "RECTA" | "TEXTO" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
