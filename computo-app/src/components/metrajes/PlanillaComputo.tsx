@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, Plus, X, ChevronDown, Sparkles, Loader2, Calculator, AlertTriangle, CheckCircle2, Ruler } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fmtNum, subtotalFila, unidadesCoinciden, type MetrajeFila, type RubroOption, type ActualizacionComputo } from "./metrajeFila";
+import { fmtNum, subtotalFila, rubroCompatibleConFila, type MetrajeFila, type RubroOption, type ActualizacionComputo } from "./metrajeFila";
 
 // Estado del modal de "Aplicar al presupuesto" — dos pasos (preview sin
 // tocar la base → confirmar y aplicar de verdad) más los estados de
@@ -226,7 +226,7 @@ export default function PlanillaComputo({
                     "flex items-center hover:bg-blue-50/20 transition-colors",
                     idx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white"
                   )}
-                  style={{ height: 36, borderBottom: "1px solid #F1F5F9" }}
+                  style={{ minHeight: 36, borderBottom: "1px solid #F1F5F9" }}
                 >
                   <div className="flex-1 px-3">
                     <input
@@ -288,7 +288,7 @@ export default function PlanillaComputo({
                       {subtotal > 0 ? fmtNum(subtotal) : "—"}
                     </span>
                   </div>
-                  <div style={{ width: 220, flexShrink: 0 }} className="px-3">
+                  <div style={{ width: 220, flexShrink: 0 }} className="px-3 py-1.5">
                     <select
                       value={fila.rubroId ?? ""}
                       onChange={(e) => onActualizarFila(fila.id, "rubroId", e.target.value)}
@@ -306,8 +306,11 @@ export default function PlanillaComputo({
                             // Si la fila ya tiene una unidad propia (cargada a
                             // mano o heredada de una medición — ver
                             // guardarMedicion en page.tsx), no se puede vincular
-                            // a un rubro de unidad distinta (m² vs m³, etc).
-                            const incompatible = !!fila.unidad && !unidadesCoinciden(fila.unidad, r.unidad);
+                            // a un rubro de unidad distinta (m² vs m³, etc) —
+                            // salvo que el rubro sea "GL" (ítem Global, no
+                            // depende de ninguna unidad), ver
+                            // rubroCompatibleConFila en metrajeFila.ts.
+                            const incompatible = !!fila.unidad && !rubroCompatibleConFila(fila.unidad, r.unidad);
                             return (
                               <option
                                 key={r.id}
@@ -322,6 +325,26 @@ export default function PlanillaComputo({
                         </optgroup>
                       ))}
                     </select>
+                    {(() => {
+                      // Si NINGÚN rubro del proyecto es compatible (ni por
+                      // unidad exacta ni por la excepción GL), el <select>
+                      // queda con todas las opciones deshabilitadas salvo
+                      // "Sin vincular" — sin este mensaje, eso se veía
+                      // idéntico a un desplegable roto (el único indicio era
+                      // el sufijo "— unidad distinta" dentro de cada opción
+                      // larga, y el title, que no sirve en mobile porque
+                      // depende de hover). Visible siempre que aplica, sin
+                      // necesitar hover ni tap.
+                      const unidadFila = fila.unidad;
+                      if (!unidadFila) return null;
+                      const hayCompatible = rubrosDisponibles.some((r) => rubroCompatibleConFila(unidadFila, r.unidad));
+                      if (hayCompatible) return null;
+                      return (
+                        <p className="text-[10px] text-red-500 mt-0.5 leading-tight">
+                          Ningún rubro tiene unidad {unidadFila} (ni es Global) — no se puede vincular
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div style={{ width: 36, flexShrink: 0 }} className="flex items-center justify-center">
                     <button

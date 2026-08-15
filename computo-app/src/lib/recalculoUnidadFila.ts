@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { unidadesCoinciden } from "@/components/metrajes/metrajeFila";
+import { rubroCompatibleConFila } from "@/components/metrajes/metrajeFila";
 
 // Compartido entre el PATCH de filas-metraje (edición inline de
 // ancho/alto en la Planilla) y el DELETE de mediciones (borrar o
@@ -28,12 +28,14 @@ export function contarCargados(a: number | null, b: number | null): number {
 // Si rubroId sigue apuntando a un Rubro cuya unidad ya no coincide con
 // unidadNueva, arma el aviso para el toast — el caller decide si
 // aplicar rubroId:null en su propio `data` (esta función no escribe).
+// Un rubro "GL" nunca se desvincula por esto — mismo criterio que
+// rubroCompatibleConFila en los guards de vinculación.
 export async function calcularDesvinculacion(
   rubroId: string,
   unidadNueva: string
 ): Promise<{ nombre: string; unidadNueva: string } | null> {
   const rubro = await db.rubro.findUnique({ where: { id: rubroId }, select: { descripcion: true, unidad: true } });
-  if (rubro && !unidadesCoinciden(unidadNueva, rubro.unidad)) {
+  if (rubro && !rubroCompatibleConFila(unidadNueva, rubro.unidad)) {
     return { nombre: rubro.descripcion || "Rubro sin nombre", unidadNueva };
   }
   return null;

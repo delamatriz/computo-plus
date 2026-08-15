@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { unidadesCoinciden } from "@/components/metrajes/metrajeFila";
+import { rubroCompatibleConFila } from "@/components/metrajes/metrajeFila";
 import { unidadPorDimensiones, contarCargados, calcularDesvinculacion } from "@/lib/recalculoUnidadFila";
 
 const CAMPOS_NUMERICOS = ["largo", "ancho", "alto", "cantidad"] as const;
@@ -158,7 +158,7 @@ export async function PATCH(
         return NextResponse.json({ error: "Rubro no encontrado" }, { status: 404 });
       }
       if (unidadEfectiva) {
-        if (!unidadesCoinciden(unidadEfectiva, rubro.unidad)) {
+        if (!rubroCompatibleConFila(unidadEfectiva, rubro.unidad)) {
           return NextResponse.json(
             { error: `La unidad de la fila (${unidadEfectiva}) no coincide con la del rubro (${rubro.unidad})` },
             { status: 400 }

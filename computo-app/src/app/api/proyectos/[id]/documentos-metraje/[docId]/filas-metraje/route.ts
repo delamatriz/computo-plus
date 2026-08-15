@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { unidadesCoinciden } from "@/components/metrajes/metrajeFila";
+import { rubroCompatibleConFila } from "@/components/metrajes/metrajeFila";
 
 // POST — crea una fila de la Planilla de cómputo para este documento
 // (manual, generada por IA, o puente de una medición recién dibujada —
@@ -37,7 +37,7 @@ export async function POST(
       if (!rubro) {
         return NextResponse.json({ error: "Rubro no encontrado" }, { status: 404 });
       }
-      if (unidad && !unidadesCoinciden(unidad, rubro.unidad)) {
+      if (unidad && !rubroCompatibleConFila(unidad, rubro.unidad)) {
         return NextResponse.json(
           { error: `La unidad de la fila (${unidad}) no coincide con la del rubro (${rubro.unidad})` },
           { status: 400 }

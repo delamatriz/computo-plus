@@ -69,6 +69,17 @@ export function unidadesCoinciden(a: string, b: string): boolean {
   return a.trim().toUpperCase() === b.trim().toUpperCase();
 }
 
+// Un rubro con unidad "GL" (ítem Global) no depende de ninguna unidad de
+// medición — por definición no tiene sentido bloquearlo por "unidad
+// distinta" aunque la fila traiga M3/M2/ML calculado de una medición.
+// Único caso especial; todo lo demás sigue exigiendo coincidencia exacta
+// (unidadesCoinciden). Misma función usada por el <select> de
+// PlanillaComputo.tsx y por los guards server-side de filas-metraje, para
+// que ningún lado quede más permisivo que el otro.
+export function rubroCompatibleConFila(unidadFila: string, unidadRubro: string): boolean {
+  return unidadRubro.trim().toUpperCase() === "GL" || unidadesCoinciden(unidadFila, unidadRubro);
+}
+
 export function subtotalFila(f: Pick<MetrajeFila, "largo" | "ancho" | "alto" | "cantidad">): number {
   const valores = [f.largo, f.ancho, f.alto, f.cantidad];
   if (valores.every((v) => v == null)) return 0;
