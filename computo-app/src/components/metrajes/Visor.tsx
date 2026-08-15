@@ -780,12 +780,36 @@ type PaginaPDFCargada = { getViewport: (opts: { scale: number }) => { width: num
 // pixelado un instante (es una copia de la resolución VIEJA, estirada
 // al nuevo zoom) pero sigue siendo el plano, no una pantalla en blanco
 // — ver canvasRef/canvasCongeladoRef y congelarCanvasActual().
+// Bug 2026-08-16 — desktop seguía borroso a zoom alto pese a
+// DPR_MAXIMO_DESKTOP=6 (emparejado con maxScale={6}): esa cuenta asumía
+// devicePixelRatio=1. En cualquier pantalla con escalado de sistema
+// (Windows 125%/150%, cualquier Mac Retina en DPR=2), el Math.min(...)
+// de dprRender más abajo le resta justo ese factor al canvas — a
+// DPR=1.25 faltaba 20% de resolución real, a DPR=2 faltaba la mitad.
+// Fix: DPR_MAXIMO_DESKTOP pasa a ser el multiplicador de ZOOM (sigue
+// emparejado con maxScale=6), y el techo real de dprRender en desktop se
+// calcula como min(devicePixelRatio real, DPR_REAL_MAXIMO_DESKTOP) ×
+// DPR_MAXIMO_DESKTOP — ver calcularDprRender más abajo. Así el canvas
+// queda 1:1 de verdad en pantallas sin escalado, 125%, 150% y Retina
+// (DPR≤2), a costa de más memoria en las pantallas de mayor densidad
+// (Retina: ~629MB pico real+congelado, contra ~157MB antes — sigue muy
+// por debajo de cualquier límite duro de canvas en desktop, a diferencia
+// de mobile/iOS Safari).
 const DPR_MAXIMO_DESKTOP = 6;
+// Tope de seguridad sobre el devicePixelRatio REAL considerado en
+// desktop — evita que la fórmula se dispare sin control en
+// configuraciones extremas (DPR=3+, zoom del navegador apilado sobre
+// escalado del sistema). Por encima de este valor puede volver a
+// aparecer algo de blur residual — caso deliberadamente no cubierto,
+// no es el grueso de los usuarios reales.
+const DPR_REAL_MAXIMO_DESKTOP = 2;
 // 5 (antes 4) — con base width=900, un canvas a DPR 5 da 4500×3180px
 // (~14.31M px, 85% del límite de área de canvas de iOS Safari de
 // 4096×4096=16.78M px). 6 queda descartado a propósito: 5400×3816
 // (~20.6M px) supera ese límite duro y el canvas fallaría/quedaría en
-// blanco en iPhone, no es un tema de margen de seguridad.
+// blanco en iPhone, no es un tema de margen de seguridad. Mobile no usa
+// el criterio "relativo al DPR real" de desktop: iOS Safari sí tiene un
+// límite duro de área, así que acá el techo absoluto se queda como está.
 const DPR_MAXIMO_MOBILE = 5;
 
 // Píldora de herramienta de la barra FILA 2 (Medir/Área/Trazo/Recta/
@@ -966,11 +990,17 @@ function VisorPrincipal({
   // el cartel solo se muestra cuando realmente va a haber un re-render
   // que lo cierre — sin importar el devicePixelRatio real ni los huecos
   // que tenga la escalera de multiplicadorParaEscala.
-  const calcularDprRender = (multiplicador: number) =>
-    Math.min(
-      (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1) * multiplicador,
-      esMobile ? DPR_MAXIMO_MOBILE : DPR_MAXIMO_DESKTOP
-    );
+  const calcularDprRender = (multiplicador: number) => {
+    const dprReal = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    if (esMobile) {
+      return Math.min(dprReal * multiplicador, DPR_MAXIMO_MOBILE);
+    }
+    // Desktop — techo relativo al DPR real (ver comentario grande en
+    // DPR_MAXIMO_DESKTOP), no un techo absoluto: sin esto, cualquier
+    // pantalla con devicePixelRatio>1 recorta resolución real al canvas.
+    const dprRealAcotado = Math.min(dprReal, DPR_REAL_MAXIMO_DESKTOP);
+    return Math.min(dprReal * multiplicador, dprRealAcotado * DPR_MAXIMO_DESKTOP);
+  };
   const actualizarDPRSegunZoom = (ref: ReactZoomPanPinchRef) => {
     const nuevoMultiplicador = multiplicadorParaEscala(ref.state.scale);
     if (calcularDprRender(nuevoMultiplicador) !== calcularDprRender(multiplicadorDPR)) {
