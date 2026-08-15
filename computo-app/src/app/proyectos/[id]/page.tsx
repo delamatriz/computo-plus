@@ -61,6 +61,7 @@ interface ProyectoData {
   nombre: string;
   cliente: string;
   tipo: string;
+  tipoContratacion?: string;
   estado: keyof typeof ESTADOS;
   moneda: string;
   area: number;
@@ -234,6 +235,7 @@ const PROYECTO = {
   nombre: "Vivienda unifamiliar — Pocitos",
   cliente: "Familia González",
   tipo: "Vivienda unifamiliar",
+  tipoContratacion: "PRIVADA",
   estado: "EN_CURSO" as const,
   moneda: "USD",
   area: 120,
@@ -2303,6 +2305,7 @@ export default function ProyectoPage() {
         nombre:    data.nombre,
         cliente:   data.cliente    ?? "",
         tipo:      data.tipo       ?? "",
+        tipoContratacion: data.tipoContratacion ?? "PRIVADA",
         estado:    (data.estado as keyof typeof ESTADOS) in ESTADOS
                      ? (data.estado as keyof typeof ESTADOS)
                      : "BORRADOR",
@@ -3827,6 +3830,9 @@ export default function ProyectoPage() {
           onChangeFielCumplimiento={actualizarGarantiaFielCumplimiento}
           onChangeViciosOcultos={actualizarGarantiaViciosOcultos}
           onChangeResponsabilidad={actualizarGarantiaResponsabilidad}
+          tipoContratacion={proyectoActivo.tipoContratacion ?? "PRIVADA"}
+          totalGeneral={totalGeneral}
+          moneda={moneda}
         />
 
         {/* ── Certificaciones ──────────────────────────────── */}

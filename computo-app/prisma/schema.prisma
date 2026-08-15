@@ -29,6 +29,7 @@ model Proyecto {
   cliente     String?
   moneda      String     @default("UYU")
   tipo        String     @default("VIVIENDA")
+  tipoContratacion String @default("PRIVADA") // "PRIVADA" | "PUBLICA"
   estado      String     @default("BORRADOR")
   descripcion String?
   trabajos    String?

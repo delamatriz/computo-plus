@@ -89,6 +89,7 @@ export async function PATCH(
         ...(body.subtitulo  !== undefined && { subtitulo:  body.subtitulo }),
         ...(body.cliente    !== undefined && { cliente:    body.cliente }),
         ...(body.tipo       !== undefined && { tipo:       body.tipo }),
+        ...(body.tipoContratacion !== undefined && { tipoContratacion: body.tipoContratacion }),
         ...(body.estado     !== undefined && { estado:     body.estado }),
         ...(body.moneda     !== undefined && { moneda:     body.moneda }),
         ...(body.area       !== undefined && { area:       body.area }),

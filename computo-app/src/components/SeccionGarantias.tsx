@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, ChevronDown, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { ShieldCheck, ChevronDown, ChevronRight, Landmark } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 interface Props {
@@ -11,6 +12,83 @@ interface Props {
   onChangeFielCumplimiento: (v: string) => void;
   onChangeViciosOcultos: (v: string) => void;
   onChangeResponsabilidad: (v: string) => void;
+  /** "PRIVADA" | "PUBLICA" — solo si es pública se muestra el bloque de RUPE/umbrales. */
+  tipoContratacion: string;
+  totalGeneral: number;
+  moneda: string;
+}
+
+// Umbrales TOCAF 2026 (arts. 64 y 66) — valores de referencia, se
+// actualizan una vez al año por IPC. Ver guía completa en
+// /referencias#guia-obra-publica.
+const UMBRAL_MANTENIMIENTO_OFERTA = 13_705_000;
+const UMBRAL_FIEL_CUMPLIMIENTO = 5_482_000;
+const PORCENTAJE_FIEL_CUMPLIMIENTO = 0.05;
+
+function fmtMonedaUYU(v: number): string {
+  return `$ ${Math.round(v).toLocaleString("es-UY")}`;
+}
+
+function SeccionGarantiasObraPublica({ totalGeneral, moneda }: { totalGeneral: number; moneda: string }) {
+  const monedaDistinta = moneda !== "UYU";
+  const superaMantenimientoOferta = !monedaDistinta && totalGeneral > UMBRAL_MANTENIMIENTO_OFERTA;
+  const superaFielCumplimiento = !monedaDistinta && totalGeneral > UMBRAL_FIEL_CUMPLIMIENTO;
+  const montoFielCumplimiento = totalGeneral * PORCENTAJE_FIEL_CUMPLIMIENTO;
+
+  return (
+    <div className="space-y-3 pb-5 border-b border-slate-200">
+      <div className="flex items-center gap-2">
+        <Landmark className="w-4 h-4 text-[#2563EB]" />
+        <h3 className="text-sm font-bold text-[#1A3A5C]">Garantías y RUPE — Obra Pública</h3>
+      </div>
+
+      <div className="rounded-[10px] bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-900">
+        Para ofertar o contratar con el Estado tenés que estar inscripto y activo en el RUPE
+        (Registro Único de Proveedores del Estado).
+      </div>
+
+      {monedaDistinta ? (
+        <div className="rounded-[10px] bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
+          Los umbrales de garantías están fijados en pesos uruguayos (UYU) y este proyecto está en{" "}
+          {moneda} — convertí el total antes de definir las garantías correspondientes.
+        </div>
+      ) : (
+        <>
+          {superaFielCumplimiento && (
+            <div className="flex items-start gap-2 rounded-[10px] bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+              <span>
+                Este presupuesto supera los {fmtMonedaUYU(UMBRAL_FIEL_CUMPLIMIENTO)} — corresponde
+                garantía de <strong>fiel cumplimiento del contrato</strong>: 5% del total ={" "}
+                <strong>{fmtMonedaUYU(montoFielCumplimiento)}</strong>.
+              </span>
+            </div>
+          )}
+          {superaMantenimientoOferta && (
+            <div className="flex items-start gap-2 rounded-[10px] bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+              <span>
+                Este presupuesto supera los {fmtMonedaUYU(UMBRAL_MANTENIMIENTO_OFERTA)} —
+                corresponde garantía de <strong>mantenimiento de oferta</strong> (el monto lo
+                determina la Administración en el pliego).
+              </span>
+            </div>
+          )}
+          {!superaFielCumplimiento && !superaMantenimientoOferta && (
+            <div className="rounded-[10px] bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
+              Por el monto actual de este presupuesto, no correspondería constituir garantías de
+              licitación.
+            </div>
+          )}
+        </>
+      )}
+
+      <Link
+        href="/referencias#guia-obra-publica"
+        className="inline-block text-sm font-medium text-[#2563EB] hover:underline"
+      >
+        Ver guía completa de Obra Pública →
+      </Link>
+    </div>
+  );
 }
 
 export const TEXTO_LEGAL_RESPONSABILIDAD_DEFAULT =
@@ -50,6 +128,9 @@ export default function SeccionGarantias({
   onChangeFielCumplimiento,
   onChangeViciosOcultos,
   onChangeResponsabilidad,
+  tipoContratacion,
+  totalGeneral,
+  moneda,
 }: Props) {
   const [expandido, setExpandido] = useState(false);
 
@@ -78,6 +159,9 @@ export default function SeccionGarantias({
             className="overflow-hidden border-t border-slate-200"
           >
             <div className="px-5 py-5 space-y-5" style={{ background: "#F8FAFC" }}>
+              {tipoContratacion === "PUBLICA" && (
+                <SeccionGarantiasObraPublica totalGeneral={totalGeneral} moneda={moneda} />
+              )}
               <CampoGarantia
                 label="Garantía de fiel cumplimiento"
                 value={fielCumplimiento}

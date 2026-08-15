@@ -24,6 +24,64 @@ function Proximamente() {
   return <span className="text-amber-600 font-semibold">Próximamente</span>;
 }
 
+// Guía de Obra Pública — mismo patrón de sub-índice + scroll manual que
+// /leyes-sociales (el click nativo en <a href="#id"> dentro de este
+// layout con <main overflow-y-auto> saltaba al fondo de la página en vez
+// de a la sección — se maneja el scroll a mano).
+const seccionesObraPublica = [
+  { id: "tipos-de-compra", label: "Tipos de compra" },
+  { id: "garantias-obra-publica", label: "Garantías" },
+  { id: "rupe", label: "RUPE" },
+  { id: "ajuste-parametrico", label: "Ajuste paramétrico" },
+];
+
+function irASeccionObraPublica(e: React.MouseEvent<HTMLAnchorElement>, id: string) {
+  e.preventDefault();
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  history.replaceState(null, "", `#${id}`);
+}
+
+function TablaObraPublica({ encabezados, filas }: { encabezados: string[]; filas: string[][] }) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200 mt-3">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-slate-50">
+            {encabezados.map((h, i) => (
+              <th
+                key={h}
+                className={
+                  "px-4 py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wide " +
+                  (i === 0 ? "text-left" : "text-right")
+                }
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((fila, i) => (
+            <tr key={i} className={i % 2 === 1 ? "bg-slate-50/50" : ""}>
+              {fila.map((celda, j) => (
+                <td
+                  key={j}
+                  className={
+                    "px-4 py-2.5 border-t border-slate-100 " +
+                    (j === 0 ? "text-slate-700" : "text-right font-medium text-slate-600 tabular-nums")
+                  }
+                >
+                  {celda}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // Estructura del sistema — relevamiento real de qué existe hoy en
 // producción (recorrido del Sidebar completo + el detalle de proyecto),
 // confirmado antes de redactar. No es el roadmap: si algo todavía no
@@ -859,6 +917,141 @@ export default function ReferenciasPage() {
             Este es el primer tutorial de esta sección. Más tutoriales y
             ejemplos de uso van a ir apareciendo en rondas futuras.
           </p>
+        </div>
+      </div>
+
+      <div className="mt-12 pt-8 border-t border-slate-200">
+        <h2
+          id="guia-obra-publica"
+          className="text-lg font-bold text-[#1A3A5C] mb-1 scroll-mt-20"
+        >
+          Guía práctica para presupuestar Obra Pública
+        </h2>
+        <p className="text-sm text-slate-500 mb-6 max-w-2xl">
+          Cuando el cliente es el Estado, las Leyes Sociales no cambian (mismo
+          régimen que en obra privada), pero se suman exigencias propias de
+          contratar con la Administración.
+        </p>
+
+        {/* Índice — mobile: pills horizontales, scrolleables, siempre
+            visibles. Desktop: columna lateral fija. Mismo patrón que
+            /leyes-sociales. */}
+        <nav
+          aria-label="Índice de la guía de Obra Pública"
+          className="lg:hidden -mx-1 px-1 flex gap-2 overflow-x-auto pb-2 mb-8"
+        >
+          {seccionesObraPublica.map((s) => (
+            <a
+              key={s.id}
+              href={`#${s.id}`}
+              onClick={(e) => irASeccionObraPublica(e, s.id)}
+              className="flex-shrink-0 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:border-slate-300 hover:text-[#2563EB] transition-colors whitespace-nowrap"
+            >
+              {s.label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="lg:flex lg:gap-10 lg:items-start">
+          <aside className="hidden lg:block w-52 flex-shrink-0 sticky top-20 self-start">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 px-2 mb-2">
+              En esta guía
+            </p>
+            <nav aria-label="Índice de la guía de Obra Pública" className="flex flex-col gap-0.5">
+              {seccionesObraPublica.map((s) => (
+                <a
+                  key={s.id}
+                  href={`#${s.id}`}
+                  onClick={(e) => irASeccionObraPublica(e, s.id)}
+                  className="px-2 py-1.5 rounded-[6px] text-sm text-slate-500 hover:text-[#2563EB] hover:bg-blue-50/50 transition-colors"
+                >
+                  {s.label}
+                </a>
+              ))}
+            </nav>
+          </aside>
+
+          <div className="flex-1 min-w-0 space-y-10">
+            <section id="tipos-de-compra" className="scroll-mt-20">
+              <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
+                Los tres tipos de compra, según el monto (2026)
+              </h3>
+              <TablaObraPublica
+                encabezados={["Tipo de compra", "Hasta (UYU)"]}
+                filas={[
+                  ["Compra directa", "$654.000"],
+                  ["Licitación abreviada", "$13.705.000"],
+                  ["Licitación pública", "Por encima de ese monto"],
+                ]}
+              />
+              <p className="text-sm text-slate-500 mt-3">
+                Estos montos se actualizan una vez por año por IPC (INE, fin
+                de diciembre).
+              </p>
+            </section>
+
+            <section id="garantias-obra-publica" className="scroll-mt-20">
+              <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
+                Garantías
+              </h3>
+              <p className="text-sm text-slate-500 mb-1">
+                Depósitos (efectivo, fianza o aval bancario) que respaldan tu
+                compromiso durante el proceso.
+              </p>
+              <TablaObraPublica
+                encabezados={["Garantía", "Cuándo se exige", "Monto"]}
+                filas={[
+                  ["Mantenimiento de oferta", "Obras por encima de $13.705.000", "Lo determina la Administración en el pliego"],
+                  ["Fiel cumplimiento del contrato", "Adjudicaciones por encima de $5.482.000", "5% del monto adjudicado"],
+                ]}
+              />
+              <p className="text-sm text-slate-500 mt-3">
+                Si no constituís la garantía de mantenimiento de oferta y
+                desistís de tu oferta, la multa es del 5% del monto máximo
+                ofertado. Cada pliego puede establecer condiciones distintas —
+                siempre hay que revisarlo.
+              </p>
+            </section>
+
+            <section id="rupe" className="scroll-mt-20">
+              <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
+                RUPE — Registro Único de Proveedores del Estado
+              </h3>
+              <p className="text-sm text-slate-500 mb-2">
+                Trámite obligatorio para ofertar en licitaciones o compras
+                directas por encima del tope de compra directa.
+              </p>
+              <ul className="text-sm text-slate-500 list-disc list-inside space-y-1">
+                <li>Trámite online, gratuito</li>
+                <li>Demora entre 24 y 72 horas hábiles</li>
+                <li>Se hace una sola vez, después hay que mantener los datos actualizados</li>
+                <li>Excepciones: compras muy chicas con &quot;Caja Chica&quot;, y casos exceptuados por la ACCE</li>
+              </ul>
+            </section>
+
+            <section id="ajuste-parametrico" className="scroll-mt-20">
+              <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
+                Ajuste paramétrico
+              </h3>
+              <p className="text-sm text-slate-500 mb-2">
+                En obras largas, el Estado reconoce que los precios suben — el
+                ajuste paramétrico actualiza lo certificado según la variación
+                real de jornales, materiales y costo de vida, usando índices
+                del MTOP.
+              </p>
+              <p className="text-sm text-slate-500">
+                La fórmula exacta la define cada pliego particular, no es un
+                número único — revisá la fórmula específica de cada llamado
+                antes de presupuestar.
+              </p>
+            </section>
+
+            <p className="text-xs text-slate-400 pt-2">
+              Valores de referencia (montos y garantías vigentes para 2026,
+              según artículos 64 y 66 del TOCAF). Verificar montos
+              actualizados en comprasestatales.gub.uy antes de presupuestar.
+            </p>
+          </div>
         </div>
       </div>
     </div>

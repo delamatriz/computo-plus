@@ -15,11 +15,17 @@ const TIPOS_OBRA = [
   { id: "INDUSTRIAL",   label: "Industrial" },
 ];
 
+const TIPOS_CONTRATACION = [
+  { id: "PRIVADA", label: "Privada" },
+  { id: "PUBLICA", label: "Pública" },
+];
+
 interface FormData {
   nombre: string;
   subtitulo: string;
   cliente: string;
   tipo: string;
+  tipoContratacion: string;
   direccion: string;
   moneda: "UYU" | "USD";
   area: string;
@@ -46,7 +52,7 @@ export default function EditarProyectoPage() {
   const proyectoId = params?.id as string;
 
   const [form, setForm] = useState<FormData>({
-    nombre: "", subtitulo: "", cliente: "", tipo: "VIVIENDA", direccion: "",
+    nombre: "", subtitulo: "", cliente: "", tipo: "VIVIENDA", tipoContratacion: "PRIVADA", direccion: "",
     moneda: "UYU", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", trabajos: "", descripcion: "",
     requierePlanSeguridad: false, modalidadAltura: [],
   });
@@ -65,6 +71,7 @@ export default function EditarProyectoPage() {
           subtitulo: data.subtitulo ?? "",
           cliente: data.cliente ?? "",
           tipo: data.tipo ?? "VIVIENDA",
+          tipoContratacion: data.tipoContratacion ?? "PRIVADA",
           direccion: data.direccion ?? "",
           moneda: data.moneda === "USD" ? "USD" : "UYU",
           area: data.area != null ? String(data.area) : "",
@@ -106,6 +113,7 @@ export default function EditarProyectoPage() {
           subtitulo: form.subtitulo.trim() || null,
           cliente: form.cliente.trim() || null,
           tipo: form.tipo,
+          tipoContratacion: form.tipoContratacion,
           direccion: form.direccion.trim() || null,
           moneda: form.moneda,
           area: form.area ? parseFloat(form.area) : null,
@@ -199,6 +207,26 @@ export default function EditarProyectoPage() {
                 className={cn(
                   "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
                   form.tipo === t.id
+                    ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                    : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="Tipo de contratación">
+          <div className="grid grid-cols-2 gap-2">
+            {TIPOS_CONTRATACION.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => set("tipoContratacion", t.id)}
+                className={cn(
+                  "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
+                  form.tipoContratacion === t.id
                     ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
                     : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
                 )}

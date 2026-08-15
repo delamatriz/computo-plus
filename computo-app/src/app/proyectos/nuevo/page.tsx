@@ -21,6 +21,7 @@ interface FormData {
   subtitulo: string;
   cliente: string;
   tipo: string;
+  tipoContratacion: string;
   rut: string;
   razonSocial: string;
   telefono: string;
@@ -78,6 +79,11 @@ const TIPOS_OBRA = [
   { id: "PH",           label: "Propiedad Horizontal" },
   { id: "COMERCIAL",    label: "Local comercial" },
   { id: "INDUSTRIAL",   label: "Industrial" },
+];
+
+const TIPOS_CONTRATACION = [
+  { id: "PRIVADA", label: "Privada" },
+  { id: "PUBLICA", label: "Pública" },
 ];
 
 interface CapituloEstandarItem {
@@ -170,6 +176,7 @@ function NuevoProyectoContent() {
     subtitulo: "",
     cliente: "",
     tipo: searchParams.get("tipo")?.toUpperCase() ?? "VIVIENDA",
+    tipoContratacion: "PRIVADA",
     rut: "",
     razonSocial: "",
     telefono: "",
@@ -263,6 +270,10 @@ function NuevoProyectoContent() {
 
   const handleTipoChange = (tipo: string) => {
     set("tipo", tipo);
+  };
+
+  const handleTipoContratacionChange = (tipoContratacion: string) => {
+    set("tipoContratacion", tipoContratacion);
   };
 
   // Reemplaza los capítulos por la lista estándar completa (20 capítulos base)
@@ -403,6 +414,7 @@ function NuevoProyectoContent() {
           subtitulo: form.subtitulo || null,
           cliente: form.cliente,
           tipo: form.tipo,
+          tipoContratacion: form.tipoContratacion,
           moneda: form.moneda,
           area: form.area,
           descripcion: form.trabajos || form.descripcion,
@@ -558,6 +570,25 @@ function NuevoProyectoContent() {
                         className={cn(
                           "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
                           form.tipo === t.id
+                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                            : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                        )}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+
+                <Field label="Tipo de contratación">
+                  <div className="grid grid-cols-2 gap-2">
+                    {TIPOS_CONTRATACION.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => handleTipoContratacionChange(t.id)}
+                        className={cn(
+                          "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
+                          form.tipoContratacion === t.id
                             ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
                             : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
                         )}
@@ -1085,6 +1116,7 @@ function NuevoProyectoContent() {
                   {[
                     { label: "Proyecto",      value: form.nombre || "—" },
                     { label: "Tipo de obra",  value: TIPOS_OBRA.find((t) => t.id === form.tipo)?.label ?? "—" },
+                    { label: "Contratación",  value: TIPOS_CONTRATACION.find((t) => t.id === form.tipoContratacion)?.label ?? "—" },
                     { label: "Moneda",        value: form.moneda },
                     { label: "Área",          value: form.area ? `${form.area} m²` : "—" },
                     { label: "Dirección",     value: form.direccion || "—" },
