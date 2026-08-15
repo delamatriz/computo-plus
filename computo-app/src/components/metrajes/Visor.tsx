@@ -781,7 +781,12 @@ type PaginaPDFCargada = { getViewport: (opts: { scale: number }) => { width: num
 // al nuevo zoom) pero sigue siendo el plano, no una pantalla en blanco
 // — ver canvasRef/canvasCongeladoRef y congelarCanvasActual().
 const DPR_MAXIMO_DESKTOP = 6;
-const DPR_MAXIMO_MOBILE = 4;
+// 5 (antes 4) — con base width=900, un canvas a DPR 5 da 4500×3180px
+// (~14.31M px, 85% del límite de área de canvas de iOS Safari de
+// 4096×4096=16.78M px). 6 queda descartado a propósito: 5400×3816
+// (~20.6M px) supera ese límite duro y el canvas fallaría/quedaría en
+// blanco en iPhone, no es un tema de margen de seguridad.
+const DPR_MAXIMO_MOBILE = 5;
 
 // Píldora de herramienta de la barra FILA 2 (Medir/Área/Trazo/Recta/
 // Texto/Descargar PDF) — un solo lugar para las tres variantes en vez de
@@ -801,10 +806,13 @@ function clasePildoraHerramienta(activa: boolean, habilitada: boolean): string {
 
 // Techo en 6 (antes 4) para emparejar maxScale={6} del TransformWrapper —
 // en desktop (DPR_MAXIMO_DESKTOP=6) esto es lo que permite llegar a
-// nitidez 1:1 real a zoom máximo. En mobile (DPR_MAXIMO_MOBILE=4) el
-// Math.min(...) de dprRender lo recorta de vuelta a 4 igual que antes —
-// esta función no necesita saber de dispositivo, el tope por dispositivo
-// ya lo aplica dprRender más abajo.
+// nitidez 1:1 real a zoom máximo. En mobile (DPR_MAXIMO_MOBILE=5) el
+// Math.min(...) de dprRender lo recorta a 5 — esta función no necesita
+// saber de dispositivo, el tope por dispositivo ya lo aplica dprRender
+// más abajo (y, desde el fix del cartel colgado, la comparación que
+// decide mostrar "Ajustando nitidez…" usa ese dprRender ya recortado,
+// no este multiplicador crudo — por eso cualquier valor de techo acá es
+// seguro sin importar los huecos que tenga esta escalera).
 function multiplicadorParaEscala(scale: number): number {
   if (scale <= 1.3) return 1;
   if (scale <= 2.5) return 2;
