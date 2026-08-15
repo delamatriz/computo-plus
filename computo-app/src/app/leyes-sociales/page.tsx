@@ -26,6 +26,7 @@ const secciones = [
   { id: "caja-profesionales", label: "Caja de Profesionales" },
   { id: "total-referencia", label: "Total de referencia" },
   { id: "ejemplo", label: "Ejemplo" },
+  { id: "excluido-ley", label: "Excluido de Ley 14.411" },
   { id: "regimen-especial", label: "Régimen especial" },
   { id: "obra-publica", label: "Obra pública" },
 ];
@@ -226,6 +227,36 @@ export default function LeyesSocialesPage() {
               <p className="text-sm text-slate-700">
                 Costo real de mano de obra por jornada ≈ $X × 1,7393
               </p>
+            </section>
+
+            <section id="excluido-ley" className="scroll-mt-20">
+              <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
+                Personal excluido de Ley 14.411
+              </h3>
+              <p className="text-sm text-slate-500 mb-1">
+                Solo como referencia — la app no usa estos valores en ningún
+                cálculo automático hoy (Cálculo Rápido, Categorías Laborales
+                y los APU de rubros trabajan siempre con el régimen{" "}
+                <strong>incluido</strong> de arriba). Si algún día hace falta
+                presupuestar con este régimen, hay que cargarlo a mano.
+              </p>
+              <Tabla
+                encabezados={["Categoría", "Jornal", "Hora"]}
+                filas={[
+                  ["I", "$1.992,52", "$249,07"],
+                  ["II", "$2.118,36", "$264,80"],
+                  ["III", "$2.249,03", "$281,14"],
+                  ["IV", "$2.448,84", "$306,11"],
+                  ["V", "$2.650,67", "$331,34"],
+                  ["VI", "$2.868,82", "$358,62"],
+                  ["VII", "$3.090,24", "$386,29"],
+                  ["VIII", "$3.545,43", "$443,17"],
+                  ["IX", "$3.778,69", "$472,35"],
+                  ["X", "$4.007,09", "$500,88"],
+                  ["XI", "$4.007,09", "$500,88"],
+                  ["XII", "$4.239,26", "$529,90"],
+                ]}
+              />
             </section>
 
             <section id="regimen-especial" className="scroll-mt-20">
