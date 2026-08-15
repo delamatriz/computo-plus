@@ -269,6 +269,19 @@ model CapituloEstandar {
   @@unique([nombre])
 }
 
+// Anuncios del sistema mostrados en el panel de la campanita del Header
+// (ej. "Se actualizó la lista de precios de materiales"). Carga manual
+// vía Prisma Studio o script — sin formulario de alta en la UI, mismo
+// criterio que los links de Materiales/Mano de Obra/Biblioteca. Sin
+// estado de leído/no leído: la app es mono-tenant, no hace falta.
+model EventoSistema {
+  id          String   @id @default(cuid())
+  titulo      String
+  descripcion String
+  fecha       DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
 // Fase 2 — catálogo canónico de capítulo/subcapítulo (unificación de las
 // taxonomías paralelas: CapituloEstandar, SubrubroEstandar.capitulo/
 // subcapitulo como strings sueltos, y CAPITULOS_SAU hardcodeado en

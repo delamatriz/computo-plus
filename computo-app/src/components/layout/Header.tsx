@@ -11,6 +11,19 @@ interface HeaderProps {
   showMenuButton?: boolean;
 }
 
+interface EventoSistema {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  fecha: string;
+}
+
+interface Notificaciones {
+  eventos: EventoSistema[];
+  pendientes: { requierenVerificacion: number; aCotizar: number };
+  hayNovedades: boolean;
+}
+
 // La app es mono-tenant y hoy no tiene sistema de autenticación (sin
 // modelo User, sin sesión, sin login) — la única "cuenta" que existe es
 // la fila única de Empresa en la base. El dropdown de usuario refleja
@@ -26,7 +39,9 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [empresa, setEmpresa] = useState<EmpresaHeader | null>(null);
+  const [notificaciones, setNotificaciones] = useState<Notificaciones | null>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -34,6 +49,21 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
       .then((r) => r.json())
       .then((data) => {
         if (!cancelado) setEmpresa({ nombre: data.nombre, email: data.email ?? null });
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  // Se carga al montar (determina el punto azul aunque el panel esté
+  // cerrado) y se reusa al abrir el panel — sin refetch en el click.
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/notificaciones")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelado) setNotificaciones(data);
       })
       .catch(() => {});
     return () => {
@@ -60,6 +90,9 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   };
 
   const isHome = pathname === "/inicio";
+
+  const fmtFecha = (iso: string) =>
+    new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
 
   return (
     <header
@@ -123,14 +156,90 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
 
       {/* Acciones derecha */}
       <div className="flex items-center gap-2">
-        <button className="w-9 h-9 flex items-center justify-center rounded-[8px] text-text-muted hover:text-text-primary hover:bg-bg-base transition-colors relative">
-          <Bell className="w-4.5 h-4.5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-accent rounded-full border-2 border-white" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setNotifOpen(!notifOpen)}
+            className="w-9 h-9 flex items-center justify-center rounded-[8px] text-text-muted hover:text-text-primary hover:bg-bg-base transition-colors relative"
+          >
+            <Bell className="w-4.5 h-4.5" />
+            {notificaciones?.hayNovedades && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-accent rounded-full border-2 border-white" />
+            )}
+          </button>
 
-        <button className="w-9 h-9 flex items-center justify-center rounded-[8px] text-text-muted hover:text-text-primary hover:bg-bg-base transition-colors">
+          {notifOpen && (
+            <>
+              {/* Overlay + stopPropagation — mismo patrón que el dropdown
+                  de usuario más abajo (a su vez calcado de
+                  CalculadoraFlotante.tsx). */}
+              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+              <div
+                className="absolute right-0 top-full mt-2 w-80 bg-bg-card border border-border rounded-[12px] shadow-modal z-50 overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Eventos — cargados a mano en la base, sin formulario de
+                    alta en la UI (ver modelo EventoSistema). */}
+                <div className="px-4 py-3 border-b border-border">
+                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Eventos</p>
+                  {notificaciones && notificaciones.eventos.length > 0 ? (
+                    <ul className="space-y-2.5 max-h-64 overflow-y-auto">
+                      {notificaciones.eventos.map((ev) => (
+                        <li key={ev.id}>
+                          <p className="text-sm font-medium text-text-primary">{ev.titulo}</p>
+                          <p className="text-xs text-text-secondary mt-0.5">{ev.descripcion}</p>
+                          <p className="text-[11px] text-text-muted mt-0.5">{fmtFecha(ev.fecha)}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-text-muted">Sin novedades</p>
+                  )}
+                </div>
+
+                {/* Pendientes — conteo calculado al vuelo, no guardado
+                    (ver GET /api/notificaciones). */}
+                <div className="px-4 py-3">
+                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Pendientes</p>
+                  {notificaciones && (notificaciones.pendientes.requierenVerificacion > 0 || notificaciones.pendientes.aCotizar > 0) ? (
+                    <ul className="space-y-1.5">
+                      {notificaciones.pendientes.requierenVerificacion > 0 && (
+                        <li>
+                          <Link
+                            href="/rubros"
+                            onClick={() => setNotifOpen(false)}
+                            className="text-sm text-text-primary hover:text-brand-accent transition-colors"
+                          >
+                            {notificaciones.pendientes.requierenVerificacion} material{notificaciones.pendientes.requierenVerificacion !== 1 ? "es" : ""} requiere{notificaciones.pendientes.requierenVerificacion !== 1 ? "n" : ""} verificación
+                          </Link>
+                        </li>
+                      )}
+                      {notificaciones.pendientes.aCotizar > 0 && (
+                        <li>
+                          <Link
+                            href="/rubros"
+                            onClick={() => setNotifOpen(false)}
+                            className="text-sm text-text-primary hover:text-brand-accent transition-colors"
+                          >
+                            {notificaciones.pendientes.aCotizar} material{notificaciones.pendientes.aCotizar !== 1 ? "es" : ""} a cotizar
+                          </Link>
+                        </li>
+                      )}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-text-muted">Sin pendientes</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <Link
+          href="/referencias"
+          className="w-9 h-9 flex items-center justify-center rounded-[8px] text-text-muted hover:text-text-primary hover:bg-bg-base transition-colors"
+        >
           <HelpCircle className="w-4.5 h-4.5" />
-        </button>
+        </Link>
 
         <div className="w-px h-5 bg-border mx-1" />
 
