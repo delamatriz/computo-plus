@@ -59,6 +59,10 @@ model Proyecto {
   garantiaFielCumplimiento String? @db.Text
   garantiaViciosOcultos    String? @db.Text
   garantiaResponsabilidad  String? @db.Text
+  // Cuándo se apretó "Entregar" (congela precios) por última vez — null si
+  // el proyecto nunca fue entregado. Se muestra junto al badge de estado
+  // cuando estado === "FINALIZADO".
+  fechaUltimaEntrega DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }
@@ -130,6 +134,12 @@ model Rubro {
   // cantidad a mano, así el origen siempre refleja la última escritura.
   cantidadOrigen String @default("MANUAL")
   precioUnit  Float    @default(0)
+  // Snapshot de precioUnit al momento del último "Entregar" — null significa
+  // que el rubro se agregó DESPUÉS de esa entrega (rubro nuevo, sin precio
+  // pactado que cuidar). No-null dispara el modal "actualizar vigente vs.
+  // mantener pactado" al reabrir el presupuesto para editar (ver
+  // lib/recalcularPrecioRubro.ts y actualizarRubro en proyectos/[id]/page.tsx).
+  precioCongelado Float?
   tipo        String   @default("GLOBAL")
   trabajoEnAltura Boolean @default(false)
   capituloId  String

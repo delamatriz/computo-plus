@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+const MENSAJE_PROYECTO_FINALIZADO =
+  "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: capituloId } = await params;
+
+    const capitulo = await db.capitulo.findUnique({
+      where: { id: capituloId },
+      select: { proyecto: { select: { estado: true } } },
+    });
+    if (capitulo?.proyecto.estado === "FINALIZADO") {
+      return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });
+    }
 
     const ultimo = await db.rubro.findFirst({
       where: { capituloId },

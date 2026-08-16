@@ -45,6 +45,10 @@ export default function VisorProyectoPage() {
   const docInicialId = searchParams.get("doc");
 
   const [proyectoNombre, setProyectoNombre] = useState("");
+  // Presupuesto entregado (FINALIZADO) — solo lectura, oculta "Aplicar al
+  // presupuesto" (escribe cantidad/precioUnit en los rubros, ver guards
+  // reales del lado del servidor en /api/proyectos/[id]/aplicar-computo).
+  const [soloLectura, setSoloLectura] = useState(false);
   const [rubrosDisponibles, setRubrosDisponibles] = useState<RubroOption[]>([]);
   // Filas de la Planilla de cómputo — persistidas (FilaMetraje), a nivel
   // de PROYECTO (acumula filas de todos los documentos, no solo el
@@ -132,6 +136,7 @@ export default function VisorProyectoPage() {
       if (resProyecto.status === "fulfilled" && resProyecto.value.ok) {
         const data = await resProyecto.value.json();
         setProyectoNombre(data.nombre ?? "");
+        setSoloLectura(data.estado === "FINALIZADO");
         setNotas(data.notas ?? "");
         const opciones: RubroOption[] = [];
         for (const cap of data.capitulos ?? []) {
@@ -771,6 +776,7 @@ export default function VisorProyectoPage() {
                 onAplicarComputoPreview={aplicarComputoPreview}
                 onAplicarComputoConfirmar={aplicarComputoConfirmar}
                 onMedirAnchoParaFila={controlesMedicion?.onIniciarAsignacionAncho}
+                soloLectura={soloLectura}
               />
             </div>
           )}

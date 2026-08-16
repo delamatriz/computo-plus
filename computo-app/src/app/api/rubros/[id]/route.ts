@@ -1,12 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+const MENSAJE_PROYECTO_FINALIZADO =
+  "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
+
+// Presupuesto entregado ("Entregar" → estado FINALIZADO) es de solo
+// lectura hasta que se aprieta "Habilitar edición" — bloqueo real acá, no
+// solo cosmético en el cliente (ver diseño de precio congelado).
+async function proyectoFinalizado(rubroId: string): Promise<boolean> {
+  const rubro = await db.rubro.findUnique({
+    where: { id: rubroId },
+    select: { capitulo: { select: { proyecto: { select: { estado: true } } } } },
+  });
+  return rubro?.capitulo.proyecto.estado === "FINALIZADO";
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+
+    if (await proyectoFinalizado(id)) {
+      return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });
+    }
+
     const body = await req.json();
 
     const rubro = await db.rubro.update({
@@ -37,6 +56,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
+    if (await proyectoFinalizado(id)) {
+      return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });
+    }
+
     await db.rubro.delete({ where: { id } });
     return new NextResponse(null, { status: 204 });
   } catch (err) {

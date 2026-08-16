@@ -103,6 +103,7 @@ export default function PlanillaComputo({
   onAplicarComputoPreview,
   onAplicarComputoConfirmar,
   onMedirAnchoParaFila,
+  soloLectura = false,
 }: {
   filas: MetrajeFila[];
   rubrosDisponibles: RubroOption[];
@@ -124,6 +125,10 @@ export default function PlanillaComputo({
    * en filas con medicionId (nacidas de un trazo) — una fila manual/IA
    * no tiene un plano de origen del que medir nada. */
   onMedirAnchoParaFila?: (filaId: string, descripcion: string) => void;
+  /** Presupuesto entregado (FINALIZADO) — oculta "Aplicar al presupuesto"
+   * (escribe cantidad/precioUnit en los rubros, guard real del lado del
+   * servidor en /api/proyectos/[id]/aplicar-computo). */
+  soloLectura?: boolean;
 }) {
   const inputCls =
     "w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300";
@@ -178,12 +183,14 @@ export default function PlanillaComputo({
             />
           </button>
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
-            <button
-              onClick={abrirModalAplicar}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[#2563EB] text-white text-xs font-semibold hover:bg-[#1D4ED8] transition-colors"
-            >
-              <Calculator className="w-3.5 h-3.5" /> Aplicar al presupuesto
-            </button>
+            {!soloLectura && (
+              <button
+                onClick={abrirModalAplicar}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[#2563EB] text-white text-xs font-semibold hover:bg-[#1D4ED8] transition-colors"
+              >
+                <Calculator className="w-3.5 h-3.5" /> Aplicar al presupuesto
+              </button>
+            )}
             <button
               onClick={onExportarExcel}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"

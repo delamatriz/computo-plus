@@ -22,6 +22,8 @@ import {
   RefreshCw,
   HardHat,
   ClipboardCheck,
+  Lock,
+  LockOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra } from "@/lib/apu-calc";
@@ -79,6 +81,7 @@ interface ProyectoData {
   garantiaFielCumplimiento?: string | null;
   garantiaViciosOcultos?: string | null;
   garantiaResponsabilidad?: string | null;
+  fechaUltimaEntrega?: string | null;
 }
 
 /* ─── Tipos base ──────────────────────────────────────────── */
@@ -88,6 +91,9 @@ interface Rubro {
   unidad: string;
   cantidad: number | null;
   precioUnit: number | null;
+  // Snapshot de precioUnit al último "Entregar" — null = rubro nuevo,
+  // agregado después de esa entrega (ver lib/recalcularPrecioRubro.ts).
+  precioCongelado?: number | null;
   trabajoEnAltura?: boolean;
 }
 
@@ -253,6 +259,7 @@ const ESTADOS = {
   EN_CURSO:   { label: "En curso",   color: "#2563EB", bg: "#EFF6FF" },
   BORRADOR:   { label: "Borrador",   color: "#64748B", bg: "#F1F5F9" },
   FINALIZADO: { label: "Finalizado", color: "#16A34A", bg: "#F0FDF4" },
+  PAUSADO:    { label: "Pausado",    color: "#D97706", bg: "#FFFBEB" },
 };
 
 const CAPITULOS_INICIALES: Capitulo[] = [
@@ -2241,6 +2248,9 @@ export default function ProyectoPage() {
   const [proyecto, setProyecto] = useState<ProyectoData | null>(null);
   const [mostrarConfirmEliminar, setMostrarConfirmEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [mostrarConfirmEntregar, setMostrarConfirmEntregar] = useState(false);
+  const [entregando, setEntregando] = useState(false);
+  const [habilitandoEdicion, setHabilitandoEdicion] = useState(false);
   // Modal "Agregar capítulo" — antes era un window.prompt() nativo, ver
   // ModalAgregarCapitulo más abajo (mismo patrón que ModalCalibrarEscala
   // en Visor.tsx: título, un input, Cancelar/Guardar).
@@ -2251,6 +2261,20 @@ export default function ProyectoPage() {
   const [precioUnitEnFoco, setPrecioUnitEnFoco] = useState<string | null>(null);
   // Rubro cuya cantidad está siendo editada — mientras tanto se muestra el valor crudo, no formateado
   const [cantidadEnFoco, setCantidadEnFoco] = useState<string | null>(null);
+  // Rubro con precio pactado (precioCongelado) tocado por primera vez en
+  // esta sesión de edición — abre el modal "actualizar vigente vs.
+  // mantener pactado" antes de dejar tocar cantidad/precioUnit.
+  const [modalPrecioCongelado, setModalPrecioCongelado] = useState<{ capId: string; rubroId: string; descripcion: string } | null>(null);
+  const [precioVigenteInfo, setPrecioVigenteInfo] = useState<{
+    precioUnitAnterior: number; precioUnitVigente: number; diffPct: number;
+  } | null>(null);
+  const [cargandoPrecioVigente, setCargandoPrecioVigente] = useState(false);
+  const [aplicandoPrecioVigente, setAplicandoPrecioVigente] = useState(false);
+  // Decisión ya tomada por rubro en esta sesión de edición — "mantener"
+  // deja cantidad libre pero precioUnit sigue bloqueado en el valor
+  // pactado; "actualizar" deja todo libre desde el precio vigente. Se
+  // reinicia solo con un nuevo "Entregar" (recarga la página vía cargar()).
+  const [decisionesPrecioRubro, setDecisionesPrecioRubro] = useState<Record<string, "mantener" | "actualizar">>({});
   const [capitulos, setCapitulos] = useState<Capitulo[]>([]);
   // Ref para leer siempre el estado más reciente de capitulos desde callbacks async
   const capitulosRef = useRef<Capitulo[]>([]);
@@ -2325,6 +2349,7 @@ export default function ProyectoPage() {
         garantiaFielCumplimiento: data.garantiaFielCumplimiento ?? null,
         garantiaViciosOcultos: data.garantiaViciosOcultos ?? null,
         garantiaResponsabilidad: data.garantiaResponsabilidad ?? null,
+        fechaUltimaEntrega: data.fechaUltimaEntrega ?? null,
       });
 
       // Mapear capítulos y rubros
@@ -2335,6 +2360,7 @@ export default function ProyectoPage() {
         rubros: {
           id: string; descripcion: string; unidad: string;
           cantidad: number; precioUnit: number; apu: unknown;
+          precioCongelado?: number | null;
           trabajoEnAltura?: boolean;
         }[];
       }) => ({
@@ -2351,6 +2377,7 @@ export default function ProyectoPage() {
           unidad:      r.unidad,
           cantidad:    r.cantidad   || null,
           precioUnit:  r.precioUnit || null,
+          precioCongelado: r.precioCongelado ?? null,
           trabajoEnAltura: r.trabajoEnAltura ?? false,
         })),
       }));
@@ -2515,6 +2542,9 @@ export default function ProyectoPage() {
   const proyectoActivo = proyecto ?? PROYECTO;
   const moneda = proyectoActivo.moneda;
   const estado = ESTADOS[proyectoActivo.estado] ?? ESTADOS.BORRADOR;
+  // Presupuesto entregado — solo lectura hasta "Habilitar edición" (ver
+  // guards reales en las rutas PATCH/DELETE/POST de rubros y capítulos).
+  const soloLectura = proyectoActivo.estado === "FINALIZADO";
   const totalGeneral = capitulos.reduce((s, c) => s + totalCapitulo(c), 0);
   const capitulosConSubtotal = capitulos.map((c) => ({
     id: c.id,
@@ -2557,6 +2587,106 @@ export default function ProyectoPage() {
       console.error("[eliminarProyecto]", err);
       setEliminando(false);
       setMostrarConfirmEliminar(false);
+    }
+  };
+
+  // "Entregar" — congela precioCongelado = precioUnit en TODOS los rubros
+  // (server-side, ver /api/proyectos/[id]/entregar) y pasa a FINALIZADO.
+  // Recarga todo desde la DB después, para que cada rubro tenga su
+  // precioCongelado recién escrito reflejado en el estado local.
+  const entregarProyecto = async () => {
+    setEntregando(true);
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/entregar`, { method: "POST" });
+      if (!res.ok) throw new Error("No se pudo entregar el proyecto");
+      await cargar();
+      // Nueva ronda de precios pactados — las decisiones de la ronda
+      // anterior ("mantener"/"actualizar") ya no aplican.
+      setDecisionesPrecioRubro({});
+      setMostrarConfirmEntregar(false);
+    } catch (err) {
+      console.error("[entregarProyecto]", err);
+    } finally {
+      setEntregando(false);
+    }
+  };
+
+  // "Habilitar edición" — vuelve a EN_CURSO sin tocar precioCongelado de
+  // ningún rubro (sigue siendo la referencia "pactada" durante la edición).
+  const habilitarEdicion = async () => {
+    setHabilitandoEdicion(true);
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "EN_CURSO" }),
+      });
+      if (!res.ok) throw new Error("No se pudo habilitar la edición");
+      setProyecto((prev) => (prev ? { ...prev, estado: "EN_CURSO" } : prev));
+    } catch (err) {
+      console.error("[habilitarEdicion]", err);
+    } finally {
+      setHabilitandoEdicion(false);
+    }
+  };
+
+  // Abre el modal de precio pactado — dispara al primer toque de
+  // cantidad/precioUnit en un rubro con precioCongelado sin decisión
+  // todavía en esta sesión. Trae el precio vigente recalculado para
+  // mostrar la comparación antes de que el usuario elija.
+  const abrirModalPrecioCongelado = useCallback(async (capId: string, rubro: Rubro) => {
+    setModalPrecioCongelado({ capId, rubroId: rubro.id, descripcion: rubro.descripcion || "Rubro sin nombre" });
+    setPrecioVigenteInfo(null);
+    setCargandoPrecioVigente(true);
+    try {
+      const res = await fetch(`/api/rubros/${rubro.id}/precio-vigente`);
+      if (!res.ok) throw new Error("No se pudo calcular el precio vigente");
+      const data = await res.json();
+      setPrecioVigenteInfo(data);
+    } catch (err) {
+      console.error("[abrirModalPrecioCongelado]", err);
+    } finally {
+      setCargandoPrecioVigente(false);
+    }
+  }, []);
+
+  // "Mantener precio pactado" — no escribe nada: cantidad queda libre,
+  // precioUnit sigue bloqueado en el valor ya pactado (ver render de los
+  // inputs, filtra por decisionesPrecioRubro[rubro.id] === "mantener").
+  const mantenerPrecioPactado = () => {
+    if (!modalPrecioCongelado) return;
+    setDecisionesPrecioRubro((prev) => ({ ...prev, [modalPrecioCongelado.rubroId]: "mantener" }));
+    setModalPrecioCongelado(null);
+  };
+
+  // "Actualizar al precio vigente" — recomputa de verdad en el servidor
+  // (lib/recalcularPrecioRubro.ts) y sincroniza precioUnit/precioCongelado
+  // local con lo que quedó escrito; de ahí en más cantidad y precioUnit
+  // quedan libres para este rubro.
+  const actualizarAlPrecioVigente = async () => {
+    if (!modalPrecioCongelado) return;
+    const { capId, rubroId } = modalPrecioCongelado;
+    setAplicandoPrecioVigente(true);
+    try {
+      const res = await fetch(`/api/rubros/${rubroId}/actualizar-precio-vigente`, { method: "POST" });
+      if (!res.ok) throw new Error("No se pudo actualizar el precio vigente");
+      const data = await res.json();
+      setCapitulos((prev) =>
+        prev.map((c) =>
+          c.id !== capId ? c : {
+            ...c,
+            rubros: c.rubros.map((r) =>
+              r.id !== rubroId ? r : { ...r, precioUnit: data.precioUnitVigente, precioCongelado: data.precioUnitVigente }
+            ),
+          }
+        )
+      );
+      setDecisionesPrecioRubro((prev) => ({ ...prev, [rubroId]: "actualizar" }));
+      setModalPrecioCongelado(null);
+    } catch (err) {
+      console.error("[actualizarAlPrecioVigente]", err);
+    } finally {
+      setAplicandoPrecioVigente(false);
     }
   };
 
@@ -3271,8 +3401,35 @@ export default function ProyectoPage() {
                 {!!proyectoActivo.area && ` · ${proyectoActivo.area} m²`}
                 {proyectoActivo.direccion && ` · ${proyectoActivo.direccion}`}
               </p>
+              {soloLectura && proyectoActivo.fechaUltimaEntrega && (
+                <p className="text-[11px] md:text-xs text-amber-600 mt-0.5">
+                  Entregado el{" "}
+                  {new Date(proyectoActivo.fechaUltimaEntrega).toLocaleDateString("es-UY", {
+                    day: "2-digit", month: "2-digit", year: "numeric",
+                  })}{" "}
+                  — precios congelados
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              {soloLectura ? (
+                <button
+                  onClick={habilitarEdicion}
+                  disabled={habilitandoEdicion}
+                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                  <LockOpen className="w-3.5 h-3.5" /> <span className="hidden md:inline">{habilitandoEdicion ? "Habilitando…" : "Habilitar edición"}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setMostrarConfirmEntregar(true)}
+                  disabled={capitulos.every((c) => c.rubros.length === 0)}
+                  title={capitulos.every((c) => c.rubros.length === 0) ? "No hay rubros para entregar" : undefined}
+                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Lock className="w-3.5 h-3.5" /> <span className="hidden md:inline">Entregar</span>
+                </button>
+              )}
               <button
                 onClick={() => router.push(`/proyectos/${proyectoId}/editar`)}
                 className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
@@ -3371,6 +3528,91 @@ export default function ProyectoPage() {
         </div>
       )}
 
+      {/* ── Modal confirmación "Entregar" — congela precioCongelado en
+          todos los rubros y pasa a FINALIZADO/solo lectura. ── */}
+      {mostrarConfirmEntregar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4">
+            <h2 className="text-base font-bold text-[#1A3A5C]">¿Entregar este presupuesto?</h2>
+            <p className="text-sm text-slate-500">
+              Se congela el precio actual de cada rubro como precio pactado y el presupuesto pasa a solo lectura.
+              Vas a poder habilitar la edición después si necesitás agregar, sacar o modificar algo.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setMostrarConfirmEntregar(false)}
+                disabled={entregando}
+                className="px-4 py-2 rounded-[8px] text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={entregarProyecto}
+                disabled={entregando}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                <Lock className="w-3.5 h-3.5" /> {entregando ? "Entregando…" : "Entregar presupuesto"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal "actualizar vigente vs. mantener pactado" — primer toque
+          de cantidad/precioUnit en un rubro con precio ya pactado (ver
+          pendienteDecisionPrecio en el render de las filas). ── */}
+      {modalPrecioCongelado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4">
+            <h2 className="text-base font-bold text-[#1A3A5C]">Este rubro ya fue entregado al cliente</h2>
+            <p className="text-sm text-slate-500 break-words">{modalPrecioCongelado.descripcion}</p>
+
+            {cargandoPrecioVigente ? (
+              <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Calculando precio vigente…
+              </div>
+            ) : precioVigenteInfo ? (
+              <div className="rounded-[10px] border border-slate-200 divide-y divide-slate-100">
+                <div className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-sm text-slate-500">Precio pactado</span>
+                  <span className="text-sm font-semibold tabular-nums text-slate-700">{fmtMon(precioVigenteInfo.precioUnitAnterior)}</span>
+                </div>
+                <div className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-sm text-slate-500">Precio vigente</span>
+                  <span className="text-sm font-semibold tabular-nums text-slate-700">
+                    {fmtMon(precioVigenteInfo.precioUnitVigente)}
+                    {precioVigenteInfo.diffPct !== 0 && (
+                      <span className={cn("ml-1.5 text-xs font-medium", precioVigenteInfo.diffPct > 0 ? "text-amber-600" : "text-emerald-600")}>
+                        ({precioVigenteInfo.diffPct > 0 ? "+" : ""}{precioVigenteInfo.diffPct.toFixed(1)}%)
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-red-600">No se pudo calcular el precio vigente.</p>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
+              <button
+                onClick={mantenerPrecioPactado}
+                disabled={aplicandoPrecioVigente}
+                className="px-4 py-2 rounded-[8px] text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+              >
+                Mantener precio pactado
+              </button>
+              <button
+                onClick={actualizarAlPrecioVigente}
+                disabled={aplicandoPrecioVigente || cargandoPrecioVigente || !precioVigenteInfo}
+                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {aplicandoPrecioVigente ? "Actualizando…" : "Actualizar al precio vigente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Pestaña: Presupuesto — tabla de capítulos + anexos (contenido existente, sin cambios) ── */}
       {tabActiva === "presupuesto" && (
       <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
@@ -3392,12 +3634,14 @@ export default function ProyectoPage() {
               que agregar un rubro dentro de un capítulo. */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
             <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Presupuesto</span>
-            <button
-              onClick={() => setMostrarModalCapitulo(true)}
-              className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" /> Agregar capítulo
-            </button>
+            {!soloLectura && (
+              <button
+                onClick={() => setMostrarModalCapitulo(true)}
+                className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> Agregar capítulo
+              </button>
+            )}
           </div>
 
           {/* Cabecera de la tabla — usa GRID_CAPITULO, la misma plantilla de columnas que la fila de Capítulo más abajo y que comparte Total/% Incid. con GRID_RUBRO */}
@@ -3444,7 +3688,8 @@ export default function ProyectoPage() {
                       value={cap.nombre}
                       onChange={(e) => actualizarNombreCapitulo(cap.id, e.target.value)}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex-1 min-w-0 text-sm font-semibold text-[#1A3A5C] bg-transparent truncate focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20"
+                      disabled={soloLectura}
+                      className="flex-1 min-w-0 text-sm font-semibold text-[#1A3A5C] bg-transparent truncate focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 disabled:text-slate-400 disabled:cursor-default"
                     />
                     {cap.rubros.length > 0 && (
                       <span className="text-[11px] text-slate-400 flex-shrink-0">
@@ -3463,18 +3708,20 @@ export default function ProyectoPage() {
                     </span>
                   </div>
                   <div className="flex items-center justify-center">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        eliminarCapitulo(cap);
-                      }}
-                      title="Eliminar capítulo"
-                      className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
-                      style={{ width: 20, height: 20 }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {!soloLectura && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          eliminarCapitulo(cap);
+                        }}
+                        title="Eliminar capítulo"
+                        className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
+                        style={{ width: 20, height: 20 }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                   <div className="flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
                     {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -3496,7 +3743,7 @@ export default function ProyectoPage() {
 
                         {capituloVacio(cap) ? (
                           <>
-                            {cap.capituloCatalogoId && (
+                            {cap.capituloCatalogoId && !soloLectura && (
                               <PanelSubrubrosEstandar
                                 subrubros={subrubrosPorCapitulo[cap.id] ?? []}
                                 cargando={cargandoSubrubros}
@@ -3506,14 +3753,16 @@ export default function ProyectoPage() {
                                 onCerrar={() => setPanelSubrubrosCapId(null)}
                               />
                             )}
-                            <div className="flex items-center pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
-                              <button
-                                onClick={() => agregarRubro(cap.id)}
-                                className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                              >
-                                <Plus className="w-3 h-3" /> Agregar rubro personalizado
-                              </button>
-                            </div>
+                            {!soloLectura && (
+                              <div className="flex items-center pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
+                                <button
+                                  onClick={() => agregarRubro(cap.id)}
+                                  className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                                >
+                                  <Plus className="w-3 h-3" /> Agregar rubro personalizado
+                                </button>
+                              </div>
+                            )}
                           </>
                         ) : (
                         <>
@@ -3538,6 +3787,11 @@ export default function ProyectoPage() {
                               ? apuData[rubro.id].materiales.filter((m) => m.precioUnit === 0).length
                               : 0;
                             const precioDesactualizado = tieneAPU && precioAPUDesincronizado(rubro.precioUnit, apuPrecio);
+                            // Rubro con precio pactado (sobrevivió a un "Entregar") sin
+                            // decisión todavía en esta sesión — cantidad/precioUnit se
+                            // bloquean hasta elegir "actualizar" o "mantener" en el modal.
+                            const decisionPrecio = decisionesPrecioRubro[rubro.id];
+                            const pendienteDecisionPrecio = !soloLectura && rubro.precioCongelado != null && !decisionPrecio;
 
                             return (
                               <div
@@ -3583,8 +3837,23 @@ export default function ProyectoPage() {
                                     onFocus={() => setDescripcionEnFoco(rubro.id)}
                                     onBlur={() => { setDescripcionEnFoco(null); sugerirAPU(cap.id, rubro.id); }}
                                     placeholder="Descripción del rubro"
-                                    className="flex-1 min-w-0 text-sm text-slate-700 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300"
+                                    disabled={soloLectura}
+                                    className="flex-1 min-w-0 text-sm text-slate-700 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default"
                                   />
+                                  {!soloLectura && rubro.precioCongelado != null && (
+                                    <span
+                                      className="flex-shrink-0"
+                                      title={
+                                        decisionPrecio === "mantener"
+                                          ? "Precio pactado — cantidad libre, precio unitario bloqueado"
+                                          : decisionPrecio === "actualizar"
+                                          ? "Precio actualizado al vigente en esta edición"
+                                          : "Rubro con precio pactado — tocá cantidad o precio unitario para decidir si actualizar"
+                                      }
+                                    >
+                                      <Lock className={cn("w-3 h-3", pendienteDecisionPrecio ? "text-amber-500" : "text-slate-300")} />
+                                    </span>
+                                  )}
                                   {apuGenerando.has(rubro.id) && (
                                     <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Generando APU…" />
                                   )}
@@ -3599,7 +3868,7 @@ export default function ProyectoPage() {
                                       <AlertTriangle className="w-3 h-3 text-amber-500" />
                                     </span>
                                   )}
-                                  {precioDesactualizado && (
+                                  {precioDesactualizado && !soloLectura && (
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -3623,7 +3892,8 @@ export default function ProyectoPage() {
                                         actualizarRubro(cap.id, rubro.id, "unidad", val === "__otra__" ? "" : val);
                                         sugerirAPU(cap.id, rubro.id);
                                       }}
-                                      className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center"
+                                      disabled={soloLectura}
+                                      className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center disabled:text-slate-400 disabled:cursor-default"
                                     >
                                       <option value="" disabled>—</option>
                                       {UNIDADES_ESTANDAR.map((u) => (
@@ -3638,7 +3908,8 @@ export default function ProyectoPage() {
                                       onChange={(e) => actualizarRubro(cap.id, rubro.id, "unidad", e.target.value)}
                                       onBlur={() => sugerirAPU(cap.id, rubro.id)}
                                       placeholder="m²"
-                                      className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center placeholder:text-slate-300"
+                                      disabled={soloLectura}
+                                      className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default"
                                     />
                                   )}
                                 </div>
@@ -3654,8 +3925,19 @@ export default function ProyectoPage() {
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "cantidad", e.target.value)}
                                     onFocus={() => setCantidadEnFoco(rubro.id)}
                                     onBlur={() => setCantidadEnFoco(null)}
+                                    onMouseDown={(e) => {
+                                      if (pendienteDecisionPrecio) {
+                                        e.preventDefault();
+                                        abrirModalPrecioCongelado(cap.id, rubro);
+                                      }
+                                    }}
                                     placeholder="0"
-                                    className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300"
+                                    disabled={soloLectura}
+                                    readOnly={pendienteDecisionPrecio}
+                                    className={cn(
+                                      "w-full text-sm bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default",
+                                      pendienteDecisionPrecio ? "text-amber-600 cursor-pointer" : "text-slate-600"
+                                    )}
                                   />
                                 </div>
                                 <div className="px-2">
@@ -3670,8 +3952,20 @@ export default function ProyectoPage() {
                                     onChange={(e) => actualizarRubro(cap.id, rubro.id, "precioUnit", e.target.value)}
                                     onFocus={() => setPrecioUnitEnFoco(rubro.id)}
                                     onBlur={() => setPrecioUnitEnFoco(null)}
+                                    onMouseDown={(e) => {
+                                      if (pendienteDecisionPrecio) {
+                                        e.preventDefault();
+                                        abrirModalPrecioCongelado(cap.id, rubro);
+                                      }
+                                    }}
                                     placeholder="0.00"
-                                    className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    disabled={soloLectura || decisionPrecio === "mantener"}
+                                    readOnly={pendienteDecisionPrecio}
+                                    title={decisionPrecio === "mantener" ? "Precio pactado — bloqueado. Elegí \"Actualizar al precio vigente\" para poder editarlo." : undefined}
+                                    className={cn(
+                                      "w-full text-sm bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                      pendienteDecisionPrecio ? "text-amber-600 cursor-pointer" : "text-slate-600"
+                                    )}
                                   />
                                 </div>
                                 <div className="px-2 text-right">
@@ -3685,14 +3979,16 @@ export default function ProyectoPage() {
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-center">
-                                  <button
-                                    onClick={() => eliminarRubro(cap.id, rubro.id, rubro.descripcion)}
-                                    title="Eliminar rubro"
-                                    className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
-                                    style={{ width: 20, height: 20 }}
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  {!soloLectura && (
+                                    <button
+                                      onClick={() => eliminarRubro(cap.id, rubro.id, rubro.descripcion)}
+                                      title="Eliminar rubro"
+                                      className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
+                                      style={{ width: 20, height: 20 }}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -3717,25 +4013,27 @@ export default function ProyectoPage() {
                         </div>
 
                         {/* Botón agregar rubro */}
-                        <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
-                          {cap.capituloCatalogoId && (
+                        {!soloLectura && (
+                          <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
+                            {cap.capituloCatalogoId && (
+                              <button
+                                onClick={() => toggleSubrubrosPanel(cap)}
+                                title="Ver subrubros típicos de este capítulo"
+                                className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                              >
+                                Subrubros
+                              </button>
+                            )}
                             <button
-                              onClick={() => toggleSubrubrosPanel(cap)}
-                              title="Ver subrubros típicos de este capítulo"
-                              className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                              onClick={() => agregarRubro(cap.id)}
+                              className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
                             >
-                              Subrubros
+                              <Plus className="w-3 h-3" /> Agregar rubro
                             </button>
-                          )}
-                          <button
-                            onClick={() => agregarRubro(cap.id)}
-                            className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                          >
-                            <Plus className="w-3 h-3" /> Agregar rubro
-                          </button>
-                        </div>
+                          </div>
+                        )}
 
-                        {panelSubrubrosCapId === cap.id && (
+                        {!soloLectura && panelSubrubrosCapId === cap.id && (
                           <PanelSubrubrosEstandar
                             subrubros={subrubrosPorCapitulo[cap.id] ?? []}
                             cargando={cargandoSubrubros}

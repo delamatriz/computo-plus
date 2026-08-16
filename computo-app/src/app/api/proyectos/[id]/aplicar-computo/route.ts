@@ -88,6 +88,21 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const confirmar = body?.confirmar === true;
 
+    // El preview (confirmar:false) no escribe nada — se deja pasar
+    // siempre. El bloqueo real es solo sobre la escritura de verdad.
+    if (confirmar) {
+      const proyecto = await db.proyecto.findUnique({ where: { id }, select: { estado: true } });
+      if (proyecto?.estado === "FINALIZADO") {
+        return NextResponse.json(
+          {
+            error: "proyecto_finalizado",
+            mensaje: "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     const actualizaciones = await calcularActualizaciones(id);
 
     if (!confirmar) {
