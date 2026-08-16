@@ -116,6 +116,19 @@ export default function LeyesSocialesPage() {
           BPS entre 10 días antes y 48 horas hábiles después de empezada.
         </p>
 
+        <div className="rounded-[12px] border border-blue-100 bg-blue-50/50 px-4 py-3 mb-8 max-w-2xl">
+          <p className="text-sm font-semibold text-[#1A3A5C] mb-1">
+            ¿Qué es el jornal?
+          </p>
+          <p className="text-sm text-slate-600">
+            Es el monto en pesos que corresponde a una categoría puntual de
+            trabajador — por ejemplo, $2.176,19 para un Medio Oficial
+            Albañil. El laudo (o convenio SUNCA) es la tabla completa con
+            los jornales de todas las categorías; el jornal es el valor
+            específico de una categoría dentro de esa tabla.
+          </p>
+        </div>
+
         {/* Índice — mobile: pills horizontales, scrolleables, siempre
             visibles (no colapsan, solo permiten saltar rápido). En
             desktop se oculta acá y aparece como columna lateral fija. */}
@@ -222,10 +235,11 @@ export default function LeyesSocialesPage() {
                 Ejemplo
               </h3>
               <p className="text-sm text-slate-500 mb-1">
-                Oficial albañil, jornal $X:
+                Medio Oficial Albañil (Categoría V), jornal $2.176,19:
               </p>
               <p className="text-sm text-slate-700">
-                Costo real de mano de obra por jornada ≈ $X × 1,7393
+                Costo real de mano de obra por jornada ≈ $2.176,19 × 1,7393 ≈{" "}
+                <span className="font-bold text-[#2563EB]">$3.785,05</span>
               </p>
             </section>
 
@@ -233,12 +247,34 @@ export default function LeyesSocialesPage() {
               <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
                 Personal excluido de Ley 14.411
               </h3>
+              <div className="text-sm text-slate-600 space-y-2 mb-3">
+                <p>
+                  <strong className="text-slate-700">
+                    Incluido en la Ley 14.411
+                  </strong>{" "}
+                  (todo lo de esta guía hasta acá): personal que trabaja
+                  directamente en la obra — albañilería, sanitaria,
+                  electricidad, pintura, acondicionamiento térmico, etc. Es
+                  el régimen que aplica a prácticamente todo el personal de
+                  obra.
+                </p>
+                <p>
+                  <strong className="text-slate-700">
+                    Excluido de la Ley 14.411
+                  </strong>
+                  : dueños de la empresa, socios, directores, personal
+                  técnico (incluye arquitectos) y administrativo de oficina,
+                  y obreros que no trabajan directamente en la obra. No es
+                  una alternativa para calcular el costo de mano de obra de
+                  una obra — es una categoría aparte (personal de
+                  oficina/gerencia), rara vez relevante para presupuestar.
+                </p>
+              </div>
               <p className="text-sm text-slate-500 mb-1">
-                Solo como referencia — la app no usa estos valores en ningún
-                cálculo automático hoy (Cálculo Rápido, Categorías Laborales
-                y los APU de rubros trabajan siempre con el régimen{" "}
-                <strong>incluido</strong> de arriba). Si algún día hace falta
-                presupuestar con este régimen, hay que cargarlo a mano.
+                Esta tabla es solo de referencia para ese caso puntual — el
+                cálculo habitual de mano de obra de una obra siempre usa el
+                régimen incluido de arriba. La app no usa estos valores en
+                ningún cálculo automático hoy.
               </p>
               <Tabla
                 encabezados={["Categoría", "Jornal", "Hora"]}
