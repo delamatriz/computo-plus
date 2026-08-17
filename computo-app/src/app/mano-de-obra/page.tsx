@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Hammer } from "lucide-react";
 import { db } from "@/lib/db";
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
@@ -152,30 +151,6 @@ export default async function ManoDeObraPage() {
           <Tabla encabezados={["Oficio", "Jornal", "Hora"]} filas={filasOficios} />
         </div>
       )}
-
-      <div className="mt-8">
-        <h3 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide mb-1">
-          Convenio SUNCA — documento original
-        </h3>
-        {config?.convenioImagenUrl ? (
-          <div className="rounded-xl border border-slate-200 overflow-hidden mt-2 bg-slate-50">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/api/configuracion/convenio-imagen"
-              alt="Foto del convenio SUNCA escaneado"
-              className="w-full h-auto"
-            />
-          </div>
-        ) : (
-          <p className="text-sm text-slate-400 mt-1">
-            Todavía no se cargó una foto del convenio. Subí una imagen en{" "}
-            <Link href="/configuracion" className="text-[#2563EB] hover:underline">
-              Configuración → Categorías Laborales SUNCA
-            </Link>{" "}
-            para verla acá.
-          </p>
-        )}
-      </div>
 
       <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6 mt-8">
         <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
