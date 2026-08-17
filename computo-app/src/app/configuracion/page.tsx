@@ -25,6 +25,7 @@ interface CategoriaLaboral {
 interface Configuracion {
   id: string;
   convenioFechaVigente: string | null;
+  convenioImagenUrl: string | null;
 }
 
 interface CategoriaExtraida {
@@ -236,6 +237,28 @@ export default function ConfiguracionPage() {
       .map((c) => ({ id: c.id, jornal: Number(jornales[c.id]) }))
       .filter((c) => !Number.isNaN(c.jornal));
 
+    // La foto del convenio recién se sube a Blob acá, al confirmar — no
+    // apenas se selecciona el archivo (manejarSeleccionImagen). Así una
+    // imagen subida por error o nunca confirmada no queda guardada.
+    let convenioImagenUrl: string | undefined;
+    if (imagenPreview) {
+      try {
+        const resImagen = await fetch("/api/configuracion/convenio-imagen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imagen: imagenPreview }),
+        });
+        if (resImagen.ok) {
+          const data = await resImagen.json();
+          convenioImagenUrl = data.url;
+        } else {
+          console.error("[guardarCambios] no se pudo subir la imagen del convenio");
+        }
+      } catch (err) {
+        console.error("[guardarCambios] error al subir la imagen del convenio", err);
+      }
+    }
+
     await Promise.all([
       fetch("/api/categorias-laborales", {
         method: "PATCH",
@@ -248,6 +271,7 @@ export default function ConfiguracionPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               convenioFechaVigente: fechaConvenio || null,
+              ...(convenioImagenUrl !== undefined && { convenioImagenUrl }),
             }),
           })
         : Promise.resolve(),

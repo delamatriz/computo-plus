@@ -359,6 +359,13 @@ model Configuracion {
   iva                 Float     @default(0.22)
   monedaDefault       String    @default("UYU")
   convenioFechaVigente DateTime?
+  // URL de Vercel Blob (store privado) de la última foto del convenio SUNCA
+  // subida en Configuración → Categorías Laborales SUNCA, confirmada por el
+  // usuario (se guarda recién al hacer clic en "Guardar cambios", no apenas
+  // se sube la imagen — ver guardarCambios en configuracion/page.tsx). Se
+  // sirve en /mano-de-obra vía el proxy .../convenio-imagen (no directo,
+  // mismo motivo que urlProxyDocumentoMetraje en lib/blob.ts).
+  convenioImagenUrl   String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 }

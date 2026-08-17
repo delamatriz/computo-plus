@@ -22,11 +22,14 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const config = await getOrCreateConfiguracion();
 
-    const data: { convenioFechaVigente?: Date } = {};
+    const data: { convenioFechaVigente?: Date; convenioImagenUrl?: string | null } = {};
     if (body.convenioFechaVigente !== undefined) {
       data.convenioFechaVigente = body.convenioFechaVigente
         ? new Date(body.convenioFechaVigente)
         : undefined;
+    }
+    if (body.convenioImagenUrl !== undefined) {
+      data.convenioImagenUrl = body.convenioImagenUrl || null;
     }
 
     const actualizada = await db.configuracion.update({
