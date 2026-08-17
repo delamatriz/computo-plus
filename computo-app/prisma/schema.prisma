@@ -672,6 +672,12 @@ model PrecioMTOP {
   requiereVerificacion    Boolean   @default(false)
   motivoVerificacion      String?
   precioSugeridoPendiente Float?
+  // Etapa 4 — explicación en texto libre de la IA sobre qué encontró y
+  // cómo convirtió unidades (fuente_detalle en verificarPrecioMercado.ts)
+  // para el caso "variacion_alta", para que la cola de revisión pueda
+  // mostrar contexto real y no solo el número — antes se perdía apenas se
+  // cerraba la pestaña de la corrida.
+  detalleVerificacion     String?   @db.Text
 }
 
 model PrecioEquipo {

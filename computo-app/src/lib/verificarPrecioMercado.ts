@@ -49,7 +49,8 @@ Respondé SOLO con JSON, sin texto adicional, con este formato exacto:
   "precio_encontrado": number | null,
   "moneda": "UYU" | "USD" | null,
   "motivo_no_encontrado": "producto_no_encontrado" | "fuente_no_disponible" | null,
-  "fuente_detalle": "breve descripción de qué encontraste, en qué unidad de venta original, y la conversión aplicada si hizo falta"
+  "fuente_detalle": "breve descripción de qué encontraste, en qué unidad de venta original, y la conversión aplicada si hizo falta",
+  "url_referencia": "URL exacta de la página donde encontraste el precio, o null si no encontraste nada"
 }`;
 
 type ResultadoModelo = {
@@ -58,6 +59,7 @@ type ResultadoModelo = {
   moneda: "UYU" | "USD" | null;
   motivo_no_encontrado: "producto_no_encontrado" | "fuente_no_disponible" | null;
   fuente_detalle: string;
+  url_referencia: string | null;
 };
 
 const USD_UYU = 40.85;
@@ -203,6 +205,8 @@ export async function verificarPrecioMTOP(codigo: string, escribir = true): Prom
         motivoVerificacion: "variacion_alta",
         precioSugeridoPendiente: precioNuevoUYU,
         fechaUltimaVerificacion: new Date(),
+        detalleVerificacion: resultado.fuente_detalle,
+        urlReferencia: resultado.url_referencia,
       },
     });
   }
