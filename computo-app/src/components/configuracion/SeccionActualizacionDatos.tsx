@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Search, Square, Loader2, CheckCircle2, AlertTriangle, XCircle, Ban, RefreshCw } from "lucide-react";
 
 interface MaterialElegible {
@@ -134,10 +135,13 @@ export default function SeccionActualizacionDatos() {
       <h2 className="text-lg font-semibold text-[#1E293B] mb-1">
         Actualización de Precios — Mercado Libre
       </h2>
-      <p className="text-sm text-slate-500 mb-4">
+      <p className="text-sm text-slate-500 mb-1">
         Verifica contra la web el precio actual de los materiales de &quot;retail directo&quot; (proveedor conocido) —
         actualiza solo si la variación es chica; si es grande o no se encuentra, queda marcado para revisión manual.
       </p>
+      <Link href="/configuracion/revision-precios" className="inline-block text-sm text-[#2563EB] hover:underline mb-4">
+        Ver cola de revisión →
+      </Link>
 
       {cargandoElegibles ? (
         <div className="flex items-center gap-2 text-sm text-slate-400 py-2">

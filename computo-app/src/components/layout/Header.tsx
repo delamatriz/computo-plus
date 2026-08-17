@@ -205,7 +205,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                       {notificaciones.pendientes.requierenVerificacion > 0 && (
                         <li>
                           <Link
-                            href="/rubros"
+                            href="/configuracion/revision-precios#a-revisar"
                             onClick={() => setNotifOpen(false)}
                             className="text-sm text-text-primary hover:text-brand-accent transition-colors"
                           >
@@ -216,7 +216,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                       {notificaciones.pendientes.aCotizar > 0 && (
                         <li>
                           <Link
-                            href="/rubros"
+                            href="/configuracion/revision-precios#sin-precio"
                             onClick={() => setNotifOpen(false)}
                             className="text-sm text-text-primary hover:text-brand-accent transition-colors"
                           >
