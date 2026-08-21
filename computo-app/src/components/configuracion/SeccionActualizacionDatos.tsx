@@ -88,6 +88,12 @@ export default function SeccionActualizacionDatos() {
     setError(null);
     detenerRef.current = false;
 
+    // Resultados de ESTA corrida en particular — separado del estado
+    // `resultados` (que acumula entre corridas dentro de la misma sesión de
+    // pantalla), para que el resumen del Evento B sea el de esta corrida,
+    // no el total acumulado si el usuario ya la había apretado antes.
+    const resultadosDeEstaCorrida: ResultadoVerificacionPrecio[] = [];
+
     let cola = pendientes.map((e) => e.codigo);
     while (cola.length > 0 && !detenerRef.current) {
       const tanda = cola.slice(0, TAMANO_TANDA);
@@ -100,7 +106,9 @@ export default function SeccionActualizacionDatos() {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        setResultados((prev) => [...prev, ...(data.resultados as ResultadoVerificacionPrecio[])]);
+        const nuevos = data.resultados as ResultadoVerificacionPrecio[];
+        resultadosDeEstaCorrida.push(...nuevos);
+        setResultados((prev) => [...prev, ...nuevos]);
       } catch (err) {
         setError(
           `Se cortó procesando [${tanda.join(", ")}]: ${err instanceof Error ? err.message : String(err)}. Los anteriores ya quedaron aplicados — volvé a apretar "Buscar precios actualizados" para retomar con lo que falta.`
@@ -108,6 +116,24 @@ export default function SeccionActualizacionDatos() {
         break;
       }
     }
+
+    // Evento B — solo si esta corrida efectivamente procesó algo (abrir la
+    // sección sin que hubiera pendientes, o detener antes de que termine la
+    // primera tanda, no genera evento).
+    if (resultadosDeEstaCorrida.length > 0) {
+      const actualizados = resultadosDeEstaCorrida.filter((r) => r.accion === "actualizado").length;
+      const pendientesRevision = resultadosDeEstaCorrida.length - actualizados;
+      try {
+        await fetch("/api/configuracion/precios-mercado/evento-resumen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ actualizados, pendientesRevision, restantes: cola.length }),
+        });
+      } catch (err) {
+        console.error("[evento-resumen]", err);
+      }
+    }
+
     setProcesando(false);
   }, [pendientes]);
 
