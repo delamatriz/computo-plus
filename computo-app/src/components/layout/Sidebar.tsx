@@ -26,6 +26,7 @@ const navItems = [
   {
     section: "Presupuestación",
     items: [
+      { href: "/dashboard", label: "Dashboard" },
       { href: "/proyectos", label: "Mis Proyectos" },
       { href: "/metrajes", label: "Metrajes" },
       { href: "/rubros", label: "Catálogo de Rubros" },
@@ -174,9 +175,7 @@ export function Sidebar({
             )}
             <ul className="space-y-0.5">
               {section.items.map((item) => {
-                const active =
-                  pathname === item.href ||
-                  (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                const active = pathname === item.href || pathname.startsWith(item.href);
                 return (
                   <Fragment key={item.href}>
                     {item.dividerBefore && (
