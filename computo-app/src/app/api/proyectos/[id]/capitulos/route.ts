@@ -37,6 +37,7 @@ export async function POST(
         color:   body.color   ?? "#2563EB",
         orden:   (ultimo?.orden ?? -1) + 1,
         capituloCatalogoId,
+        tituloId: body.tituloId ?? null,
       },
       include: { rubros: true },
     });
