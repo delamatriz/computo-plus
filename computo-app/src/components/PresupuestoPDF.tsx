@@ -14,7 +14,20 @@ interface CapituloPDF {
   id: string;
   nombre: string;
   codigo: string;
+  tituloId: string | null;
   rubros: RubroPDF[];
+}
+
+// Título — agrupador opcional de capítulos (ver model Titulo en
+// schema.prisma). El código "N.M" que se imprime en el PDF se calcula acá
+// en el render (BloqueTitulo/BloqueCapitulo), nunca sale de un campo
+// guardado — mismo criterio que ya regía para capitulo.codigo, que hoy es
+// básicamente basura sin uso real (nunca lo completa el formulario de
+// "Agregar capítulo") y se ignora a propósito.
+interface TituloPDF {
+  id: string;
+  nombre: string;
+  color: string;
 }
 
 interface EmpresaPDF {
@@ -37,6 +50,7 @@ export interface ProyectoConCapitulos {
   direccion: string | null;
   moneda: string;
   empresa: EmpresaPDF | null;
+  titulos: TituloPDF[];
   capitulos: CapituloPDF[];
   gastosGenerales: number;
   incluyeIVA: boolean;
@@ -158,6 +172,44 @@ const styles = StyleSheet.create({
     borderBottomColor: "#2563EB",
     marginTop: 12,
     marginBottom: 16,
+  },
+
+  // Título — más peso visual que un capítulo (fondo más oscuro, texto más
+  // grande, franja de color a la izquierda con titulo.color) para que se
+  // note de un vistazo que agrupa varios capítulos.
+  filaTitulo: {
+    flexDirection: "row",
+    backgroundColor: "#0F2942",
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    marginTop: 16,
+    borderLeftWidth: 4,
+  },
+  textoTitulo: {
+    color: "#FFFFFF",
+    fontFamily: "Helvetica-Bold",
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  filaSubtotalTitulo: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    backgroundColor: "#E2E8F0",
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    marginBottom: 6,
+  },
+  textoSubtotalTituloLabel: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A3A5C",
+    marginRight: 12,
+  },
+  textoSubtotalTituloMonto: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#1A3A5C",
   },
 
   // Capítulo
@@ -440,12 +492,12 @@ function FilaRubro({
 
 function BloqueCapitulo({
   capitulo,
-  esPrimero,
+  codigo,
   simbolo,
   subtotalObra,
 }: {
   capitulo: CapituloPDF;
-  esPrimero: boolean;
+  codigo: string;
   simbolo: string;
   subtotalObra: number;
 }) {
@@ -454,10 +506,10 @@ function BloqueCapitulo({
     <View>
       <View style={styles.filaCapitulo} wrap={false}>
         <Text style={styles.textoCapitulo}>
-          {capitulo.codigo} · {capitulo.nombre}
+          {codigo} · {capitulo.nombre}
         </Text>
       </View>
-      {(esPrimero || true) && <EncabezadoColumnas />}
+      <EncabezadoColumnas />
       {capitulo.rubros.length === 0 ? (
         <View style={styles.filaRubro}>
           <Text style={styles.textoCeldaMuted}>Sin rubros cargados en este capítulo</Text>
@@ -472,6 +524,56 @@ function BloqueCapitulo({
         <Text style={styles.textoSubtotalMonto}>{fmtMon(subtotal, simbolo)}</Text>
         <Text style={[styles.textoSubtotalMonto, { width: 50, marginLeft: 12, textAlign: "right" }]}>
           {fmtPctIncidencia(subtotal, subtotalObra)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// Envuelve varios BloqueCapitulo bajo un mismo título — el código de cada
+// capítulo hijo se calcula acá ("N.M", título N / capítulo M dentro de ese
+// título), no viene de la base. El subtotal del título es la suma de sus
+// capítulos únicamente (Total General del proyecto no cambia: sigue
+// sumando TODOS los capítulos, tengan título o no — ver subtotalObra en
+// PresupuestoPDF más abajo).
+function BloqueTitulo({
+  titulo,
+  numero,
+  capitulos,
+  simbolo,
+  subtotalObra,
+}: {
+  titulo: TituloPDF;
+  numero: number;
+  capitulos: CapituloPDF[];
+  simbolo: string;
+  subtotalObra: number;
+}) {
+  const subtotalTitulo = capitulos.reduce(
+    (acc, cap) => acc + cap.rubros.reduce((a, r) => a + r.cantidad * r.precioUnit, 0),
+    0
+  );
+  return (
+    <View>
+      <View style={[styles.filaTitulo, { borderLeftColor: titulo.color }]} wrap={false}>
+        <Text style={styles.textoTitulo}>
+          {numero} · {titulo.nombre}
+        </Text>
+      </View>
+      {capitulos.map((cap, cIdx) => (
+        <BloqueCapitulo
+          key={cap.id}
+          capitulo={cap}
+          codigo={`${numero}.${cIdx + 1}`}
+          simbolo={simbolo}
+          subtotalObra={subtotalObra}
+        />
+      ))}
+      <View style={styles.filaSubtotalTitulo} wrap={false}>
+        <Text style={styles.textoSubtotalTituloLabel}>SUBTOTAL TÍTULO {numero}</Text>
+        <Text style={styles.textoSubtotalTituloMonto}>{fmtMon(subtotalTitulo, simbolo)}</Text>
+        <Text style={[styles.textoSubtotalTituloMonto, { width: 50, marginLeft: 12, textAlign: "right" }]}>
+          {fmtPctIncidencia(subtotalTitulo, subtotalObra)}
         </Text>
       </View>
     </View>
@@ -636,7 +738,19 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
   const montoIVA = subtotal * 0.22;
   const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * 0.714 : null;
   const totalGeneral = subtotal + montoIVA + (leyesSocialesPropietario ?? 0);
-  const codigoGastosGenerales = String(proyecto.capitulos.length + 1).padStart(2, "0");
+
+  // Un título vacío (sin capítulos asignados) no imprime bloque ni consume
+  // numeración — los números de título siempre reflejan lo que realmente
+  // se ve en el PDF, recalculados en cada regeneración.
+  const titulosConCapitulos = proyecto.titulos
+    .map((titulo) => ({ titulo, capitulos: proyecto.capitulos.filter((c) => c.tituloId === titulo.id) }))
+    .filter((t) => t.capitulos.length > 0);
+  const capitulosSueltos = proyecto.capitulos.filter((c) => c.tituloId == null);
+
+  // Gastos Generales es un bloque más al mismo nivel que un Título o un
+  // capítulo suelto — su código es el próximo número de bloque, sin
+  // importar la mezcla de títulos y capítulos sueltos que haya.
+  const codigoGastosGenerales = String(titulosConCapitulos.length + capitulosSueltos.length + 1).padStart(2, "0");
 
   const datosSubtitulo = [proyecto.cliente, proyecto.tipo, proyecto.direccion]
     .filter(Boolean)
@@ -661,9 +775,26 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
         {datosSubtitulo ? <Text style={styles.subtitulo}>{datosSubtitulo}</Text> : null}
         <View style={styles.separador} />
 
-        {/* Cuerpo — capítulos */}
-        {proyecto.capitulos.map((cap, i) => (
-          <BloqueCapitulo key={cap.id} capitulo={cap} esPrimero={i === 0} simbolo={simbolo} subtotalObra={subtotalObra} />
+        {/* Cuerpo — títulos (con sus capítulos anidados, numerados N.M) seguidos
+            de los capítulos sueltos sin título, numerados 01, 02... como siempre */}
+        {titulosConCapitulos.map(({ titulo, capitulos }, tIdx) => (
+          <BloqueTitulo
+            key={titulo.id}
+            titulo={titulo}
+            numero={tIdx + 1}
+            capitulos={capitulos}
+            simbolo={simbolo}
+            subtotalObra={subtotalObra}
+          />
+        ))}
+        {capitulosSueltos.map((cap, i) => (
+          <BloqueCapitulo
+            key={cap.id}
+            capitulo={cap}
+            codigo={String(i + 1).padStart(2, "0")}
+            simbolo={simbolo}
+            subtotalObra={subtotalObra}
+          />
         ))}
 
         {/* Subtotal de obra, antes de sumar Gastos Generales */}

@@ -306,12 +306,19 @@ export default function PlanillaComputo({
                     >
                       <option value="">Sin vincular</option>
                       {Object.entries(
+                        // Clave compuesta título › capítulo — sin título, un
+                        // capítulo se agrupa solo por su nombre (igual que
+                        // siempre); con título, el nombre del título se suma
+                        // adelante para desambiguar dos capítulos con el
+                        // mismo nombre en títulos distintos (ej. dos
+                        // "Albañilería", uno por título).
                         rubrosDisponibles.reduce<Record<string, RubroOption[]>>((acc, r) => {
-                          (acc[r.capituloNombre] ??= []).push(r);
+                          const clave = r.tituloNombre ? `${r.tituloNombre} › ${r.capituloNombre}` : r.capituloNombre;
+                          (acc[clave] ??= []).push(r);
                           return acc;
                         }, {})
-                      ).map(([capNombre, rubros]) => (
-                        <optgroup key={capNombre} label={capNombre}>
+                      ).map(([clave, rubros]) => (
+                        <optgroup key={clave} label={clave}>
                           {rubros.map((r) => {
                             // Si la fila ya tiene una unidad propia (cargada a
                             // mano o heredada de una medición — ver

@@ -3,6 +3,9 @@ import { db } from "@/lib/db";
 
 // Incluye todas las relaciones necesarias para la página del proyecto
 const PROYECTO_INCLUDE = {
+  titulos: {
+    orderBy: { orden: "asc" as const },
+  },
   capitulos: {
     orderBy: { orden: "asc" as const },
     include: {

@@ -34,6 +34,7 @@ export async function PATCH(
         ...("nombre" in body && { nombre: body.nombre }),
         ...("fechaInicio" in body && { fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null }),
         ...("fechaFin" in body && { fechaFin: body.fechaFin ? new Date(body.fechaFin) : null }),
+        ...("tituloId" in body && { tituloId: body.tituloId || null }),
       },
     });
 

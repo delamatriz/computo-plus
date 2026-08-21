@@ -13,6 +13,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       include: {
         empresa: true,
         leyesSociales: true,
+        titulos: {
+          orderBy: { orden: "asc" },
+        },
         capitulos: {
           orderBy: { orden: "asc" },
           include: {
@@ -65,10 +68,16 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       garantiaFielCumplimiento: proyecto.garantiaFielCumplimiento,
       garantiaViciosOcultos: proyecto.garantiaViciosOcultos,
       garantiaResponsabilidad: proyecto.garantiaResponsabilidad,
+      titulos: proyecto.titulos.map((t) => ({
+        id: t.id,
+        nombre: t.nombre,
+        color: t.color,
+      })),
       capitulos: proyecto.capitulos.map((cap) => ({
         id: cap.id,
         nombre: cap.nombre,
         codigo: cap.codigo,
+        tituloId: cap.tituloId,
         rubros: cap.rubros.map((r) => ({
           id: r.id,
           codigo: r.codigo,

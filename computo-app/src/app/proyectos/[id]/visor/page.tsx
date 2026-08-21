@@ -138,6 +138,9 @@ export default function VisorProyectoPage() {
         setProyectoNombre(data.nombre ?? "");
         setSoloLectura(data.estado === "FINALIZADO");
         setNotas(data.notas ?? "");
+        const nombrePorTituloId = new Map<string, string>(
+          (data.titulos ?? []).map((t: { id: string; nombre: string }) => [t.id, t.nombre])
+        );
         const opciones: RubroOption[] = [];
         for (const cap of data.capitulos ?? []) {
           for (const rubro of cap.rubros ?? []) {
@@ -145,6 +148,7 @@ export default function VisorProyectoPage() {
               id: rubro.id,
               nombre: rubro.descripcion || "Rubro sin nombre",
               capituloNombre: cap.nombre,
+              tituloNombre: cap.tituloId ? nombrePorTituloId.get(cap.tituloId) ?? null : null,
               unidad: rubro.unidad ?? "",
             });
           }

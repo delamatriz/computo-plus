@@ -109,6 +109,20 @@ interface Capitulo {
   // de /api/proyectos/[id] hoy (Prisma incluye todos los escalares), solo
   // faltaba declararlo acá para poder leerlo.
   capituloCatalogoId?: string | null;
+  // Título — agrupador opcional (ver model Titulo en schema.prisma). null
+  // = capítulo suelto, se muestra plano después de todos los títulos.
+  tituloId?: string | null;
+}
+
+// Agrupador opcional de capítulos dentro de un proyecto — un Proyecto
+// puede tener varios Títulos, cada uno con varios Capítulos adentro. Sin
+// estado propio: todo el proyecto se entrega/congela junto (ver
+// "Entregar"), un Título es puro agrupamiento visual/de export.
+interface Titulo {
+  id: string;
+  nombre: string;
+  orden: number;
+  color?: string;
 }
 
 interface SubrubroEstandar {
@@ -449,7 +463,7 @@ function descargarExcelMateriales(nombreProyecto: string, filas: FilaMaterialGlo
 }
 
 /** Genera y descarga el Excel del presupuesto completo (capítulos, rubros y totales) */
-function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]) {
+function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[], titulos: Titulo[]) {
   const fecha = new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
   const wb = XLSX.utils.book_new();
 
@@ -477,6 +491,18 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
     alignment: { vertical: "center" },
   };
   const styBold = { font: { bold: true } };
+  // Título — un escalón más fuerte que styTituloCap (fuente más grande,
+  // fondo más oscuro), mismo criterio que BloqueTitulo en el PDF.
+  const styTituloGrupo = {
+    font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } },
+    fill: { patternType: "solid", fgColor: { rgb: "0F2942" } },
+    alignment: { vertical: "center" },
+  };
+  const stySubtotalTitulo = {
+    font: { bold: true },
+    fill: { patternType: "solid", fgColor: { rgb: "E2E8F0" } },
+    alignment: { vertical: "center" },
+  };
 
   const datos: (string | number | null)[][] = [];
   const merges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = [];
@@ -518,13 +544,17 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
     cap.rubros.some((rubro) => rubro.descripcion.trim().length > 0)
   );
 
-  for (const cap of capitulosConRubros) {
-    r = pushRow([cap.nombre]);
-    styleRow(r, styTituloCap);
-    merges.push({ s: { r, c: 0 }, e: { r, c: NUM_COLS - 1 } });
+  // Emite encabezado + rubros + subtotal de un capítulo — extraído a función
+  // para invocarla tanto anidada bajo un título como suelta, sin duplicar la
+  // lógica. nroGlobal es compartido por closure y sigue corrido sin importar
+  // el agrupamiento (solo se renumeran capítulos/títulos, nunca los rubros).
+  function emitirCapitulo(cap: Capitulo): number {
+    let rCap = pushRow([cap.nombre]);
+    styleRow(rCap, styTituloCap);
+    merges.push({ s: { r: rCap, c: 0 }, e: { r: rCap, c: NUM_COLS - 1 } });
 
     let subtotalCap = 0;
-    for (const rubro of cap.rubros.filter((r) => r.descripcion.trim() !== "")) {
+    for (const rubro of cap.rubros.filter((rr) => rr.descripcion.trim() !== "")) {
       const cantidad = rubro.cantidad ?? 0;
       const precioUnit = rubro.precioUnit ?? 0;
       const totalRubro = cantidad * precioUnit;
@@ -540,10 +570,39 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
       ]);
     }
 
-    r = pushRow(["", "", "", "", `SUBTOTAL ${cap.nombre}`, parseFloat(subtotalCap.toFixed(2))]);
-    styleRow(r, stySubtotal);
+    rCap = pushRow(["", "", "", "", `SUBTOTAL ${cap.nombre}`, parseFloat(subtotalCap.toFixed(2))]);
+    styleRow(rCap, stySubtotal);
 
-    totalGeneral += subtotalCap;
+    return subtotalCap;
+  }
+
+  // Un título vacío (sin capítulos con rubros reales) no consume numeración
+  // ni imprime fila — mismo criterio que BloqueTitulo en el PDF. Capítulos
+  // sueltos van al final, después de todos los títulos.
+  const titulosConCapitulos = titulos
+    .map((titulo) => ({ titulo, caps: capitulosConRubros.filter((c) => c.tituloId === titulo.id) }))
+    .filter((t) => t.caps.length > 0);
+  const capitulosSueltos = capitulosConRubros.filter((c) => c.tituloId == null);
+
+  titulosConCapitulos.forEach(({ titulo, caps }, tIdx) => {
+    const numero = tIdx + 1;
+    r = pushRow([`${numero} · ${titulo.nombre}`]);
+    styleRow(r, styTituloGrupo);
+    merges.push({ s: { r, c: 0 }, e: { r, c: NUM_COLS - 1 } });
+
+    let subtotalTitulo = 0;
+    for (const cap of caps) {
+      subtotalTitulo += emitirCapitulo(cap);
+    }
+
+    r = pushRow(["", "", "", "", `SUBTOTAL TÍTULO ${numero} — ${titulo.nombre}`, parseFloat(subtotalTitulo.toFixed(2))]);
+    styleRow(r, stySubtotalTitulo);
+
+    totalGeneral += subtotalTitulo;
+  });
+
+  for (const cap of capitulosSueltos) {
+    totalGeneral += emitirCapitulo(cap);
   }
 
   pushRow([]);
@@ -2162,12 +2221,23 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
 // patrón que ModalCalibrarEscala en Visor.tsx (título + X, un input,
 // error inline, Cancelar/Guardar) para el mismo nivel de pulido que el
 // resto de los modales chicos de la app.
+// Generalizado con textos opcionales para reusarlo también como
+// "Agregar título" (mismo modal, mismo comportamiento) — ver
+// mostrarModalTitulo más abajo.
 function ModalAgregarCapitulo({
   onClose,
   onGuardar,
+  titulo = "Agregar capítulo",
+  etiquetaCampo = "Nombre del capítulo",
+  placeholder = "Ej. Instalación eléctrica",
+  mensajeError = "No se pudo agregar el capítulo. Probá de nuevo.",
 }: {
   onClose: () => void;
   onGuardar: (nombre: string) => Promise<void>;
+  titulo?: string;
+  etiquetaCampo?: string;
+  placeholder?: string;
+  mensajeError?: string;
 }) {
   const [nombre, setNombre] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -2181,7 +2251,7 @@ function ModalAgregarCapitulo({
       await onGuardar(nombre.trim());
       onClose();
     } catch {
-      setError("No se pudo agregar el capítulo. Probá de nuevo.");
+      setError(mensajeError);
     } finally {
       setGuardando(false);
     }
@@ -2192,13 +2262,13 @@ function ModalAgregarCapitulo({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-white rounded-[16px] shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-          <h2 className="text-base font-bold text-[#1A3A5C]">Agregar capítulo</h2>
+          <h2 className="text-base font-bold text-[#1A3A5C]">{titulo}</h2>
           <button onClick={onClose} className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
         <div className="px-5 py-4 space-y-2.5">
-          <label className="block text-sm font-semibold text-[#1A3A5C]">Nombre del capítulo</label>
+          <label className="block text-sm font-semibold text-[#1A3A5C]">{etiquetaCampo}</label>
           <input
             type="text"
             value={nombre}
@@ -2207,7 +2277,7 @@ function ModalAgregarCapitulo({
               if (error) setError(null);
             }}
             onKeyDown={(e) => e.key === "Enter" && guardar()}
-            placeholder="Ej. Instalación eléctrica"
+            placeholder={placeholder}
             autoFocus
             className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
           />
@@ -2278,7 +2348,10 @@ export default function ProyectoPage() {
   const [capitulos, setCapitulos] = useState<Capitulo[]>([]);
   // Ref para leer siempre el estado más reciente de capitulos desde callbacks async
   const capitulosRef = useRef<Capitulo[]>([]);
+  const [titulos, setTitulos] = useState<Titulo[]>([]);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
+  const [titulosExpandidos, setTitulosExpandidos] = useState<Set<string>>(new Set());
+  const [mostrarModalTitulo, setMostrarModalTitulo] = useState(false);
   const [apuData, setApuData] = useState<Record<string, APU>>({});
   const [drawerRubroId, setDrawerRubroId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -2357,6 +2430,7 @@ export default function ProyectoPage() {
         id: string; nombre: string; codigo?: string; color?: string;
         fechaInicio?: string | null; fechaFin?: string | null;
         capituloCatalogoId?: string | null;
+        tituloId?: string | null;
         rubros: {
           id: string; descripcion: string; unidad: string;
           cantidad: number; precioUnit: number; apu: unknown;
@@ -2371,6 +2445,7 @@ export default function ProyectoPage() {
         fechaInicio: cap.fechaInicio,
         fechaFin:    cap.fechaFin,
         capituloCatalogoId: cap.capituloCatalogoId,
+        tituloId:    cap.tituloId ?? null,
         rubros: (cap.rubros ?? []).map((r) => ({
           id:          r.id,
           descripcion: r.descripcion,
@@ -2382,6 +2457,15 @@ export default function ProyectoPage() {
         })),
       }));
       setCapitulos(caps);
+
+      const tits: Titulo[] = (data.titulos ?? []).map((t: { id: string; nombre: string; orden: number; color?: string }) => ({
+        id: t.id,
+        nombre: t.nombre,
+        orden: t.orden,
+        color: t.color,
+      }));
+      setTitulos(tits);
+      setTitulosExpandidos(new Set(tits.map((t) => t.id)));
 
       // Expandir los 3 primeros con rubros — no mientras se están generando,
       // para no mostrar capítulos vacíos como si ya hubieran sido revisados
@@ -3259,6 +3343,55 @@ export default function ProyectoPage() {
     }
   }, []);
 
+  const agregarTitulo = useCallback(async (nombre: string) => {
+    const res = await fetch(`/api/proyectos/${proyectoId}/titulos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre }),
+    });
+    if (!res.ok) throw new Error("No se pudo agregar el título");
+    const nuevo = await res.json();
+    setTitulos((prev) => [...prev, { id: nuevo.id, nombre: nuevo.nombre, orden: nuevo.orden, color: nuevo.color }]);
+    setTitulosExpandidos((prev) => new Set(prev).add(nuevo.id));
+  }, [proyectoId]);
+
+  // Borrar un título nunca borra capítulos — SetNull en el schema los
+  // desagrupa (vuelven a tituloId=null, plano) sin tocar rubros/precios.
+  // Igual actualizamos capitulos localmente para reflejar eso al toque,
+  // sin esperar un refetch.
+  const eliminarTitulo = useCallback(async (titulo: Titulo) => {
+    const capsDelTitulo = capitulosRef.current.filter((c) => c.tituloId === titulo.id);
+    const ok = window.confirm(
+      capsDelTitulo.length > 0
+        ? `¿Eliminar el título "${titulo.nombre}"? Sus ${capsDelTitulo.length} capítulo${capsDelTitulo.length !== 1 ? "s" : ""} no se borra${capsDelTitulo.length !== 1 ? "n" : ""} — quedan sueltos, sin título.`
+        : `¿Eliminar el título "${titulo.nombre}"?`
+    );
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/titulos/${titulo.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      setTitulos((prev) => prev.filter((t) => t.id !== titulo.id));
+      setCapitulos((prev) => prev.map((c) => (c.tituloId === titulo.id ? { ...c, tituloId: null } : c)));
+    } catch (err) {
+      console.error("[eliminarTitulo]", err);
+    }
+  }, []);
+
+  const asignarCapituloATitulo = useCallback(async (capId: string, tituloId: string | null) => {
+    setCapitulos((prev) => prev.map((c) => (c.id === capId ? { ...c, tituloId } : c)));
+    try {
+      const res = await fetch(`/api/capitulos/${capId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tituloId }),
+      });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+    } catch (err) {
+      console.error("[asignarCapituloATitulo]", err);
+    }
+  }, []);
+
   const sugerirAPU = useCallback(async (capId: string, rubroId: string) => {
     if (rubroId.startsWith("temp-")) return;
     const cap = capitulos.find((c) => c.id === capId);
@@ -3354,6 +3487,424 @@ export default function ProyectoPage() {
     setDrawerRubroId(null);
   }, [capitulos, actualizarRubro]);
 
+  // Fila de un capítulo (colapsada + panel expandido de rubros) — extraída
+  // del .map() original a una función nombrada (no un componente aparte,
+  // para no tener que prop-drillear los ~30 handlers/estados que ya usa
+  // por closure) así se puede invocar tanto desde el loop anidado bajo
+  // cada Título como desde el loop plano de capítulos sin título.
+  // codigoMostrado es el número ya calculado por el caller ("1.2" dentro
+  // de un título, "03" si está suelto) — la fila no recalcula nada.
+  function renderFilaCapitulo(cap: Capitulo, codigoMostrado: string) {
+    const expandido = expandidos.has(cap.id);
+    const totalCap = totalCapitulo(cap);
+
+    return (
+      <div key={cap.id} className="border-b border-slate-200 last:border-0">
+
+        {/* Fila del capítulo — antes era un solo <button> (no se puede anidar
+            el input de nombre ni el botón de borrar dentro de otro botón),
+            ahora es un <div> con el toggle de expandir/colapsar en el click
+            del fondo de la fila; el input y el botón de borrar cortan la
+            propagación para no disparar el toggle al usarlos. */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => toggleCapituloConSubrubros(cap)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") toggleCapituloConSubrubros(cap);
+          }}
+          className="w-full grid items-center px-5 py-3 hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+          style={{ gridTemplateColumns: GRID_CAPITULO }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: "#2563EB" }}>
+              {codigoMostrado}
+            </span>
+            <input
+              type="text"
+              value={cap.nombre}
+              onChange={(e) => actualizarNombreCapitulo(cap.id, e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              disabled={soloLectura}
+              className="flex-1 min-w-0 text-sm font-semibold text-[#1A3A5C] bg-transparent truncate focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 disabled:text-slate-400 disabled:cursor-default"
+            />
+            {cap.rubros.length > 0 && (
+              <span className="text-[11px] text-slate-400 flex-shrink-0">
+                {cap.rubros.length} rubro{cap.rubros.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            {!soloLectura && titulos.length > 0 && (
+              <select
+                value={cap.tituloId ?? ""}
+                onChange={(e) => asignarCapituloATitulo(cap.id, e.target.value || null)}
+                onClick={(e) => e.stopPropagation()}
+                title="Asignar a un título"
+                className="flex-shrink-0 max-w-[120px] text-[11px] text-slate-400 bg-transparent border border-slate-200 rounded-[4px] px-1 py-0.5 focus:outline-none focus:border-[#2563EB]/40 hover:text-slate-600 hover:border-slate-300 transition-colors"
+              >
+                <option value="">Sin título</option>
+                {titulos.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nombre}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="px-2 text-right">
+            <span className="text-sm font-bold tabular-nums" style={{ color: totalCap > 0 ? "#2563EB" : "#CBD5E1" }}>
+              {totalCap > 0 ? fmtMoneda(totalCap, moneda) : "—"}
+            </span>
+          </div>
+          <div className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
+            <span className="text-xs font-medium tabular-nums text-slate-400 whitespace-nowrap">
+              {fmtPct(pctIncidencia(totalCap, totalGeneral))}
+            </span>
+          </div>
+          <div className="flex items-center justify-center">
+            {!soloLectura && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  eliminarCapitulo(cap);
+                }}
+                title="Eliminar capítulo"
+                className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
+                style={{ width: 20, height: 20 }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
+            {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </div>
+        </div>
+
+        {/* Panel expandido — rubros */}
+        <AnimatePresence initial={false}>
+          {expandido && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="border-t border-slate-100 overflow-x-auto">
+                <div className="min-w-[800px]">
+
+                {capituloVacio(cap) ? (
+                  <>
+                    {cap.capituloCatalogoId && !soloLectura && (
+                      <PanelSubrubrosEstandar
+                        subrubros={subrubrosPorCapitulo[cap.id] ?? []}
+                        cargando={cargandoSubrubros}
+                        moneda={moneda}
+                        capituloIdImplantacion={catalogoCapitulosRef.current?.get("Implantación y Replanteo")?.id}
+                        onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
+                        onCerrar={() => setPanelSubrubrosCapId(null)}
+                      />
+                    )}
+                    {!soloLectura && (
+                      <div className="flex items-center pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
+                        <button
+                          onClick={() => agregarRubro(cap.id)}
+                          className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                        >
+                          <Plus className="w-3 h-3" /> Agregar rubro personalizado
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                <>
+                {/* Header de columnas — usa GRID_RUBRO, comparte Total/% Incid. con GRID_CAPITULO */}
+                <div className="grid items-center bg-slate-50 border-b border-slate-200 px-5" style={{ height: 28, gridTemplateColumns: GRID_RUBRO }}>
+                  <div style={stickyIcono("#F8FAFC")} />
+                  <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider" style={stickyDescripcion("#F8FAFC")}>Descripción</div>
+                  <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Unidad</div>
+                  <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
+                  <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Precio unit.</div>
+                  <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Total</div>
+                  <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">% Incid.</div>
+                  <div />
+                </div>
+
+                {/* Filas */}
+                <div>
+                  {cap.rubros.map((rubro, rubroIdx) => {
+                    const tieneAPU = !!apuData[rubro.id];
+                    const apuPrecio = tieneAPU ? calcAPU(apuData[rubro.id]).precioFinal : 0;
+                    const materialesSinPrecioRubro = tieneAPU
+                      ? apuData[rubro.id].materiales.filter((m) => m.precioUnit === 0).length
+                      : 0;
+                    const precioDesactualizado = tieneAPU && precioAPUDesincronizado(rubro.precioUnit, apuPrecio);
+                    // Rubro con precio pactado (sobrevivió a un "Entregar") sin
+                    // decisión todavía en esta sesión — cantidad/precioUnit se
+                    // bloquean hasta elegir "actualizar" o "mantener" en el modal.
+                    const decisionPrecio = decisionesPrecioRubro[rubro.id];
+                    const pendienteDecisionPrecio = !soloLectura && rubro.precioCongelado != null && !decisionPrecio;
+
+                    return (
+                      <div
+                        key={rubro.id}
+                        className={cn(
+                          "group grid items-center hover:bg-blue-50/20 transition-colors px-5",
+                          rubroIdx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white"
+                        )}
+                        style={{ height: 28, borderBottom: "1px solid #F1F5F9", gridTemplateColumns: GRID_RUBRO }}
+                      >
+                        {/* Botón APU + número */}
+                        <div
+                          className="flex items-center justify-end gap-1 pr-1"
+                          style={stickyIcono(rubroIdx % 2 === 1 ? "#F8FAFC" : "#FFFFFF")}
+                        >
+                          <button
+                            onClick={() => setDrawerRubroId(rubro.id)}
+                            title="Abrir descompuesto (APU)"
+                            className={cn(
+                              "flex items-center justify-center rounded-[4px] transition-colors",
+                              drawerRubroId === rubro.id
+                                ? "text-[#2563EB]"
+                                : "text-slate-300 hover:text-[#2563EB]"
+                            )}
+                            style={{ width: 18, height: 18 }}
+                          >
+                            <LayoutList className="w-3 h-3" />
+                          </button>
+                          <span className="text-[11px] text-slate-400 tabular-nums w-5 text-right">
+                            {rubroIdx + 1}
+                          </span>
+                        </div>
+
+                        {/* Descripción + badge APU */}
+                        <div
+                          className="px-2 min-w-0 flex items-center gap-1.5"
+                          style={stickyDescripcion(rubroIdx % 2 === 1 ? "#F8FAFC" : "#FFFFFF")}
+                        >
+                          <input
+                            type="text"
+                            value={descripcionEnFoco === rubro.id ? rubro.descripcion : toTitleCase(rubro.descripcion)}
+                            onChange={(e) => actualizarRubro(cap.id, rubro.id, "descripcion", e.target.value)}
+                            onFocus={() => setDescripcionEnFoco(rubro.id)}
+                            onBlur={() => { setDescripcionEnFoco(null); sugerirAPU(cap.id, rubro.id); }}
+                            placeholder="Descripción del rubro"
+                            disabled={soloLectura}
+                            className="flex-1 min-w-0 text-sm text-slate-700 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default"
+                          />
+                          {!soloLectura && rubro.precioCongelado != null && (
+                            <span
+                              className="flex-shrink-0"
+                              title={
+                                decisionPrecio === "mantener"
+                                  ? "Precio pactado — cantidad libre, precio unitario bloqueado"
+                                  : decisionPrecio === "actualizar"
+                                  ? "Precio actualizado al vigente en esta edición"
+                                  : "Rubro con precio pactado — tocá cantidad o precio unitario para decidir si actualizar"
+                              }
+                            >
+                              <Lock className={cn("w-3 h-3", pendienteDecisionPrecio ? "text-amber-500" : "text-slate-300")} />
+                            </span>
+                          )}
+                          {apuGenerando.has(rubro.id) && (
+                            <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Generando APU…" />
+                          )}
+                          {!apuGenerando.has(rubro.id) && tieneAPU && apuPrecio > 0 && (
+                            <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" title="Precio de referencia — requiere verificación" />
+                          )}
+                          {materialesSinPrecioRubro > 0 && (
+                            <span
+                              className="flex-shrink-0"
+                              title={`Precio incompleto — ${materialesSinPrecioRubro} insumo(s) sin costo de referencia`}
+                            >
+                              <AlertTriangle className="w-3 h-3 text-amber-500" />
+                            </span>
+                          )}
+                          {precioDesactualizado && !soloLectura && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                aplicarPrecioAPU(rubro.id, apuPrecio, apuData[rubro.id]);
+                              }}
+                              title={`APU modificado — precio desactualizado (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(apuPrecio)}). Click para aplicar y sincronizar.`}
+                              className="flex-shrink-0 hover:opacity-70 transition-opacity"
+                            >
+                              <RefreshCw className="w-3 h-3 text-amber-500" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="px-2">
+                          {rubro.unidad === "" || UNIDADES_ESTANDAR.includes(normalizarUnidad(rubro.unidad)) ? (
+                            <select
+                              value={normalizarUnidad(rubro.unidad)}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                actualizarRubro(cap.id, rubro.id, "unidad", val === "__otra__" ? "" : val);
+                                sugerirAPU(cap.id, rubro.id);
+                              }}
+                              disabled={soloLectura}
+                              className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center disabled:text-slate-400 disabled:cursor-default"
+                            >
+                              <option value="" disabled>—</option>
+                              {UNIDADES_ESTANDAR.map((u) => (
+                                <option key={u} value={u}>{u}</option>
+                              ))}
+                              <option value="__otra__">Otra…</option>
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              value={rubro.unidad}
+                              onChange={(e) => actualizarRubro(cap.id, rubro.id, "unidad", e.target.value)}
+                              onBlur={() => sugerirAPU(cap.id, rubro.id)}
+                              placeholder="m²"
+                              disabled={soloLectura}
+                              className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default"
+                            />
+                          )}
+                        </div>
+                        <div className="px-2">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={
+                              cantidadEnFoco === rubro.id
+                                ? (rubro.cantidad != null ? String(rubro.cantidad) : "")
+                                : (rubro.cantidad != null ? fmtRendimiento(rubro.cantidad) : "")
+                            }
+                            onChange={(e) => actualizarRubro(cap.id, rubro.id, "cantidad", e.target.value)}
+                            onFocus={() => setCantidadEnFoco(rubro.id)}
+                            onBlur={() => setCantidadEnFoco(null)}
+                            onMouseDown={(e) => {
+                              if (pendienteDecisionPrecio) {
+                                e.preventDefault();
+                                abrirModalPrecioCongelado(cap.id, rubro);
+                              }
+                            }}
+                            placeholder="0"
+                            disabled={soloLectura}
+                            readOnly={pendienteDecisionPrecio}
+                            className={cn(
+                              "w-full text-sm bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default",
+                              pendienteDecisionPrecio ? "text-amber-600 cursor-pointer" : "text-slate-600"
+                            )}
+                          />
+                        </div>
+                        <div className="px-2">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={
+                              precioUnitEnFoco === rubro.id
+                                ? (rubro.precioUnit != null ? String(Math.round(rubro.precioUnit * 100) / 100) : "")
+                                : (rubro.precioUnit != null && rubro.precioUnit > 0 ? fmtMon(rubro.precioUnit) : "")
+                            }
+                            onChange={(e) => actualizarRubro(cap.id, rubro.id, "precioUnit", e.target.value)}
+                            onFocus={() => setPrecioUnitEnFoco(rubro.id)}
+                            onBlur={() => setPrecioUnitEnFoco(null)}
+                            onMouseDown={(e) => {
+                              if (pendienteDecisionPrecio) {
+                                e.preventDefault();
+                                abrirModalPrecioCongelado(cap.id, rubro);
+                              }
+                            }}
+                            placeholder="0.00"
+                            disabled={soloLectura || decisionPrecio === "mantener"}
+                            readOnly={pendienteDecisionPrecio}
+                            title={decisionPrecio === "mantener" ? "Precio pactado — bloqueado. Elegí \"Actualizar al precio vigente\" para poder editarlo." : undefined}
+                            className={cn(
+                              "w-full text-sm bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                              pendienteDecisionPrecio ? "text-amber-600 cursor-pointer" : "text-slate-600"
+                            )}
+                          />
+                        </div>
+                        <div className="px-2 text-right">
+                          <span className={cn("text-sm font-semibold tabular-nums", totalRubro(rubro) > 0 ? "text-[#2563EB]" : "text-slate-300")}>
+                            {totalRubro(rubro) > 0 ? fmtMoneda(totalRubro(rubro), moneda) : "—"}
+                          </span>
+                        </div>
+                        <div className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
+                          <span className="text-xs font-medium tabular-nums text-slate-400 whitespace-nowrap">
+                            {fmtPct(pctIncidencia(totalRubro(rubro), totalGeneral))}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-center">
+                          {!soloLectura && (
+                            <button
+                              onClick={() => eliminarRubro(cap.id, rubro.id, rubro.descripcion)}
+                              title="Eliminar rubro"
+                              className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
+                              style={{ width: 20, height: 20 }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Subtotal — mismo GRID_RUBRO; la etiqueta ocupa las columnas de icono+descripción+unidad+cantidad+precio */}
+                <div className="grid items-center bg-slate-50 border-t border-slate-200 px-5" style={{ height: 26, gridTemplateColumns: GRID_RUBRO }}>
+                  <div
+                    className="pl-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
+                    style={{ gridColumn: "span 5", ...stickyIcono("#F8FAFC") }}
+                  >
+                    Subtotal {cap.nombre}
+                  </div>
+                  <div className="px-2 text-sm font-bold tabular-nums text-right text-[#2563EB]">
+                    {fmtMoneda(totalCap, moneda)}
+                  </div>
+                  <div className="px-2 text-xs font-bold tabular-nums text-right text-[#2563EB] whitespace-nowrap">
+                    {fmtPct(pctIncidencia(totalCap, totalGeneral))}
+                  </div>
+                  <div />
+                </div>
+
+                {/* Botón agregar rubro */}
+                {!soloLectura && (
+                  <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
+                    {cap.capituloCatalogoId && (
+                      <button
+                        onClick={() => toggleSubrubrosPanel(cap)}
+                        title="Ver subrubros típicos de este capítulo"
+                        className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        Subrubros
+                      </button>
+                    )}
+                    <button
+                      onClick={() => agregarRubro(cap.id)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Agregar rubro
+                    </button>
+                  </div>
+                )}
+
+                {!soloLectura && panelSubrubrosCapId === cap.id && (
+                  <PanelSubrubrosEstandar
+                    subrubros={subrubrosPorCapitulo[cap.id] ?? []}
+                    cargando={cargandoSubrubros}
+                    moneda={moneda}
+                    capituloIdImplantacion={catalogoCapitulosRef.current?.get("Implantación y Replanteo")?.id}
+                    onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
+                    onCerrar={() => setPanelSubrubrosCapId(null)}
+                  />
+                )}
+                </>
+                )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
   if (cargando) {
     return (
       <div className="min-h-full flex items-center justify-center" style={{ background: "#F0F4F8" }}>
@@ -3437,7 +3988,7 @@ export default function ProyectoPage() {
                 <Pencil className="w-3.5 h-3.5" /> <span className="hidden md:inline">Editar</span>
               </button>
               <button
-                onClick={() => descargarExcelPresupuesto(proyectoActivo, capitulos)}
+                onClick={() => descargarExcelPresupuesto(proyectoActivo, capitulos, titulos)}
                 disabled={capitulos.every((c) => c.rubros.length === 0)}
                 title={capitulos.every((c) => c.rubros.length === 0) ? "No hay rubros para exportar" : undefined}
                 className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -3635,12 +4186,20 @@ export default function ProyectoPage() {
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
             <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Presupuesto</span>
             {!soloLectura && (
-              <button
-                onClick={() => setMostrarModalCapitulo(true)}
-                className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" /> Agregar capítulo
-              </button>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setMostrarModalTitulo(true)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Agregar título
+                </button>
+                <button
+                  onClick={() => setMostrarModalCapitulo(true)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Agregar capítulo
+                </button>
+              </div>
             )}
           </div>
 
@@ -3656,55 +4215,62 @@ export default function ProyectoPage() {
             <span />
           </div>
 
-          {/* Lista de capítulos */}
-          {capitulos.map((cap, capIdx) => {
-            const expandido = expandidos.has(cap.id);
-            const totalCap = totalCapitulo(cap);
+          {/* Títulos — cada uno agrupa varios capítulos, numerados
+              "N.M" (título N, capítulo M dentro de ese título). Capítulos
+              sin título van planos después, en su propia sección. */}
+          {titulos.map((titulo, tituloIdx) => {
+            const capsDelTitulo = capitulos.filter((c) => c.tituloId === titulo.id);
+            const tituloExpandido = titulosExpandidos.has(titulo.id);
+            const totalTitulo = capsDelTitulo.reduce((acc, c) => acc + totalCapitulo(c), 0);
 
             return (
-              <div key={cap.id} className="border-b border-slate-200 last:border-0">
-
-                {/* Fila del capítulo — antes era un solo <button> (no se puede anidar
-                    el input de nombre ni el botón de borrar dentro de otro botón),
-                    ahora es un <div> con el toggle de expandir/colapsar en el click
-                    del fondo de la fila; el input y el botón de borrar cortan la
-                    propagación para no disparar el toggle al usarlos. */}
+              <div
+                key={titulo.id}
+                className="border-b-2 border-slate-200 last:border-0"
+                style={{ borderLeft: `4px solid ${titulo.color ?? "#2563EB"}` }}
+              >
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => toggleCapituloConSubrubros(cap)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") toggleCapituloConSubrubros(cap);
+                  onClick={() => {
+                    setTitulosExpandidos((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(titulo.id)) next.delete(titulo.id);
+                      else next.add(titulo.id);
+                      return next;
+                    });
                   }}
-                  className="w-full grid items-center px-5 py-3 hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    setTitulosExpandidos((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(titulo.id)) next.delete(titulo.id);
+                      else next.add(titulo.id);
+                      return next;
+                    });
+                  }}
+                  className="w-full grid items-center px-5 py-3 bg-slate-100 hover:bg-slate-200/70 transition-colors text-left group cursor-pointer"
                   style={{ gridTemplateColumns: GRID_CAPITULO }}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: "#2563EB" }}>
-                      {String(capIdx + 1).padStart(2, "0")}
+                    <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: titulo.color ?? "#2563EB" }}>
+                      {tituloIdx + 1}
                     </span>
-                    <input
-                      type="text"
-                      value={cap.nombre}
-                      onChange={(e) => actualizarNombreCapitulo(cap.id, e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      disabled={soloLectura}
-                      className="flex-1 min-w-0 text-sm font-semibold text-[#1A3A5C] bg-transparent truncate focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 disabled:text-slate-400 disabled:cursor-default"
-                    />
-                    {cap.rubros.length > 0 && (
-                      <span className="text-[11px] text-slate-400 flex-shrink-0">
-                        {cap.rubros.length} rubro{cap.rubros.length !== 1 ? "s" : ""}
-                      </span>
-                    )}
+                    <span className="flex-1 min-w-0 text-sm font-bold text-[#1A3A5C] truncate uppercase tracking-wide">
+                      {titulo.nombre}
+                    </span>
+                    <span className="text-[11px] text-slate-400 flex-shrink-0">
+                      {capsDelTitulo.length} capítulo{capsDelTitulo.length !== 1 ? "s" : ""}
+                    </span>
                   </div>
                   <div className="px-2 text-right">
-                    <span className="text-sm font-bold tabular-nums" style={{ color: totalCap > 0 ? "#2563EB" : "#CBD5E1" }}>
-                      {totalCap > 0 ? fmtMoneda(totalCap, moneda) : "—"}
+                    <span className="text-sm font-bold tabular-nums text-[#1A3A5C]">
+                      {totalTitulo > 0 ? fmtMoneda(totalTitulo, moneda) : "—"}
                     </span>
                   </div>
                   <div className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
                     <span className="text-xs font-medium tabular-nums text-slate-400 whitespace-nowrap">
-                      {fmtPct(pctIncidencia(totalCap, totalGeneral))}
+                      {fmtPct(pctIncidencia(totalTitulo, totalGeneral))}
                     </span>
                   </div>
                   <div className="flex items-center justify-center">
@@ -3713,10 +4279,10 @@ export default function ProyectoPage() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          eliminarCapitulo(cap);
+                          eliminarTitulo(titulo);
                         }}
-                        title="Eliminar capítulo"
-                        className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
+                        title="Eliminar título"
+                        className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-400 hover:text-red-500 transition-colors"
                         style={{ width: 20, height: 20 }}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -3724,13 +4290,12 @@ export default function ProyectoPage() {
                     )}
                   </div>
                   <div className="flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
-                    {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    {tituloExpandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </div>
                 </div>
 
-                {/* Panel expandido — rubros */}
                 <AnimatePresence initial={false}>
-                  {expandido && (
+                  {tituloExpandido && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
@@ -3738,321 +4303,22 @@ export default function ProyectoPage() {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="border-t border-slate-100 overflow-x-auto">
-                        <div className="min-w-[800px]">
-
-                        {capituloVacio(cap) ? (
-                          <>
-                            {cap.capituloCatalogoId && !soloLectura && (
-                              <PanelSubrubrosEstandar
-                                subrubros={subrubrosPorCapitulo[cap.id] ?? []}
-                                cargando={cargandoSubrubros}
-                                moneda={moneda}
-                                capituloIdImplantacion={catalogoCapitulosRef.current?.get("Implantación y Replanteo")?.id}
-                                onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
-                                onCerrar={() => setPanelSubrubrosCapId(null)}
-                              />
-                            )}
-                            {!soloLectura && (
-                              <div className="flex items-center pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
-                                <button
-                                  onClick={() => agregarRubro(cap.id)}
-                                  className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                                >
-                                  <Plus className="w-3 h-3" /> Agregar rubro personalizado
-                                </button>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                        <>
-                        {/* Header de columnas — usa GRID_RUBRO, comparte Total/% Incid. con GRID_CAPITULO */}
-                        <div className="grid items-center bg-slate-50 border-b border-slate-200 px-5" style={{ height: 28, gridTemplateColumns: GRID_RUBRO }}>
-                          <div style={stickyIcono("#F8FAFC")} />
-                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider" style={stickyDescripcion("#F8FAFC")}>Descripción</div>
-                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Unidad</div>
-                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
-                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Precio unit.</div>
-                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Total</div>
-                          <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">% Incid.</div>
-                          <div />
-                        </div>
-
-                        {/* Filas */}
-                        <div>
-                          {cap.rubros.map((rubro, rubroIdx) => {
-                            const tieneAPU = !!apuData[rubro.id];
-                            const apuPrecio = tieneAPU ? calcAPU(apuData[rubro.id]).precioFinal : 0;
-                            const materialesSinPrecioRubro = tieneAPU
-                              ? apuData[rubro.id].materiales.filter((m) => m.precioUnit === 0).length
-                              : 0;
-                            const precioDesactualizado = tieneAPU && precioAPUDesincronizado(rubro.precioUnit, apuPrecio);
-                            // Rubro con precio pactado (sobrevivió a un "Entregar") sin
-                            // decisión todavía en esta sesión — cantidad/precioUnit se
-                            // bloquean hasta elegir "actualizar" o "mantener" en el modal.
-                            const decisionPrecio = decisionesPrecioRubro[rubro.id];
-                            const pendienteDecisionPrecio = !soloLectura && rubro.precioCongelado != null && !decisionPrecio;
-
-                            return (
-                              <div
-                                key={rubro.id}
-                                className={cn(
-                                  "group grid items-center hover:bg-blue-50/20 transition-colors px-5",
-                                  rubroIdx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white"
-                                )}
-                                style={{ height: 28, borderBottom: "1px solid #F1F5F9", gridTemplateColumns: GRID_RUBRO }}
-                              >
-                                {/* Botón APU + número */}
-                                <div
-                                  className="flex items-center justify-end gap-1 pr-1"
-                                  style={stickyIcono(rubroIdx % 2 === 1 ? "#F8FAFC" : "#FFFFFF")}
-                                >
-                                  <button
-                                    onClick={() => setDrawerRubroId(rubro.id)}
-                                    title="Abrir descompuesto (APU)"
-                                    className={cn(
-                                      "flex items-center justify-center rounded-[4px] transition-colors",
-                                      drawerRubroId === rubro.id
-                                        ? "text-[#2563EB]"
-                                        : "text-slate-300 hover:text-[#2563EB]"
-                                    )}
-                                    style={{ width: 18, height: 18 }}
-                                  >
-                                    <LayoutList className="w-3 h-3" />
-                                  </button>
-                                  <span className="text-[11px] text-slate-400 tabular-nums w-5 text-right">
-                                    {rubroIdx + 1}
-                                  </span>
-                                </div>
-
-                                {/* Descripción + badge APU */}
-                                <div
-                                  className="px-2 min-w-0 flex items-center gap-1.5"
-                                  style={stickyDescripcion(rubroIdx % 2 === 1 ? "#F8FAFC" : "#FFFFFF")}
-                                >
-                                  <input
-                                    type="text"
-                                    value={descripcionEnFoco === rubro.id ? rubro.descripcion : toTitleCase(rubro.descripcion)}
-                                    onChange={(e) => actualizarRubro(cap.id, rubro.id, "descripcion", e.target.value)}
-                                    onFocus={() => setDescripcionEnFoco(rubro.id)}
-                                    onBlur={() => { setDescripcionEnFoco(null); sugerirAPU(cap.id, rubro.id); }}
-                                    placeholder="Descripción del rubro"
-                                    disabled={soloLectura}
-                                    className="flex-1 min-w-0 text-sm text-slate-700 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default"
-                                  />
-                                  {!soloLectura && rubro.precioCongelado != null && (
-                                    <span
-                                      className="flex-shrink-0"
-                                      title={
-                                        decisionPrecio === "mantener"
-                                          ? "Precio pactado — cantidad libre, precio unitario bloqueado"
-                                          : decisionPrecio === "actualizar"
-                                          ? "Precio actualizado al vigente en esta edición"
-                                          : "Rubro con precio pactado — tocá cantidad o precio unitario para decidir si actualizar"
-                                      }
-                                    >
-                                      <Lock className={cn("w-3 h-3", pendienteDecisionPrecio ? "text-amber-500" : "text-slate-300")} />
-                                    </span>
-                                  )}
-                                  {apuGenerando.has(rubro.id) && (
-                                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Generando APU…" />
-                                  )}
-                                  {!apuGenerando.has(rubro.id) && tieneAPU && apuPrecio > 0 && (
-                                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" title="Precio de referencia — requiere verificación" />
-                                  )}
-                                  {materialesSinPrecioRubro > 0 && (
-                                    <span
-                                      className="flex-shrink-0"
-                                      title={`Precio incompleto — ${materialesSinPrecioRubro} insumo(s) sin costo de referencia`}
-                                    >
-                                      <AlertTriangle className="w-3 h-3 text-amber-500" />
-                                    </span>
-                                  )}
-                                  {precioDesactualizado && !soloLectura && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        aplicarPrecioAPU(rubro.id, apuPrecio, apuData[rubro.id]);
-                                      }}
-                                      title={`APU modificado — precio desactualizado (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(apuPrecio)}). Click para aplicar y sincronizar.`}
-                                      className="flex-shrink-0 hover:opacity-70 transition-opacity"
-                                    >
-                                      <RefreshCw className="w-3 h-3 text-amber-500" />
-                                    </button>
-                                  )}
-                                </div>
-
-                                <div className="px-2">
-                                  {rubro.unidad === "" || UNIDADES_ESTANDAR.includes(normalizarUnidad(rubro.unidad)) ? (
-                                    <select
-                                      value={normalizarUnidad(rubro.unidad)}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        actualizarRubro(cap.id, rubro.id, "unidad", val === "__otra__" ? "" : val);
-                                        sugerirAPU(cap.id, rubro.id);
-                                      }}
-                                      disabled={soloLectura}
-                                      className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center disabled:text-slate-400 disabled:cursor-default"
-                                    >
-                                      <option value="" disabled>—</option>
-                                      {UNIDADES_ESTANDAR.map((u) => (
-                                        <option key={u} value={u}>{u}</option>
-                                      ))}
-                                      <option value="__otra__">Otra…</option>
-                                    </select>
-                                  ) : (
-                                    <input
-                                      type="text"
-                                      value={rubro.unidad}
-                                      onChange={(e) => actualizarRubro(cap.id, rubro.id, "unidad", e.target.value)}
-                                      onBlur={() => sugerirAPU(cap.id, rubro.id)}
-                                      placeholder="m²"
-                                      disabled={soloLectura}
-                                      className="w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-center placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default"
-                                    />
-                                  )}
-                                </div>
-                                <div className="px-2">
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={
-                                      cantidadEnFoco === rubro.id
-                                        ? (rubro.cantidad != null ? String(rubro.cantidad) : "")
-                                        : (rubro.cantidad != null ? fmtRendimiento(rubro.cantidad) : "")
-                                    }
-                                    onChange={(e) => actualizarRubro(cap.id, rubro.id, "cantidad", e.target.value)}
-                                    onFocus={() => setCantidadEnFoco(rubro.id)}
-                                    onBlur={() => setCantidadEnFoco(null)}
-                                    onMouseDown={(e) => {
-                                      if (pendienteDecisionPrecio) {
-                                        e.preventDefault();
-                                        abrirModalPrecioCongelado(cap.id, rubro);
-                                      }
-                                    }}
-                                    placeholder="0"
-                                    disabled={soloLectura}
-                                    readOnly={pendienteDecisionPrecio}
-                                    className={cn(
-                                      "w-full text-sm bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default",
-                                      pendienteDecisionPrecio ? "text-amber-600 cursor-pointer" : "text-slate-600"
-                                    )}
-                                  />
-                                </div>
-                                <div className="px-2">
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={
-                                      precioUnitEnFoco === rubro.id
-                                        ? (rubro.precioUnit != null ? String(Math.round(rubro.precioUnit * 100) / 100) : "")
-                                        : (rubro.precioUnit != null && rubro.precioUnit > 0 ? fmtMon(rubro.precioUnit) : "")
-                                    }
-                                    onChange={(e) => actualizarRubro(cap.id, rubro.id, "precioUnit", e.target.value)}
-                                    onFocus={() => setPrecioUnitEnFoco(rubro.id)}
-                                    onBlur={() => setPrecioUnitEnFoco(null)}
-                                    onMouseDown={(e) => {
-                                      if (pendienteDecisionPrecio) {
-                                        e.preventDefault();
-                                        abrirModalPrecioCongelado(cap.id, rubro);
-                                      }
-                                    }}
-                                    placeholder="0.00"
-                                    disabled={soloLectura || decisionPrecio === "mantener"}
-                                    readOnly={pendienteDecisionPrecio}
-                                    title={decisionPrecio === "mantener" ? "Precio pactado — bloqueado. Elegí \"Actualizar al precio vigente\" para poder editarlo." : undefined}
-                                    className={cn(
-                                      "w-full text-sm bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                                      pendienteDecisionPrecio ? "text-amber-600 cursor-pointer" : "text-slate-600"
-                                    )}
-                                  />
-                                </div>
-                                <div className="px-2 text-right">
-                                  <span className={cn("text-sm font-semibold tabular-nums", totalRubro(rubro) > 0 ? "text-[#2563EB]" : "text-slate-300")}>
-                                    {totalRubro(rubro) > 0 ? fmtMoneda(totalRubro(rubro), moneda) : "—"}
-                                  </span>
-                                </div>
-                                <div className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
-                                  <span className="text-xs font-medium tabular-nums text-slate-400 whitespace-nowrap">
-                                    {fmtPct(pctIncidencia(totalRubro(rubro), totalGeneral))}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-center">
-                                  {!soloLectura && (
-                                    <button
-                                      onClick={() => eliminarRubro(cap.id, rubro.id, rubro.descripcion)}
-                                      title="Eliminar rubro"
-                                      className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
-                                      style={{ width: 20, height: 20 }}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Subtotal — mismo GRID_RUBRO; la etiqueta ocupa las columnas de icono+descripción+unidad+cantidad+precio */}
-                        <div className="grid items-center bg-slate-50 border-t border-slate-200 px-5" style={{ height: 26, gridTemplateColumns: GRID_RUBRO }}>
-                          <div
-                            className="pl-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
-                            style={{ gridColumn: "span 5", ...stickyIcono("#F8FAFC") }}
-                          >
-                            Subtotal {cap.nombre}
-                          </div>
-                          <div className="px-2 text-sm font-bold tabular-nums text-right text-[#2563EB]">
-                            {fmtMoneda(totalCap, moneda)}
-                          </div>
-                          <div className="px-2 text-xs font-bold tabular-nums text-right text-[#2563EB] whitespace-nowrap">
-                            {fmtPct(pctIncidencia(totalCap, totalGeneral))}
-                          </div>
-                          <div />
-                        </div>
-
-                        {/* Botón agregar rubro */}
-                        {!soloLectura && (
-                          <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
-                            {cap.capituloCatalogoId && (
-                              <button
-                                onClick={() => toggleSubrubrosPanel(cap)}
-                                title="Ver subrubros típicos de este capítulo"
-                                className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
-                              >
-                                Subrubros
-                              </button>
-                            )}
-                            <button
-                              onClick={() => agregarRubro(cap.id)}
-                              className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                            >
-                              <Plus className="w-3 h-3" /> Agregar rubro
-                            </button>
-                          </div>
-                        )}
-
-                        {!soloLectura && panelSubrubrosCapId === cap.id && (
-                          <PanelSubrubrosEstandar
-                            subrubros={subrubrosPorCapitulo[cap.id] ?? []}
-                            cargando={cargandoSubrubros}
-                            moneda={moneda}
-                            capituloIdImplantacion={catalogoCapitulosRef.current?.get("Implantación y Replanteo")?.id}
-                            onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
-                            onCerrar={() => setPanelSubrubrosCapId(null)}
-                          />
-                        )}
-                        </>
-                        )}
-                        </div>
-                      </div>
+                      {capsDelTitulo.length === 0 ? (
+                        <p className="px-5 py-3 text-xs text-slate-400">
+                          Sin capítulos todavía — asigná uno desde el selector &quot;Sin título&quot; de cualquier capítulo de abajo.
+                        </p>
+                      ) : (
+                        capsDelTitulo.map((cap, i) => renderFilaCapitulo(cap, `${tituloIdx + 1}.${i + 1}`))
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
             );
           })}
+
+          {/* Capítulos sin título — plano, después de todos los títulos, numerados como siempre */}
+          {capitulos.filter((c) => c.tituloId == null).map((cap, i) => renderFilaCapitulo(cap, String(i + 1).padStart(2, "0")))}
         </div>
 
         {/* ── Total / IVA / Total + IVA — tarjetas separadas ── */}
@@ -4090,6 +4356,17 @@ export default function ProyectoPage() {
               if (!res.ok) throw new Error("No se pudo agregar el capítulo");
               window.location.reload();
             }}
+          />
+        )}
+
+        {mostrarModalTitulo && (
+          <ModalAgregarCapitulo
+            titulo="Agregar título"
+            etiquetaCampo="Nombre del título"
+            placeholder="Ej. Impermeabilización azotea"
+            mensajeError="No se pudo agregar el título. Probá de nuevo."
+            onClose={() => setMostrarModalTitulo(false)}
+            onGuardar={agregarTitulo}
           />
         )}
 

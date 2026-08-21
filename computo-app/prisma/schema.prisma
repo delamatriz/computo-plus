@@ -40,6 +40,7 @@ model Proyecto {
   empresaId   String?
   empresa     Empresa?   @relation(fields: [empresaId], references: [id])
   capitulos   Capitulo[]
+  titulos     Titulo[]
   leyesSociales LeyesSociales?
   certificaciones Certificacion[]
   documentosLlamado DocumentoLlamado[]
@@ -117,6 +118,31 @@ model Capitulo {
   // regresión. Ver FASE2-DISENO-UNIFICACION-TAXONOMIAS.md.
   capituloCatalogoId String?
   capituloCatalogo   CapituloCatalogo? @relation(fields: [capituloCatalogoId], references: [id])
+
+  // Título — capa de agrupación adicional, opcional (Capitulo.proyectoId
+  // arriba se mantiene intacto a propósito: el SQL de "Entregar" y los
+  // guards de solo-lectura de FINALIZADO siguen andando sin tocarlos).
+  // onDelete: SetNull — borrar un Título desagrupa sus capítulos, nunca
+  // los borra a ellos ni a sus rubros/precios.
+  tituloId String?
+  titulo   Titulo? @relation(fields: [tituloId], references: [id], onDelete: SetNull)
+}
+
+// Agrupador opcional de capítulos dentro de un proyecto — un Proyecto
+// puede tener varios Títulos, cada uno con varios Capítulos adentro (no es
+// 1 a 1 con Capítulo). Todo el proyecto se entrega/congela junto (ver
+// "Entregar" en Proyecto) — un Título no tiene estado propio, es puro
+// agrupamiento visual/de export, no una unidad de negocio independiente.
+model Titulo {
+  id         String     @id @default(cuid())
+  nombre     String
+  orden      Int        @default(0)
+  color      String     @default("#2563EB")
+  proyectoId String
+  proyecto   Proyecto   @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  capitulos  Capitulo[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 }
 
 model Rubro {
