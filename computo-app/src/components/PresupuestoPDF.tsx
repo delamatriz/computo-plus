@@ -741,16 +741,22 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
 
   // Un título vacío (sin capítulos asignados) no imprime bloque ni consume
   // numeración — los números de título siempre reflejan lo que realmente
-  // se ve en el PDF, recalculados en cada regeneración.
+  // se ve en el PDF, recalculados en cada regeneración. Todo proyecto
+  // tiene siempre ≥1 título (implícito o explícito, ver POST
+  // /api/proyectos) — con ≤1 con contenido se exporta plano, sin ningún
+  // rastro de título, igual que un proyecto simple de toda la vida; con
+  // 2+ se agrupa (mismo criterio que proyectos/[id]/page.tsx).
   const titulosConCapitulos = proyecto.titulos
     .map((titulo) => ({ titulo, capitulos: proyecto.capitulos.filter((c) => c.tituloId === titulo.id) }))
     .filter((t) => t.capitulos.length > 0);
-  const capitulosSueltos = proyecto.capitulos.filter((c) => c.tituloId == null);
+  const modoMultiTitulo = titulosConCapitulos.length >= 2;
 
-  // Gastos Generales es un bloque más al mismo nivel que un Título o un
-  // capítulo suelto — su código es el próximo número de bloque, sin
-  // importar la mezcla de títulos y capítulos sueltos que haya.
-  const codigoGastosGenerales = String(titulosConCapitulos.length + capitulosSueltos.length + 1).padStart(2, "0");
+  // Gastos Generales es un bloque más al mismo nivel que un Título (modo
+  // agrupado) o que un capítulo (modo plano) — su código es el próximo
+  // número de bloque.
+  const codigoGastosGenerales = String(
+    (modoMultiTitulo ? titulosConCapitulos.length : proyecto.capitulos.length) + 1
+  ).padStart(2, "0");
 
   const datosSubtitulo = [proyecto.cliente, proyecto.tipo, proyecto.direccion]
     .filter(Boolean)
@@ -775,27 +781,30 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
         {datosSubtitulo ? <Text style={styles.subtitulo}>{datosSubtitulo}</Text> : null}
         <View style={styles.separador} />
 
-        {/* Cuerpo — títulos (con sus capítulos anidados, numerados N.M) seguidos
-            de los capítulos sueltos sin título, numerados 01, 02... como siempre */}
-        {titulosConCapitulos.map(({ titulo, capitulos }, tIdx) => (
-          <BloqueTitulo
-            key={titulo.id}
-            titulo={titulo}
-            numero={tIdx + 1}
-            capitulos={capitulos}
-            simbolo={simbolo}
-            subtotalObra={subtotalObra}
-          />
-        ))}
-        {capitulosSueltos.map((cap, i) => (
-          <BloqueCapitulo
-            key={cap.id}
-            capitulo={cap}
-            codigo={String(i + 1).padStart(2, "0")}
-            simbolo={simbolo}
-            subtotalObra={subtotalObra}
-          />
-        ))}
+        {/* Cuerpo — con 2+ títulos con contenido, agrupado (capítulos
+            anidados, numerados N.M); con ≤1, plano: todos los capítulos
+            del proyecto seguidos, numerados 01, 02... sin ningún header
+            de título. */}
+        {modoMultiTitulo
+          ? titulosConCapitulos.map(({ titulo, capitulos }, tIdx) => (
+              <BloqueTitulo
+                key={titulo.id}
+                titulo={titulo}
+                numero={tIdx + 1}
+                capitulos={capitulos}
+                simbolo={simbolo}
+                subtotalObra={subtotalObra}
+              />
+            ))
+          : proyecto.capitulos.map((cap, i) => (
+              <BloqueCapitulo
+                key={cap.id}
+                capitulo={cap}
+                codigo={String(i + 1).padStart(2, "0")}
+                simbolo={simbolo}
+                subtotalObra={subtotalObra}
+              />
+            ))}
 
         {/* Subtotal de obra, antes de sumar Gastos Generales */}
         <View style={styles.bloqueFinal} wrap={false}>

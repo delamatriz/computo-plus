@@ -584,32 +584,36 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
   }
 
   // Un título vacío (sin capítulos con rubros reales) no consume numeración
-  // ni imprime fila — mismo criterio que BloqueTitulo en el PDF. Capítulos
-  // sueltos van al final, después de todos los títulos.
+  // ni imprime fila — mismo criterio que BloqueTitulo en el PDF. Todo
+  // proyecto tiene siempre ≥1 título (implícito o explícito) — con ≤1 con
+  // contenido se exporta plano, sin ningún rastro de título, igual que un
+  // proyecto simple de toda la vida; con 2+ se agrupa (mismo criterio que
+  // la tabla en pantalla, ver modoMultiTitulo más arriba en el componente).
   const titulosConCapitulos = titulos
     .map((titulo) => ({ titulo, caps: capitulosConRubros.filter((c) => c.tituloId === titulo.id) }))
     .filter((t) => t.caps.length > 0);
-  const capitulosSueltos = capitulosConRubros.filter((c) => c.tituloId == null);
 
-  titulosConCapitulos.forEach(({ titulo, caps }, tIdx) => {
-    const numero = tIdx + 1;
-    r = pushRow([`${numero} · ${titulo.nombre}`]);
-    styleRow(r, styTituloGrupo);
-    merges.push({ s: { r, c: 0 }, e: { r, c: NUM_COLS - 1 } });
+  if (titulosConCapitulos.length >= 2) {
+    titulosConCapitulos.forEach(({ titulo, caps }, tIdx) => {
+      const numero = tIdx + 1;
+      r = pushRow([`${numero} · ${titulo.nombre}`]);
+      styleRow(r, styTituloGrupo);
+      merges.push({ s: { r, c: 0 }, e: { r, c: NUM_COLS - 1 } });
 
-    let subtotalTitulo = 0;
-    for (const cap of caps) {
-      subtotalTitulo += emitirCapitulo(cap);
+      let subtotalTitulo = 0;
+      for (const cap of caps) {
+        subtotalTitulo += emitirCapitulo(cap);
+      }
+
+      r = pushRow(["", "", "", "", `SUBTOTAL TÍTULO ${numero} — ${titulo.nombre}`, parseFloat(subtotalTitulo.toFixed(2))]);
+      styleRow(r, stySubtotalTitulo);
+
+      totalGeneral += subtotalTitulo;
+    });
+  } else {
+    for (const cap of capitulosConRubros) {
+      totalGeneral += emitirCapitulo(cap);
     }
-
-    r = pushRow(["", "", "", "", `SUBTOTAL TÍTULO ${numero} — ${titulo.nombre}`, parseFloat(subtotalTitulo.toFixed(2))]);
-    styleRow(r, stySubtotalTitulo);
-
-    totalGeneral += subtotalTitulo;
-  });
-
-  for (const cap of capitulosSueltos) {
-    totalGeneral += emitirCapitulo(cap);
   }
 
   pushRow([]);
