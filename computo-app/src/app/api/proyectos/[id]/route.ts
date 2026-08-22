@@ -107,8 +107,6 @@ export async function PATCH(
         ...(body.garantiaViciosOcultos !== undefined && { garantiaViciosOcultos: body.garantiaViciosOcultos }),
         ...(body.garantiaResponsabilidad !== undefined && { garantiaResponsabilidad: body.garantiaResponsabilidad }),
         ...(body.generandoRubros !== undefined && { generandoRubros: body.generandoRubros }),
-        ...(body.requierePlanSeguridad !== undefined && { requierePlanSeguridad: !!body.requierePlanSeguridad }),
-        ...(body.modalidadAltura !== undefined && { modalidadAltura: body.modalidadAltura || null }),
         ...(body.incluyeIVA  !== undefined && { incluyeIVA: !!body.incluyeIVA }),
         ...(body.timbresCJP  !== undefined && { timbresCJP: parseFloat(body.timbresCJP) || 0 }),
         ...(body.gastosGeneralesItems !== undefined && { gastosGeneralesItems: body.gastosGeneralesItems }),

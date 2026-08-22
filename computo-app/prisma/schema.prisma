@@ -51,8 +51,6 @@ model Proyecto {
   indiceBaseValor    Float?
   ultimaActualizacionIndice DateTime?
   generandoRubros    Boolean    @default(false)
-  requierePlanSeguridad Boolean @default(false)
-  modalidadAltura    String?    // "andamios" | "balancin" | "silleta" | "combinacion" | "grua" — pueden combinarse separados por coma
   incluyeIVA            Boolean   @default(false)
   timbresCJP            Float     @default(0)
   gastosGeneralesItems  Json?     // [{ id: string, descripcion: string, monto: number }]
@@ -119,20 +117,28 @@ model Capitulo {
   capituloCatalogoId String?
   capituloCatalogo   CapituloCatalogo? @relation(fields: [capituloCatalogoId], references: [id])
 
-  // Título — capa de agrupación adicional, opcional (Capitulo.proyectoId
-  // arriba se mantiene intacto a propósito: el SQL de "Entregar" y los
-  // guards de solo-lectura de FINALIZADO siguen andando sin tocarlos).
-  // onDelete: SetNull — borrar un Título desagrupa sus capítulos, nunca
-  // los borra a ellos ni a sus rubros/precios.
-  tituloId String?
-  titulo   Titulo? @relation(fields: [tituloId], references: [id], onDelete: SetNull)
+  // Título — todo capítulo pertenece siempre a exactamente un título (ver
+  // model Titulo). Capitulo.proyectoId arriba se mantiene intacto a
+  // propósito: el SQL de "Entregar" y los guards de solo-lectura de
+  // FINALIZADO siguen andando sin tocarlos. Sin onDelete explícito a
+  // propósito — Postgres rechaza el DELETE de un Titulo mientras tenga
+  // Capitulos apuntándole (RESTRICT implícito). La app SIEMPRE reasigna
+  // los capítulos a otro título ANTES de borrar uno (ver DELETE
+  // /api/titulos/[id]) — esto es la red de seguridad si esa lógica
+  // alguna vez tuviera un bug: la base rechaza el borrado en vez de
+  // perder el vínculo en silencio.
+  tituloId String
+  titulo   Titulo @relation(fields: [tituloId], references: [id])
 }
 
-// Agrupador opcional de capítulos dentro de un proyecto — un Proyecto
-// puede tener varios Títulos, cada uno con varios Capítulos adentro (no es
-// 1 a 1 con Capítulo). Todo el proyecto se entrega/congela junto (ver
-// "Entregar" en Proyecto) — un Título no tiene estado propio, es puro
-// agrupamiento visual/de export, no una unidad de negocio independiente.
+// Agrupador de capítulos dentro de un proyecto — un Proyecto tiene SIEMPRE
+// al menos un Título (puede ser uno implícito, creado automáticamente con
+// el nombre del proyecto si el usuario nunca usó "Agregar título" — ver
+// POST /api/proyectos). Un Proyecto puede tener varios Títulos, cada uno
+// con varios Capítulos adentro (no es 1 a 1 con Capítulo). Todo el
+// proyecto se entrega/congela junto (ver "Entregar" en Proyecto) — un
+// Título no tiene estado propio, es puro agrupamiento visual/de export,
+// no una unidad de negocio independiente.
 model Titulo {
   id         String     @id @default(cuid())
   nombre     String
@@ -141,12 +147,10 @@ model Titulo {
   proyectoId String
   proyecto   Proyecto   @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
   capitulos  Capitulo[]
-  // Mismo par de campos que Proyecto.requierePlanSeguridad/modalidadAltura,
-  // ahora también por título — un título puede necesitar trabajo en altura
-  // y otro no. El de Proyecto se mantiene intacto para capítulos sueltos y
-  // proyectos sin títulos (ver lib/seguridadAltura.ts).
+  // "Este título necesita Plan y Estudio de Seguridad (MTOP)" — sin
+  // modalidad/maquinaria acá (eso vive en el Equipo del APU de cada rubro
+  // puntual, ver lib/seguridadAltura.ts).
   requierePlanSeguridad Boolean @default(false)
-  modalidadAltura       String?
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 }

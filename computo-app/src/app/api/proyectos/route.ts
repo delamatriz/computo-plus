@@ -31,8 +31,6 @@ export async function POST(req: NextRequest) {
       fechaInicio,
       plazoObra,
       diasLaborales,
-      requierePlanSeguridad,
-      modalidadAltura,
       capitulos,
       titulos,
     } = body;
@@ -68,9 +66,8 @@ export async function POST(req: NextRequest) {
       }))
     );
 
-    // titulos es opcional y retrocompatible — un asistente que nunca
-    // manda este campo (o lo manda vacío) crea el proyecto exactamente
-    // igual que antes del feature de Título.
+    // titulos es opcional — un asistente que nunca manda este campo (o lo
+    // manda vacío) deja que se sintetice el título implícito más abajo.
     const titulosConCatalogo = await Promise.all(
       (titulos ?? []).map(
         async (
@@ -79,7 +76,6 @@ export async function POST(req: NextRequest) {
             color?: string;
             orden?: number;
             requierePlanSeguridad?: boolean;
-            modalidadAltura?: string | null;
             capitulos: CapituloEntrada[];
           },
           tIdx: number
@@ -88,7 +84,6 @@ export async function POST(req: NextRequest) {
           color: tit.color || "#2563EB",
           orden: tit.orden ?? tIdx + 1,
           requierePlanSeguridad: !!tit.requierePlanSeguridad,
-          modalidadAltura: tit.modalidadAltura || null,
           capitulos: await Promise.all(
             (tit.capitulos ?? []).map(async (cap: CapituloEntrada, i: number) => ({
               nombre: cap.nombre,
@@ -102,11 +97,23 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    // Proyecto + capítulos sueltos se crean de una (nested write, igual
-    // que siempre); los títulos van aparte porque Prisma no permite que un
-    // nested write de un lado (capitulos) referencie el id de otro nested
-    // write hermano (titulos) creado en la misma llamada — por eso hace
-    // falta $transaction en vez de un único proyecto.create().
+    // Todo proyecto tiene siempre al menos un Título — Capitulo.tituloId
+    // es obligatorio. Si el asistente no mandó títulos explícitos, los
+    // capítulos "sueltos" del body se envuelven en un título implícito con
+    // el nombre del proyecto (el caso simple de siempre, sin fricción). Si
+    // SÍ hay títulos explícitos y además hay capítulos sueltos, ambos
+    // conviven: el implícito se agrega al final.
+    const titulosAcrear = [...titulosConCatalogo];
+    if (titulosConCatalogo.length === 0 || capitulosConCatalogo.length > 0) {
+      titulosAcrear.push({
+        nombre,
+        color: "#2563EB",
+        orden: titulosConCatalogo.length + 1,
+        requierePlanSeguridad: false,
+        capitulos: capitulosConCatalogo,
+      });
+    }
+
     const proyecto = await db.$transaction(async (tx) => {
       const creado = await tx.proyecto.create({
         data: {
@@ -122,24 +129,18 @@ export async function POST(req: NextRequest) {
           fechaInicio: fechaInicio ? new Date(fechaInicio) : new Date(),
           plazoObra: plazoObra ? parseInt(plazoObra) : null,
           diasLaborales: diasLaborales ? parseInt(diasLaborales) : null,
-          requierePlanSeguridad: !!requierePlanSeguridad,
-          modalidadAltura: modalidadAltura || null,
           estado: "EN_CURSO",
           empresaId: empresa.id,
-          capitulos: {
-            create: capitulosConCatalogo,
-          },
         },
       });
 
-      for (const tit of titulosConCatalogo) {
+      for (const tit of titulosAcrear) {
         const tituloCreado = await tx.titulo.create({
           data: {
             nombre: tit.nombre,
             color: tit.color,
             orden: tit.orden,
             requierePlanSeguridad: tit.requierePlanSeguridad,
-            modalidadAltura: tit.modalidadAltura,
             proyectoId: creado.id,
           },
         });

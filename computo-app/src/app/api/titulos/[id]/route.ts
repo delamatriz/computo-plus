@@ -4,9 +4,9 @@ import { db } from "@/lib/db";
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
 
-// Hoy solo edita requierePlanSeguridad/modalidadAltura (ver pantalla
-// "Editar" de un proyecto existente) — nombre/color de un título todavía
-// no son editables desde ningún lado, no se agregan acá sin necesidad.
+// Hoy solo edita requierePlanSeguridad (ver pantalla "Editar" de un
+// proyecto existente) — nombre/color de un título todavía no son
+// editables desde ningún lado, no se agregan acá sin necesidad.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -33,7 +33,6 @@ export async function PATCH(
       where: { id },
       data: {
         ...("requierePlanSeguridad" in body && { requierePlanSeguridad: !!body.requierePlanSeguridad }),
-        ...("modalidadAltura" in body && { modalidadAltura: body.modalidadAltura || null }),
       },
     });
 
@@ -44,9 +43,12 @@ export async function PATCH(
   }
 }
 
-// Borrar un título nunca borra sus capítulos — onDelete: SetNull en
-// Capitulo.tituloId (ver schema.prisma) los desagrupa automáticamente a
-// nivel de base de datos, sin tocar rubros/precios.
+// Todo proyecto tiene siempre al menos un Título (Capitulo.tituloId es
+// obligatorio, sin onDelete — Postgres rechaza el delete mientras haya
+// Capitulos apuntando al título). Por eso: se rechaza borrar el último
+// título de un proyecto, y antes de borrar cualquier otro se reasignan
+// sus capítulos al título de menor orden que quede, dentro de una
+// transacción — la base nunca queda con un capítulo sin título.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -56,7 +58,10 @@ export async function DELETE(
 
     const titulo = await db.titulo.findUnique({
       where: { id },
-      select: { proyecto: { select: { estado: true } } },
+      select: {
+        proyectoId: true,
+        proyecto: { select: { estado: true } },
+      },
     });
 
     if (!titulo) {
@@ -67,7 +72,29 @@ export async function DELETE(
       return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });
     }
 
-    await db.titulo.delete({ where: { id } });
+    const otrosTitulos = await db.titulo.findMany({
+      where: { proyectoId: titulo.proyectoId, id: { not: id } },
+      orderBy: { orden: "asc" },
+      select: { id: true },
+    });
+
+    if (otrosTitulos.length === 0) {
+      return NextResponse.json(
+        { error: "ultimo_titulo", mensaje: "No podés eliminar el único título del proyecto — todo proyecto necesita al menos uno." },
+        { status: 400 }
+      );
+    }
+
+    const tituloDestino = otrosTitulos[0];
+
+    await db.$transaction([
+      db.capitulo.updateMany({
+        where: { tituloId: id },
+        data: { tituloId: tituloDestino.id },
+      }),
+      db.titulo.delete({ where: { id } }),
+    ]);
+
     return new NextResponse(null, { status: 204 });
   } catch (err) {
     console.error("[DELETE /api/titulos/[id]]", err);

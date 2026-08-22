@@ -2,30 +2,20 @@ import { db } from "@/lib/db";
 
 const NOMBRE_CAPITULO = "Seguridad y Trabajos en Altura";
 
-function descripcionesPara(modalidadAltura: string | null): string[] {
-  const modalidades = (modalidadAltura ?? "").split(",").map((m) => m.trim());
-  const tiene = (m: string) => modalidades.includes(m);
+// Rubros fijos, sin modalidad — la maquinaria puntual (andamios, grúa,
+// balancín, silleta) se carga en el Equipo del APU de cada rubro que la
+// use, no acá. Este capítulo es solo la documentación/administrativo del
+// Plan y Estudio de Seguridad.
+const DESCRIPCIONES_FIJAS = [
+  "Estudio y plan de seguridad",
+  "Memoria de instalación eléctrica de obra",
+  "Señalización y vallado perimetral de obra",
+];
 
-  return [
-    "Estudio y plan de seguridad",
-    ...(tiene("andamios") || tiene("combinacion") ? ["Memoria descriptiva de andamios"] : []),
-    "Memoria de instalación eléctrica de obra",
-    "Señalización y vallado perimetral de obra",
-    ...(tiene("andamios") || tiene("combinacion") ? ["Alquiler y montaje de andamio tubular"] : []),
-    ...(tiene("balancin") ? ["Alquiler de balancín con operario calificado"] : []),
-    ...(tiene("silleta") ? ["Trabajo en silleta — operario especializado"] : []),
-    ...(tiene("grua") ? ["Alquiler de grúa torre con maquinista"] : []),
-  ];
-}
-
-/* ─── Crea el capítulo de seguridad y sus rubros predefinidos según la
-   modalidad de trabajo en altura declarada — a nivel de proyecto (para
-   capítulos sueltos) Y a nivel de cada título que lo tenga marcado (con su
-   propia modalidad, ver Titulo.requierePlanSeguridad/modalidadAltura).
-   Pensada para ejecutarse luego de crear/editar el proyecto. Es idempotente
-   en cada bucket por separado: el capítulo suelto no bloquea ni es
-   bloqueado por el de un título, y un título ya generado no afecta a los
-   demás. ── */
+/* ─── Crea el capítulo de seguridad y sus rubros fijos para cada Título
+   del proyecto que tenga requierePlanSeguridad=true. Idempotente por
+   título: uno ya generado no bloquea ni afecta a los demás. Pensada para
+   ejecutarse luego de crear/editar el proyecto. ── */
 export async function generarCapituloSeguridad(proyectoId: string): Promise<void> {
   const proyecto = await db.proyecto.findUnique({
     where: { id: proyectoId },
@@ -35,7 +25,7 @@ export async function generarCapituloSeguridad(proyectoId: string): Promise<void
   if (!proyecto) return;
 
   const titulosQueNecesitan = proyecto.titulos.filter((t) => t.requierePlanSeguridad);
-  if (!proyecto.requierePlanSeguridad && titulosQueNecesitan.length === 0) return;
+  if (titulosQueNecesitan.length === 0) return;
 
   // Fase 2, Etapa 7 — "Seguridad y Trabajos en Altura" no tiene biblioteca
   // propia (sus rubros siempre se arman a mano acá abajo), pero SÍ tiene
@@ -59,26 +49,29 @@ export async function generarCapituloSeguridad(proyectoId: string): Promise<void
     );
 
   // Contador de orden compartido entre todos los capítulos que se creen en
-  // esta misma llamada (el suelto + uno por título) — arranca del máximo
-  // existente, igual que el POST de "Agregar capítulo", e incrementa uno
-  // por uno para que nunca se pisen entre sí.
+  // esta misma llamada (uno por título) — arranca del máximo existente,
+  // igual que el POST de "Agregar capítulo", e incrementa uno por uno para
+  // que nunca se pisen entre sí.
   let orden = proyecto.capitulos.length > 0
     ? Math.max(...proyecto.capitulos.map((c) => c.orden)) + 1
     : 1;
 
-  async function crear(tituloId: string | null, modalidadAltura: string | null) {
+  for (const titulo of titulosQueNecesitan) {
+    const capitulosDelTitulo = proyecto.capitulos.filter((c) => c.tituloId === titulo.id);
+    if (yaExisteEn(capitulosDelTitulo)) continue;
+
     const miOrden = orden++;
     await db.capitulo.create({
       data: {
         proyectoId,
-        tituloId,
+        tituloId: titulo.id,
         nombre: NOMBRE_CAPITULO,
         codigo: String(miOrden).padStart(2, "0"),
         color: "#DC2626",
         orden: miOrden,
         capituloCatalogoId: capituloCatalogo?.id,
         rubros: {
-          create: descripcionesPara(modalidadAltura).map((descripcion, i) => ({
+          create: DESCRIPCIONES_FIJAS.map((descripcion, i) => ({
             codigo: `R${String(i + 1).padStart(3, "0")}`,
             descripcion,
             unidad: "gl",
@@ -88,19 +81,5 @@ export async function generarCapituloSeguridad(proyectoId: string): Promise<void
         },
       },
     });
-  }
-
-  if (proyecto.requierePlanSeguridad) {
-    const capitulosSueltos = proyecto.capitulos.filter((c) => c.tituloId == null);
-    if (!yaExisteEn(capitulosSueltos)) {
-      await crear(null, proyecto.modalidadAltura);
-    }
-  }
-
-  for (const titulo of titulosQueNecesitan) {
-    const capitulosDelTitulo = proyecto.capitulos.filter((c) => c.tituloId === titulo.id);
-    if (!yaExisteEn(capitulosDelTitulo)) {
-      await crear(titulo.id, titulo.modalidadAltura);
-    }
   }
 }
