@@ -322,7 +322,10 @@ function NuevoProyectoContent() {
           capitulos: capitulosBody,
         }),
       });
-      if (!res.ok) throw new Error("No se pudo crear el proyecto");
+      if (!res.ok) {
+        const detalle = await res.json().catch(() => null);
+        throw new Error(`No se pudo crear el proyecto (status ${res.status}): ${detalle?.error ?? detalle?.mensaje ?? "sin detalle"}`);
+      }
       const proyecto = await res.json();
 
       // Si viene del flujo de Cálculo Rápido, usar el desglose de montos
@@ -361,7 +364,13 @@ function NuevoProyectoContent() {
       }
 
       router.push(`/proyectos/${proyecto.id}`);
-    } catch {
+    } catch (err) {
+      // El mensaje al usuario queda genérico a propósito (no tiene sentido
+      // mostrarle un stack de Prisma), pero antes esto se tragaba el error
+      // real del todo — sin loguearlo no había forma de distinguir un fallo
+      // de payload de una caída transitoria de conexión a la base (ver
+      // P1017 "Server has closed the connection", intermitente en Render).
+      console.error("[proyectos/nuevo] handleGuardar", err);
       setErrorGuardar("No se pudo crear el proyecto. Intentá de nuevo.");
       setGuardando(false);
     }

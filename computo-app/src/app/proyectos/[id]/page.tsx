@@ -687,6 +687,39 @@ function guardarEnBibliotecaGlobal(descripcion: string, unidad: string, capitulo
   }).catch((err) => console.error("[guardarEnBibliotecaGlobal]", err));
 }
 
+/** fetch con un timeout propio — Render (Postgres) a veces tarda una
+ * conexión bastante más de lo normal (ver P1017 "Server has closed the
+ * connection", intermitente, no relacionado al tamaño del payload). Un
+ * timeout corto solo servía para mostrarle al usuario un falso "no se
+ * pudo cargar" cuando el servidor iba a terminar respondiendo bien igual. */
+async function fetchConTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Un timeout acá no significa que el servidor no vaya a terminar — se
+ * reintenta una vez (silencioso) antes de rendirse, en vez de castigar
+ * al usuario con un error cuando el dato ya está bien creado del otro
+ * lado (caso real: redirect post-creación desde el wizard, cargar()
+ * pisándose con generar-rubros/generar-seguridad-altura recién
+ * disparados contra la misma conexión lenta). Errores que NO son de
+ * timeout (404, 500 real, etc.) no se reintentan. */
+async function fetchConReintentoSiTimeout(url: string, timeoutMs: number): Promise<Response> {
+  try {
+    return await fetchConTimeout(url, timeoutMs);
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return await fetchConTimeout(url, timeoutMs);
+    }
+    throw err;
+  }
+}
+
 function fmtMoneda(v: number, moneda: string): string {
   if (v === 0) return "—";
   const fmt = Math.round(v).toLocaleString("es-UY");
@@ -2483,14 +2516,7 @@ export default function ProyectoPage() {
   // ─── Carga inicial desde la DB ─────────────────────────────
   const cargar = useCallback(async () => {
     try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 10_000);
-      let res: Response;
-      try {
-        res = await fetch(`/api/proyectos/${proyectoId}`, { signal: ctrl.signal });
-      } finally {
-        clearTimeout(timer);
-      }
+      const res = await fetchConReintentoSiTimeout(`/api/proyectos/${proyectoId}`, 20_000);
       if (!res.ok) throw new Error(`Error ${res.status} al cargar el proyecto`);
       const data = await res.json();
 
