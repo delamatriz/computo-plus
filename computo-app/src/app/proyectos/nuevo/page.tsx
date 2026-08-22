@@ -43,6 +43,13 @@ interface FormData {
   // título", este es el único bucket y el comportamiento es idéntico al
   // de antes del Punto 2.
   capitulos: Capitulo[];
+  // true mientras el contenido de `capitulos` sea el que puso la precarga
+  // automática (sin intervención del usuario) — pasa a false apenas el
+  // usuario toca algo a mano ahí (switch, IA, agregar/borrar/renombrar).
+  // Se usa en la transición paso 2 → 3 para decidir si hay que vaciar
+  // "Sin título" al agregar títulos, sin pisar una elección real del
+  // usuario si ya la hizo.
+  sinTituloEsAutomatico: boolean;
   titulos: TituloWizard[];
   fotos: FotoProyecto[];
   documentos: File[];
@@ -151,6 +158,7 @@ function NuevoProyectoContent() {
     diasLaborales: "",
     descripcion: "",
     capitulos: [],
+    sinTituloEsAutomatico: true,
     titulos: [],
     fotos: [],
     documentos: [],
@@ -238,15 +246,19 @@ function NuevoProyectoContent() {
     set("tipoContratacion", tipoContratacion);
   };
 
-  // Reemplaza los capítulos por la lista estándar completa (20 capítulos base)
-  const cargarSugeridos = () => {
+  // Lista estándar completa (20 capítulos base) como array de Capitulo —
+  // `activo` configurable: true para "Sin título" cuando no hay ningún
+  // título (mismo comportamiento de siempre, todo prendido); false para
+  // un título recién creado (arranca todo apagado, el usuario prende con
+  // el switch los que le sirven — ver transición paso 2 → 3 más abajo).
+  const listaCatalogo = (activo: boolean): Capitulo[] => {
     const base = capitulosEstandar.filter((c) => c.origen === "estandar");
-    set("capitulos", base.map((c, i) => ({
+    return base.map((c, i) => ({
       id: `est-${c.id}`,
       nombre: c.nombre,
       color: COLORES_CAPITULOS[c.nombre] ?? COLORS[i % COLORS.length],
-      activo: true,
-    })));
+      activo,
+    }));
   };
 
   const toggleModalidadAltura = (id: string) => {
@@ -848,47 +860,72 @@ function NuevoProyectoContent() {
                   </Field>
                 )}
               </div>
+
+              {/* Títulos — agrupador opcional de capítulos. Solo nombre acá;
+                  la selección de capítulos de cada uno se hace en el paso
+                  siguiente (ver SelectorCapitulosEstandar por título). */}
+              <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-3 shadow-sm">
+                <div>
+                  <h3 className="text-sm font-bold text-[#1A3A5C]">Títulos</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Agrupá el presupuesto en títulos si la obra tiene varios frentes de trabajo independientes. Opcional.
+                  </p>
+                </div>
+
+                {form.titulos.length > 0 && (
+                  <div className="space-y-1.5">
+                    {form.titulos.map((titulo) => (
+                      <div key={titulo.id} className="flex items-center gap-2.5 px-3 py-2 rounded-[10px] border border-slate-200 bg-slate-50">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: titulo.color }} />
+                        <input
+                          type="text"
+                          value={titulo.nombre}
+                          onChange={(e) => renombrarTituloWizard(titulo.id, e.target.value)}
+                          placeholder="Nombre del título"
+                          autoFocus={!titulo.nombre}
+                          className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                        />
+                        <button
+                          onClick={() => eliminarTituloWizard(titulo.id)}
+                          className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  onClick={agregarTituloWizard}
+                  className="flex items-center gap-2 w-full px-3 py-2.5 rounded-[10px] border border-dashed border-slate-300 text-sm text-slate-400 hover:text-slate-600 hover:border-slate-400 transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  Agregar título
+                </button>
+              </div>
             </div>
           )}
 
           {/* ── PASO 3: Capítulos ────────────────────────── */}
           {paso === 3 && (
             <div className="space-y-5">
-              <div className="mb-1 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-[#1A3A5C]">Capítulos de la obra</h2>
-                  <p className="text-sm text-slate-400">Organizá el presupuesto en capítulos. Podés modificarlos después.</p>
-                </div>
-                <button
-                  onClick={agregarTituloWizard}
-                  className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors flex-shrink-0 pt-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Agregar título
-                </button>
+              <div className="mb-1">
+                <h2 className="text-lg font-bold text-[#1A3A5C]">Capítulos de la obra</h2>
+                <p className="text-sm text-slate-400">Organizá el presupuesto en capítulos. Podés modificarlos después.</p>
               </div>
 
-              {/* Un título por tarjeta, cada uno con su propio selector
-                  (mismo componente que la sección "sin título" de abajo,
-                  scopeado a form.titulos[i].capitulos en vez de
-                  form.capitulos) — nombres repetidos entre títulos son
-                  válidos a propósito. */}
+              {/* Un bloque por título ya nombrado en "Detalles" — el nombre
+                  es fijo acá (se edita en el paso anterior, no acá) y
+                  arranca con el catálogo completo apagado (ver transición
+                  2 → 3), así la interacción es 100% switches, igual que
+                  "Sin título". Nombres repetidos entre títulos son
+                  válidos a propósito (ver Planilla de Cómputo). */}
               {form.titulos.map((titulo) => (
                 <div key={titulo.id} className="rounded-[16px] border-2 overflow-hidden" style={{ borderColor: titulo.color }}>
-                  <div className="flex items-center gap-3 px-4 py-3" style={{ background: `${titulo.color}14` }}>
-                    <input
-                      type="text"
-                      value={titulo.nombre}
-                      onChange={(e) => renombrarTituloWizard(titulo.id, e.target.value)}
-                      placeholder="Nombre del título"
-                      autoFocus={!titulo.nombre}
-                      className="flex-1 bg-transparent text-sm font-bold text-[#1A3A5C] placeholder:text-slate-400 focus:outline-none"
-                    />
-                    <button
-                      onClick={() => eliminarTituloWizard(titulo.id)}
-                      className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="flex items-center gap-2.5 px-4 py-3" style={{ background: `${titulo.color}14` }}>
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: titulo.color }} />
+                    <span className="text-sm font-bold text-[#1A3A5C]">{titulo.nombre || "Sin nombre"}</span>
                   </div>
                   <div className="p-4 bg-white">
                     <SelectorCapitulosEstandar
@@ -908,7 +945,13 @@ function NuevoProyectoContent() {
 
               <SelectorCapitulosEstandar
                 capitulos={form.capitulos}
-                onConfirmar={(c) => set("capitulos", c)}
+                onConfirmar={(c) => {
+                  set("capitulos", c);
+                  // Cualquier interacción real del usuario acá (switch, IA,
+                  // agregar/borrar/renombrar) deja de ser "automática" —
+                  // ver transición 2 → 3, que respeta esto y no la pisa.
+                  set("sinTituloEsAutomatico", false);
+                }}
                 tipoObra={form.tipo}
                 descripcionTrabajos={form.trabajos}
                 fotos={form.fotos}
@@ -1042,7 +1085,27 @@ function NuevoProyectoContent() {
         {paso < 4 ? (
           <button
             onClick={() => {
-              if (paso === 1 && form.capitulos.length === 0) cargarSugeridos();
+              // Transición 2 → 3: acá (no antes) ya sabemos si el usuario
+              // agregó títulos en el paso "Detalles", así que es el
+              // momento correcto para decidir qué le toca a "Sin título".
+              // Se re-evalúa CADA VEZ que se cruza esta transición (no
+              // solo la primera), para que ir y volver entre pasos nunca
+              // deje "Sin título" con la precarga automática puesta si en
+              // algún momento se usaron títulos.
+              if (paso === 2) {
+                const hayTitulos = form.titulos.length > 0;
+                if (hayTitulos) {
+                  if (form.sinTituloEsAutomatico) set("capitulos", []);
+                } else if (form.capitulos.length === 0) {
+                  set("capitulos", listaCatalogo(true));
+                  set("sinTituloEsAutomatico", true);
+                }
+                // Títulos que todavía no tienen selección propia arrancan
+                // con el catálogo completo, todo apagado.
+                set("titulos", form.titulos.map((t) =>
+                  t.capitulos.length === 0 ? { ...t, capitulos: listaCatalogo(false) } : t
+                ));
+              }
               setPaso((p) => p + 1);
             }}
             disabled={!puedeAvanzar()}
