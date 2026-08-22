@@ -114,8 +114,9 @@ interface Capitulo {
   // de /api/proyectos/[id] hoy (Prisma incluye todos los escalares), solo
   // faltaba declararlo acá para poder leerlo.
   capituloCatalogoId?: string | null;
-  // Título — agrupador opcional (ver model Titulo en schema.prisma). null
-  // = capítulo suelto, se muestra plano después de todos los títulos.
+  // Título al que pertenece — todo capítulo tiene siempre uno (ver model
+  // Titulo en schema.prisma). Opcional/nullable acá solo por el tipado
+  // laxo del fetch inicial, nunca es null en la práctica.
   tituloId?: string | null;
 }
 
@@ -2724,6 +2725,15 @@ export default function ProyectoPage() {
   // guards reales en las rutas PATCH/DELETE/POST de rubros y capítulos).
   const soloLectura = proyectoActivo.estado === "FINALIZADO";
   const totalGeneral = capitulos.reduce((s, c) => s + totalCapitulo(c), 0);
+  // Todo proyecto tiene siempre ≥1 Título (implícito o explícito, ver
+  // POST /api/proyectos) — un título sin ningún capítulo no cuenta para
+  // esta decisión, mismo criterio que ya usan el PDF/Excel/Planilla de
+  // Cómputo. Con ≤1 título con contenido, la vista se muestra plana (sin
+  // header de título, numeración 01/02) — el caso simple de siempre, sin
+  // ningún rastro de que por debajo exista un Titulo. Con 2+, se agrupa
+  // por título (N · Nombre, numeración N.M).
+  const titulosConContenido = titulos.filter((t) => capitulos.some((c) => c.tituloId === t.id));
+  const modoMultiTitulo = titulosConContenido.length >= 2;
   const capitulosConSubtotal = capitulos.map((c) => ({
     id: c.id,
     nombre: c.nombre,
@@ -3449,30 +3459,38 @@ export default function ProyectoPage() {
     setTitulosExpandidos((prev) => new Set(prev).add(nuevo.id));
   }, [proyectoId]);
 
-  // Borrar un título nunca borra capítulos — SetNull en el schema los
-  // desagrupa (vuelven a tituloId=null, plano) sin tocar rubros/precios.
-  // Igual actualizamos capitulos localmente para reflejar eso al toque,
-  // sin esperar un refetch.
+  // Borrar un título nunca borra capítulos — el servidor los reasigna al
+  // título de menor orden que quede en el proyecto, dentro de una
+  // transacción (ver DELETE /api/titulos/[id]). Todo proyecto necesita
+  // siempre ≥1 título, así que borrar el único que queda se rechaza — no
+  // debería poder pasar desde acá (con ≤1 título la vista es plana y no
+  // se muestra ningún botón de borrar título), pero se maneja el 400 por
+  // las dudas. Se refetchea en vez de adivinar la reasignación en
+  // cliente, para no arriesgar un estado local inconsistente.
   const eliminarTitulo = useCallback(async (titulo: Titulo) => {
     const capsDelTitulo = capitulosRef.current.filter((c) => c.tituloId === titulo.id);
     const ok = window.confirm(
       capsDelTitulo.length > 0
-        ? `¿Eliminar el título "${titulo.nombre}"? Sus ${capsDelTitulo.length} capítulo${capsDelTitulo.length !== 1 ? "s" : ""} no se borra${capsDelTitulo.length !== 1 ? "n" : ""} — quedan sueltos, sin título.`
+        ? `¿Eliminar el título "${titulo.nombre}"? Sus ${capsDelTitulo.length} capítulo${capsDelTitulo.length !== 1 ? "s" : ""} no se borra${capsDelTitulo.length !== 1 ? "n" : ""} — pasa${capsDelTitulo.length !== 1 ? "n" : ""} a otro título del proyecto.`
         : `¿Eliminar el título "${titulo.nombre}"?`
     );
     if (!ok) return;
 
     try {
       const res = await fetch(`/api/titulos/${titulo.id}`, { method: "DELETE" });
+      if (res.status === 400) {
+        const data = await res.json();
+        window.alert(data.mensaje ?? "No se puede eliminar este título.");
+        return;
+      }
       if (!res.ok) throw new Error(`status ${res.status}`);
-      setTitulos((prev) => prev.filter((t) => t.id !== titulo.id));
-      setCapitulos((prev) => prev.map((c) => (c.tituloId === titulo.id ? { ...c, tituloId: null } : c)));
+      await cargar();
     } catch (err) {
       console.error("[eliminarTitulo]", err);
     }
-  }, []);
+  }, [cargar]);
 
-  const asignarCapituloATitulo = useCallback(async (capId: string, tituloId: string | null) => {
+  const asignarCapituloATitulo = useCallback(async (capId: string, tituloId: string) => {
     setCapitulos((prev) => prev.map((c) => (c.id === capId ? { ...c, tituloId } : c)));
     try {
       const res = await fetch(`/api/capitulos/${capId}`, {
@@ -3667,15 +3685,19 @@ export default function ProyectoPage() {
                 {cap.rubros.length} rubro{cap.rubros.length !== 1 ? "s" : ""}
               </span>
             )}
-            {!soloLectura && titulos.length > 0 && (
+            {/* Solo con 2+ títulos con contenido — con ≤1 la vista es
+                plana y no tiene sentido ofrecer "mover a otro título"
+                (no hay otro visible). Todo capítulo tiene siempre un
+                título real (ver schema.prisma), así que ya no existe
+                "Sin título" como destino. */}
+            {!soloLectura && modoMultiTitulo && (
               <select
                 value={cap.tituloId ?? ""}
-                onChange={(e) => asignarCapituloATitulo(cap.id, e.target.value || null)}
+                onChange={(e) => asignarCapituloATitulo(cap.id, e.target.value)}
                 onClick={(e) => e.stopPropagation()}
-                title="Asignar a un título"
+                title="Mover a otro título"
                 className="flex-shrink-0 max-w-[120px] text-[11px] text-slate-400 bg-transparent border border-slate-200 rounded-[4px] px-1 py-0.5 focus:outline-none focus:border-[#2563EB]/40 hover:text-slate-600 hover:border-slate-300 transition-colors"
               >
-                <option value="">Sin título</option>
                 {titulos.map((t) => (
                   <option key={t.id} value={t.id}>{t.nombre}</option>
                 ))}
@@ -4327,12 +4349,18 @@ export default function ProyectoPage() {
                 >
                   <Plus className="w-3.5 h-3.5" /> Agregar título
                 </button>
-                <button
-                  onClick={() => setMostrarModalCapitulo(true)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Agregar capítulo
-                </button>
+                {/* Con 2+ títulos cada tarjeta tiene su propio "Agregar
+                    capítulo" (sin ambigüedad sobre a cuál título va) — el
+                    global solo tiene sentido con ≤1 título, donde manda
+                    directo al único bucket visible. */}
+                {!modoMultiTitulo && (
+                  <button
+                    onClick={() => setMostrarModalCapitulo(true)}
+                    className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar capítulo
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -4359,10 +4387,11 @@ export default function ProyectoPage() {
                 <span />
               </div>
 
-          {/* Títulos — cada uno agrupa varios capítulos, numerados
-              "N.M" (título N, capítulo M dentro de ese título). Capítulos
-              sin título van planos después, en su propia sección. */}
-          {titulos.map((titulo, tituloIdx) => {
+          {/* Con 2+ títulos con contenido: cada uno agrupa sus capítulos,
+              numerados "N.M" (título N, capítulo M dentro de ese título).
+              Con ≤1 (el caso simple de siempre, título implícito o único
+              explícito) se salta directo a la vista plana más abajo. */}
+          {modoMultiTitulo && titulos.map((titulo, tituloIdx) => {
             const capsDelTitulo = capitulos.filter((c) => c.tituloId === titulo.id);
             const tituloExpandido = titulosExpandidos.has(titulo.id);
             const totalTitulo = capsDelTitulo.reduce((acc, c) => acc + totalCapitulo(c), 0);
@@ -4456,7 +4485,7 @@ export default function ProyectoPage() {
                     >
                       {capsDelTitulo.length === 0 ? (
                         <p className="px-5 py-3 text-xs text-slate-400">
-                          Sin capítulos todavía — agregá los primeros abajo, o asigná uno existente desde el selector &quot;Sin título&quot; de cualquier capítulo.
+                          Sin capítulos todavía — agregá los primeros abajo, o moveé uno existente desde el selector de título de cualquier capítulo.
                         </p>
                       ) : (
                         capsDelTitulo.map((cap, i) => renderFilaCapitulo(cap, `${tituloIdx + 1}.${i + 1}`))
@@ -4481,8 +4510,13 @@ export default function ProyectoPage() {
             );
           })}
 
-              {/* Capítulos sin título — plano, después de todos los títulos, numerados como siempre */}
-              {capitulos.filter((c) => c.tituloId == null).map((cap, i) => renderFilaCapitulo(cap, String(i + 1).padStart(2, "0")))}
+              {/* ≤1 título con contenido — vista plana: sin header de
+                  título, numeración 01/02 corrida sobre todos los
+                  capítulos del proyecto. El título único (implícito o
+                  explícito) no deja ningún rastro visual acá — se ve y
+                  funciona exactamente como un proyecto simple de toda la
+                  vida. */}
+              {!modoMultiTitulo && capitulos.map((cap, i) => renderFilaCapitulo(cap, String(i + 1).padStart(2, "0")))}
             </div>
           </div>
         </div>

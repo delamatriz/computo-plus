@@ -20,14 +20,30 @@ export async function POST(
     const body = await req.json();
     const nombre = body.nombre ?? "Nuevo capítulo";
 
-    const [ultimo, capituloCatalogoId] = await Promise.all([
+    // tituloId es obligatorio (todo capítulo pertenece siempre a un
+    // título, ver schema.prisma). Si no viene explícito en el body (botón
+    // global "Agregar capítulo", visible cuando el proyecto tiene ≤1
+    // título), se usa el título de menor orden del proyecto — mismo
+    // criterio de "título por defecto" que ya usa DELETE /api/titulos/[id]
+    // al reasignar.
+    const [ultimo, tituloDefault, capituloCatalogoId] = await Promise.all([
       db.capitulo.findFirst({
         where: { proyectoId },
         orderBy: { orden: "desc" },
         select: { orden: true },
       }),
+      db.titulo.findFirst({
+        where: { proyectoId },
+        orderBy: { orden: "asc" },
+        select: { id: true },
+      }),
       resolverCapituloCatalogoId(db, nombre),
     ]);
+
+    const tituloId = body.tituloId ?? tituloDefault?.id;
+    if (!tituloId) {
+      return NextResponse.json({ error: "El proyecto no tiene ningún título" }, { status: 500 });
+    }
 
     const capitulo = await db.capitulo.create({
       data: {
@@ -37,7 +53,7 @@ export async function POST(
         color:   body.color   ?? "#2563EB",
         orden:   (ultimo?.orden ?? -1) + 1,
         capituloCatalogoId,
-        tituloId: body.tituloId ?? null,
+        tituloId,
       },
       include: { rubros: true },
     });
