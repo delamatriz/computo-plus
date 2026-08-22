@@ -30,9 +30,11 @@ export interface RubroOption {
   nombre: string;
   capituloNombre: string;
   // Nombre del título del capítulo (ver model Titulo en schema.prisma) —
-  // null si el capítulo está suelto. Existe para desambiguar en el
-  // agrupador de PlanillaComputo.tsx dos capítulos con el mismo nombre en
-  // títulos distintos (ej. "Albañilería" en Título 1 y en Título 2).
+  // null cuando el proyecto tiene ≤1 título con contenido (el caso
+  // simple de siempre, título implícito o único explícito — ver
+  // visor/page.tsx). Con 2+, existe para desambiguar en el agrupador de
+  // PlanillaComputo.tsx dos capítulos con el mismo nombre en títulos
+  // distintos (ej. "Albañilería" en Título 1 y en Título 2).
   tituloNombre: string | null;
   unidad: string;
 }

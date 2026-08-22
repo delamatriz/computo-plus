@@ -141,6 +141,16 @@ export default function VisorProyectoPage() {
         const nombrePorTituloId = new Map<string, string>(
           (data.titulos ?? []).map((t: { id: string; nombre: string }) => [t.id, t.nombre])
         );
+        // Todo proyecto tiene siempre ≥1 título (implícito o explícito,
+        // ver POST /api/proyectos) — con ≤1 con contenido, tituloNombre
+        // se manda null para no mostrar "NombreProyecto › Capítulo" en
+        // el caso simple (mismo criterio que el resto de la app, ver
+        // modoMultiTitulo en proyectos/[id]/page.tsx). Con 2+, sigue
+        // poblado para desambiguar capítulos homónimos entre títulos.
+        const titulosConContenido = new Set(
+          (data.capitulos ?? []).map((c: { tituloId?: string | null }) => c.tituloId).filter(Boolean)
+        );
+        const modoMultiTitulo = titulosConContenido.size >= 2;
         const opciones: RubroOption[] = [];
         for (const cap of data.capitulos ?? []) {
           for (const rubro of cap.rubros ?? []) {
@@ -148,7 +158,7 @@ export default function VisorProyectoPage() {
               id: rubro.id,
               nombre: rubro.descripcion || "Rubro sin nombre",
               capituloNombre: cap.nombre,
-              tituloNombre: cap.tituloId ? nombrePorTituloId.get(cap.tituloId) ?? null : null,
+              tituloNombre: modoMultiTitulo && cap.tituloId ? nombrePorTituloId.get(cap.tituloId) ?? null : null,
               unidad: rubro.unidad ?? "",
             });
           }
