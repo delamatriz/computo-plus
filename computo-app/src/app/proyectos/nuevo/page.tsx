@@ -765,24 +765,24 @@ function NuevoProyectoContent() {
                   </Field>
                 </div>
 
-                <Field label="Plazo de obra (días)">
-                  <div className="relative max-w-[160px]">
-                    <input
-                      type="number"
-                      value={form.plazoMeses}
-                      onChange={(e) => set("plazoMeses", e.target.value)}
-                      placeholder="ej: 240"
-                      min={1}
-                      className={inputCls}
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">
-                      días
-                    </span>
-                  </div>
-                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Plazo de obra (días)">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={form.plazoMeses}
+                        onChange={(e) => set("plazoMeses", e.target.value)}
+                        placeholder="ej: 240"
+                        min={1}
+                        className={inputCls}
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">
+                        días
+                      </span>
+                    </div>
+                  </Field>
 
-                <Field label="Días laborales">
-                  <div className="relative max-w-[160px]">
+                  <Field label="Días laborales">
                     <input
                       type="number"
                       value={form.diasLaborales}
@@ -791,11 +791,11 @@ function NuevoProyectoContent() {
                       min={1}
                       className={inputCls}
                     />
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1.5">
-                    Días hábiles de trabajo efectivo
-                  </p>
-                </Field>
+                    <p className="text-xs text-slate-400 mt-1.5">
+                      Días hábiles de trabajo efectivo
+                    </p>
+                  </Field>
+                </div>
 
                 {modoCompleto && (
                   <div className="p-3.5 rounded-[10px] bg-blue-50 border border-blue-200 flex items-start gap-2.5">
