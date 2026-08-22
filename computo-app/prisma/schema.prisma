@@ -141,6 +141,12 @@ model Titulo {
   proyectoId String
   proyecto   Proyecto   @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
   capitulos  Capitulo[]
+  // Mismo par de campos que Proyecto.requierePlanSeguridad/modalidadAltura,
+  // ahora también por título — un título puede necesitar trabajo en altura
+  // y otro no. El de Proyecto se mantiene intacto para capítulos sueltos y
+  // proyectos sin títulos (ver lib/seguridadAltura.ts).
+  requierePlanSeguridad Boolean @default(false)
+  modalidadAltura       String?
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 }

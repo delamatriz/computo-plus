@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,17 @@ const MODALIDADES_ALTURA = [
   { id: "grua", label: "Grúa / otra maquinaria" },
 ];
 
+// Título del proyecto, en la parte que este formulario edita — nombre de
+// solo lectura acá (renombrar título no es una capacidad que exista en
+// ningún lado todavía, no se agrega en esta tarea), trabajos en altura sí
+// editable, mismo campo que a nivel Proyecto pero uno por título.
+interface TituloForm {
+  id: string;
+  nombre: string;
+  requierePlanSeguridad: boolean;
+  modalidadAltura: string[];
+}
+
 export default function EditarProyectoPage() {
   const params = useParams();
   const router = useRouter();
@@ -56,6 +67,11 @@ export default function EditarProyectoPage() {
     moneda: "UYU", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", trabajos: "", descripcion: "",
     requierePlanSeguridad: false, modalidadAltura: [],
   });
+  const [titulos, setTitulos] = useState<TituloForm[]>([]);
+  // Snapshot de los títulos tal como llegaron del servidor — al guardar,
+  // solo se manda PATCH /api/titulos/[id] para los que realmente cambiaron
+  // (comparado contra esto), no para todos.
+  const titulosOriginalRef = useRef<Record<string, { requierePlanSeguridad: boolean; modalidadAltura: string }>>({});
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +99,19 @@ export default function EditarProyectoPage() {
           requierePlanSeguridad: !!data.requierePlanSeguridad,
           modalidadAltura: data.modalidadAltura ? data.modalidadAltura.split(",").filter(Boolean) : [],
         });
+
+        const titulosData: TituloForm[] = (data.titulos ?? []).map(
+          (t: { id: string; nombre: string; requierePlanSeguridad?: boolean; modalidadAltura?: string | null }) => ({
+            id: t.id,
+            nombre: t.nombre,
+            requierePlanSeguridad: !!t.requierePlanSeguridad,
+            modalidadAltura: t.modalidadAltura ? t.modalidadAltura.split(",").filter(Boolean) : [],
+          })
+        );
+        setTitulos(titulosData);
+        titulosOriginalRef.current = Object.fromEntries(
+          titulosData.map((t) => [t.id, { requierePlanSeguridad: t.requierePlanSeguridad, modalidadAltura: t.modalidadAltura.join(",") }])
+        );
       })
       .catch((err) => { console.error("[cargar proyecto editar]", err); setError("No se pudo cargar el proyecto"); })
       .finally(() => { if (!cancelado) setCargando(false); });
@@ -91,6 +120,22 @@ export default function EditarProyectoPage() {
 
   const set = <K extends keyof FormData>(campo: K, valor: FormData[K]) =>
     setForm((prev) => ({ ...prev, [campo]: valor }));
+
+  const toggleRequiereTitulo = (id: string) => {
+    setTitulos((prev) => prev.map((t) => t.id === id ? { ...t, requierePlanSeguridad: !t.requierePlanSeguridad } : t));
+  };
+
+  const toggleModalidadAlturaTitulo = (id: string, modalidadId: string) => {
+    setTitulos((prev) => prev.map((t) => {
+      if (t.id !== id) return t;
+      return {
+        ...t,
+        modalidadAltura: t.modalidadAltura.includes(modalidadId)
+          ? t.modalidadAltura.filter((m) => m !== modalidadId)
+          : [...t.modalidadAltura, modalidadId],
+      };
+    }));
+  };
 
   const toggleModalidadAltura = (id: string) => {
     set(
@@ -130,7 +175,37 @@ export default function EditarProyectoPage() {
       });
       if (!res.ok) throw new Error("No se pudo guardar el proyecto");
 
-      if (form.requierePlanSeguridad) {
+      // Solo se manda PATCH para los títulos cuyo flag realmente cambió
+      // respecto a lo que llegó del servidor — comparando el valor
+      // "efectivo" (si requierePlanSeguridad quedó en false, la modalidad
+      // no cuenta aunque haya chips tildados sin guardar, mismo criterio
+      // que ya usa el PATCH de proyecto de acá arriba).
+      const titulosModificados = titulos.filter((t) => {
+        const original = titulosOriginalRef.current[t.id];
+        const modalidadActual = t.requierePlanSeguridad && t.modalidadAltura.length > 0 ? t.modalidadAltura.join(",") : "";
+        const modalidadOriginal = original?.modalidadAltura ?? "";
+        return !original || original.requierePlanSeguridad !== t.requierePlanSeguridad || modalidadOriginal !== modalidadActual;
+      });
+
+      // Se esperan estos PATCH (a diferencia de generar-seguridad-altura,
+      // que sigue siendo fire-and-forget) porque ese endpoint lee el
+      // estado ACTUAL de los títulos en la base — si no se esperara, podría
+      // correr antes de que el flag recién tildado quedara persistido.
+      await Promise.all(
+        titulosModificados.map((t) =>
+          fetch(`/api/titulos/${t.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              requierePlanSeguridad: t.requierePlanSeguridad,
+              modalidadAltura: t.requierePlanSeguridad && t.modalidadAltura.length > 0 ? t.modalidadAltura.join(",") : null,
+            }),
+          })
+        )
+      );
+
+      const necesitaGenerarSeguridad = form.requierePlanSeguridad || titulos.some((t) => t.requierePlanSeguridad);
+      if (necesitaGenerarSeguridad) {
         fetch(`/api/proyectos/${proyectoId}/generar-seguridad-altura`, {
           method: "POST",
         }).catch((err) => console.error("[editar proyecto] generar-seguridad-altura", err));
@@ -381,6 +456,61 @@ export default function EditarProyectoPage() {
           </Field>
         )}
       </div>
+
+      {/* Trabajos en altura por título — mismo campo que arriba
+          (requierePlanSeguridad/modalidadAltura) pero uno independiente
+          por título, ya que un título puede necesitar trabajo en altura y
+          otro no (ver Titulo.requierePlanSeguridad en schema.prisma). Solo
+          se muestra si el proyecto tiene títulos; el nombre es de solo
+          lectura acá — renombrar título no existe todavía en ningún lado. */}
+      {titulos.length > 0 && (
+        <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
+          <div>
+            <h3 className="text-sm font-bold text-[#1A3A5C]">Trabajos en altura por título</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Cada título puede necesitar trabajo en altura o no, independiente del proyecto</p>
+          </div>
+
+          <div className="space-y-4 divide-y divide-slate-100">
+            {titulos.map((titulo) => (
+              <div key={titulo.id} className="pt-4 first:pt-0 space-y-3">
+                <p className="text-sm font-semibold text-[#1A3A5C]">{titulo.nombre || "Sin nombre"}</p>
+
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={titulo.requierePlanSeguridad}
+                    onChange={() => toggleRequiereTitulo(titulo.id)}
+                    className="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30"
+                  />
+                  <span className="text-sm text-slate-700">Requiere plan y estudio de seguridad (MTOP)</span>
+                </label>
+
+                {titulo.requierePlanSeguridad && (
+                  <Field label="Modalidad de trabajo en altura">
+                    <div className="flex flex-wrap gap-2">
+                      {MODALIDADES_ALTURA.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => toggleModalidadAlturaTitulo(titulo.id, m.id)}
+                          className={cn(
+                            "px-3.5 py-2 rounded-[10px] border text-sm font-medium transition-all",
+                            titulo.modalidadAltura.includes(m.id)
+                              ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                              : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                          )}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="px-4 py-3 rounded-[10px] bg-red-50 border border-red-200 text-sm text-red-600">

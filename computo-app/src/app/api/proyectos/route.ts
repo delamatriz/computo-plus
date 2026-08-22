@@ -73,10 +73,22 @@ export async function POST(req: NextRequest) {
     // igual que antes del feature de Título.
     const titulosConCatalogo = await Promise.all(
       (titulos ?? []).map(
-        async (tit: { nombre: string; color?: string; orden?: number; capitulos: CapituloEntrada[] }, tIdx: number) => ({
+        async (
+          tit: {
+            nombre: string;
+            color?: string;
+            orden?: number;
+            requierePlanSeguridad?: boolean;
+            modalidadAltura?: string | null;
+            capitulos: CapituloEntrada[];
+          },
+          tIdx: number
+        ) => ({
           nombre: tit.nombre,
           color: tit.color || "#2563EB",
           orden: tit.orden ?? tIdx + 1,
+          requierePlanSeguridad: !!tit.requierePlanSeguridad,
+          modalidadAltura: tit.modalidadAltura || null,
           capitulos: await Promise.all(
             (tit.capitulos ?? []).map(async (cap: CapituloEntrada, i: number) => ({
               nombre: cap.nombre,
@@ -122,7 +134,14 @@ export async function POST(req: NextRequest) {
 
       for (const tit of titulosConCatalogo) {
         const tituloCreado = await tx.titulo.create({
-          data: { nombre: tit.nombre, color: tit.color, orden: tit.orden, proyectoId: creado.id },
+          data: {
+            nombre: tit.nombre,
+            color: tit.color,
+            orden: tit.orden,
+            requierePlanSeguridad: tit.requierePlanSeguridad,
+            modalidadAltura: tit.modalidadAltura,
+            proyectoId: creado.id,
+          },
         });
         if (tit.capitulos.length > 0) {
           await tx.capitulo.createMany({
