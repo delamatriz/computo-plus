@@ -3647,13 +3647,20 @@ export default function ProyectoPage() {
             <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: "#2563EB" }}>
               {codigoMostrado}
             </span>
+            {/* min-w-[64px] en vez de min-w-0 — con el <select> de reasignación
+                de título al lado (flex-shrink-0), el nombre podía colapsar a
+                0px de ancho en pantallas angostas (bug reportado en mobile).
+                Con un piso mínimo siempre queda algo visible, truncado con
+                "..." si hace falta; la fila entera scrollea horizontal
+                (ver overflow-x-auto en el envoltorio de la tabla) en vez de
+                aplastar el nombre a nada. */}
             <input
               type="text"
               value={cap.nombre}
               onChange={(e) => actualizarNombreCapitulo(cap.id, e.target.value)}
               onClick={(e) => e.stopPropagation()}
               disabled={soloLectura}
-              className="flex-1 min-w-0 text-sm font-semibold text-[#1A3A5C] bg-transparent truncate focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 disabled:text-slate-400 disabled:cursor-default"
+              className="flex-1 min-w-[64px] text-sm font-semibold text-[#1A3A5C] bg-transparent truncate focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 disabled:text-slate-400 disabled:cursor-default"
             />
             {cap.rubros.length > 0 && (
               <span className="text-[11px] text-slate-400 flex-shrink-0">
@@ -4330,17 +4337,27 @@ export default function ProyectoPage() {
             )}
           </div>
 
-          {/* Cabecera de la tabla — usa GRID_CAPITULO, la misma plantilla de columnas que la fila de Capítulo más abajo y que comparte Total/% Incid. con GRID_RUBRO */}
-          <div className="grid border-b border-slate-200 px-5 py-2.5" style={{ gridTemplateColumns: GRID_CAPITULO }}>
-            <div className="flex items-center gap-3">
-              <span className="w-6 flex-shrink-0" />
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Capítulo</span>
-            </div>
-            <span className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Total</span>
-            <span className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center whitespace-nowrap">% Incid.</span>
-            <span />
-            <span />
-          </div>
+          {/* Envoltorio con scroll horizontal — GRID_CAPITULO tiene 252px de
+              columnas fijas (Total/%/2 acciones); en pantallas angostas eso
+              no dejaba espacio real para el nombre (colapsaba a 0px, ver
+              bug reportado por Luis en mobile). min-w-[560px] le garantiza
+              a la primera columna (nombre) un piso real de ~300px — si no
+              entra en la pantalla, se scrollea la fila entera en vez de
+              aplastar el nombre a nada. Mismo criterio que ya usa la tabla
+              de rubros expandida (overflow-x-auto + min-w-[800px]) más abajo. */}
+          <div className="overflow-x-auto">
+            <div className="min-w-[560px]">
+              {/* Cabecera de la tabla — usa GRID_CAPITULO, la misma plantilla de columnas que la fila de Capítulo más abajo y que comparte Total/% Incid. con GRID_RUBRO */}
+              <div className="grid border-b border-slate-200 px-5 py-2.5" style={{ gridTemplateColumns: GRID_CAPITULO }}>
+                <div className="flex items-center gap-3">
+                  <span className="w-6 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Capítulo</span>
+                </div>
+                <span className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Total</span>
+                <span className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center whitespace-nowrap">% Incid.</span>
+                <span />
+                <span />
+              </div>
 
           {/* Títulos — cada uno agrupa varios capítulos, numerados
               "N.M" (título N, capítulo M dentro de ese título). Capítulos
@@ -4383,7 +4400,14 @@ export default function ProyectoPage() {
                     <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: titulo.color ?? "#2563EB" }}>
                       {tituloIdx + 1}
                     </span>
-                    <span className="flex-1 min-w-0 text-sm font-bold text-[#1A3A5C] truncate uppercase tracking-wide">
+                    {/* min-w-[64px] en vez de min-w-0 — con min-w-0 el nombre
+                        podía colapsar a 0px de ancho en pantallas angostas
+                        si sus hermanos flex-shrink-0 (número, "N capítulos")
+                        no entraban; con un piso mínimo, ahora siempre queda
+                        algo visible (truncado con "..." si hace falta) y es
+                        la fila entera (ver overflow-x-auto arriba) la que
+                        se scrollea, no el nombre el que desaparece. */}
+                    <span className="flex-1 min-w-[64px] text-sm font-bold text-[#1A3A5C] truncate uppercase tracking-wide">
                       {titulo.nombre}
                     </span>
                     <span className="text-[11px] text-slate-400 flex-shrink-0">
@@ -4457,8 +4481,10 @@ export default function ProyectoPage() {
             );
           })}
 
-          {/* Capítulos sin título — plano, después de todos los títulos, numerados como siempre */}
-          {capitulos.filter((c) => c.tituloId == null).map((cap, i) => renderFilaCapitulo(cap, String(i + 1).padStart(2, "0")))}
+              {/* Capítulos sin título — plano, después de todos los títulos, numerados como siempre */}
+              {capitulos.filter((c) => c.tituloId == null).map((cap, i) => renderFilaCapitulo(cap, String(i + 1).padStart(2, "0")))}
+            </div>
+          </div>
         </div>
 
         {/* ── Total / IVA / Total + IVA — tarjetas separadas ── */}
