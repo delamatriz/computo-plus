@@ -284,7 +284,11 @@ function NuevoProyectoContent() {
     if (paso === 1) return form.nombre.trim().length >= 2;
     if (paso === 2) return true;
     if (paso === 3) {
-      const sueltos = form.capitulos.filter((c) => c.activo && c.nombre.trim()).length;
+      // Con títulos explícitos, "Sin título" ni se muestra — no cuenta
+      // para el mínimo de "al menos un capítulo" (ver capitulosSueltosActivos).
+      const sueltos = form.titulos.length > 0
+        ? 0
+        : form.capitulos.filter((c) => c.activo && c.nombre.trim()).length;
       const enTitulos = form.titulos.reduce(
         (acc, t) => acc + t.capitulos.filter((c) => c.activo && c.nombre.trim()).length,
         0
@@ -368,7 +372,16 @@ function NuevoProyectoContent() {
   // total. Un título sin ningún capítulo activo no aparece en el resumen
   // ni se manda al servidor (mismo criterio que ya usa
   // proyectos/[id]/page.tsx para títulos vacíos en el PDF/Excel).
-  const capitulosSueltosActivos = form.capitulos.filter((c) => c.activo && c.nombre.trim());
+  // Con títulos explícitos, "Sin título" no se renderiza (ver paso 3 más
+  // abajo) — se fuerza vacío acá, el único choque de dónde sale el
+  // payload y el resumen del paso 4, para que nunca se cuele un capítulo
+  // sin tituloId aunque haya quedado algo cargado en form.capitulos de
+  // antes de agregar el primer título (no se migra ni se borra ese
+  // estado — si el usuario borra todos los títulos, "Sin título" vuelve
+  // a aparecer con lo que había).
+  const capitulosSueltosActivos = form.titulos.length > 0
+    ? []
+    : form.capitulos.filter((c) => c.activo && c.nombre.trim());
   const titulosConActivos = form.titulos
     .map((titulo) => ({ titulo, activos: titulo.capitulos.filter((c) => c.activo && c.nombre.trim()) }))
     .filter((t) => t.activos.length > 0);
@@ -901,23 +914,32 @@ function NuevoProyectoContent() {
                 </div>
               ))}
 
-              {form.titulos.length > 0 && (
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Sin título</p>
+              {/* "Sin título" solo existe cuando el usuario nunca agregó
+                  ningún título explícito — esos capítulos son los que el
+                  backend envuelve en el título implícito (ver POST
+                  /api/proyectos). En cuanto hay 1+ títulos, todo capítulo
+                  tiene que vivir dentro de alguno: esta sección desaparece
+                  del todo, no queda como un "título más" al margen. Si el
+                  usuario ya había cargado algo acá antes de agregar su
+                  primer título, ese estado no se pierde ni se migra —
+                  simplemente deja de mostrarse (ver capitulosSueltosActivos
+                  más arriba, que ya lo excluye del payload); si borra todos
+                  los títulos de nuevo, reaparece tal cual lo dejó. */}
+              {form.titulos.length === 0 && (
+                <SelectorCapitulosEstandar
+                  capitulos={form.capitulos}
+                  onConfirmar={(c) => {
+                    set("capitulos", c);
+                    // Cualquier interacción real del usuario acá (switch, IA,
+                    // agregar/borrar/renombrar) deja de ser "automática" —
+                    // ver transición 2 → 3, que respeta esto y no la pisa.
+                    set("sinTituloEsAutomatico", false);
+                  }}
+                  tipoObra={form.tipo}
+                  descripcionTrabajos={form.trabajos}
+                  fotos={form.fotos}
+                />
               )}
-
-              <SelectorCapitulosEstandar
-                capitulos={form.capitulos}
-                onConfirmar={(c) => {
-                  set("capitulos", c);
-                  // Cualquier interacción real del usuario acá (switch, IA,
-                  // agregar/borrar/renombrar) deja de ser "automática" —
-                  // ver transición 2 → 3, que respeta esto y no la pisa.
-                  set("sinTituloEsAutomatico", false);
-                }}
-                tipoObra={form.tipo}
-                descripcionTrabajos={form.trabajos}
-                fotos={form.fotos}
-              />
             </div>
           )}
 

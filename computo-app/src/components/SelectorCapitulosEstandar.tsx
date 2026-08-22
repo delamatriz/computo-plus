@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Sparkles, X } from "lucide-react";
+import { List, Plus, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Extraído de proyectos/nuevo/page.tsx (paso 3 "Capítulos de la obra") para
@@ -127,7 +127,13 @@ export function SelectorCapitulosEstandar({
   const [cargandoIA, setCargandoIA] = useState(false);
   const [errorIA, setErrorIA] = useState<string | null>(null);
   const [capitulosEstandar, setCapitulosEstandar] = useState<CapituloEstandarItem[]>([]);
-  const [mostrarBiblioteca, setMostrarBiblioteca] = useState(false);
+  // "Lista estándar" es la opción primaria — abierta por defecto, mismo
+  // criterio en el wizard y en el modal de "Agregar capítulo" por título.
+  // "Sugerir con IA" es secundaria: dispara la generación al toque (no
+  // tiene un panel propio que mostrar), y de paso cierra la biblioteca
+  // para no competirle atención mientras corre / mientras se ven los
+  // resultados recién agregados abajo.
+  const [mostrarBiblioteca, setMostrarBiblioteca] = useState(true);
 
   useEffect(() => {
     fetch("/api/capitulos-estandar")
@@ -144,6 +150,7 @@ export function SelectorCapitulosEstandar({
       return;
     }
     setErrorIA(null);
+    setMostrarBiblioteca(false);
     setCargandoIA(true);
     try {
       const fotosBase64 = await Promise.all(
@@ -241,36 +248,45 @@ export function SelectorCapitulosEstandar({
 
   return (
     <div className="bg-white rounded-[16px] border border-slate-300 p-5 shadow-sm">
-      {/* Botones de carga + error IA */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          {cargandoIA ? (
-            <span className="flex items-center gap-1.5 text-xs text-[#2563EB]">
-              <span className="w-3 h-3 border-2 border-[#2563EB]/30 border-t-[#2563EB] rounded-full animate-spin" />
-              Analizando trabajos...
-            </span>
-          ) : (
-            <button
-              onClick={cargarSugeridosIA}
-              className="flex items-center gap-1.5 text-xs text-[#2563EB] font-medium hover:text-[#1D4ED8] transition-colors"
-            >
-              <Sparkles className="w-3 h-3" />
-              Sugerir con IA
-            </button>
-          )}
-          <span className="text-slate-300 text-xs">·</span>
+      {/* Selector de modo — "Lista estándar" es la opción primaria
+          (siempre a la izquierda, abierta por defecto); "Sugerir con IA"
+          es secundaria y dispara la generación al toque. Segmented
+          control real (no dos links de texto al mismo nivel) para que se
+          lea como una elección clara entre dos modos, no como metadata. */}
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-1 p-1 rounded-[10px] bg-slate-100 flex-1 max-w-sm">
           <button
-            onClick={() => setMostrarBiblioteca((p) => !p)}
+            onClick={() => setMostrarBiblioteca(true)}
             className={cn(
-              "text-xs font-medium transition-colors",
-              mostrarBiblioteca ? "text-[#2563EB]" : "text-slate-400 hover:text-slate-600"
+              "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-all",
+              mostrarBiblioteca
+                ? "bg-white text-[#2563EB] shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
             )}
           >
+            <List className="w-3.5 h-3.5" />
             Lista estándar
+          </button>
+          <button
+            onClick={cargarSugeridosIA}
+            disabled={cargandoIA}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-all disabled:cursor-wait",
+              !mostrarBiblioteca
+                ? "bg-white text-[#2563EB] shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            {cargandoIA ? (
+              <span className="w-3.5 h-3.5 border-2 border-[#2563EB]/30 border-t-[#2563EB] rounded-full animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+            {cargandoIA ? "Analizando..." : "Sugerir con IA"}
           </button>
         </div>
         {capitulos.length > 0 && (
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-400 whitespace-nowrap">
             {capitularActivos.length} activo{capitularActivos.length !== 1 ? "s" : ""}
           </p>
         )}
@@ -291,7 +307,7 @@ export function SelectorCapitulosEstandar({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="p-3 mb-3 rounded-[10px] bg-slate-50 border border-slate-200">
+            <div className="p-3 mb-3 rounded-[10px] border border-slate-200">
               {capitulosEstandar.length === 0 ? (
                 <p className="text-xs text-slate-400">Cargando biblioteca de capítulos...</p>
               ) : (
@@ -310,16 +326,27 @@ export function SelectorCapitulosEstandar({
                       </p>
                     );
                   }
+                  // Lista ordenada (no chips en flujo libre) — refleja la
+                  // secuencia real de obra ya presente en el orden que
+                  // manda la API (implantación → movimiento de tierra →
+                  // cimentaciones → estructura → ... → imprevistos).
+                  // Grilla de 2 columnas, lectura por filas de arriba
+                  // hacia abajo (orden natural del grid en el DOM).
                   return (
-                    <div className="flex flex-wrap gap-1.5">
-                      {disponibles.map((item) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                      {disponibles.map((item, i) => (
                         <button
                           key={item.id}
                           onClick={() => toggleDesdeBiblioteca(item)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:border-[#2563EB]/40 hover:text-[#2563EB] transition-colors"
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-[10px] border border-slate-200 bg-white hover:border-[#2563EB] hover:bg-blue-50/60 text-left transition-all group"
                         >
-                          <Plus className="w-3 h-3" />
-                          {item.nombre}
+                          <span className="text-xs font-bold tabular-nums text-slate-400 group-hover:text-[#2563EB] w-5 flex-shrink-0 transition-colors">
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          <span className="flex-1 min-w-0 text-sm font-medium text-slate-700 group-hover:text-[#1A3A5C] truncate transition-colors">
+                            {item.nombre}
+                          </span>
+                          <Plus className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#2563EB] flex-shrink-0 transition-colors" />
                         </button>
                       ))}
                     </div>
@@ -331,14 +358,14 @@ export function SelectorCapitulosEstandar({
         )}
       </AnimatePresence>
 
-      {capitulos.length === 0 ? (
+      {capitulos.length === 0 && !mostrarBiblioteca ? (
         <div className="text-center py-8">
           <p className="text-sm text-slate-400">
-            Usá &quot;Sugerir con IA&quot; para generar capítulos según los trabajos descritos,<br />
-            o &quot;Lista estándar&quot; para elegir entre los capítulos típicos de obra.
+            Usá &quot;Lista estándar&quot; para elegir entre los capítulos típicos de obra,<br />
+            o &quot;Sugerir con IA&quot; para generarlos según los trabajos descritos.
           </p>
         </div>
-      ) : (
+      ) : capitulos.length > 0 ? (
         <div>
 
           <div className="space-y-1.5 mb-4 max-h-80 overflow-y-auto pr-1">
@@ -350,7 +377,7 @@ export function SelectorCapitulosEstandar({
                 transition={{ duration: 0.15, delay: idx * 0.03 }}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-[10px] border transition-all",
-                  cap.activo ? "border-slate-200 bg-slate-50" : "border-slate-100 bg-slate-50/50 opacity-50"
+                  cap.activo ? "border-blue-200 bg-blue-50/50" : "border-slate-100 bg-slate-50/50 opacity-50"
                 )}
               >
                 <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: cap.activo ? "#2563EB" : "#94A3B8" }}>
@@ -394,7 +421,7 @@ export function SelectorCapitulosEstandar({
             Agregar capítulo
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
