@@ -53,8 +53,6 @@ interface FormData {
   titulos: TituloWizard[];
   fotos: FotoProyecto[];
   documentos: File[];
-  requierePlanSeguridad: boolean;
-  modalidadAltura: string[];
 }
 
 interface Capitulo {
@@ -74,12 +72,10 @@ interface TituloWizard {
   nombre: string;
   color: string;
   capitulos: Capitulo[];
-  // Mismo par de campos que a nivel proyecto (requierePlanSeguridad/
-  // modalidadAltura más abajo en FormData) pero uno independiente por
-  // título — ver link colapsable "Trabajos en altura" en la tarjeta
-  // "Títulos" del paso 2.
+  // "Este título necesita Plan y Estudio de Seguridad (MTOP)" — sin
+  // modalidad/maquinaria acá (eso vive en el Equipo del APU de cada rubro
+  // puntual, ver lib/seguridadAltura.ts).
   requierePlanSeguridad: boolean;
-  modalidadAltura: string[];
 }
 
 interface FotoProyecto {
@@ -115,14 +111,6 @@ interface CapituloEstandarItem {
   vecesUsado: number;
 }
 
-const MODALIDADES_ALTURA = [
-  { id: "andamios", label: "Andamios" },
-  { id: "balancin", label: "Balancín" },
-  { id: "silleta",  label: "Silleta" },
-  { id: "combinacion", label: "Combinación" },
-  { id: "grua", label: "Grúa / otra maquinaria" },
-];
-
 const STEPS = [
   { id: 1, label: "1. Datos" },
   { id: 2, label: "2. Detalles" },
@@ -144,10 +132,6 @@ function NuevoProyectoContent() {
   // lista completa al pasar de paso 1 a paso 2, antes de que el paso 3 (y
   // por lo tanto el selector) exista en pantalla.
   const [capitulosEstandar, setCapitulosEstandar] = useState<CapituloEstandarItem[]>([]);
-  // Ids de título con el panel "Trabajos en altura" desplegado — colapsado
-  // por defecto, mismo patrón que mostrarBiblioteca en
-  // SelectorCapitulosEstandar, pero uno por título (no un solo booleano).
-  const [titulosAlturaExpandidos, setTitulosAlturaExpandidos] = useState<Set<string>>(new Set());
 
   const [form, setForm] = useState<FormData>({
     nombre: "",
@@ -172,8 +156,6 @@ function NuevoProyectoContent() {
     titulos: [],
     fotos: [],
     documentos: [],
-    requierePlanSeguridad: false,
-    modalidadAltura: [],
   });
 
   const fotosInputRef = useRef<HTMLInputElement>(null);
@@ -271,20 +253,11 @@ function NuevoProyectoContent() {
     }));
   };
 
-  const toggleModalidadAltura = (id: string) => {
-    set(
-      "modalidadAltura",
-      form.modalidadAltura.includes(id)
-        ? form.modalidadAltura.filter((m) => m !== id)
-        : [...form.modalidadAltura, id]
-    );
-  };
-
   const agregarTituloWizard = () => {
     const color = COLORS[form.titulos.length % COLORS.length];
     set("titulos", [
       ...form.titulos,
-      { id: String(Date.now()), nombre: "", color, capitulos: [], requierePlanSeguridad: false, modalidadAltura: [] },
+      { id: String(Date.now()), nombre: "", color, capitulos: [], requierePlanSeguridad: false },
     ]);
   };
 
@@ -302,18 +275,6 @@ function NuevoProyectoContent() {
 
   const toggleRequiereTitulo = (id: string) => {
     set("titulos", form.titulos.map((t) => t.id === id ? { ...t, requierePlanSeguridad: !t.requierePlanSeguridad } : t));
-  };
-
-  const toggleModalidadAlturaTitulo = (id: string, modalidadId: string) => {
-    set("titulos", form.titulos.map((t) => {
-      if (t.id !== id) return t;
-      return {
-        ...t,
-        modalidadAltura: t.modalidadAltura.includes(modalidadId)
-          ? t.modalidadAltura.filter((m) => m !== modalidadId)
-          : [...t.modalidadAltura, modalidadId],
-      };
-    }));
   };
 
   // "Al menos un capítulo activo" ahora cuenta tanto los sueltos como los
@@ -353,10 +314,6 @@ function NuevoProyectoContent() {
           fechaInicio: form.fechaInicio,
           plazoObra: form.plazoMeses,
           diasLaborales: form.diasLaborales ? parseInt(form.diasLaborales, 10) : null,
-          requierePlanSeguridad: form.requierePlanSeguridad,
-          modalidadAltura: form.requierePlanSeguridad && form.modalidadAltura.length > 0
-            ? form.modalidadAltura.join(",")
-            : null,
           titulos: titulosBody,
           capitulos: capitulosBody,
         }),
@@ -391,10 +348,9 @@ function NuevoProyectoContent() {
         body: JSON.stringify({ capitulosConMontos }),
       }).catch((err) => console.error("[proyectos/nuevo] generar-rubros", err));
 
-      // También hay que disparar esto si el flag lo tiene algún título,
-      // aunque el proyecto en sí no lo tenga marcado — generarCapituloSeguridad
-      // ya recorre ambos casos, acá solo hace falta no saltearse la llamada.
-      if (form.requierePlanSeguridad || titulosConActivos.some(({ titulo }) => titulo.requierePlanSeguridad)) {
+      // Plan y Estudio de Seguridad vive por título — generarCapituloSeguridad
+      // recorre todos los títulos del proyecto que lo tengan marcado.
+      if (titulosConActivos.some(({ titulo }) => titulo.requierePlanSeguridad)) {
         fetch(`/api/proyectos/${proyecto.id}/generar-seguridad-altura`, {
           method: "POST",
         }).catch((err) => console.error("[proyectos/nuevo] generar-seguridad-altura", err));
@@ -429,9 +385,6 @@ function NuevoProyectoContent() {
     color: titulo.color,
     orden: tIdx + 1,
     requierePlanSeguridad: titulo.requierePlanSeguridad,
-    modalidadAltura: titulo.requierePlanSeguridad && titulo.modalidadAltura.length > 0
-      ? titulo.modalidadAltura.join(",")
-      : null,
     capitulos: activos.map((c, i) => ({
       nombre: c.nombre,
       color: c.color,
@@ -858,45 +811,6 @@ function NuevoProyectoContent() {
                 )}
               </div>
 
-              <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
-                <div>
-                  <h3 className="text-sm font-bold text-[#1A3A5C]">Trabajos en altura</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Solo si la obra requiere trabajo sobre nivel de piso</p>
-                </div>
-
-                <label className="flex items-center gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.requierePlanSeguridad}
-                    onChange={(e) => set("requierePlanSeguridad", e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30"
-                  />
-                  <span className="text-sm text-slate-700">Requiere plan y estudio de seguridad (MTOP)</span>
-                </label>
-
-                {form.requierePlanSeguridad && (
-                  <Field label="Modalidad de trabajo en altura">
-                    <div className="flex flex-wrap gap-2">
-                      {MODALIDADES_ALTURA.map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => toggleModalidadAltura(m.id)}
-                          className={cn(
-                            "px-3.5 py-2 rounded-[10px] border text-sm font-medium transition-all",
-                            form.modalidadAltura.includes(m.id)
-                              ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
-                              : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
-                          )}
-                        >
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
-                  </Field>
-                )}
-              </div>
-
               {/* Títulos — agrupador opcional de capítulos. Solo nombre acá;
                   la selección de capítulos de cada uno se hace en el paso
                   siguiente (ver SelectorCapitulosEstandar por título). */}
@@ -910,98 +824,37 @@ function NuevoProyectoContent() {
 
                 {form.titulos.length > 0 && (
                   <div className="space-y-1.5">
-                    {form.titulos.map((titulo) => {
-                      const alturaExpandida = titulosAlturaExpandidos.has(titulo.id);
-                      return (
-                        <div key={titulo.id} className="rounded-[10px] border border-slate-200 bg-slate-50 overflow-hidden">
-                          <div className="flex items-center gap-2.5 px-3 py-2">
-                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: titulo.color }} />
-                            <input
-                              type="text"
-                              value={titulo.nombre}
-                              onChange={(e) => renombrarTituloWizard(titulo.id, e.target.value)}
-                              placeholder="Nombre del título"
-                              autoFocus={!titulo.nombre}
-                              className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
-                            />
-                            <button
-                              onClick={() => eliminarTituloWizard(titulo.id)}
-                              className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          {/* Colapsado por defecto — mismo patrón que
-                              mostrarBiblioteca en SelectorCapitulosEstandar.
-                              La fila se ve igual que siempre hasta que el
-                              usuario abre esto. */}
-                          <div className="px-3 pb-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setTitulosAlturaExpandidos((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(titulo.id)) next.delete(titulo.id);
-                                  else next.add(titulo.id);
-                                  return next;
-                                });
-                              }}
-                              className={cn(
-                                "text-xs font-medium transition-colors",
-                                alturaExpandida ? "text-[#2563EB]" : "text-slate-400 hover:text-slate-600"
-                              )}
-                            >
-                              Trabajos en altura{titulo.requierePlanSeguridad ? " ✓" : ""}
-                            </button>
-
-                            <AnimatePresence initial={false}>
-                              {alturaExpandida && (
-                                <motion.div
-                                  initial={{ height: 0, opacity: 0 }}
-                                  animate={{ height: "auto", opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  transition={{ duration: 0.2 }}
-                                  className="overflow-hidden"
-                                >
-                                  <div className="pt-2.5 space-y-2.5">
-                                    <label className="flex items-center gap-2.5 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={titulo.requierePlanSeguridad}
-                                        onChange={() => toggleRequiereTitulo(titulo.id)}
-                                        className="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30"
-                                      />
-                                      <span className="text-sm text-slate-700">Requiere plan y estudio de seguridad (MTOP)</span>
-                                    </label>
-
-                                    {titulo.requierePlanSeguridad && (
-                                      <div className="flex flex-wrap gap-2">
-                                        {MODALIDADES_ALTURA.map((m) => (
-                                          <button
-                                            key={m.id}
-                                            type="button"
-                                            onClick={() => toggleModalidadAlturaTitulo(titulo.id, m.id)}
-                                            className={cn(
-                                              "px-3 py-1.5 rounded-[10px] border text-xs font-medium transition-all",
-                                              titulo.modalidadAltura.includes(m.id)
-                                                ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
-                                                : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
-                                            )}
-                                          >
-                                            {m.label}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
+                    {form.titulos.map((titulo) => (
+                      <div key={titulo.id} className="rounded-[10px] border border-slate-200 bg-slate-50 overflow-hidden">
+                        <div className="flex items-center gap-2.5 px-3 py-2">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: titulo.color }} />
+                          <input
+                            type="text"
+                            value={titulo.nombre}
+                            onChange={(e) => renombrarTituloWizard(titulo.id, e.target.value)}
+                            placeholder="Nombre del título"
+                            autoFocus={!titulo.nombre}
+                            className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                          />
+                          <button
+                            onClick={() => eliminarTituloWizard(titulo.id)}
+                            className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      );
-                    })}
+
+                        <label className="flex items-center gap-2.5 px-3 py-2 border-t border-slate-200 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={titulo.requierePlanSeguridad}
+                            onChange={() => toggleRequiereTitulo(titulo.id)}
+                            className="w-4 h-4 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30"
+                          />
+                          <span className="text-xs text-slate-600">Requiere plan y estudio de seguridad (MTOP)</span>
+                        </label>
+                      </div>
+                    ))}
                   </div>
                 )}
 
