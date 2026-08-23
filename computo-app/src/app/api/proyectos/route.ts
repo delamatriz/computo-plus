@@ -126,7 +126,11 @@ export async function POST(req: NextRequest) {
           area: area ? parseFloat(area) : null,
           descripcion: descripcion || "",
           direccion: direccion || "",
-          fechaInicio: fechaInicio ? new Date(fechaInicio) : new Date(),
+          // Sin default a "hoy" a propósito — el wizard ya no la pide (ver
+          // proyectos/nuevo/page.tsx), queda null hasta que se cargue desde
+          // /editar. Poner la fecha de creación acá mentiría "la obra
+          // arrancó hoy" cuando en realidad todavía no se sabe.
+          fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
           plazoObra: plazoObra ? parseInt(plazoObra) : null,
           diasLaborales: diasLaborales ? parseInt(diasLaborales) : null,
           estado: "EN_CURSO",

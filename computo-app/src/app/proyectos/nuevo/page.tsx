@@ -35,8 +35,6 @@ interface FormData {
   trabajos: string;
   moneda: "UYU" | "USD";
   area: string;
-  fechaInicio: string;
-  plazoMeses: string;
   diasLaborales: string;
   descripcion: string;
   // Capítulos sueltos (sin título) — si el usuario nunca usa "Agregar
@@ -147,8 +145,6 @@ function NuevoProyectoContent() {
     trabajos: "",
     moneda: "USD",
     area: searchParams.get("area") ?? "",
-    fechaInicio: "",
-    plazoMeses: "",
     diasLaborales: "",
     descripcion: "",
     capitulos: [],
@@ -315,8 +311,6 @@ function NuevoProyectoContent() {
           area: form.area,
           descripcion: form.trabajos || form.descripcion,
           direccion: form.direccion,
-          fechaInicio: form.fechaInicio,
-          plazoObra: form.plazoMeses,
           diasLaborales: form.diasLaborales ? parseInt(form.diasLaborales, 10) : null,
           titulos: titulosBody,
           capitulos: capitulosBody,
@@ -777,33 +771,6 @@ function NuevoProyectoContent() {
                     </div>
                   </Field>
 
-                  <Field label="Fecha inicio estimada">
-                    <input
-                      type="date"
-                      value={form.fechaInicio}
-                      onChange={(e) => set("fechaInicio", e.target.value)}
-                      className={inputCls}
-                    />
-                  </Field>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Plazo de obra (días)">
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={form.plazoMeses}
-                        onChange={(e) => set("plazoMeses", e.target.value)}
-                        placeholder="ej: 240"
-                        min={1}
-                        className={inputCls}
-                      />
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">
-                        días
-                      </span>
-                    </div>
-                  </Field>
-
                   <Field label="Días laborales">
                     <input
                       type="number"
@@ -974,11 +941,12 @@ function NuevoProyectoContent() {
                     { label: "Moneda",        value: form.moneda },
                     { label: "Área",          value: form.area ? `${form.area} m²` : "—" },
                     { label: "Dirección",     value: form.direccion || "—" },
-                    { label: "Inicio",        value: form.fechaInicio ? new Date(form.fechaInicio).toLocaleDateString("es-UY") : "—" },
-                    { label: "Plazo",         value: form.plazoMeses ? `${form.plazoMeses} días` : "—" },
                     { label: "Cliente",       value: form.cliente || "—" },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="px-5 py-3.5">
+                  ].map(({ label, value }, i, arr) => (
+                    <div
+                      key={label}
+                      className={cn("px-5 py-3.5", i === arr.length - 1 && arr.length % 2 !== 0 && "col-span-2")}
+                    >
                       <p className="text-xs text-slate-400 mb-0.5">{label}</p>
                       <p className="text-sm font-semibold text-[#1A3A5C]">{value}</p>
                     </div>

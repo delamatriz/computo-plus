@@ -81,6 +81,10 @@ interface ProyectoData {
   incluyeIVA?: boolean;
   timbresCJP?: number;
   gastosGeneralesItems?: GastoGeneralItem[];
+  // Se carga desde /editar — acá es de solo lectura, mostrada al pie del
+  // presupuesto junto a donde eventualmente va a vivir el Plazo de obra
+  // calculado (ver placeholder más abajo, todavía sin implementar).
+  fechaInicio?: string | null;
   plazoObra?: number | null;
   diasLaborales?: number | null;
   garantiaFielCumplimiento?: string | null;
@@ -269,6 +273,7 @@ const PROYECTO = {
   direccion: "Bulevar España 2345, Montevideo",
   memoriaDescriptiva: null as string | null,
   createdAt: null as string | null,
+  fechaInicio: null as string | null,
   fechaBaseIndice: null as string | null,
   ultimaActualizacionIndice: null as string | null,
   garantiaFielCumplimiento: null as string | null,
@@ -724,6 +729,13 @@ function fmtMoneda(v: number, moneda: string): string {
   if (v === 0) return "—";
   const fmt = Math.round(v).toLocaleString("es-UY");
   return moneda === "USD" ? `U$S ${fmt}` : `$ ${fmt}`;
+}
+
+function fmtFecha(valor: string | null | undefined): string | null {
+  if (!valor) return null;
+  const d = new Date(valor);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function fmtNum(v: number, decimales = 2): string {
@@ -2542,6 +2554,7 @@ export default function ProyectoPage() {
         incluyeIVA: data.incluyeIVA ?? false,
         timbresCJP: data.timbresCJP ?? 0,
         gastosGeneralesItems: Array.isArray(data.gastosGeneralesItems) ? data.gastosGeneralesItems : [],
+        fechaInicio: data.fechaInicio ?? null,
         plazoObra: data.plazoObra ?? null,
         diasLaborales: data.diasLaborales ?? null,
         garantiaFielCumplimiento: data.garantiaFielCumplimiento ?? null,
@@ -4570,6 +4583,24 @@ export default function ProyectoPage() {
           <div className="bg-white border-2 border-[#1A3A5C] rounded-lg px-5 py-4 flex justify-between items-center">
             <span className="text-sm font-semibold uppercase tracking-wide text-[#2563EB]">Total + IVA</span>
             <span className="text-lg font-bold text-[#2563EB]">{fmtMoneda(totalGeneral * 1.22, moneda)}</span>
+          </div>
+
+          {/* Fecha de inicio (se carga desde /editar, acá es de solo
+              lectura) + placeholder de Plazo de obra — a futuro se calcula
+              solo a partir de los jornales de mano de obra del presupuesto,
+              todavía no implementado. Mismo bloque para que quede claro que
+              van juntos cuando el cálculo exista. */}
+          <div className="bg-white border border-slate-200 rounded-lg px-5 py-3 grid grid-cols-2 divide-x divide-slate-100">
+            <div className="pr-4">
+              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Fecha de inicio</p>
+              <p className="text-sm font-semibold text-slate-700">
+                {fmtFecha(proyectoActivo.fechaInicio) ?? <span className="font-normal text-slate-400">A definir</span>}
+              </p>
+            </div>
+            <div className="pl-4">
+              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Plazo de obra</p>
+              <p className="text-sm font-medium text-slate-400">A definir</p>
+            </div>
           </div>
 
         </div>
