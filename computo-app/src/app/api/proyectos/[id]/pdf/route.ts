@@ -64,6 +64,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       incluyeIVA: proyecto.incluyeIVA,
       montoImponibleMO: proyecto.leyesSociales?.montoImponibleMO ?? null,
       fechaInicio: proyecto.fechaInicio,
+      fechaPresupuesto: proyecto.fechaPresupuesto,
       plazoObra: proyecto.plazoObra,
       diasLaborales: proyecto.diasLaborales,
       garantiaFielCumplimiento: proyecto.garantiaFielCumplimiento,

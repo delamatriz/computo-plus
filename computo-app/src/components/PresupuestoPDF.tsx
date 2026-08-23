@@ -57,6 +57,7 @@ export interface ProyectoConCapitulos {
   incluyeIVA: boolean;
   montoImponibleMO: number | null;
   fechaInicio?: string | Date | null;
+  fechaPresupuesto?: string | Date | null;
   plazoObra?: number | null;
   diasLaborales?: number | null;
   garantiaFielCumplimiento?: string | null;
@@ -622,6 +623,10 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
     ? [empresa.direccion, empresa.telefono, empresa.email, empresa.web].filter(Boolean).join("  ·  ")
     : "";
   const fechaInicio = fmtFecha(proyecto.fechaInicio);
+  // "Fecha de emisión" es del documento en sí (a diferencia de "Fecha de
+  // inicio", que es de la obra y puede quedar legítimamente sin definir):
+  // si el usuario no cargó fechaPresupuesto, hoy es un fallback razonable.
+  const fechaEmision = fmtFecha(proyecto.fechaPresupuesto) ?? fechaHoy();
   const hayPlazo = proyecto.plazoObra != null || proyecto.diasLaborales != null;
 
   return (
@@ -686,7 +691,7 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
       <SeparadorFinoPortada />
 
       <View>
-        <FilaDatoObra label="Fecha de emisión" valor={fechaHoy()} />
+        <FilaDatoObra label="Fecha de emisión" valor={fechaEmision} />
         {hayPlazo && (
           <View style={{ flexDirection: "row", marginBottom: 8 }}>
             <Text style={{ fontSize: 9, color: "#94A3B8", width: 120 }}>Plazo de ejecución</Text>
