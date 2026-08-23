@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Document, Page, pdfjs } from "react-pdf";
+import { Document, Page } from "react-pdf";
 import { TransformWrapper, TransformComponent, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 import {
   X,
@@ -30,11 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { obtenerArchivoCacheado } from "@/lib/archivoCache";
 import { PDF_OPTIONS, parsearEscala, type DocumentoDetalle, type DocumentoResumen, type MedicionDocumento, type Anotacion } from "./documentoMetraje";
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+import "@/lib/pdfjsSetup";
 
 function iconoPorTipo(tipoArchivo: DocumentoResumen["tipoArchivo"]) {
   if (tipoArchivo === "PDF") return FileText;

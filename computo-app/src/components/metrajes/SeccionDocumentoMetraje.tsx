@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Component, type ReactNode } from "react";
 import { Document, Page } from "react-pdf";
+import "@/lib/pdfjsSetup";
 import {
   Upload,
   FileText,
@@ -41,6 +42,27 @@ function iconoPorTipo(tipoArchivo: DocumentoResumen["tipoArchivo"]) {
   if (tipoArchivo === "PDF") return FileText;
   if (tipoArchivo === "IMAGEN") return FileImage;
   return FileGenerico; // DWG — sin ícono específico, solo metadata
+}
+
+// onLoadError de <Document> solo cubre los fallos que pdf.js reporta
+// rechazando su propia promesa (ej. PDF corrupto) — un fallo más profundo
+// (ej. el worker mal configurado, bug ya visto una vez) puede tirar una
+// excepción no capturada que directamente tumba el árbol de React sin
+// pasar por esa prop. Este error boundary es la red de contención para
+// "cualquier otra cosa" — no reemplaza a onLoadError, lo complementa.
+class LimiteErrorPDF extends Component<{ onError: () => void; children: ReactNode }, { tuvoError: boolean }> {
+  state = { tuvoError: false };
+  static getDerivedStateFromError() {
+    return { tuvoError: true };
+  }
+  componentDidCatch(error: unknown) {
+    console.error("[SeccionDocumentoMetraje] error inesperado al procesar el PDF", error);
+    this.props.onError();
+  }
+  render() {
+    if (this.state.tuvoError) return null;
+    return this.props.children;
+  }
 }
 
 // ── Modal de subida — genérico para las 3 categorías, con selector de
@@ -195,7 +217,9 @@ function ModalSubirDocumento({
           {/* Detección de páginas — invisible, solo dispara onLoadSuccess */}
           {esPDF && file && numPaginas == null && (
             <div className="hidden">
-              <Document file={file} options={PDF_OPTIONS} onLoadSuccess={({ numPages }) => setNumPaginas(numPages)} onLoadError={() => setError("No se pudo leer el PDF.")} />
+              <LimiteErrorPDF key={`${file.name}-${file.size}`} onError={() => setError("No se pudo leer el PDF.")}>
+                <Document file={file} options={PDF_OPTIONS} onLoadSuccess={({ numPages }) => setNumPaginas(numPages)} onLoadError={() => setError("No se pudo leer el PDF.")} />
+              </LimiteErrorPDF>
             </div>
           )}
 
@@ -224,9 +248,11 @@ function ModalSubirDocumento({
                 </button>
               </div>
               <div className="mt-3 border border-slate-200 rounded-[10px] overflow-hidden flex justify-center bg-slate-50 p-2">
-                <Document file={file} options={PDF_OPTIONS}>
-                  <Page pageNumber={paginaElegida} width={320} renderTextLayer={false} renderAnnotationLayer={false} />
-                </Document>
+                <LimiteErrorPDF key={`${file.name}-${file.size}-preview`} onError={() => setError("No se pudo mostrar la vista previa del PDF.")}>
+                  <Document file={file} options={PDF_OPTIONS}>
+                    <Page pageNumber={paginaElegida} width={320} renderTextLayer={false} renderAnnotationLayer={false} />
+                  </Document>
+                </LimiteErrorPDF>
               </div>
             </div>
           )}
