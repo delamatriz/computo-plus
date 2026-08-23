@@ -34,8 +34,10 @@ interface FormData {
   direccion: string;
   trabajos: string;
   moneda: "UYU" | "USD";
+  // Fecha de emisión del presupuesto — distinta de la fecha de inicio de
+  // obra (esa se sacó del wizard, se carga solo desde /editar).
+  fechaPresupuesto: string;
   area: string;
-  diasLaborales: string;
   descripcion: string;
   // Capítulos sueltos (sin título) — si el usuario nunca usa "Agregar
   // título", este es el único bucket y el comportamiento es idéntico al
@@ -144,8 +146,8 @@ function NuevoProyectoContent() {
     direccion: "",
     trabajos: "",
     moneda: "USD",
+    fechaPresupuesto: "",
     area: searchParams.get("area") ?? "",
-    diasLaborales: "",
     descripcion: "",
     capitulos: [],
     sinTituloEsAutomatico: true,
@@ -308,10 +310,10 @@ function NuevoProyectoContent() {
           tipo: form.tipo,
           tipoContratacion: form.tipoContratacion,
           moneda: form.moneda,
+          fechaPresupuesto: form.fechaPresupuesto || null,
           area: form.area,
           descripcion: form.trabajos || form.descripcion,
           direccion: form.direccion,
-          diasLaborales: form.diasLaborales ? parseInt(form.diasLaborales, 10) : null,
           titulos: titulosBody,
           capitulos: capitulosBody,
         }),
@@ -471,6 +473,7 @@ function NuevoProyectoContent() {
                 <p className="text-sm text-slate-400">Lo esencial para identificar el proyecto</p>
               </div>
 
+              {/* Identificación */}
               <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
 
                 <Field label="Nombre del proyecto *">
@@ -496,44 +499,16 @@ function NuevoProyectoContent() {
                     Aparece en el encabezado del presupuesto al cliente
                   </p>
                 </Field>
+              </div>
 
-                <Field label="Tipo de obra">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {TIPOS_OBRA.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => handleTipoChange(t.id)}
-                        className={cn(
-                          "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
-                          form.tipo === t.id
-                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
-                            : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
-                        )}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-
-                <Field label="Tipo de contratación">
-                  <div className="grid grid-cols-2 gap-2">
-                    {TIPOS_CONTRATACION.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => handleTipoContratacionChange(t.id)}
-                        className={cn(
-                          "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
-                          form.tipoContratacion === t.id
-                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
-                            : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
-                        )}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
+              {/* Datos del cliente */}
+              <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
+                <div>
+                  <h3 className="text-sm font-bold text-[#1A3A5C]">Datos del cliente</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Contacto y ubicación de la obra
+                  </p>
+                </div>
 
                 <Field label="Cliente / Comitente">
                   <input
@@ -596,6 +571,10 @@ function NuevoProyectoContent() {
                     className={inputCls}
                   />
                 </Field>
+              </div>
+
+              {/* Contexto / descripción */}
+              <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
 
                 <Field label="Descripción / Trabajos a realizar">
                   <textarea
@@ -605,6 +584,22 @@ function NuevoProyectoContent() {
                     rows={4}
                     className={cn(inputCls, "resize-none")}
                   />
+                </Field>
+
+                <Field label="Área total (m²)">
+                  <div className="relative max-w-[200px]">
+                    <input
+                      type="number"
+                      value={form.area}
+                      onChange={(e) => set("area", e.target.value)}
+                      placeholder="120"
+                      min={1}
+                      className={inputCls}
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">
+                      m²
+                    </span>
+                  </div>
                 </Field>
 
                 <Field label="Fotos de relevamiento">
@@ -730,9 +725,52 @@ function NuevoProyectoContent() {
             <div className="space-y-5">
               <div className="mb-1">
                 <h2 className="text-lg font-bold text-[#1A3A5C]">Detalles del proyecto</h2>
-                <p className="text-sm text-slate-400">Moneda, área y datos de referencia</p>
+                <p className="text-sm text-slate-400">Clasificación, moneda y fecha del presupuesto</p>
               </div>
 
+              {/* Clasificación */}
+              <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
+
+                <Field label="Tipo de obra">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {TIPOS_OBRA.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => handleTipoChange(t.id)}
+                        className={cn(
+                          "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
+                          form.tipo === t.id
+                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                            : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                        )}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+
+                <Field label="Tipo de contratación">
+                  <div className="grid grid-cols-2 gap-2">
+                    {TIPOS_CONTRATACION.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => handleTipoContratacionChange(t.id)}
+                        className={cn(
+                          "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
+                          form.tipoContratacion === t.id
+                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                            : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                        )}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+              </div>
+
+              {/* Económico */}
               <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
 
                 <Field label="Moneda principal">
@@ -754,37 +792,17 @@ function NuevoProyectoContent() {
                   </div>
                 </Field>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Área total (m²)">
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={form.area}
-                        onChange={(e) => set("area", e.target.value)}
-                        placeholder="120"
-                        min={1}
-                        className={inputCls}
-                      />
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">
-                        m²
-                      </span>
-                    </div>
-                  </Field>
-
-                  <Field label="Días laborales">
-                    <input
-                      type="number"
-                      value={form.diasLaborales}
-                      onChange={(e) => set("diasLaborales", e.target.value)}
-                      placeholder="ej: 65"
-                      min={1}
-                      className={inputCls}
-                    />
-                    <p className="text-xs text-slate-400 mt-1.5">
-                      Días hábiles de trabajo efectivo
-                    </p>
-                  </Field>
-                </div>
+                <Field label="Fecha del presupuesto">
+                  <input
+                    type="date"
+                    value={form.fechaPresupuesto}
+                    onChange={(e) => set("fechaPresupuesto", e.target.value)}
+                    className={cn(inputCls, "max-w-[200px]")}
+                  />
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    Fecha de emisión — distinta de la fecha de inicio de obra, que se carga después desde el proyecto
+                  </p>
+                </Field>
 
                 {modoCompleto && (
                   <div className="p-3.5 rounded-[10px] bg-blue-50 border border-blue-200 flex items-start gap-2.5">
@@ -927,21 +945,39 @@ function NuevoProyectoContent() {
                 <p className="text-sm text-slate-400">Revisá los datos antes de crear el proyecto</p>
               </div>
 
-              {/* Resumen de datos */}
+              {/* Resumen de datos — agrupado igual que los pasos 1 y 2:
+                  Datos del cliente primero, Detalles (clasificación +
+                  económico) después. */}
               <div className="bg-white rounded-[16px] border border-slate-300 overflow-hidden shadow-sm">
                 <div className="p-5 border-b border-slate-200">
                   <h3 className="font-bold text-[#1A3A5C] text-base">{form.nombre || "Sin nombre"}</h3>
                 </div>
 
+                <p className="px-5 pt-4 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Datos del cliente
+                </p>
+                <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 border-b border-slate-100">
+                  {[
+                    { label: "Cliente",   value: form.cliente || "—" },
+                    { label: "Dirección", value: form.direccion || "—" },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="px-5 py-3.5">
+                      <p className="text-xs text-slate-400 mb-0.5">{label}</p>
+                      <p className="text-sm font-semibold text-[#1A3A5C]">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="px-5 pt-4 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Detalles
+                </p>
                 <div className="grid grid-cols-2 divide-x divide-y divide-slate-100">
                   {[
-                    { label: "Proyecto",      value: form.nombre || "—" },
                     { label: "Tipo de obra",  value: TIPOS_OBRA.find((t) => t.id === form.tipo)?.label ?? "—" },
                     { label: "Contratación",  value: TIPOS_CONTRATACION.find((t) => t.id === form.tipoContratacion)?.label ?? "—" },
                     { label: "Moneda",        value: form.moneda },
+                    { label: "Fecha del presupuesto", value: form.fechaPresupuesto ? new Date(form.fechaPresupuesto).toLocaleDateString("es-UY") : "—" },
                     { label: "Área",          value: form.area ? `${form.area} m²` : "—" },
-                    { label: "Dirección",     value: form.direccion || "—" },
-                    { label: "Cliente",       value: form.cliente || "—" },
                   ].map(({ label, value }, i, arr) => (
                     <div
                       key={label}

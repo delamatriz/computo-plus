@@ -34,6 +34,12 @@ model Proyecto {
   descripcion String?
   trabajos    String?
   fechaInicio DateTime?
+  // Fecha de emisión del presupuesto (paso 2 del wizard, "Fecha del
+  // presupuesto") — distinta de fechaInicio (fecha en que arranca la
+  // obra, se carga solo desde /editar). Sin default a "hoy" a
+  // propósito, mismo criterio que fechaInicio: null explícito antes
+  // que un valor silencioso que no cargó el usuario.
+  fechaPresupuesto DateTime?
   plazoObra   Int?
   area        Float?
   direccion   String?

@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       descripcion,
       direccion,
       fechaInicio,
+      fechaPresupuesto,
       plazoObra,
       diasLaborales,
       capitulos,
@@ -131,6 +132,7 @@ export async function POST(req: NextRequest) {
           // /editar. Poner la fecha de creación acá mentiría "la obra
           // arrancó hoy" cuando en realidad todavía no se sabe.
           fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
+          fechaPresupuesto: fechaPresupuesto ? new Date(fechaPresupuesto) : null,
           plazoObra: plazoObra ? parseInt(plazoObra) : null,
           diasLaborales: diasLaborales ? parseInt(diasLaborales) : null,
           estado: "EN_CURSO",

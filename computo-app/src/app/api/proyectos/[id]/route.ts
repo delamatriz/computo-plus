@@ -101,6 +101,7 @@ export async function PATCH(
         ...(body.notas       !== undefined && { notas:       body.notas }),
         ...(body.trabajos    !== undefined && { trabajos:    body.trabajos }),
         ...(body.fechaInicio !== undefined && { fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null }),
+        ...(body.fechaPresupuesto !== undefined && { fechaPresupuesto: body.fechaPresupuesto ? new Date(body.fechaPresupuesto) : null }),
         ...(body.plazoObra   !== undefined && { plazoObra:   body.plazoObra }),
         ...(body.diasLaborales !== undefined && { diasLaborales: body.diasLaborales }),
         ...(body.garantiaFielCumplimiento !== undefined && { garantiaFielCumplimiento: body.garantiaFielCumplimiento }),
