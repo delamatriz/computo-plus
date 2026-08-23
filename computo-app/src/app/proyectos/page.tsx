@@ -22,7 +22,7 @@ const ESTADO_CLASSES: Record<string, string> = {
 export default async function ProyectosPage() {
   const proyectos = await db.proyecto.findMany({
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { capitulos: true } } },
+    include: { _count: { select: { capitulos: true, titulos: true } } },
   });
 
   return (
@@ -69,7 +69,9 @@ export default async function ProyectosPage() {
                 <p className="text-sm text-slate-500 mb-3">{p.cliente}</p>
               )}
               <div className="flex items-center justify-between text-xs text-slate-400 mt-auto pt-3 border-t border-slate-100">
-                <span>{p._count.capitulos} capítulos</span>
+                <span>
+                  {p._count.titulos} {p._count.titulos === 1 ? "título" : "títulos"} · {p._count.capitulos} {p._count.capitulos === 1 ? "capítulo" : "capítulos"}
+                </span>
                 {p.area && <span>{p.area} m²</span>}
               </div>
             </Link>
