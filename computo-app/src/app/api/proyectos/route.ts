@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
           clienteEmail: clienteEmail || null,
           tipo: tipo || "VIVIENDA",
           tipoContratacion: tipoContratacion || "PRIVADA",
-          moneda: moneda || "USD",
+          moneda: moneda || "UYU",
           area: area ? parseFloat(area) : null,
           descripcion: descripcion || "",
           direccion: direccion || "",

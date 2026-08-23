@@ -145,7 +145,7 @@ function NuevoProyectoContent() {
     correo: "",
     direccion: "",
     trabajos: "",
-    moneda: "USD",
+    moneda: "UYU",
     fechaPresupuesto: "",
     area: searchParams.get("area") ?? "",
     descripcion: "",
@@ -777,36 +777,30 @@ function NuevoProyectoContent() {
               {/* Económico */}
               <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
 
-                <Field label="Moneda principal">
-                  <div className="grid grid-cols-2 gap-3">
-                    {(["USD", "UYU"] as const).map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => set("moneda", m)}
-                        className={cn(
-                          "py-3 rounded-[12px] border text-center font-bold text-sm transition-all",
-                          form.moneda === m
-                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
-                            : "border-slate-300 text-slate-600 hover:border-slate-400"
-                        )}
-                      >
-                        {m === "USD" ? "U$S — Dólar" : "$ — Peso uruguayo"}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Moneda principal">
+                    <select
+                      value={form.moneda}
+                      onChange={(e) => set("moneda", e.target.value as "UYU" | "USD")}
+                      className={inputCls}
+                    >
+                      <option value="UYU">$ — Peso uruguayo</option>
+                      <option value="USD">U$S — Dólar</option>
+                    </select>
+                  </Field>
 
-                <Field label="Fecha del presupuesto">
-                  <input
-                    type="date"
-                    value={form.fechaPresupuesto}
-                    onChange={(e) => set("fechaPresupuesto", e.target.value)}
-                    className={cn(inputCls, "max-w-[200px]")}
-                  />
-                  <p className="text-xs text-slate-400 mt-1.5">
-                    Fecha de emisión — distinta de la fecha de inicio de obra, que se carga después desde el proyecto
-                  </p>
-                </Field>
+                  <Field label="Fecha del presupuesto">
+                    <input
+                      type="date"
+                      value={form.fechaPresupuesto}
+                      onChange={(e) => set("fechaPresupuesto", e.target.value)}
+                      className={inputCls}
+                    />
+                    <p className="text-xs text-slate-400 mt-1.5">
+                      Fecha de emisión — distinta de la fecha de inicio de obra, que se carga después desde el proyecto
+                    </p>
+                  </Field>
+                </div>
 
                 {modoCompleto && (
                   <div className="p-3.5 rounded-[10px] bg-blue-50 border border-blue-200 flex items-start gap-2.5">

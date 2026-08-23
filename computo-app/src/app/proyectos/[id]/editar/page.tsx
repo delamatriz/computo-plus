@@ -341,23 +341,14 @@ export default function EditarProyectoPage() {
         </Field>
 
         <Field label="Moneda principal">
-          <div className="grid grid-cols-2 gap-3">
-            {(["USD", "UYU"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => set("moneda", m)}
-                className={cn(
-                  "py-3 rounded-[12px] border text-center font-bold text-sm transition-all",
-                  form.moneda === m
-                    ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
-                    : "border-slate-300 text-slate-600 hover:border-slate-400"
-                )}
-              >
-                {m === "USD" ? "U$S — Dólar" : "$ — Peso uruguayo"}
-              </button>
-            ))}
-          </div>
+          <select
+            value={form.moneda}
+            onChange={(e) => set("moneda", e.target.value as "UYU" | "USD")}
+            className={inputCls}
+          >
+            <option value="UYU">$ — Peso uruguayo</option>
+            <option value="USD">U$S — Dólar</option>
+          </select>
         </Field>
 
         <div className="grid grid-cols-2 gap-4">
