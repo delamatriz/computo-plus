@@ -24,6 +24,10 @@ interface FormData {
   nombre: string;
   subtitulo: string;
   cliente: string;
+  clienteRut: string;
+  clienteRazonSocial: string;
+  clienteTelefono: string;
+  clienteEmail: string;
   tipo: string;
   tipoContratacion: string;
   direccion: string;
@@ -53,7 +57,8 @@ export default function EditarProyectoPage() {
   const proyectoId = params?.id as string;
 
   const [form, setForm] = useState<FormData>({
-    nombre: "", subtitulo: "", cliente: "", tipo: "VIVIENDA", tipoContratacion: "PRIVADA", direccion: "",
+    nombre: "", subtitulo: "", cliente: "", clienteRut: "", clienteRazonSocial: "", clienteTelefono: "", clienteEmail: "",
+    tipo: "VIVIENDA", tipoContratacion: "PRIVADA", direccion: "",
     moneda: "UYU", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", trabajos: "", descripcion: "",
   });
   const [titulos, setTitulos] = useState<TituloForm[]>([]);
@@ -75,6 +80,10 @@ export default function EditarProyectoPage() {
           nombre: data.nombre ?? "",
           subtitulo: data.subtitulo ?? "",
           cliente: data.cliente ?? "",
+          clienteRut: data.clienteRut ?? "",
+          clienteRazonSocial: data.clienteRazonSocial ?? "",
+          clienteTelefono: data.clienteTelefono ?? "",
+          clienteEmail: data.clienteEmail ?? "",
           tipo: data.tipo ?? "VIVIENDA",
           tipoContratacion: data.tipoContratacion ?? "PRIVADA",
           direccion: data.direccion ?? "",
@@ -122,6 +131,10 @@ export default function EditarProyectoPage() {
           nombre: form.nombre.trim(),
           subtitulo: form.subtitulo.trim() || null,
           cliente: form.cliente.trim() || null,
+          clienteRut: form.clienteRut.trim() || null,
+          clienteRazonSocial: form.clienteRazonSocial.trim() || null,
+          clienteTelefono: form.clienteTelefono.trim() || null,
+          clienteEmail: form.clienteEmail.trim() || null,
           tipo: form.tipo,
           tipoContratacion: form.tipoContratacion,
           direccion: form.direccion.trim() || null,
@@ -274,6 +287,48 @@ export default function EditarProyectoPage() {
             className={inputCls}
           />
         </Field>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="RUT">
+            <input
+              type="text"
+              value={form.clienteRut}
+              onChange={(e) => set("clienteRut", e.target.value)}
+              placeholder="ej: 21234567-8"
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Razón social">
+            <input
+              type="text"
+              value={form.clienteRazonSocial}
+              onChange={(e) => set("clienteRazonSocial", e.target.value)}
+              placeholder="ej: González Construcciones S.R.L."
+              className={inputCls}
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Teléfono">
+            <input
+              type="text"
+              value={form.clienteTelefono}
+              onChange={(e) => set("clienteTelefono", e.target.value)}
+              placeholder="ej: 099 123 456"
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Correo electrónico">
+            <input
+              type="email"
+              value={form.clienteEmail}
+              onChange={(e) => set("clienteEmail", e.target.value)}
+              placeholder="ej: contacto@empresa.com.uy"
+              className={inputCls}
+            />
+          </Field>
+        </div>
 
         <Field label="Dirección de la obra">
           <input

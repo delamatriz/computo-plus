@@ -27,6 +27,14 @@ model Proyecto {
   nombre      String
   subtitulo   String?
   cliente     String?
+  // Datos de contacto del cliente/comitente (wizard, paso 1, tarjeta
+  // "Datos del cliente") — prefijo "cliente" a propósito para no
+  // confundirlos con Empresa.rut/Empresa.telefono, que son de la
+  // empresa CÓMPUTO+, no del cliente de este proyecto puntual.
+  clienteRut         String?
+  clienteRazonSocial String?
+  clienteTelefono    String?
+  clienteEmail       String?
   moneda      String     @default("UYU")
   tipo        String     @default("VIVIENDA")
   tipoContratacion String @default("PRIVADA") // "PRIVADA" | "PUBLICA"

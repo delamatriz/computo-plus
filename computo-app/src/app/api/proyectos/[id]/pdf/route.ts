@@ -44,6 +44,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       nombre: proyecto.nombre,
       subtitulo: proyecto.subtitulo,
       cliente: proyecto.cliente,
+      clienteRut: proyecto.clienteRut,
       tipo: proyecto.tipo,
       area: proyecto.area,
       direccion: proyecto.direccion,

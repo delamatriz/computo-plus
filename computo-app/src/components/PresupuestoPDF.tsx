@@ -45,6 +45,7 @@ export interface ProyectoConCapitulos {
   nombre: string;
   subtitulo: string | null;
   cliente: string | null;
+  clienteRut: string | null;
   tipo: string;
   area: number | null;
   direccion: string | null;
@@ -676,6 +677,7 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
       <View>
         <LabelSeccionPortada texto="Datos de la obra" />
         <FilaDatoObra label="Cliente" valor={proyecto.cliente} />
+        <FilaDatoObra label="RUT" valor={proyecto.clienteRut} />
         <FilaDatoObra label="Tipo de obra" valor={labelTipoObra(proyecto.tipo)} />
         <FilaDatoObra label="Ubicación" valor={proyecto.direccion} />
         <FilaDatoObra label="Fecha de inicio" valor={fechaInicio} />
