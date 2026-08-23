@@ -75,9 +75,14 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+// timeZone: "UTC" — cert.fecha es una fecha "solo día" (YYYY-MM-DD desde
+// un <input type="date">), que new Date() parsea como medianoche UTC.
+// Formateada en huso local (Uruguay UTC-3) esa fecha calendario se corre
+// un día para atrás (mismo bug documentado y resuelto para
+// convenioFechaVigente en lib/convenioSunca.ts).
 function fmtFecha(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "long", year: "numeric" });
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" });
 }
 
 function montoCertificadoDe(cert: CertificacionResumen, rubrosPorId: Map<string, RubroResumen>): number {

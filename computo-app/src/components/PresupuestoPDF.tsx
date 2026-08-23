@@ -124,11 +124,16 @@ function fechaHoy(): string {
   return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+// timeZone: "UTC" — fechaInicio/fechaPresupuesto son fechas "solo día"
+// (YYYY-MM-DD desde un <input type="date">), que new Date() parsea como
+// medianoche UTC. Formateadas en huso local (Uruguay UTC-3) esa fecha
+// calendario se corre un día para atrás (mismo bug documentado y resuelto
+// para convenioFechaVigente en lib/convenioSunca.ts).
 function fmtFecha(valor: string | Date | null | undefined): string | null {
   if (!valor) return null;
   const d = new Date(valor);
   if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 }
 
 /* ─── Estilos ─────────────────────────────────────────────── */

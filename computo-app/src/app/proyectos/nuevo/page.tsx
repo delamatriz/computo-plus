@@ -980,7 +980,12 @@ function NuevoProyectoContent() {
                     { label: "Tipo de obra",  value: TIPOS_OBRA.find((t) => t.id === form.tipo)?.label ?? "—" },
                     { label: "Contratación",  value: TIPOS_CONTRATACION.find((t) => t.id === form.tipoContratacion)?.label ?? "—" },
                     { label: "Moneda",        value: form.moneda },
-                    { label: "Fecha del presupuesto", value: form.fechaPresupuesto ? new Date(form.fechaPresupuesto).toLocaleDateString("es-UY") : "—" },
+                    // timeZone: "UTC" — form.fechaPresupuesto es "YYYY-MM-DD" del
+                    // <input type="date">, que new Date() parsea como medianoche
+                    // UTC; sin esto, en huso local (Uruguay UTC-3) se muestra un
+                    // día antes (mismo bug resuelto para convenioFechaVigente en
+                    // lib/convenioSunca.ts).
+                    { label: "Fecha del presupuesto", value: form.fechaPresupuesto ? new Date(form.fechaPresupuesto).toLocaleDateString("es-UY", { timeZone: "UTC" }) : "—" },
                     { label: "Área",          value: form.area ? `${form.area} m²` : "—" },
                   ].map(({ label, value }, i, arr) => (
                     <div
