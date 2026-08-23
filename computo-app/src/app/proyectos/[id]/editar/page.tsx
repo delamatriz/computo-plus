@@ -32,6 +32,7 @@ interface FormData {
   tipoContratacion: string;
   direccion: string;
   moneda: "UYU" | "USD";
+  fechaPresupuesto: string;
   area: string;
   fechaInicio: string;
   plazoObra: string;
@@ -59,7 +60,7 @@ export default function EditarProyectoPage() {
   const [form, setForm] = useState<FormData>({
     nombre: "", subtitulo: "", cliente: "", clienteRut: "", clienteRazonSocial: "", clienteTelefono: "", clienteEmail: "",
     tipo: "VIVIENDA", tipoContratacion: "PRIVADA", direccion: "",
-    moneda: "UYU", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", trabajos: "", descripcion: "",
+    moneda: "UYU", fechaPresupuesto: "", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", trabajos: "", descripcion: "",
   });
   const [titulos, setTitulos] = useState<TituloForm[]>([]);
   // Snapshot de los títulos tal como llegaron del servidor — al guardar,
@@ -88,6 +89,7 @@ export default function EditarProyectoPage() {
           tipoContratacion: data.tipoContratacion ?? "PRIVADA",
           direccion: data.direccion ?? "",
           moneda: data.moneda === "USD" ? "USD" : "UYU",
+          fechaPresupuesto: data.fechaPresupuesto ? data.fechaPresupuesto.slice(0, 10) : "",
           area: data.area != null ? String(data.area) : "",
           fechaInicio: data.fechaInicio ? data.fechaInicio.slice(0, 10) : "",
           plazoObra: data.plazoObra != null ? String(data.plazoObra) : "",
@@ -139,6 +141,7 @@ export default function EditarProyectoPage() {
           tipoContratacion: form.tipoContratacion,
           direccion: form.direccion.trim() || null,
           moneda: form.moneda,
+          fechaPresupuesto: form.fechaPresupuesto || null,
           area: form.area ? parseFloat(form.area) : null,
           fechaInicio: form.fechaInicio || null,
           plazoObra: form.plazoObra ? parseInt(form.plazoObra, 10) : null,
@@ -340,16 +343,30 @@ export default function EditarProyectoPage() {
           />
         </Field>
 
-        <Field label="Moneda principal">
-          <select
-            value={form.moneda}
-            onChange={(e) => set("moneda", e.target.value as "UYU" | "USD")}
-            className={inputCls}
-          >
-            <option value="UYU">$ — Peso uruguayo</option>
-            <option value="USD">U$S — Dólar</option>
-          </select>
-        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Moneda principal">
+            <select
+              value={form.moneda}
+              onChange={(e) => set("moneda", e.target.value as "UYU" | "USD")}
+              className={inputCls}
+            >
+              <option value="UYU">$ — Peso uruguayo</option>
+              <option value="USD">U$S — Dólar</option>
+            </select>
+          </Field>
+
+          <Field label="Fecha del presupuesto">
+            <input
+              type="date"
+              value={form.fechaPresupuesto}
+              onChange={(e) => set("fechaPresupuesto", e.target.value)}
+              className={inputCls}
+            />
+            <p className="text-xs text-slate-400 mt-1.5">
+              Fecha de emisión — distinta de la fecha de inicio de obra
+            </p>
+          </Field>
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Área total (m²)">
