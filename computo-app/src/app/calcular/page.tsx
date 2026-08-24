@@ -884,10 +884,10 @@ export default function CalcularPage() {
                     setIniciandoProyecto(true);
                     setAvisoFotos(null);
                     const href = esDescriptivo
-                      ? `/proyectos/nuevo?tipo=${tipo}&descripcion=${encodeURIComponent(descripcion)}&calidad=${calidad}`
+                      ? `/proyectos/nuevo?tipo=${tipo}&descripcion=${encodeURIComponent(descripcion)}`
                       : esPH
-                      ? `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&unidades=${unidadesNum}&calidad=${calidad}`
-                      : `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}&calidad=${calidad}`;
+                      ? `/proyectos/nuevo?tipo=${tipo}&area=${areaTotal}`
+                      : `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}`;
 
                     try {
                       sessionStorage.setItem("calculoRapido_descripcion", descripcion);
