@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 // Marcas de medición sobre un plano — Etapa 3 de "Metrajes con plano"
-// (UI_UX_REDESIGN.md sección 6, Modo A manual). Dos tipos hoy: "LINEA"
-// (dos puntos fijos) y "AREA" (polígono de N vértices, N >= 3). Requiere
-// documento categoria=PLANO y ya calibrado (factorEscala != null) —
-// mismo principio no negociable que la UI ya hace cumplir (herramienta
-// oculta si no hay calibración), acá se valida de nuevo server-side por
-// si acaso.
+// (UI_UX_REDESIGN.md sección 6, Modo A manual). Tres tipos hoy: "LINEA"
+// (dos puntos fijos), "AREA" (polígono de N vértices, N >= 3) y "PUNTO"
+// (conteo, N >= 1 marcadores sin conectar). Requiere documento
+// categoria=PLANO y ya calibrado (factorEscala != null) — mismo
+// principio no negociable que la UI ya hace cumplir (herramienta oculta
+// si no hay calibración), acá se valida de nuevo server-side por si
+// acaso. PUNTO en rigor no depende de factorEscala (contar no es medir
+// una distancia/área), pero se exige igual por consistencia con el
+// resto del grupo de herramientas de medición — ver gate en Visor.tsx.
 
 // GET — lista las marcas de medición de un documento (para dibujarlas
 // al abrir el plano en el Visor).
@@ -61,8 +64,9 @@ function validarPuntoXY(p: unknown): p is { x: number; y: number } {
   );
 }
 
-// POST — crea una marca de medición. tipo="LINEA" (dos puntos fijos) o
-// tipo="AREA" (polígono de N >= 3 vértices).
+// POST — crea una marca de medición. tipo="LINEA" (dos puntos fijos),
+// tipo="AREA" (polígono de N >= 3 vértices) o tipo="PUNTO" (conteo,
+// N >= 1 marcadores).
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string; docId: string }> }
@@ -70,7 +74,7 @@ export async function POST(
   try {
     const { docId } = await context.params;
     const body = await req.json().catch(() => null);
-    const tipo = body?.tipo === "AREA" ? "AREA" : "LINEA";
+    const tipo = body?.tipo === "AREA" ? "AREA" : body?.tipo === "PUNTO" ? "PUNTO" : "LINEA";
 
     const errorComun = validarComun(body);
     if (errorComun) {
@@ -112,6 +116,23 @@ export async function POST(
       }
       medicion = await db.medicionDocumento.create({
         data: { ...datosComunes, tipo: "AREA", puntos, areaReal: body.areaReal },
+      });
+    } else if (tipo === "PUNTO") {
+      const puntos = body?.puntos;
+      const puntosValidos = Array.isArray(puntos) && puntos.length >= 1 && puntos.every(validarPuntoXY);
+      // Reusa la columna areaReal para el conteo confirmado (arranca en
+      // puntos.length, pero el modal permite corregirlo a mano antes de
+      // guardar — ver confirmarMedicion en Visor.tsx) — no hace falta
+      // una columna nueva solo para Punto.
+      const valorValido = typeof body?.valorConteo === "number" && isFinite(body.valorConteo) && body.valorConteo > 0;
+      if (!puntosValidos || !valorValido) {
+        return NextResponse.json(
+          { error: "Se esperaba { puntos: [{x,y: 0-100}, ...] con mínimo 1, valorConteo: number > 0 }" },
+          { status: 400 }
+        );
+      }
+      medicion = await db.medicionDocumento.create({
+        data: { ...datosComunes, tipo: "PUNTO", puntos, areaReal: body.valorConteo },
       });
     } else {
       const camposNumericos = [body?.xInicio, body?.yInicio, body?.xFin, body?.yFin, body?.longitudReal];

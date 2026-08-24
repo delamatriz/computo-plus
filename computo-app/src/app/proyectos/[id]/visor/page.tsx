@@ -319,7 +319,7 @@ export default function VisorProyectoPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         descripcion: input.descripcion,
-        largo: input.tipo === "AREA" ? input.areaReal : input.longitudReal,
+        largo: input.tipo === "AREA" ? input.areaReal : input.tipo === "PUNTO" ? input.valorConteo : input.longitudReal,
         cantidad: input.repeticiones,
         unidad: null,
         rubroId: input.rubroId ?? null,
@@ -379,7 +379,10 @@ export default function VisorProyectoPage() {
     const data = await res.json();
     setMediciones((prev) => [...prev, data.medicion]);
 
-    const anchoReal = input.tipo === "LINEA" ? input.longitudReal : input.areaReal;
+    // PUNTO nunca llega acá en la práctica — iniciarAsignacionAncho
+    // fuerza herramienta a LINEA siempre (ver Visor.tsx) — pero el tipo
+    // es la unión completa, así que se cubre el caso para que compile.
+    const anchoReal = input.tipo === "LINEA" ? input.longitudReal : input.tipo === "AREA" ? input.areaReal : input.valorConteo;
     const resFila = await fetch(`/api/proyectos/${proyectoId}/filas-metraje/${filaId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

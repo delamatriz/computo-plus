@@ -26,6 +26,7 @@ import {
   Slash,
   Type as TypeIcon,
   Info,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { obtenerArchivoCacheado } from "@/lib/archivoCache";
@@ -329,6 +330,22 @@ export type NuevaMedicionInput =
       tipo: "AREA";
       puntos: { x: number; y: number }[];
       areaReal: number;
+      repeticiones: number;
+      descripcion: string;
+      rubroId: string | null;
+    }
+  | {
+      // Conteo — valorConteo arranca en puntos.length (ver
+      // finalizarPunto) pero el modal reusado de Línea/Área permite
+      // editarlo a mano antes de guardar, igual que la longitud/área
+      // calculada de esas dos — así que sí hace falta transportarlo
+      // (no alcanza con derivar siempre puntos.length en cada lugar
+      // que lo necesita, porque el usuario pudo haberlo corregido).
+      // Se persiste reusando la columna areaReal de MedicionDocumento
+      // (ver API route) — no hace falta una columna nueva.
+      tipo: "PUNTO";
+      puntos: { x: number; y: number }[];
+      valorConteo: number;
       repeticiones: number;
       descripcion: string;
       rubroId: string | null;
@@ -857,17 +874,17 @@ export interface ControlesZoom {
 }
 
 /** Expone el estado + acciones de las herramientas de medición/anotación
- * del VisorPrincipal hacia FILA 2 (botones "Medir"/"Área"/"Trazo"/
- * "Texto") del Visor — mismo patrón que ControlesZoom. Solo una
+ * del VisorPrincipal hacia FILA 2 (botones "Medir"/"Área"/"Punto"/
+ * "Trazo"/"Texto") del Visor — mismo patrón que ControlesZoom. Solo una
  * herramienta puede estar activa a la vez. Sin rubro acá — se elige
  * después en la Planilla. */
 export interface ControlesMedicion {
   pageDimsListo: boolean;
   /** null tanto cuando no hay ninguna herramienta activa como cuando la
    * activa es Trazo o Texto (ver trazoActivo/textoActivo) — así los
-   * botones de Línea/Área no se muestran "prendidos" con otra
+   * botones de Línea/Área/Punto no se muestran "prendidos" con otra
    * herramienta puesta. */
-  herramienta: "LINEA" | "AREA" | null;
+  herramienta: "LINEA" | "AREA" | "PUNTO" | null;
   onToggleLinea: () => void;
   /** Click en el botón "Área" — arranca la herramienta si está
    * apagada; con la herramienta prendida y menos de 3 vértices puestos
@@ -877,6 +894,13 @@ export interface ControlesMedicion {
   /** Vértices puestos del polígono en curso — FILA 2 lo usa para
    * decidir el texto del botón ("Dibujando…" vs "Finalizar (N)"). */
   puntosAreaCount: number;
+  /** Click en el botón "Punto" — mismo patrón que Área, pero el
+   * umbral para poder finalizar es 1 en vez de 3 (un solo elemento
+   * contado ya es un conteo válido). */
+  onTogglePunto: () => void;
+  /** Puntos marcados de la sesión de conteo en curso — mismo rol que
+   * puntosAreaCount para el texto del botón. */
+  puntosPuntoCount: number;
   /** Trazo libre y Texto — anotaciones sin calibración/rubro/PDF de
    * por medio, así que se manejan aparte de herramienta (arriba). */
   trazoActivo: boolean;
@@ -894,12 +918,14 @@ export interface ControlesMedicion {
   onIniciarAsignacionAncho: (filaId: string, descripcion: string) => void;
 }
 
-// Medición pendiente de confirmar en el modal — Línea o Área, cada
-// una con su geometría propia además del valor calculado (editable a
-// mano en el modal antes de guardar).
+// Medición pendiente de confirmar en el modal — Línea, Área o Punto,
+// cada una con su geometría propia además del valor calculado (editable
+// a mano en el modal antes de guardar). En Punto, valor es simplemente
+// puntos.length, congelado en finalizarPunto como el resto.
 type MedicionPendiente =
   | { tipo: "LINEA"; xInicio: number; yInicio: number; xFin: number; yFin: number; valor: number }
-  | { tipo: "AREA"; puntos: { x: number; y: number }[]; valor: number };
+  | { tipo: "AREA"; puntos: { x: number; y: number }[]; valor: number }
+  | { tipo: "PUNTO"; puntos: { x: number; y: number }[]; valor: number };
 
 function VisorPrincipal({
   doc,
@@ -1007,10 +1033,15 @@ function VisorPrincipal({
   };
   const dprRender = calcularDprRender(multiplicadorDPR);
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
-  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "TRAZO" | "RECTA" | "TEXTO" | null>(null);
+  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "PUNTO" | "TRAZO" | "RECTA" | "TEXTO" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
   const [puntosArea, setPuntosArea] = useState<{ x: number; y: number }[]>([]);
   const [cursorArea, setCursorArea] = useState<{ x: number; y: number } | null>(null);
+  // Punto (conteo) — cada click acumula un marcador, sin trazo/línea que
+  // los conecte (a diferencia de puntosArea). Mismo ciclo de vida que
+  // puntosArea: se limpia al cambiar de herramienta, se congela dentro
+  // de medicionPendiente al finalizar.
+  const [puntosPunto, setPuntosPunto] = useState<{ x: number; y: number }[]>([]);
   const [medicionPendiente, setMedicionPendiente] = useState<MedicionPendiente | null>(null);
   // Modo "medir ANCHO hacia una fila existente" — ver ControlesMedicion.
   // No null mientras dura: el próximo trazo de Línea confirmado no pasa
@@ -1267,16 +1298,20 @@ function VisorPrincipal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rectaActual]);
 
-  // Click para AREA (agrega un vértice), TEXTO (abre el modal en ese
-  // punto) y el segundo click del modo "clic + clic" de Línea recta.
-  // mousedown/mouseup ya están ocupados por el drag de Línea/Trazo/
-  // Recta, así que estas usan onClick (un click "de verdad", sin
+  // Click para AREA (agrega un vértice), PUNTO (agrega un marcador,
+  // igual que AREA pero sin conectarlos entre sí), TEXTO (abre el modal
+  // en ese punto) y el segundo click del modo "clic + clic" de Línea
+  // recta. mousedown/mouseup ya están ocupados por el drag de Línea/
+  // Trazo/Recta, así que estas usan onClick (un click "de verdad", sin
   // arrastre significativo de por medio) para no pisarse con esa lógica.
   const onSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current) return;
     if (herramienta === "AREA" && !medicionPendiente) {
       const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
       if (p) setPuntosArea((prev) => [...prev, p]);
+    } else if (herramienta === "PUNTO" && !medicionPendiente) {
+      const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
+      if (p) setPuntosPunto((prev) => [...prev, p]);
     } else if (herramienta === "TEXTO" && !textoPendientePunto) {
       const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
       if (p) setTextoPendientePunto(p);
@@ -1326,6 +1361,15 @@ function VisorPrincipal({
     setCursorArea(null);
   };
 
+  // Mismo patrón que finalizarArea, pero el valor es simplemente la
+  // cantidad de puntos marcados — sin fórmula ni calibración de por
+  // medio (contar no depende de factorEscala).
+  const finalizarPunto = () => {
+    if (puntosPunto.length < 1) return;
+    setMedicionPendiente({ tipo: "PUNTO", puntos: puntosPunto, valor: puntosPunto.length });
+    setPuntosPunto([]);
+  };
+
   const toggleLinea = () => {
     if (herramienta === "LINEA") {
       setHerramienta(null);
@@ -1336,6 +1380,7 @@ function VisorPrincipal({
     setHerramienta("LINEA");
     setPuntosArea([]);
     setCursorArea(null);
+    setPuntosPunto([]);
     setTrazoActual(null);
     setRectaActual(null);
     setRectaPrimerPunto(null);
@@ -1348,6 +1393,7 @@ function VisorPrincipal({
       setHerramienta("AREA");
       setPuntosArea([]);
       setCursorArea(null);
+      setPuntosPunto([]);
       setDibujoActual(null);
       setTrazoActual(null);
       setRectaActual(null);
@@ -1366,6 +1412,31 @@ function VisorPrincipal({
     }
   };
 
+  // Clon de toggleArea — único cambio real es el umbral para poder
+  // finalizar (1 en vez de 3, ver finalizarPunto).
+  const togglePunto = () => {
+    if (herramienta !== "PUNTO") {
+      setHerramienta("PUNTO");
+      setPuntosPunto([]);
+      setPuntosArea([]);
+      setCursorArea(null);
+      setDibujoActual(null);
+      setTrazoActual(null);
+      setRectaActual(null);
+      setRectaPrimerPunto(null);
+      setRectaCursor(null);
+      setTextoPendientePunto(null);
+      setMedicionObjetivo(null);
+      return;
+    }
+    if (puntosPunto.length >= 1) {
+      finalizarPunto();
+    } else {
+      setHerramienta(null);
+      setPuntosPunto([]);
+    }
+  };
+
   const toggleTrazo = () => {
     if (herramienta === "TRAZO") {
       setHerramienta(null);
@@ -1376,6 +1447,7 @@ function VisorPrincipal({
     setDibujoActual(null);
     setPuntosArea([]);
     setCursorArea(null);
+    setPuntosPunto([]);
     setRectaActual(null);
     setRectaPrimerPunto(null);
     setRectaCursor(null);
@@ -1395,6 +1467,7 @@ function VisorPrincipal({
     setDibujoActual(null);
     setPuntosArea([]);
     setCursorArea(null);
+    setPuntosPunto([]);
     setMedicionObjetivo(null);
     setTrazoActual(null);
     setTextoPendientePunto(null);
@@ -1410,6 +1483,7 @@ function VisorPrincipal({
     setDibujoActual(null);
     setPuntosArea([]);
     setCursorArea(null);
+    setPuntosPunto([]);
     setTrazoActual(null);
     setRectaActual(null);
     setRectaPrimerPunto(null);
@@ -1427,6 +1501,7 @@ function VisorPrincipal({
     setDibujoActual(null);
     setPuntosArea([]);
     setCursorArea(null);
+    setPuntosPunto([]);
     setTrazoActual(null);
     setRectaActual(null);
     setRectaPrimerPunto(null);
@@ -1450,6 +1525,7 @@ function VisorPrincipal({
     setDibujoActual(null);
     setPuntosArea([]);
     setCursorArea(null);
+    setPuntosPunto([]);
     setTrazoActual(null);
     setRectaActual(null);
     setRectaPrimerPunto(null);
@@ -1590,11 +1666,20 @@ function VisorPrincipal({
         descripcion,
         rubroId: null,
       });
-    } else {
+    } else if (medicionPendiente.tipo === "AREA") {
       await onGuardarMedicion({
         tipo: "AREA",
         puntos: medicionPendiente.puntos,
         areaReal: valor,
+        repeticiones,
+        descripcion,
+        rubroId: null,
+      });
+    } else {
+      await onGuardarMedicion({
+        tipo: "PUNTO",
+        puntos: medicionPendiente.puntos,
+        valorConteo: valor,
         repeticiones,
         descripcion,
         rubroId: null,
@@ -1632,10 +1717,12 @@ function VisorPrincipal({
     }
     onControlesMedicionListos({
       pageDimsListo: pageDimsMM != null,
-      herramienta: herramienta === "LINEA" || herramienta === "AREA" ? herramienta : null,
+      herramienta: herramienta === "LINEA" || herramienta === "AREA" || herramienta === "PUNTO" ? herramienta : null,
       onToggleLinea: toggleLinea,
       onToggleArea: toggleArea,
       puntosAreaCount: puntosArea.length,
+      onTogglePunto: togglePunto,
+      puntosPuntoCount: puntosPunto.length,
       trazoActivo: herramienta === "TRAZO",
       onToggleTrazo: toggleTrazo,
       rectaActiva: herramienta === "RECTA",
@@ -1646,7 +1733,7 @@ function VisorPrincipal({
       onIniciarAsignacionAncho: iniciarAsignacionAncho,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length, medicionObjetivo]);
+  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length, puntosPunto.length, medicionObjetivo]);
 
   useEffect(() => {
     return () => onControlesMedicionListos(null);
@@ -1879,6 +1966,12 @@ function VisorPrincipal({
                     </g>
                   );
                 }
+                // PUNTO se dibuja aparte, en la capa HTML (mismo motivo que
+                // TEXTO — el viewBox de acá usa preserveAspectRatio="none",
+                // que distorsiona de forma no uniforme; un <circle> ahí
+                // adentro saldría ovalado en documentos que no son
+                // cuadrados, ver capa HTML más abajo).
+                if (m.tipo === "PUNTO") return null;
                 if (m.xInicio == null || m.yInicio == null || m.xFin == null || m.yFin == null) return null;
                 return (
                   <g key={m.id} style={estiloClick} onClick={onClickBorrar}>
@@ -2135,13 +2228,66 @@ function VisorPrincipal({
                   className="absolute -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-amber-500/70 border-2 border-white shadow-md animate-pulse"
                 />
               )}
+              {/* Punto (conteo) — círculos numerados, capa HTML por el
+                  mismo motivo que Texto (ver comentario arriba de este
+                  bloque): un <circle> dentro del <svg> con
+                  preserveAspectRatio="none" saldría ovalado en
+                  documentos no cuadrados. Tres estados, mismos colores
+                  que el resto de las herramientas: gris mientras se
+                  cuenta (sin confirmar todavía), ámbar mientras el modal
+                  de confirmación está abierto, azul una vez guardado. */}
+              {mediciones.map((m) => {
+                if (m.tipo !== "PUNTO" || !m.puntos) return null;
+                const clickeable = herramienta === null;
+                return m.puntos.map((p, i) => (
+                  <div
+                    key={`${m.id}-${i}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      eliminarMedicionConConfirmacion(m);
+                    }}
+                    title={`"${m.descripcion}" — click para eliminar`}
+                    style={{
+                      left: `${p.x}%`,
+                      top: `${p.y}%`,
+                      pointerEvents: clickeable ? "auto" : "none",
+                      cursor: clickeable ? "pointer" : "default",
+                    }}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#2563EB] border-2 border-white shadow-md flex items-center justify-center text-[10px] font-bold text-white select-none"
+                  >
+                    {i + 1}
+                  </div>
+                ));
+              })}
+              {herramienta === "PUNTO" &&
+                puntosPunto.map((p, i) => (
+                  <div
+                    key={`puntoPendiente-${i}`}
+                    style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-500 border-2 border-white shadow-md flex items-center justify-center text-[10px] font-bold text-white select-none pointer-events-none"
+                  >
+                    {i + 1}
+                  </div>
+                ))}
+              {medicionPendiente?.tipo === "PUNTO" &&
+                medicionPendiente.puntos.map((p, i) => (
+                  <div
+                    key={`puntoConfirmar-${i}`}
+                    style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-amber-500 border-2 border-white shadow-md flex items-center justify-center text-[10px] font-bold text-white select-none pointer-events-none"
+                  >
+                    {i + 1}
+                  </div>
+                ))}
             </div>
           </div>
         </TransformComponent>
       </TransformWrapper>
       {medicionPendiente && (
         <ModalConfirmarMedicion
-          unidadLabel={medicionPendiente.tipo === "LINEA" ? "Longitud (m)" : "Área (m²)"}
+          unidadLabel={
+            medicionPendiente.tipo === "LINEA" ? "Longitud (m)" : medicionPendiente.tipo === "AREA" ? "Área (m²)" : "Cantidad"
+          }
           valorInicial={medicionPendiente.valor}
           onCancelar={() => setMedicionPendiente(null)}
           onGuardar={confirmarMedicion}
@@ -2589,9 +2735,7 @@ export default function Visor({
         {documentoPrincipal?.categoria === "PLANO" && documentoPrincipal.factorEscala != null && (
           <>
             <div className="w-px h-4 bg-slate-200 mx-1" />
-            {/* Herramientas de medición — Línea y Área hoy; deja lugar en
-                este mismo grupo para Punto cuando se implemente (Etapa 3,
-                ronda futura). */}
+            {/* Herramientas de medición — Línea, Área y Punto. */}
             <button
               onClick={controlesMedicion?.onToggleLinea}
               disabled={!puedeActivarMedicion}
@@ -2628,6 +2772,29 @@ export default function Visor({
                   ? `Finalizar (${controlesMedicion.puntosAreaCount})`
                   : `Dibujando… (${controlesMedicion.puntosAreaCount})`
                 : "Área"}
+            </button>
+            <button
+              onClick={controlesMedicion?.onTogglePunto}
+              disabled={!puedeActivarMedicion || !!controlesMedicion?.medicionObjetivo}
+              title={
+                controlesMedicion?.medicionObjetivo
+                  ? "No disponible mientras se está midiendo un ANCHO — cancelá con ESC o con el ícono de regla"
+                  : documentoPrincipal.tipoArchivo !== "PDF"
+                  ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
+                  : controlesMedicion?.herramienta !== "PUNTO"
+                  ? "Contar elementos puntuales sobre el plano — clic por cada uno"
+                  : controlesMedicion.puntosPuntoCount < 1
+                  ? "Marcá al menos un punto — clic en el plano (volvé a clickear acá para cancelar)"
+                  : "Terminar de contar y confirmar"
+              }
+              className={clasePildoraHerramienta(controlesMedicion?.herramienta === "PUNTO", puedeActivarMedicion && !controlesMedicion?.medicionObjetivo)}
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              {controlesMedicion?.herramienta === "PUNTO"
+                ? controlesMedicion.puntosPuntoCount >= 1
+                  ? `Finalizar (${controlesMedicion.puntosPuntoCount})`
+                  : "Contando…"
+                : "Punto"}
             </button>
           </>
         )}
