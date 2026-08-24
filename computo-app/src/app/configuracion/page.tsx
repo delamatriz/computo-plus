@@ -42,6 +42,7 @@ interface MaterialReferencia {
   descripcion: string;
   unidad: string;
   precioUnitario: number;
+  actualizadoEn: string;
 }
 
 const CODIGOS_MATERIALES_REFERENCIA = [
@@ -101,6 +102,14 @@ const ROMANO_A_CODIGO_SIMPLIFICADO: Record<string, string> = {
 
 function formatearJornal(n: number): string {
   return n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// actualizadoEn es un timestamp real (Prisma @updatedAt, se toca en cada
+// guardado manual desde esta pantalla) — a diferencia de las fechas "solo
+// día" de otras partes de la app, se formatea en huso local sin necesidad
+// de forzar UTC.
+function formatearFechaActualizacion(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-UY", { day: "numeric", month: "long", year: "numeric" });
 }
 
 export default function ConfiguracionPage() {
@@ -435,6 +444,14 @@ export default function ConfiguracionPage() {
 
   const convenioDesactualizado = convenioPosiblementeDesactualizado(fechaConvenio || null);
 
+  // Más reciente entre los actualizadoEn de los materiales de referencia
+  // (no hay un campo único para "la lista completa" — cada fila se
+  // actualiza por separado desde "Guardar cambios" acá abajo).
+  const fechaUltimaActualizacionMateriales =
+    materialesRef.length > 0
+      ? materialesRef.reduce((masReciente, m) => (m.actualizadoEn > masReciente ? m.actualizadoEn : masReciente), materialesRef[0].actualizadoEn)
+      : null;
+
   if (cargando) {
     return (
       <div className="p-8">
@@ -742,8 +759,14 @@ export default function ConfiguracionPage() {
         <h2 className="text-lg font-semibold text-[#1E293B] mb-1">
           Precios de Referencia de Materiales
         </h2>
-        <p className="text-sm text-slate-500 mb-4">
+        <p className="text-sm text-slate-500 mb-1">
           Materiales de mampostería que no están en la Lista Oficial MTOP N°599 — precio de referencia editable.
+        </p>
+        <p className="text-xs text-slate-400 mb-4">
+          Última actualización:{" "}
+          {fechaUltimaActualizacionMateriales
+            ? formatearFechaActualizacion(fechaUltimaActualizacionMateriales)
+            : "Nunca actualizado"}
         </p>
 
         <table className="w-full text-sm">

@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
           precioUnitario: true,
           precioConIva: true,
           cantidadUnidad: true,
+          actualizadoEn: true,
           numeroLista: true,
         },
         orderBy: { descripcion: "asc" },
