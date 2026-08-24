@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ImageUp, Sparkles } from "lucide-react";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionActualizacionDatos from "@/components/configuracion/SeccionActualizacionDatos";
+import SeccionAplicarPreciosVigentes from "@/components/configuracion/SeccionAplicarPreciosVigentes";
 
 interface EmpresaPerfil {
   id: string;
@@ -789,6 +790,7 @@ export default function ConfiguracionPage() {
       </section>
 
       <SeccionActualizacionDatos />
+      <SeccionAplicarPreciosVigentes />
     </div>
   );
 }
