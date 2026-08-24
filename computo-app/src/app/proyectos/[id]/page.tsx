@@ -87,6 +87,11 @@ interface ProyectoData {
   fechaInicio?: string | null;
   plazoObra?: number | null;
   diasLaborales?: number | null;
+  // "Forma de realización de la obra" — igual que fechaInicio, se carga
+  // desde /editar, acá es de solo lectura. La Cuantía (Menor/Mayor) que se
+  // muestra junto a esto NO vive en este campo — se recalcula siempre a
+  // partir del presupuesto vigente (ver computarCuantiaObra más abajo).
+  modalidadEjecucion?: string | null;
   garantiaFielCumplimiento?: string | null;
   garantiaViciosOcultos?: string | null;
   garantiaResponsabilidad?: string | null;
@@ -279,6 +284,7 @@ const PROYECTO = {
   garantiaFielCumplimiento: null as string | null,
   garantiaViciosOcultos: null as string | null,
   garantiaResponsabilidad: null as string | null,
+  modalidadEjecucion: null as string | null,
 };
 
 const ESTADOS = {
@@ -424,6 +430,64 @@ function computarMaterialesGlobales(capitulos: Capitulo[], apuData: Record<strin
 
   return { filas, total };
 }
+
+/** Costo total de mano de obra del proyecto — recorre capitulos → rubros →
+ * apuData[rubro.id] y acumula sumManoObra(apu.manoObra, apu.equipos) por la
+ * cantidad del rubro. Usa valores VIVOS del APU, no precioCongelado (que es
+ * un precio unitario ya mezclado materiales+MO+equipos, sin componente de
+ * mano de obra aislable) — mismo patrón que computarMaterialesGlobales,
+ * para mano de obra en vez de materiales. */
+function computarCostoManoObraTotal(capitulos: Capitulo[], apuData: Record<string, APU>): number {
+  let total = 0;
+  for (const cap of capitulos) {
+    for (const rubro of cap.rubros) {
+      const apu = apuData[rubro.id];
+      if (!apu || rubro.cantidad == null) continue;
+      total += sumManoObra(apu.manoObra, apu.equipos) * rubro.cantidad;
+    }
+  }
+  return total;
+}
+
+// Tope de jornales de Medio Oficial que separa Menor de Mayor cuantía
+// (clasificación BPS) — hardcodeado a propósito, mismo criterio que otros
+// valores legales de la app: se actualiza a mano el día que cambie la ley.
+const TOPE_JORNALES_MENOR_CUANTIA = 85;
+
+interface CuantiaObra {
+  jornales: number;
+  clasificacion: "Menor cuantía" | "Mayor cuantía";
+}
+
+/** Cuantía de la obra (clasificación BPS, informativa, sin validación de
+ * topes) — costo total de mano de obra del presupuesto ÷ jornal SUNCA
+ * vigente de "Medio Oficial" (Cat. V, el mismo jornal de referencia de toda
+ * la app — NO un jornal BPS aparte). Devuelve null si todavía no hay jornal
+ * de Medio Oficial cargado (nada para dividir). Nunca se persiste — se
+ * recalcula siempre a partir del presupuesto vigente, así que cambia si se
+ * edita un rubro. */
+function computarCuantiaObra(
+  capitulos: Capitulo[],
+  apuData: Record<string, APU>,
+  categoriasLaborales: CategoriaLaboral[]
+): CuantiaObra | null {
+  const jornalMedioOficial = categoriasLaborales.find((c) => c.categoria === "medio_oficial")?.jornal;
+  if (!jornalMedioOficial) return null;
+  const costoManoObra = computarCostoManoObraTotal(capitulos, apuData);
+  const jornales = costoManoObra / jornalMedioOficial;
+  return {
+    jornales,
+    clasificacion: jornales < TOPE_JORNALES_MENOR_CUANTIA ? "Menor cuantía" : "Mayor cuantía",
+  };
+}
+
+// Etiquetas de "Forma de realización de la obra" — mismos valores que
+// MODALIDADES_EJECUCION en /editar (única fuente donde se elige).
+const MODALIDAD_EJECUCION_LABEL: Record<string, string> = {
+  POR_CONTRATO: "Por Contrato",
+  POR_ADMINISTRACION: "Por Administración",
+  PARTE_Y_PARTE: "Parte por Administración y parte por Contrato",
+};
 
 /** Genera y descarga el Excel "Lista de Materiales" del cómputo global */
 function descargarExcelMateriales(nombreProyecto: string, filas: FilaMaterialGlobal[], total: number) {
@@ -2501,6 +2565,11 @@ export default function ProyectoPage() {
   // capítulo" (ver SelectorCapitulosEstandar) — null = cerrado.
   const [tituloParaAgregarCapitulos, setTituloParaAgregarCapitulos] = useState<Titulo | null>(null);
   const [apuData, setApuData] = useState<Record<string, APU>>({});
+  // Jornal SUNCA vigente de "Medio Oficial" (Cat. V) — para clasificar la
+  // Cuantía de la obra (ver computarCuantiaObra). DrawerAPU carga su propia
+  // copia de categoriasLaborales por su cuenta (componente separado); esta
+  // es la copia de este componente, no compartida.
+  const [categoriasLaborales, setCategoriasLaborales] = useState<CategoriaLaboral[]>([]);
   const [drawerRubroId, setDrawerRubroId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -2562,6 +2631,7 @@ export default function ProyectoPage() {
         fechaInicio: data.fechaInicio ?? null,
         plazoObra: data.plazoObra ?? null,
         diasLaborales: data.diasLaborales ?? null,
+        modalidadEjecucion: data.modalidadEjecucion ?? null,
         garantiaFielCumplimiento: data.garantiaFielCumplimiento ?? null,
         garantiaViciosOcultos: data.garantiaViciosOcultos ?? null,
         garantiaResponsabilidad: data.garantiaResponsabilidad ?? null,
@@ -2645,6 +2715,16 @@ export default function ProyectoPage() {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // ─── Categorías laborales SUNCA (para la Cuantía de la obra) ───
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/categorias-laborales")
+      .then((res) => res.json())
+      .then((data: CategoriaLaboral[]) => { if (!cancelado) setCategoriasLaborales(Array.isArray(data) ? data : []); })
+      .catch((err) => console.error("[categorías laborales]", err));
+    return () => { cancelado = true; };
+  }, []);
 
   // ─── Polling mientras se generan los rubros automáticos ────
   useEffect(() => {
@@ -2773,6 +2853,7 @@ export default function ProyectoPage() {
   // guards reales en las rutas PATCH/DELETE/POST de rubros y capítulos).
   const soloLectura = proyectoActivo.estado === "FINALIZADO";
   const totalGeneral = capitulos.reduce((s, c) => s + totalCapitulo(c), 0);
+  const cuantiaObra = computarCuantiaObra(capitulos, apuData, categoriasLaborales);
   // Todo proyecto tiene siempre ≥1 Título (implícito o explícito, ver
   // POST /api/proyectos) — un título sin ningún capítulo no cuenta para
   // esta decisión, mismo criterio que ya usan el PDF/Excel/Planilla de
@@ -4593,18 +4674,62 @@ export default function ProyectoPage() {
           {/* Fecha de inicio (se carga desde /editar, acá es de solo
               lectura) + placeholder de Plazo de obra — a futuro se calcula
               solo a partir de los jornales de mano de obra del presupuesto,
-              todavía no implementado. Mismo bloque para que quede claro que
-              van juntos cuando el cálculo exista. */}
-          <div className="bg-white border border-slate-200 rounded-lg px-5 py-3 grid grid-cols-2 divide-x divide-slate-100">
-            <div className="pr-4">
-              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Fecha de inicio</p>
-              <p className="text-sm font-semibold text-slate-700">
-                {fmtFecha(proyectoActivo.fechaInicio) ?? <span className="font-normal text-slate-400">A definir</span>}
-              </p>
+              todavía no implementado. Debajo: Forma de realización de la
+              obra — Modalidad (manual, se carga en /editar) + Cuantía
+              (calculada siempre, nunca editable ni persistida — ver
+              computarCuantiaObra) + Tipo de contratación (ya cargado desde
+              el wizard, mostrado acá también como referencia). */}
+          <div className="bg-white border border-slate-200 rounded-lg px-5 py-3">
+            <div className="grid grid-cols-2 divide-x divide-slate-100">
+              <div className="pr-4">
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Fecha de inicio</p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {fmtFecha(proyectoActivo.fechaInicio) ?? <span className="font-normal text-slate-400">A definir</span>}
+                </p>
+              </div>
+              <div className="pl-4">
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Plazo de obra</p>
+                <p className="text-sm font-medium text-slate-400">A definir</p>
+              </div>
             </div>
-            <div className="pl-4">
-              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Plazo de obra</p>
-              <p className="text-sm font-medium text-slate-400">A definir</p>
+
+            <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 mt-3 pt-3">
+              <div className="pr-4">
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Forma de realización</p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {proyectoActivo.modalidadEjecucion
+                    ? MODALIDAD_EJECUCION_LABEL[proyectoActivo.modalidadEjecucion] ?? proyectoActivo.modalidadEjecucion
+                    : <span className="font-normal text-slate-400">A definir</span>}
+                </p>
+              </div>
+              <div className="pl-4">
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5 flex items-center gap-1">
+                  Cuantía
+                  <span
+                    title="Calculado automáticamente a partir del costo de mano de obra del presupuesto vigente — dato de referencia, no editable. Compará contra el tope vigente de BPS por tu cuenta."
+                    className="text-[8px] font-bold text-slate-400 bg-slate-100 rounded px-1 leading-4 normal-case tracking-normal"
+                  >
+                    calc.
+                  </span>
+                </p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {cuantiaObra ? (
+                    <>
+                      {cuantiaObra.clasificacion}
+                      <span className="font-normal text-slate-400"> ({Math.round(cuantiaObra.jornales)} jornales)</span>
+                    </>
+                  ) : (
+                    <span className="font-normal text-slate-400">A definir</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 mt-3 pt-3">
+              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Tipo de contratación</p>
+              <p className="text-sm font-semibold text-slate-700">
+                {proyectoActivo.tipoContratacion === "PUBLICA" ? "Pública" : "Privada"}
+              </p>
             </div>
           </div>
 

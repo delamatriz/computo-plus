@@ -111,6 +111,7 @@ export async function PATCH(
         ...(body.garantiaFielCumplimiento !== undefined && { garantiaFielCumplimiento: body.garantiaFielCumplimiento }),
         ...(body.garantiaViciosOcultos !== undefined && { garantiaViciosOcultos: body.garantiaViciosOcultos }),
         ...(body.garantiaResponsabilidad !== undefined && { garantiaResponsabilidad: body.garantiaResponsabilidad }),
+        ...(body.modalidadEjecucion !== undefined && { modalidadEjecucion: body.modalidadEjecucion }),
         ...(body.generandoRubros !== undefined && { generandoRubros: body.generandoRubros }),
         ...(body.incluyeIVA  !== undefined && { incluyeIVA: !!body.incluyeIVA }),
         ...(body.timbresCJP  !== undefined && { timbresCJP: parseFloat(body.timbresCJP) || 0 }),

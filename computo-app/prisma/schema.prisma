@@ -72,6 +72,13 @@ model Proyecto {
   garantiaFielCumplimiento String? @db.Text
   garantiaViciosOcultos    String? @db.Text
   garantiaResponsabilidad  String? @db.Text
+  // "Forma de realización de la obra" (clasificación BPS) — se carga desde
+  // /editar, después de entregado el presupuesto. String simple (no enum)
+  // a propósito: "POR_CONTRATO" | "POR_ADMINISTRACION" | "PARTE_Y_PARTE".
+  // La Cuantía (Menor/Mayor) NO tiene campo propio — se recalcula siempre
+  // a partir del costo de mano de obra vigente del presupuesto, nunca se
+  // persiste (ver computarCuantiaObra en proyectos/[id]/page.tsx).
+  modalidadEjecucion String?
   // Cuándo se apretó "Entregar" (congela precios) por última vez — null si
   // el proyecto nunca fue entregado. Se muestra junto al badge de estado
   // cuando estado === "FINALIZADO".

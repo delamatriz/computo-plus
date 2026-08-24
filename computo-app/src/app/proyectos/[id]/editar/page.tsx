@@ -20,6 +20,12 @@ const TIPOS_CONTRATACION = [
   { id: "PUBLICA", label: "Pública" },
 ];
 
+const MODALIDADES_EJECUCION = [
+  { id: "POR_CONTRATO", label: "Por Contrato" },
+  { id: "POR_ADMINISTRACION", label: "Por Administración" },
+  { id: "PARTE_Y_PARTE", label: "Parte por Administración y parte por Contrato" },
+];
+
 interface FormData {
   nombre: string;
   subtitulo: string;
@@ -37,6 +43,7 @@ interface FormData {
   fechaInicio: string;
   plazoObra: string;
   diasLaborales: string;
+  modalidadEjecucion: string;
   trabajos: string;
   descripcion: string;
 }
@@ -60,7 +67,7 @@ export default function EditarProyectoPage() {
   const [form, setForm] = useState<FormData>({
     nombre: "", subtitulo: "", cliente: "", clienteRut: "", clienteRazonSocial: "", clienteTelefono: "", clienteEmail: "",
     tipo: "VIVIENDA", tipoContratacion: "PRIVADA", direccion: "",
-    moneda: "UYU", fechaPresupuesto: "", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", trabajos: "", descripcion: "",
+    moneda: "UYU", fechaPresupuesto: "", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", modalidadEjecucion: "", trabajos: "", descripcion: "",
   });
   const [titulos, setTitulos] = useState<TituloForm[]>([]);
   // Snapshot de los títulos tal como llegaron del servidor — al guardar,
@@ -94,6 +101,7 @@ export default function EditarProyectoPage() {
           fechaInicio: data.fechaInicio ? data.fechaInicio.slice(0, 10) : "",
           plazoObra: data.plazoObra != null ? String(data.plazoObra) : "",
           diasLaborales: data.diasLaborales != null ? String(data.diasLaborales) : "",
+          modalidadEjecucion: data.modalidadEjecucion ?? "",
           trabajos: data.trabajos ?? "",
           descripcion: data.descripcion ?? "",
         });
@@ -146,6 +154,7 @@ export default function EditarProyectoPage() {
           fechaInicio: form.fechaInicio || null,
           plazoObra: form.plazoObra ? parseInt(form.plazoObra, 10) : null,
           diasLaborales: form.diasLaborales ? parseInt(form.diasLaborales, 10) : null,
+          modalidadEjecucion: form.modalidadEjecucion || null,
           trabajos: form.trabajos.trim() || null,
           descripcion: form.descripcion.trim() || null,
         }),
@@ -422,6 +431,23 @@ export default function EditarProyectoPage() {
             </p>
           </Field>
         </div>
+
+        <Field label="Forma de realización de la obra">
+          <select
+            value={form.modalidadEjecucion}
+            onChange={(e) => set("modalidadEjecucion", e.target.value)}
+            className={inputCls}
+          >
+            <option value="">A definir</option>
+            {MODALIDADES_EJECUCION.map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-400 mt-1.5">
+            Modalidad acordada con el cliente — la Cuantía (Menor/Mayor) se calcula
+            sola a partir del presupuesto y se muestra junto a este dato
+          </p>
+        </Field>
 
         <Field label="Otros datos">
           <textarea
