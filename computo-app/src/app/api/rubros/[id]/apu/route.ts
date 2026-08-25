@@ -46,6 +46,10 @@ export async function PUT(
           precioUnit:   m.precioUnit   ?? 0,
           dosificacion: m.dosificacion ?? null,
           orden:        i,
+          // Se recrea todo el APU en cada autosave — sin esto, el motivo
+          // clonado de la biblioteca se perdía apenas el usuario tocaba
+          // cualquier otro campo del APU (ver clonar-apu/route.ts).
+          motivoVerificacion: m.motivoVerificacion ?? null,
         },
       });
       if (Array.isArray(m.componentes)) {
@@ -86,6 +90,7 @@ export async function PUT(
           modoCosteo:      eq.modoCosteo      ?? "ALQUILADO",
           costoUnitPropio: eq.costoUnitPropio ?? null,
           orden:           i,
+          motivoVerificacion: eq.motivoVerificacion ?? null,
         },
       });
       if (eq.id) equipoIdMap.set(eq.id, creado.id);

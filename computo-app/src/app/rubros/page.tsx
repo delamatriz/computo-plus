@@ -6,15 +6,13 @@ import {
   ChevronRight,
   ChevronDown,
   FileQuestion,
-  AlertTriangle,
-  BadgeCheck,
-  HelpCircle,
   Loader2,
   Hammer,
   Wrench,
   Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 
 // ── Tipos ──────────────────────────────────────────────────────────────
 
@@ -39,14 +37,9 @@ interface CapituloNodo {
   subcapitulos: SubcapituloNodo[];
 }
 
-interface FuenteMaterial {
-  proveedor: string | null;
-  nombreProducto: string | null;
-  urlReferencia: string | null;
-  fechaUltimaVerificacion: string | null;
-  requiereVerificacion: boolean;
-  motivoVerificacion: string | null;
-}
+// FuenteMaterial y BadgeVerificacion ahora viven en
+// @/components/BadgeVerificacion — compartidos con DrawerAPU (ver
+// proyectos/[id]/page.tsx).
 
 interface MaterialDescompuesto {
   id: string;
@@ -105,11 +98,6 @@ function fmtMoneda(v: number): string {
 
 function fmtNum(v: number, decimales = 3): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: decimales });
-}
-
-function fmtFecha(iso: string | null): string | null {
-  if (!iso) return null;
-  return new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -255,49 +243,6 @@ function ArbolBiblioteca({
   );
 }
 
-// ── Badge de gobernanza FEAT-AI-006 ─────────────────────────────────────
-
-function BadgeVerificacion({ fuente }: { fuente: FuenteMaterial }) {
-  // Marca puntual para los 10 insumos de los 8 códigos documentados en
-  // PENDIENTES-FASE2.md sin fuente de mercado confiable (Fase 2, bug
-  // "clona a $0") — no es un estado general, solo estos casos concretos
-  // tienen este motivoVerificacion exacto.
-  if (fuente.motivoVerificacion === "sin_precio_referencia") {
-    return (
-      <span
-        title="Sin precio de referencia — a cotizar directamente"
-        className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-slate-100 text-slate-500 border border-slate-200 uppercase tracking-wide whitespace-nowrap"
-      >
-        <HelpCircle className="w-2.5 h-2.5" />
-        A cotizar
-      </span>
-    );
-  }
-  if (fuente.requiereVerificacion) {
-    return (
-      <span
-        title={fuente.motivoVerificacion ?? "Requiere verificación"}
-        className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap"
-      >
-        <AlertTriangle className="w-2.5 h-2.5" />
-        Requiere verificación
-      </span>
-    );
-  }
-  if (fuente.proveedor) {
-    const fecha = fmtFecha(fuente.fechaUltimaVerificacion);
-    return (
-      <span
-        title={fecha ? `Verificado ${fecha}` : "Fuente verificada"}
-        className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide whitespace-nowrap"
-      >
-        <BadgeCheck className="w-2.5 h-2.5" />
-        Verificado
-      </span>
-    );
-  }
-  return null;
-}
 
 // ── Panel de descompuesto ───────────────────────────────────────────────
 

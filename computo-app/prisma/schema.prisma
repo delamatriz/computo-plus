@@ -251,6 +251,15 @@ model MaterialAPU {
   apuId        String
   apu          APU             @relation(fields: [apuId], references: [id], onDelete: Cascade)
   componentes  ComponenteAPU[]
+
+  // Propagado desde PrecioMTOP.motivoVerificacion al clonar desde la
+  // biblioteca (ver /api/subrubros-estandar/[id]/clonar-apu) — sin esto
+  // el dato se perdía apenas el material cruzaba de MaterialAPUEstandar a
+  // MaterialAPU real, y DrawerAPU no podía distinguir "sin precio de
+  // catálogo a propósito" (sin_precio_referencia) de cualquier otro $0.
+  // Mismos valores posibles que en PrecioMTOP — no es un enum a propósito,
+  // mismo criterio que el campo de origen.
+  motivoVerificacion String?
 }
 
 model ComponenteAPU {
@@ -295,6 +304,13 @@ model EquipoAPU {
   modoCosteo      String       @default("ALQUILADO")
   costoUnitPropio Float? // costo propio cargado a mano, solo usado en PROPIO_CON_COSTO
   manoObraRelacionada ManoObraAPU[] @relation("ArmadoDeEquipo")
+
+  // Set a "sin_costo_referencia" al clonar desde la biblioteca cuando
+  // EquipoAPUEstandar no matcheó ningún PrecioEquipo (ver /clonar-apu) —
+  // EquipoAPUEstandar no tiene un campo de motivo propio (a diferencia de
+  // los materiales vía PrecioMTOP), así que este valor se sintetiza en el
+  // momento del clonado, no se propaga de otro lado.
+  motivoVerificacion String?
 }
 
 model Receta {

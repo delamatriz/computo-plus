@@ -39,6 +39,7 @@ import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
 import SeccionActualizacionPrecios from "@/components/SeccionActualizacionPrecios";
 import SeccionDocumentacionLlamado from "@/components/SeccionDocumentacionLlamado";
 import { SelectorCapitulosEstandar, type CapituloSeleccionable } from "@/components/SelectorCapitulosEstandar";
+import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 
 // SeccionMetrajesPresupuesto (vía SeccionPlanos/VisorPlano) importa react-pdf
 // (pdf.js), que revienta con "DOMMatrix is not defined" si su módulo se
@@ -205,6 +206,10 @@ interface InsumoAPU {
   codigoMTOP?: string;       // código de la lista oficial si fue seleccionado
   precioMTOPOrig?: number;   // precio original MTOP para detectar modificaciones
   precioEstimadoIA?: boolean; // precio recién estimado por IA, aún no confirmado por el usuario
+  // Propagado desde PrecioMTOP.motivoVerificacion al clonar desde la
+  // biblioteca — ver BadgeVerificacion. null/undefined = sin motivo
+  // conocido (cae al mensaje genérico "Precio incompleto").
+  motivoVerificacion?: string | null;
 }
 
 interface PrecioMTOPResult {
@@ -251,6 +256,9 @@ interface EquipoAPU {
   costoUnit: number;
   modoCosteo?: ModoCosteoEquipo;
   costoUnitPropio?: number | null;
+  // "sin_costo_referencia" si no matcheó ningún PrecioEquipo al clonar
+  // desde la biblioteca — ver BadgeVerificacion.
+  motivoVerificacion?: string | null;
 }
 
 interface APU {
@@ -1737,17 +1745,31 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                         {/* Fila principal del insumo */}
                         <tr className="group/fila border-b border-slate-50" style={{ height: 28 }}>
                           <td className="pl-4 pr-2">
-                            <input
-                              type="text"
-                              value={m.descripcion}
-                              onChange={(e) => updateMat(m.id, "descripcion", e.target.value)}
-                              onBlur={() => guardarApuActual()}
-                              placeholder="Descripción"
-                              className={inputCls}
-                              autoFocus={m.id === nuevoMatId}
-                              ref={m.id === nuevoMatId ? (el) => el?.scrollIntoView({ block: "center" }) : undefined}
-                              onFocus={() => { if (m.id === nuevoMatId) setNuevoMatId(null); }}
-                            />
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={m.descripcion}
+                                onChange={(e) => updateMat(m.id, "descripcion", e.target.value)}
+                                onBlur={() => guardarApuActual()}
+                                placeholder="Descripción"
+                                className={cn(inputCls, "flex-1 min-w-0")}
+                                autoFocus={m.id === nuevoMatId}
+                                ref={m.id === nuevoMatId ? (el) => el?.scrollIntoView({ block: "center" }) : undefined}
+                                onFocus={() => { if (m.id === nuevoMatId) setNuevoMatId(null); }}
+                              />
+                              {m.motivoVerificacion && (
+                                <BadgeVerificacion
+                                  fuente={{
+                                    proveedor: null,
+                                    nombreProducto: null,
+                                    urlReferencia: null,
+                                    fechaUltimaVerificacion: null,
+                                    requiereVerificacion: true,
+                                    motivoVerificacion: m.motivoVerificacion,
+                                  }}
+                                />
+                              )}
+                            </div>
                           </td>
                           <td className="text-center">
                             <input type="text" value={m.dosificacion ?? ""} onChange={(e) => updateMat(m.id, "dosificacion", e.target.value)} onBlur={() => guardarApuActual()} placeholder="—" className={cn(inputCls, "text-center text-slate-500")} />
@@ -2101,14 +2123,28 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                       <React.Fragment key={eq.id}>
                       <tr className={cn("group/fila border-b border-slate-50", modo === "PROPIO_SIN_COSTO" && "opacity-50")}>
                         <td className="pl-4 pr-2 py-1.5">
-                          <input
-                            type="text"
-                            value={eq.descripcion}
-                            onChange={(e) => updateEq(eq.id, "descripcion", e.target.value)}
-                            onBlur={() => guardarApuActual()}
-                            placeholder="Descripción"
-                            className={cn(inputCls, modo === "PROPIO_SIN_COSTO" && "italic")}
-                          />
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={eq.descripcion}
+                              onChange={(e) => updateEq(eq.id, "descripcion", e.target.value)}
+                              onBlur={() => guardarApuActual()}
+                              placeholder="Descripción"
+                              className={cn(inputCls, "flex-1 min-w-0", modo === "PROPIO_SIN_COSTO" && "italic")}
+                            />
+                            {eq.motivoVerificacion && (
+                              <BadgeVerificacion
+                                fuente={{
+                                  proveedor: null,
+                                  nombreProducto: null,
+                                  urlReferencia: null,
+                                  fechaUltimaVerificacion: null,
+                                  requiereVerificacion: true,
+                                  motivoVerificacion: eq.motivoVerificacion,
+                                }}
+                              />
+                            )}
+                          </div>
                           <SelectorModoCosteo modo={modo} onChange={(m) => setModoCosteoEq(eq.id, m)} />
                         </td>
                         <td className="text-center">
@@ -3340,6 +3376,7 @@ export default function ProyectoPage() {
                 rendimiento: m.rendimiento,
                 precioUnit: m.precioUnit,
                 dosificacion: m.dosificacion,
+                motivoVerificacion: m.motivoVerificacion,
               })),
               manoObra: apuClonado.manoObra.map((mo: ManoObraAPU) => ({
                 id: mo.id,
@@ -3354,6 +3391,7 @@ export default function ProyectoPage() {
                 unidad: eq.unidad,
                 rendimiento: eq.rendimiento,
                 costoUnit: eq.costoUnit,
+                motivoVerificacion: eq.motivoVerificacion,
               })),
             };
             setApuData((prev) => ({ ...prev, [rubroId]: nuevoAPU }));

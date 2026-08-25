@@ -76,6 +76,9 @@ export async function POST(
           rendimiento: m.rendimiento,
           precioUnit,
           orden: i,
+          // Propagado del match, si lo hay — para que DrawerAPU pueda
+          // mostrar el motivo real en vez de un $0 mudo (ver BadgeVerificacion).
+          motivoVerificacion: precioMTOP?.motivoVerificacion ?? null,
         },
       });
     }
@@ -102,6 +105,9 @@ export async function POST(
           rendimiento: eq.rendimiento,
           costoUnit,
           orden: i,
+          // EquipoAPUEstandar no tiene motivo propio — se sintetiza acá,
+          // en el momento del clonado, si no hubo match (ver BadgeVerificacion).
+          motivoVerificacion: precioEquipo ? null : "sin_costo_referencia",
         },
       });
       equipoIdMap.set(eq.id, creado.id);
