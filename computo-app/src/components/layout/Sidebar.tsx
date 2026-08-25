@@ -26,7 +26,7 @@ const navItems = [
   {
     section: "Presupuestación",
     items: [
-      { href: "/dashboard", label: "Dashboard" },
+      { href: "/dashboard", label: "Panel de control" },
       { href: "/proyectos", label: "Mis Proyectos" },
       { href: "/metrajes", label: "Metrajes" },
       { href: "/rubros", label: "Catálogo de Rubros" },

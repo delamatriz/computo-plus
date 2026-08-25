@@ -108,7 +108,7 @@ export default async function DashboardPage() {
   return (
     <div className="p-6 md:p-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-[#1A3A5C]">Dashboard</h1>
+        <h1 className="text-2xl font-semibold text-[#1A3A5C]">Panel de control</h1>
         <p className="text-slate-500 text-sm mt-1">
           {new Date().toLocaleDateString("es-UY", {
             weekday: "long",
