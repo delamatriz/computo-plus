@@ -25,6 +25,8 @@ export async function POST(
       materiales: apu.materiales,
       manoObra: apu.manoObra,
       precioUnitarioEstimado: apu.precioUnitarioEstimado,
+      origen: apu.origen,
+      subrubroBaseId: apu.subrubroBaseId,
     });
   } catch (err) {
     console.error("[sugerir-apu]", err);

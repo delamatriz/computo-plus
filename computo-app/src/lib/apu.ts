@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
+import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
+import { buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, type SubrubroConApu } from "@/lib/bibliotecaApus";
 
 const client = new Anthropic();
 
@@ -7,6 +9,14 @@ interface ApuGenerado {
   materiales: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }[];
   manoObra: { categoria: string; rendimiento: number; jornal: number }[];
   precioUnitarioEstimado: number;
+  // "biblioteca" si la IA tomó como base un subrubro real de SubrubroEstandar
+  // (ver bibliotecaApus.ts); "estimado" si no había ninguno aplicable para
+  // el capítulo de este rubro y generó todo con su criterio (MTOP/jornales,
+  // comportamiento anterior). subrubroBaseId solo se llena si "biblioteca" —
+  // trazabilidad al subrubro real usado, resuelta acá contra la lista
+  // realmente consultada (nunca se confía en un id que devuelva la IA).
+  origen: "biblioteca" | "estimado";
+  subrubroBaseId: string | null;
 }
 
 /* ─── Genera y persiste el APU de un rubro vía IA ───────────── */
@@ -16,11 +26,25 @@ export async function generarApuParaRubro(
 ): Promise<ApuGenerado> {
   const { descripcion, unidad, capitulo, tipoObra } = datos;
 
-  const [rubro, categorias, preciosMTOP] = await Promise.all([
+  const [rubro, categorias, preciosMTOP, capituloCatalogoId] = await Promise.all([
     db.rubro.findUnique({ where: { id: rubroId }, select: { trabajoEnAltura: true } }),
     db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),
     db.precioMTOP.findMany({ take: 50, orderBy: { descripcion: "asc" } }),
+    // Mismo resolver ya usado al crear un capítulo real (Fase 2, Etapa 5) —
+    // undefined si el nombre no matchea ningún CapituloCatalogo (alias
+    // ambiguo o inexistente). Sin esto no hay dónde buscar subrubros reales
+    // para este rubro — cae al comportamiento anterior (estimado).
+    resolverCapituloCatalogoId(db, capitulo || ""),
   ]);
+
+  // Subrubros reales de biblioteca para EL capítulo de este rubro (uno
+  // solo, a diferencia de calcular-rapido que puede tocar varios) — vacío
+  // si capitulo no resolvió a ningún CapituloCatalogo, o si ese capítulo
+  // no tiene biblioteca propia (fallback esperado, no error).
+  const subrubrosBiblioteca: SubrubroConApu[] = capituloCatalogoId
+    ? await buscarSubrubrosPorCapitulos([capituloCatalogoId])
+    : [];
+  const tablaBiblioteca = formatearSubrubrosParaPrompt(subrubrosBiblioteca);
 
   const tablaJornales = categorias
     .map((c) => `${c.nombre}: $${c.jornal} UYU/jornada (8hs)`)
@@ -44,7 +68,11 @@ ${tablaJornales}
 
 PRECIOS DE REFERENCIA MTOP (Lista Nº599, Nov 2025, en UYU):
 ${tablaMateriales}
-${notaAltura}
+${
+  tablaBiblioteca
+    ? `\nSUBRUBROS REALES DE BIBLIOTECA para el capítulo "${capitulo}" (Sociedad de Arquitectos del Uruguay — composiciones y precios reales, preferí SIEMPRE éstos si alguno aplica a este rubro específico, aunque tengas que ajustar cantidades/rendimientos a la escala de "${descripcion}"):\n${tablaBiblioteca}\n`
+    : ""
+}${notaAltura}
 
 Devolvé SOLO un JSON con esta estructura exacta:
 {
@@ -54,7 +82,9 @@ Devolvé SOLO un JSON con esta estructura exacta:
   "manoObra": [
     { "categoria": string, "rendimiento": number, "jornal": number }
   ],
-  "precioUnitarioEstimado": number
+  "precioUnitarioEstimado": number,
+  "origen": "biblioteca" | "estimado",
+  "subrubroCodigoBase": string | null
 }
 
 Reglas:
@@ -62,6 +92,7 @@ Reglas:
 - "rendimiento" en mano de obra = unidades de rubro producidas por jornada de 8hs (ej: 12 m² de revoque por jornada).
 - "precioUnitarioEstimado" = suma(rendimiento × precioUnit para materiales) + suma(jornal / rendimiento para mano de obra), con un margen de 25% de gastos generales y utilidad.
 - Usá precios MTOP cuando el material coincida. Para mano de obra, usá la categoría SUNCA más adecuada.
+- Si usaste como base alguno de los SUBRUBROS REALES DE BIBLIOTECA de arriba (aunque hayas ajustado cantidades a la escala de este rubro), marcá "origen": "biblioteca" y poné en "subrubroCodigoBase" el código entre corchetes de ese subrubro (ej. "1.1"). Si no había ninguno aplicable y generaste todo con tu criterio, marcá "origen": "estimado" y "subrubroCodigoBase": null.
 - Respondé SOLO con JSON válido, sin texto adicional ni markdown.`;
 
   const message = await client.messages.create({
@@ -78,7 +109,29 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Respuesta inválida del modelo");
 
-  const apu = JSON.parse(match[0]) as ApuGenerado;
+  const apuBruto = JSON.parse(match[0]) as {
+    materiales: ApuGenerado["materiales"];
+    manoObra: ApuGenerado["manoObra"];
+    precioUnitarioEstimado: number;
+    origen?: string;
+    subrubroCodigoBase?: string | null;
+  };
+
+  // subrubroBaseId nunca sale directo de lo que devuelve la IA — se resuelve
+  // acá contra subrubrosBiblioteca (la lista que REALMENTE se le pasó en el
+  // prompt), así que un código inventado o mal copiado por la IA se
+  // descarta solo en vez de quedar como una referencia falsa.
+  const subrubroBase = apuBruto.subrubroCodigoBase
+    ? subrubrosBiblioteca.find((s) => s.codigo === apuBruto.subrubroCodigoBase)
+    : undefined;
+
+  const apu: ApuGenerado = {
+    materiales: apuBruto.materiales,
+    manoObra: apuBruto.manoObra,
+    precioUnitarioEstimado: apuBruto.precioUnitarioEstimado,
+    origen: apuBruto.origen === "biblioteca" && subrubroBase ? "biblioteca" : "estimado",
+    subrubroBaseId: subrubroBase?.id ?? null,
+  };
 
   const apuExistente = await db.aPU.findUnique({ where: { rubroId } });
   const gastosGeneralesPct = 15;
