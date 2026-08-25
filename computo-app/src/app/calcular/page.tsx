@@ -329,7 +329,7 @@ export default function CalcularPage() {
             Cálculo Rápido
           </h1>
           <p className="text-sm text-slate-400">
-            Valores orientativos basados en promedios del mercado uruguayo (2025)
+            Valores orientativos basados en promedios del mercado uruguayo
           </p>
         </motion.div>
 
@@ -468,9 +468,6 @@ export default function CalcularPage() {
                       <p className="text-xs text-slate-400">
                         Superficie de cada unidad
                       </p>
-                      <p className="text-xs mt-0.5 font-medium" style={{ color: "#2563EB" }}>
-                        Referencia: ~U$S {(PRECIOS_BASE[tipo]?.[calidad] ?? 0).toLocaleString("es-UY")}/m²
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -523,11 +520,6 @@ export default function CalcularPage() {
                     <p className="text-xs text-slate-400">
                       Superficie total a construir o intervenir
                     </p>
-                    {tipo && (
-                      <p className="text-xs mt-0.5 font-medium" style={{ color: "#2563EB" }}>
-                        Referencia: ~U$S {(PRECIOS_BASE[tipo]?.[calidad] ?? 0).toLocaleString("es-UY")}/m²
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
