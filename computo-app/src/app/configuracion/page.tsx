@@ -582,8 +582,13 @@ export default function ConfiguracionPage() {
         <h2 className="text-lg font-semibold text-[#1E293B] mb-1">
           Categorías Laborales — Convenio SUNCA
         </h2>
-        <p className="text-sm text-slate-500 mb-4">
+        <p className="text-sm text-slate-500 mb-1">
           Jornales por categoría, según el convenio colectivo vigente.
+        </p>
+        <p className="text-xs text-slate-400 mb-4">
+          Edita el catálogo completo de jornales — afecta a los presupuestos nuevos desde ahora
+          (biblioteca de APUs, cálculo de leyes sociales y cuantía de obra), no modifica los rubros
+          ya guardados en proyectos existentes.
         </p>
 
         <input
@@ -761,6 +766,10 @@ export default function ConfiguracionPage() {
         </h2>
         <p className="text-sm text-slate-500 mb-1">
           Materiales de mampostería que no están en la Lista Oficial MTOP N°599 — precio de referencia editable.
+        </p>
+        <p className="text-xs text-slate-400 mb-1">
+          Son estos 12 materiales puntuales — el resto de la Lista MTOP se actualiza por separado,
+          en la sección de abajo (&quot;Actualización de Precios — Mercado Libre&quot;).
         </p>
         <p className="text-xs text-slate-400 mb-4">
           Última actualización:{" "}
