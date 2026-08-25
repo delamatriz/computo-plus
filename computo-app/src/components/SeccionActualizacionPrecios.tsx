@@ -239,7 +239,7 @@ export default function SeccionActualizacionPrecios({
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-medium hover:bg-[#1A3A5C] transition-colors disabled:opacity-60"
                 >
                   {aplicando && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {aplicando ? "Aplicando..." : "Sí, continuar"}
+                  {aplicando ? "Aplicando..." : "Actualizar por ICCV"}
                 </button>
               </div>
             </motion.div>
