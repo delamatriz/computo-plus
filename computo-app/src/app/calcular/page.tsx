@@ -12,6 +12,9 @@ import {
   Loader2,
   Camera,
   X,
+  Sparkles,
+  AlertTriangle,
+  Library,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -77,12 +80,24 @@ const PALETA_COLORES = CAPITULOS.map((c) => c.color);
 const TCU = 42.5;
 const MAX_FOTOS = 5;
 
+// Debajo de esto, la estimación de la IA es mayormente libre (sin
+// verificar contra la biblioteca real de subrubros) — dispara la
+// alerta reforzada y el checkbox de confirmación antes de "Iniciar
+// proyecto completo". Ajustar acá si cambia el criterio de qué cuenta
+// como "poca base real".
+const UMBRAL_PROPORCION_BIBLIOTECA_BAJA = 0.4;
+
 /* ─── Tipos para la estimación detallada ─────────────────── */
 interface CapituloIA {
   nombre: string;
   monto: number;
   materiales: number;
   manoObra: number;
+  // "biblioteca" = la IA tomó como base un subrubro real de la
+  // biblioteca SAU; "estimado" = lo generó con su criterio (MTOP +
+  // jornales SUNCA). Validado server-side, no autocertificado por la
+  // IA — ver /api/calcular-rapido.
+  origen?: "biblioteca" | "estimado";
 }
 
 interface ResultadoIA {
@@ -91,6 +106,10 @@ interface ResultadoIA {
   totalManoObra: number;
   capitulos: CapituloIA[];
   advertencia: string;
+  // Fracción (0 a 1) del total que vino de capítulos "biblioteca" —
+  // calculada en el servidor sumando montos reales, nunca reportada
+  // directo por la IA.
+  proporcionBiblioteca?: number;
 }
 
 interface FotoSeleccionada {
@@ -173,6 +192,10 @@ export default function CalcularPage() {
   const fotosInputRef = useRef<HTMLInputElement>(null);
   const [iniciandoProyecto, setIniciandoProyecto] = useState(false);
   const [avisoFotos, setAvisoFotos] = useState<string | null>(null);
+  // Solo se pide cuando proporcionBiblioteca < UMBRAL_PROPORCION_BIBLIOTECA_BAJA
+  // (ver botón "Iniciar proyecto completo") — se resetea con cada
+  // estimación nueva, nunca se arrastra el ok de una anterior.
+  const [confirmoEstimacionLibre, setConfirmoEstimacionLibre] = useState(false);
 
   const esDescriptivo = tipo === "reparaciones" || tipo === "reforma";
   const esPH          = tipo === "ph";
@@ -181,10 +204,16 @@ export default function CalcularPage() {
   const unidadesNum = parseFloat(unidades) || 0;
   const areaTotal   = esPH ? areaNum * unidadesNum : areaNum;
 
+  const proporcionBibliotecaBaja =
+    !!resultadoIA &&
+    typeof resultadoIA.proporcionBiblioteca === "number" &&
+    resultadoIA.proporcionBiblioteca < UMBRAL_PROPORCION_BIBLIOTECA_BAJA;
+
   // Limpiar la estimación detallada si cambian los datos de entrada
   useEffect(() => {
     setResultadoIA(null);
     setErrorIA(null);
+    setConfirmoEstimacionLibre(false);
   }, [descripcion, tipo, zona, calidad, moneda]);
 
   const resultado = useMemo(() => {
@@ -218,6 +247,7 @@ export default function CalcularPage() {
           materiales: resultado.total * c.pct * c.matPct,
           manoObra: resultado.total * c.pct * c.moPct,
           color: c.color,
+          origen: undefined as "biblioteca" | "estimado" | undefined,
         })),
       };
     }
@@ -232,6 +262,7 @@ export default function CalcularPage() {
           materiales: c.materiales,
           manoObra: c.manoObra,
           color: PALETA_COLORES[i % PALETA_COLORES.length],
+          origen: c.origen,
         })),
       };
     }
@@ -275,6 +306,7 @@ export default function CalcularPage() {
       if (!res.ok) throw new Error("error");
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      setConfirmoEstimacionLibre(false);
       setResultadoIA(data);
     } catch {
       setErrorIA("No pudimos calcular la estimación. Probá de nuevo.");
@@ -618,6 +650,21 @@ export default function CalcularPage() {
             transition={{ duration: 0.35, delay: 0.1 }}
             className="space-y-4"
           >
+            {/* Badge de transparencia — solo en el camino de IA
+                (Reparaciones/Reforma). El camino de tabla estática por
+                m² no pasa por /api/calcular-rapido, no hay nada que
+                "verificar" ahí. */}
+            {resultadoIA && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-medium text-[#2563EB]"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Estimación generada por IA — verificá antes de presupuestar
+              </motion.div>
+            )}
+
             {/* Card total */}
             <div
               className="bg-[#1A3A5C] rounded-[16px] p-6 relative overflow-hidden"
@@ -676,6 +723,12 @@ export default function CalcularPage() {
                       <p className="text-sm text-white/50">
                         Estimación detallada según descripción
                       </p>
+                      {typeof resultadoIA.proporcionBiblioteca === "number" && (
+                        <p className="text-xs text-white/40 mt-2 flex items-center gap-1.5">
+                          <Library className="w-3.5 h-3.5 flex-shrink-0" />
+                          {Math.round(resultadoIA.proporcionBiblioteca * 100)}% del presupuesto basado en precios reales de la biblioteca
+                        </p>
+                      )}
                       <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
                         {resultadoIA.advertencia}
                       </p>
@@ -724,8 +777,42 @@ export default function CalcularPage() {
                     </div>
                   </div>
                 )}
+
+                {resultadoIA && (
+                  <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-white/40">Materiales</p>
+                      <p className="text-sm font-semibold text-white/70">
+                        {fmt(resultadoIA.totalMateriales)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/40">Mano de obra</p>
+                      <p className="text-sm font-semibold text-white/70">
+                        {fmt(resultadoIA.totalManoObra)}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Alerta reforzada — solo cuando la mayor parte de la
+                estimación es libre de la IA, sin verificar contra la
+                biblioteca real. En el caso normal (proporción alta) no
+                aparece nada acá — el texto neutro de arriba alcanza. */}
+            {proporcionBibliotecaBaja && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-2.5"
+              >
+                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-800 leading-relaxed">
+                  <span className="font-semibold">La mayor parte de esta estimación es cálculo libre de la IA</span>, sin verificación contra precios reales de la biblioteca — usala con mayor cautela como referencia.
+                </p>
+              </motion.div>
+            )}
 
             {/* Desglose por capítulo */}
             {desglose && (
@@ -784,6 +871,14 @@ export default function CalcularPage() {
                                 <span className="text-sm text-text-secondary truncate">
                                   {c.nombre}
                                 </span>
+                                {c.origen === "biblioteca" && (
+                                  <span
+                                    title="Precio real de la biblioteca de subrubros, no estimación libre de la IA"
+                                    className="flex-shrink-0 text-[9px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-200 rounded px-1 leading-4"
+                                  >
+                                    real
+                                  </span>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <div className="w-20 h-1.5 bg-bg-base rounded-full overflow-hidden">
@@ -876,11 +971,28 @@ export default function CalcularPage() {
                   )}
                 </AnimatePresence>
 
+                {/* Fricción extra SOLO cuando la biblioteca real aportó
+                    poco — en el caso normal (proporción alta) el botón
+                    de abajo queda habilitado sin esto, como siempre. */}
+                {proporcionBibliotecaBaja && (
+                  <label className="flex items-start gap-2.5 px-1 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={confirmoEstimacionLibre}
+                      onChange={(e) => setConfirmoEstimacionLibre(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 flex-shrink-0 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]"
+                    />
+                    <span className="text-xs text-text-secondary leading-relaxed">
+                      Entiendo que esta estimación es mayormente cálculo libre de la IA, sin verificar contra la biblioteca real de precios, y voy a revisarla antes de usarla como referencia.
+                    </span>
+                  </label>
+                )}
+
                 <button
                   type="button"
-                  disabled={iniciandoProyecto}
+                  disabled={iniciandoProyecto || (proporcionBibliotecaBaja && !confirmoEstimacionLibre)}
                   onClick={async () => {
-                    if (iniciandoProyecto) return;
+                    if (iniciandoProyecto || (proporcionBibliotecaBaja && !confirmoEstimacionLibre)) return;
                     setIniciandoProyecto(true);
                     setAvisoFotos(null);
                     const href = esDescriptivo
