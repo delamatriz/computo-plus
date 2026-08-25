@@ -150,7 +150,7 @@ export default function SeccionActualizacionPrecios({
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-[#2563EB] text-white text-sm font-medium hover:bg-[#1A3A5C] transition-colors disabled:opacity-60"
                 >
                   {consultando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  {consultando ? "Consultando..." : "Consultar ICCV"}
+                  {consultando ? "Consultando..." : "Actualizar por ICCV"}
                 </button>
               </div>
 
