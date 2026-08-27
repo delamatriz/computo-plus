@@ -11,7 +11,7 @@ import {
   Plus,
   Download,
   FileSpreadsheet,
-  FileText,
+  FileSignature,
   Pencil,
   X,
   LayoutList,
@@ -24,9 +24,11 @@ import {
   ClipboardCheck,
   Lock,
   LockOpen,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra } from "@/lib/apu-calc";
+import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionResumenPresupuesto, { GastoGeneralItem } from "@/components/SeccionResumenPresupuesto";
@@ -35,6 +37,7 @@ import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
+import SeccionComputoGlobalMateriales from "@/components/SeccionComputoGlobalMateriales";
 import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
 import SeccionActualizacionPrecios from "@/components/SeccionActualizacionPrecios";
 import SeccionDocumentacionLlamado from "@/components/SeccionDocumentacionLlamado";
@@ -397,48 +400,6 @@ function capituloVacio(cap: Capitulo): boolean {
   return cap.rubros.length === 0;
 }
 
-type FilaMaterialGlobal = { descripcion: string; unidad: string; dosificacion?: string; cantidadTotal: number; precioUnit?: number };
-
-/** Agrega los materiales de todos los APU del proyecto en una sola lista (cómputo global) */
-function computarMaterialesGlobales(capitulos: Capitulo[], apuData: Record<string, APU>): { filas: FilaMaterialGlobal[]; total: number } {
-  const mapa = new Map<string, FilaMaterialGlobal>();
-
-  const agregar = (key: string, desc: string, unidad: string, dosif: string | undefined, cant: number, precio: number | undefined) => {
-    const ex = mapa.get(key);
-    if (ex) {
-      ex.cantidadTotal += cant;
-    } else {
-      mapa.set(key, { descripcion: desc, unidad, dosificacion: dosif, cantidadTotal: cant, precioUnit: precio });
-    }
-  };
-
-  for (const cap of capitulos) {
-    for (const rubro of cap.rubros) {
-      const apu = apuData[rubro.id];
-      if (!apu || rubro.cantidad == null) continue;
-      for (const m of apu.materiales) {
-        if (m.componentes && m.componentes.length > 0) {
-          for (const comp of m.componentes) {
-            const cant = comp.rendimientoPorUnidad * m.rendimiento * rubro.cantidad;
-            agregar(`${comp.descripcion}||${comp.unidad}`, comp.descripcion, comp.unidad, undefined, cant, comp.precioUnit);
-          }
-        } else {
-          const cant = m.rendimiento * rubro.cantidad;
-          agregar(`${m.descripcion}||${m.unidad}`, m.descripcion, m.unidad, m.dosificacion, cant, m.precioUnit);
-        }
-      }
-    }
-  }
-
-  const filas = Array.from(mapa.values())
-    .filter((f) => f.cantidadTotal > 0)
-    .sort((a, b) => a.descripcion.localeCompare(b.descripcion, "es"));
-
-  const total = filas.reduce((s, f) => (f.precioUnit == null ? s : s + f.cantidadTotal * f.precioUnit), 0);
-
-  return { filas, total };
-}
-
 /** Costo total de mano de obra del proyecto — recorre capitulos → rubros →
  * apuData[rubro.id] y acumula sumManoObra(apu.manoObra, apu.equipos) por la
  * cantidad del rubro. Usa valores VIVOS del APU, no precioCongelado (que es
@@ -497,53 +458,36 @@ const MODALIDAD_EJECUCION_LABEL: Record<string, string> = {
   PARTE_Y_PARTE: "Parte por Administración y parte por Contrato",
 };
 
-/** Genera y descarga el Excel "Lista de Materiales" del cómputo global */
-function descargarExcelMateriales(nombreProyecto: string, filas: FilaMaterialGlobal[], total: number) {
-  const fecha = new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const wb = XLSX.utils.book_new();
-
-  const datos: (string | number | null)[][] = [
-    [`LISTA DE MATERIALES — ${nombreProyecto}`],
-    [`Fecha de generación: ${fecha}`],
-    [],
-    ["MATERIAL", "UNIDAD", "DOSIFICACIÓN", "CANTIDAD", "PRECIO UNIT. (UYU)", "COSTO TOTAL (UYU)"],
-    ...filas.map((f) => [
-      f.descripcion,
-      f.unidad,
-      f.dosificacion ?? "",
-      parseFloat(f.cantidadTotal.toFixed(2)),
-      f.precioUnit != null ? parseFloat(f.precioUnit.toFixed(2)) : null,
-      f.precioUnit != null ? parseFloat((f.cantidadTotal * f.precioUnit).toFixed(2)) : null,
-    ]),
-    ["TOTAL MATERIALES", "", "", "", "", parseFloat(total.toFixed(2))],
-  ];
-
-  const ws = XLSX.utils.aoa_to_sheet(datos);
-
-  ws["!cols"] = [
-    { wch: 35 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 18 },
-  ];
-
-  // Aplicar formato numérico directamente en cada celda numérica
-  // Columnas D(3), E(4), F(5) — filas de datos + fila total
-  const COLS = ["A", "B", "C", "D", "E", "F"];
-  const numColIdx = [3, 4, 5];
-  const dataStart = 4; // índice 0-based de la primera fila de datos
-  const totalRowIdx = datos.length - 1;
-
-  for (let r = dataStart; r <= totalRowIdx; r++) {
-    numColIdx.forEach((c) => {
-      const addr = `${COLS[c]}${r + 1}`;
-      const cell = ws[addr];
-      if (cell != null && cell.v != null) {
-        cell.t = "n";
-        cell.z = "#,##0.00";
-      }
-    });
-  }
-
-  XLSX.utils.book_append_sheet(wb, ws, "Lista de Materiales");
-  XLSX.writeFile(wb, `Lista-Materiales-${nombreProyecto.replace(/\s+/g, "-")}.xlsx`);
+// Tarjeta de sección sin diseñar/implementar todavía, dentro de "Gestión de
+// Obra" — visualmente apagada (fondo gris, borde punteado, ícono/título sin
+// color de marca) y con badge "Próximamente" explícito, para que no genere
+// la expectativa de que ya funciona (a diferencia de las tarjetas
+// funcionales de al lado, que sí usan los tokens de marca #1A3A5C/#2563EB).
+function TarjetaProximamente({
+  icono: Icono,
+  titulo,
+  descripcion,
+}: {
+  icono: LucideIcon;
+  titulo: string;
+  descripcion: string;
+}) {
+  return (
+    <div className="mt-6 bg-slate-50 rounded-[16px] border border-dashed border-slate-300 px-5 py-5 flex items-start gap-4">
+      <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+        <Icono className="w-5 h-5 text-slate-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wide">{titulo}</h2>
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-500 uppercase tracking-wide">
+            Próximamente
+          </span>
+        </div>
+        <p className="text-sm text-slate-400">{descripcion}</p>
+      </div>
+    </div>
+  );
 }
 
 /** Genera y descarga el Excel del presupuesto completo (capítulos, rubros y totales) */
@@ -2617,8 +2561,7 @@ export default function ProyectoPage() {
   const [panelSubrubrosCapId, setPanelSubrubrosCapId] = useState<string | null>(null);
   const [subrubrosPorCapitulo, setSubrubrosPorCapitulo] = useState<Record<string, SubrubroEstandar[]>>({});
   const [cargandoSubrubros, setCargandoSubrubros] = useState(false);
-  const [materialesGlobalesExpandido, setMaterialesGlobalesExpandido] = useState(false);
-  const [tabActiva, setTabActiva] = useState<"presupuesto" | "gestion-obra" | "certificacion">("presupuesto");
+  const [tabActiva, setTabActiva] = useState<"presupuesto" | "gestion-obra">("presupuesto");
 
   // Refs para debounce de auto-save por rubro
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -4344,7 +4287,6 @@ export default function ProyectoPage() {
             [
               { id: "presupuesto", label: "Presupuesto" },
               { id: "gestion-obra", label: "Gestión de Obra" },
-              { id: "certificacion", label: "Certificación" },
             ] as const
           ).map((tab) => (
             <button
@@ -4852,14 +4794,6 @@ export default function ProyectoPage() {
           moneda={moneda}
         />
 
-        {/* ── Certificaciones ──────────────────────────────── */}
-        <SeccionCertificaciones
-          proyectoId={proyectoActivo.id}
-          moneda={moneda}
-          totalGeneral={totalGeneral}
-          capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre }))}
-        />
-
         {/* ── Comparativo de ofertas ────────────────────────── */}
         <SeccionComparativoOfertas proyectoId={proyectoActivo.id} moneda={moneda} />
 
@@ -4869,20 +4803,6 @@ export default function ProyectoPage() {
           moneda={moneda}
           capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre }))}
           onAgregado={() => window.location.reload()}
-        />
-
-        {/* ── Cronograma ─────────────────────────────────────── */}
-        <SeccionCronograma
-          proyectoId={proyectoActivo.id}
-          capitulos={capitulos.map((c) => ({
-            id: c.id,
-            nombre: c.nombre,
-            codigo: c.codigo,
-            color: c.color,
-            fechaInicio: c.fechaInicio,
-            fechaFin: c.fechaFin,
-            rubros: c.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
-          }))}
         />
 
         {/* ── Memoria del presupuesto ──────────────────────── */}
@@ -4907,122 +4827,59 @@ export default function ProyectoPage() {
           ultimaActualizacionIndice={proyectoActivo.ultimaActualizacionIndice ?? null}
         />
 
-        {/* ── Cómputo global de materiales ────────────────── */}
-        {filasMateriales.length > 0 && (() => {
-          const filas = filasMateriales;
-
-          return (
-            <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
-                <button
-                  onClick={() => setMaterialesGlobalesExpandido((p) => !p)}
-                  className="flex items-center gap-2.5 min-w-0 text-left group"
-                >
-                  <span className="text-slate-400 group-hover:text-slate-600 transition-colors flex-shrink-0">
-                    {materialesGlobalesExpandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                  </span>
-                  <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
-                    Cómputo global de materiales
-                  </h2>
-                </button>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={`/api/proyectos/${proyectoActivo.id}/lista-materiales-pdf`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                  >
-                    <FileText className="w-3.5 h-3.5" /> PDF
-                  </a>
-                  <button
-                    onClick={() => descargarExcelMateriales(proyectoActivo.nombre, filas, totalMateriales)}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Excel
-                  </button>
-                </div>
-              </div>
-              <AnimatePresence initial={false}>
-                {materialesGlobalesExpandido && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="flex items-center px-5 py-2 bg-slate-50 border-b border-slate-200">
-                      <div className="flex-1 pr-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Material</div>
-                      <div style={{ width: 56  }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center">Unidad</div>
-                      <div style={{ width: 100 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center">Dosif.</div>
-                      <div style={{ width: 110 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
-                      <div style={{ width: 100 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">P. unit.</div>
-                      <div style={{ width: 140 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right pr-4">Costo total</div>
-                    </div>
-                    {filas.map((f, idx) => {
-                      const costoTotal = f.precioUnit != null ? f.cantidadTotal * f.precioUnit : null;
-                      return (
-                        <div
-                          key={`${f.descripcion}||${f.unidad}`}
-                          className={cn("flex items-center px-5 border-b border-slate-100 last:border-0", idx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white")}
-                          style={{ minHeight: 32 }}
-                        >
-                          <div className="flex-1 pr-2 text-sm text-slate-700 font-medium truncate">{f.descripcion}</div>
-                          <div style={{ width: 56  }} className="text-sm text-slate-500 text-center">{f.unidad}</div>
-                          <div style={{ width: 100 }} className="text-sm text-slate-500 text-center">{f.dosificacion || "—"}</div>
-                          <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-700 font-semibold text-right">{fmtMon(f.cantidadTotal)}</div>
-                          <div style={{ width: 100 }} className="text-sm tabular-nums text-slate-500 text-right">{f.precioUnit != null ? fmtMon(f.precioUnit) : "—"}</div>
-                          <div style={{ width: 140 }} className="text-sm font-bold tabular-nums text-[#2563EB] text-right pr-4">{costoTotal != null ? fmtMon(costoTotal) : "—"}</div>
-                        </div>
-                      );
-                    })}
-                    {/* Total materiales */}
-                    <div className="flex items-center px-5 py-3 border-t-2 border-slate-300 bg-white">
-                      <div className="flex-1 text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Total materiales</div>
-                      <div style={{ width: 56  }} />
-                      <div style={{ width: 100 }} />
-                      <div style={{ width: 110 }} />
-                      <div style={{ width: 100 }} />
-                      <div style={{ width: 140 }} className="text-base font-bold tabular-nums text-[#1A3A5C] text-right pr-4">
-                        {totalMateriales > 0 ? `$ ${Math.round(totalMateriales).toLocaleString("es-UY")}` : "—"}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          );
-        })()}
       </div>
       )}
 
-      {/* ── Pestaña: Gestión de Obra — placeholder, sin funcionalidad todavía ── */}
+      {/* ── Pestaña: Gestión de Obra — Contrato → Inscripción de obra →
+          Cómputo global de materiales → Cronograma → Certificaciones →
+          Cierre de Obra. Las 3 del medio son funcionales (migradas desde
+          Presupuesto, sin cambios de lógica); las 3 restantes son
+          placeholders "Próximamente" — sin diseñar todavía. ── */}
       {tabActiva === "gestion-obra" && (
         <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
-          <div className="flex flex-col items-center justify-center text-center bg-white rounded-[16px] border border-slate-300 shadow-sm py-16 px-6">
-            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-              <HardHat className="w-5 h-5 text-[#2563EB]" />
-            </div>
-            <h2 className="text-sm font-semibold text-[#1E293B] mb-1">Próximamente</h2>
-            <p className="text-sm text-slate-500 max-w-sm">
-              Acá vas a poder gestionar la obra ya ganada: contratación e inscripciones, documentación de obra y seguimiento de avance.
-            </p>
-          </div>
-        </div>
-      )}
+          <TarjetaProximamente
+            icono={FileSignature}
+            titulo="Contrato"
+            descripcion="Acá vas a poder generar y gestionar el contrato de obra con el cliente."
+          />
+          <TarjetaProximamente
+            icono={HardHat}
+            titulo="Inscripción de obra"
+            descripcion="Acá vas a poder gestionar la inscripción y documentación ante BPS y demás organismos."
+          />
 
-      {/* ── Pestaña: Certificación — placeholder, sin funcionalidad todavía ── */}
-      {tabActiva === "certificacion" && (
-        <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
-          <div className="flex flex-col items-center justify-center text-center bg-white rounded-[16px] border border-slate-300 shadow-sm py-16 px-6">
-            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-              <ClipboardCheck className="w-5 h-5 text-[#2563EB]" />
-            </div>
-            <h2 className="text-sm font-semibold text-[#1E293B] mb-1">Próximamente</h2>
-            <p className="text-sm text-slate-500 max-w-sm">
-              Acá vas a poder generar certificaciones mensuales de avance, retenciones y el certificado de obra en PDF.
-            </p>
-          </div>
+          <SeccionComputoGlobalMateriales
+            proyectoId={proyectoActivo.id}
+            proyectoNombre={proyectoActivo.nombre}
+            filas={filasMateriales}
+            total={totalMateriales}
+          />
+
+          <SeccionCronograma
+            proyectoId={proyectoActivo.id}
+            capitulos={capitulos.map((c) => ({
+              id: c.id,
+              nombre: c.nombre,
+              codigo: c.codigo,
+              color: c.color,
+              fechaInicio: c.fechaInicio,
+              fechaFin: c.fechaFin,
+              rubros: c.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
+            }))}
+          />
+
+          <SeccionCertificaciones
+            proyectoId={proyectoActivo.id}
+            moneda={moneda}
+            totalGeneral={totalGeneral}
+            capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre }))}
+          />
+
+          <TarjetaProximamente
+            icono={ClipboardCheck}
+            titulo="Cierre de Obra"
+            descripcion="Acá vas a poder cerrar la obra: liquidación final, actas de recepción y documentación de cierre."
+          />
         </div>
       )}
 
