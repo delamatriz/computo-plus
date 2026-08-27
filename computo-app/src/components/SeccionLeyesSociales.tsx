@@ -256,6 +256,10 @@ export default function SeccionLeyesSociales({
                       </span>
                     )}
                   </label>
+                  <p className="text-xs text-slate-400 mb-2">
+                    El monto imponible es la suma de la mano de obra real de cada rubro (jornal ÷ rendimiento ×
+                    cantidad); si un rubro no la tiene desglosada, estima un 38% de su precio.
+                  </p>
                   <div className="flex items-center gap-2">
                     {editandoMonto ? (
                       <input
