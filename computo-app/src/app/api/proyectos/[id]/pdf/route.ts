@@ -70,6 +70,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       garantiaFielCumplimiento: proyecto.garantiaFielCumplimiento,
       garantiaViciosOcultos: proyecto.garantiaViciosOcultos,
       garantiaResponsabilidad: proyecto.garantiaResponsabilidad,
+      memoriaDescriptiva: proyecto.memoriaDescriptiva,
       titulos: proyecto.titulos.map((t) => ({
         id: t.id,
         nombre: t.nombre,

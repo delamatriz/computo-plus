@@ -1,4 +1,26 @@
-import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
+import type { ReactElement } from "react";
+import path from "path";
+import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
+
+// DM Sans — tipografía de marca de CÓMPUTO+ (ver CLAUDE.md), registrada acá
+// en vez de depender de las fuentes estándar de PDFKit (Helvetica), que no
+// son Unicode reales. Instancias estáticas por peso (no la fuente variable
+// de Google Fonts) — registrar el MISMO archivo variable dos veces bajo
+// distinto fontWeight confundía a pdfkit/fontkit al resolver glifos entre
+// pesos (confirmado: la letra "y" se reemplazaba por "C" en texto real con
+// la variable registrada así). Archivos de Fontsource (fontsource.org,
+// reempaquetado MIT de Google Fonts en instancias estáticas, mismo origen
+// que next/font/google usa en la web). Este componente solo se importa
+// desde la ruta de API del PDF (server-side), por eso puede usar "path".
+const FONTS_DIR = path.join(process.cwd(), "public", "fonts", "dm-sans");
+Font.register({
+  family: "DM Sans",
+  fonts: [
+    { src: path.join(FONTS_DIR, "DMSans-Regular.ttf"), fontWeight: 400 },
+    { src: path.join(FONTS_DIR, "DMSans-Bold.ttf"), fontWeight: 700 },
+    { src: path.join(FONTS_DIR, "DMSans-Italic.ttf"), fontStyle: "italic" },
+  ],
+});
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface RubroPDF {
@@ -63,6 +85,7 @@ export interface ProyectoConCapitulos {
   garantiaFielCumplimiento?: string | null;
   garantiaViciosOcultos?: string | null;
   garantiaResponsabilidad?: string | null;
+  memoriaDescriptiva?: string | null;
 }
 
 export const TEXTO_LEGAL_RESPONSABILIDAD_DEFAULT =
@@ -115,6 +138,55 @@ function fmtMonTotal(v: number, simbolo: string): string {
   return `${simbolo} ${fmtNum(v)}`;
 }
 
+/* ─── Memoria Descriptiva ──────────────────────────────────── */
+// Mismo criterio que markdownBasicoAHtml en SeccionMemoriaDescriptiva.tsx
+// (encabezados "#", listas "-"/"*", negrita "**texto**") — memorias
+// generadas antes de que el modelo devolviera texto plano pueden traer
+// estos símbolos crudos. Acá se parsea a bloques tipados en vez de HTML,
+// porque @react-pdf/renderer no interpreta markup arbitrario.
+type BloqueMemoria =
+  | { tipo: "heading"; texto: string }
+  | { tipo: "item"; texto: string }
+  | { tipo: "parrafo"; texto: string };
+
+function parsearMemoriaDescriptiva(texto: string): BloqueMemoria[] {
+  const bloques: BloqueMemoria[] = [];
+  for (const linea of texto.split("\n")) {
+    const trim = linea.trim();
+    if (!trim) continue;
+
+    const heading = trim.match(/^#{1,6}\s+(.*)$/);
+    if (heading) {
+      bloques.push({ tipo: "heading", texto: heading[1] });
+      continue;
+    }
+
+    const item = trim.match(/^[-*]\s+(.*)$/);
+    if (item) {
+      bloques.push({ tipo: "item", texto: item[1] });
+      continue;
+    }
+
+    bloques.push({ tipo: "parrafo", texto: trim });
+  }
+  return bloques;
+}
+
+/** Divide un texto por segmentos "**negrita**", para renderizar <Text> anidados
+ *  sin dejar los asteriscos crudos visibles en el PDF. */
+function segmentosConNegrita(texto: string): (string | ReactElement)[] {
+  return texto.split(/(\*\*.+?\*\*)/g).map((parte, i) => {
+    const m = parte.match(/^\*\*(.+)\*\*$/);
+    return m ? (
+      <Text key={i} style={{ fontFamily: "DM Sans", fontWeight: 700 }}>
+        {m[1]}
+      </Text>
+    ) : (
+      parte
+    );
+  });
+}
+
 function simboloMoneda(moneda: string): string {
   return moneda === "USD" ? "U$S" : "$";
 }
@@ -142,7 +214,7 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 56,
     paddingHorizontal: 56,
-    fontFamily: "Helvetica",
+    fontFamily: "DM Sans",
     fontSize: 9,
     color: "#1E293B",
   },
@@ -156,7 +228,7 @@ const styles = StyleSheet.create({
   },
   empresaNombre: {
     fontSize: 10,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
   },
   fecha: {
@@ -165,7 +237,7 @@ const styles = StyleSheet.create({
   },
   tituloProyecto: {
     fontSize: 18,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
     marginTop: 8,
   },
@@ -181,6 +253,46 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  // Memoria Descriptiva — antes de la tabla de rubros, mismo peso visual
+  // que el bloque de Garantías (título uppercase + separador propio al
+  // cierre, para no quedar "pegada" a la tabla de capítulos).
+  bloqueMemoria: {
+    marginBottom: 16,
+  },
+  tituloMemoria: {
+    fontSize: 9,
+    fontFamily: "DM Sans", fontWeight: 700,
+    color: "#1A3A5C",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  memoriaHeading: {
+    fontSize: 9,
+    fontFamily: "DM Sans", fontWeight: 700,
+    color: "#1E293B",
+    marginTop: 6,
+    marginBottom: 3,
+  },
+  memoriaParrafo: {
+    fontSize: 8,
+    color: "#475569",
+    lineHeight: 1.4,
+    marginBottom: 5,
+  },
+  memoriaItem: {
+    fontSize: 8,
+    color: "#475569",
+    lineHeight: 1.4,
+    marginBottom: 3,
+    marginLeft: 10,
+  },
+  separadorMemoria: {
+    borderTopWidth: 0.5,
+    borderTopColor: "#CBD5E1",
+    marginTop: 6,
+  },
+
   // Título — más peso visual que un capítulo (fondo más oscuro, texto más
   // grande, franja de color a la izquierda con titulo.color) para que se
   // note de un vistazo que agrupa varios capítulos.
@@ -194,7 +306,7 @@ const styles = StyleSheet.create({
   },
   textoTitulo: {
     color: "#FFFFFF",
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: 0.6,
@@ -209,13 +321,13 @@ const styles = StyleSheet.create({
   },
   textoSubtotalTituloLabel: {
     fontSize: 9.5,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
     marginRight: 12,
   },
   textoSubtotalTituloMonto: {
     fontSize: 9.5,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
   },
 
@@ -229,7 +341,7 @@ const styles = StyleSheet.create({
   },
   textoCapitulo: {
     color: "#FFFFFF",
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     fontSize: 9,
     textTransform: "uppercase",
     letterSpacing: 0.4,
@@ -245,7 +357,7 @@ const styles = StyleSheet.create({
   },
   textoEncabezado: {
     fontSize: 7.5,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#94A3B8",
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -277,13 +389,13 @@ const styles = StyleSheet.create({
   },
   textoSubtotalLabel: {
     fontSize: 8.5,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
     marginRight: 12,
   },
   textoSubtotalMonto: {
     fontSize: 8.5,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
   },
 
@@ -318,7 +430,7 @@ const styles = StyleSheet.create({
   },
   montoGastosGenerales: {
     color: "#FFFFFF",
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     fontSize: 9,
   },
 
@@ -340,12 +452,12 @@ const styles = StyleSheet.create({
   },
   labelResumenLinea: {
     fontSize: 9.5,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
   },
   montoResumenLinea: {
     fontSize: 9.5,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
   },
   separadorTotal: {
@@ -362,14 +474,14 @@ const styles = StyleSheet.create({
   },
   labelTotalGeneral: {
     fontSize: 12,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   montoTotalGeneral: {
     fontSize: 16,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
   },
 
@@ -382,7 +494,7 @@ const styles = StyleSheet.create({
   },
   labelPlazo: {
     fontSize: 8.5,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#64748B",
   },
   montoPlazo: {
@@ -401,7 +513,7 @@ const styles = StyleSheet.create({
   },
   tituloGarantias: {
     fontSize: 9,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#1A3A5C",
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -412,7 +524,7 @@ const styles = StyleSheet.create({
   },
   labelGarantia: {
     fontSize: 8,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "DM Sans", fontWeight: 700,
     color: "#64748B",
     marginBottom: 2,
   },
@@ -426,7 +538,7 @@ const styles = StyleSheet.create({
   portadaPage: {
     paddingTop: 80,
     paddingHorizontal: 64,
-    fontFamily: "Helvetica",
+    fontFamily: "DM Sans",
     fontSize: 9,
     color: "#1E293B",
     justifyContent: "flex-start",
@@ -617,7 +729,7 @@ function FilaDatoObra({ label, valor }: { label: string; valor: string | null | 
   return (
     <View style={{ flexDirection: "row", marginBottom: 8 }}>
       <Text style={{ fontSize: 9, color: "#94A3B8", width: 120 }}>{label}</Text>
-      <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#1E293B", flex: 1 }}>{valor}</Text>
+      <Text style={{ fontSize: 10, fontFamily: "DM Sans", fontWeight: 700, color: "#1E293B", flex: 1 }}>{valor}</Text>
     </View>
   );
 }
@@ -646,7 +758,7 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
           ) : (
             <View style={{ marginTop: 40 }} />
           )}
-          <Text style={{ fontSize: 16, fontFamily: "Helvetica-Bold", color: "#1A3A5C", textAlign: "center" }}>
+          <Text style={{ fontSize: 16, fontFamily: "DM Sans", fontWeight: 700, color: "#1A3A5C", textAlign: "center" }}>
             {empresa.nombre}
           </Text>
           {empresa.rut ? (
@@ -664,7 +776,7 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
 
       <View style={{ borderBottomWidth: 2, borderBottomColor: "#1A3A5C", marginTop: 16, marginBottom: 16 }} />
 
-      <Text style={{ fontSize: 20, fontFamily: "Helvetica-Bold", color: "#1A3A5C", textAlign: "center" }}>
+      <Text style={{ fontSize: 20, fontFamily: "DM Sans", fontWeight: 700, color: "#1A3A5C", textAlign: "center" }}>
         PRESUPUESTO DE OBRA
       </Text>
 
@@ -672,11 +784,11 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
 
       <View>
         <LabelSeccionPortada texto="Proyecto" />
-        <Text style={{ fontSize: 18, fontFamily: "Helvetica-Bold", color: "#1E293B" }}>
+        <Text style={{ fontSize: 18, fontFamily: "DM Sans", fontWeight: 700, color: "#1E293B" }}>
           {proyecto.nombre}
         </Text>
         {proyecto.subtitulo ? (
-          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Oblique", color: "#64748B", marginTop: 4 }}>
+          <Text style={{ fontSize: 11, fontFamily: "DM Sans", fontStyle: "italic", color: "#64748B", marginTop: 4 }}>
             {proyecto.subtitulo}
           </Text>
         ) : null}
@@ -702,7 +814,7 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
             <Text style={{ fontSize: 9, color: "#94A3B8", width: 120 }}>Plazo de ejecución</Text>
             <View style={{ flex: 1 }}>
               {proyecto.plazoObra != null && (
-                <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#1E293B" }}>
+                <Text style={{ fontSize: 10, fontFamily: "DM Sans", fontWeight: 700, color: "#1E293B" }}>
                   {fmtNum(proyecto.plazoObra)} días corridos
                 </Text>
               )}
@@ -710,7 +822,7 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
                 <Text
                   style={{
                     fontSize: 10,
-                    fontFamily: "Helvetica-Bold",
+                    fontFamily: "DM Sans", fontWeight: 700,
                     color: "#1E293B",
                     marginTop: proyecto.plazoObra != null ? 2 : 0,
                   }}
@@ -774,6 +886,10 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
     .filter(Boolean)
     .join("  ·  ");
 
+  const memoriaBloques = proyecto.memoriaDescriptiva?.trim()
+    ? parsearMemoriaDescriptiva(proyecto.memoriaDescriptiva)
+    : [];
+
   return (
     <Document>
       <Portada proyecto={proyecto} />
@@ -792,6 +908,37 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
         </View>
         {datosSubtitulo ? <Text style={styles.subtitulo}>{datosSubtitulo}</Text> : null}
         <View style={styles.separador} />
+
+        {/* Memoria Descriptiva — antes de la tabla de precios, ausente por
+            completo si el proyecto todavía no la tiene generada/cargada. */}
+        {memoriaBloques.length > 0 && (
+          <View style={styles.bloqueMemoria}>
+            <Text style={styles.tituloMemoria}>Memoria del Presupuesto</Text>
+            {memoriaBloques.map((b, i) => {
+              if (b.tipo === "heading") {
+                return (
+                  <Text key={i} style={styles.memoriaHeading}>
+                    {segmentosConNegrita(b.texto)}
+                  </Text>
+                );
+              }
+              if (b.tipo === "item") {
+                return (
+                  <Text key={i} style={styles.memoriaItem}>
+                    {"•  "}
+                    {segmentosConNegrita(b.texto)}
+                  </Text>
+                );
+              }
+              return (
+                <Text key={i} style={styles.memoriaParrafo}>
+                  {segmentosConNegrita(b.texto)}
+                </Text>
+              );
+            })}
+            <View style={styles.separadorMemoria} />
+          </View>
+        )}
 
         {/* Cuerpo — con 2+ títulos con contenido, agrupado (capítulos
             anidados, numerados N.M); con ≤1, plano: todos los capítulos
