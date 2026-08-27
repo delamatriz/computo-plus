@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, ChevronDown, ChevronRight, RotateCw } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, RotateCw, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +36,12 @@ interface Props {
   // Monto real de proyecto.timbresCJP — mismo campo que ya usan
   // SeccionResumenPresupuesto y el PDF (fuente única, no se duplica acá).
   timbresCJP: number;
+  // Desglose de mano de obra por capítulo — calculado en page.tsx sobre
+  // capitulos+apuData ya cargados en memoria (misma fórmula que
+  // computarCostoManoObraTotal, sin consulta nueva). Puede no coincidir
+  // con data.montoImponibleMO si el usuario lo editó a mano o si el
+  // presupuesto cambió después del último "Calcular" — se avisa en la UI.
+  desgloseMOPorCapitulo?: { capituloId: string; nombre: string; codigo?: string; monto: number }[];
 }
 
 function fmtMoneda(v: number, moneda: string): string {
@@ -81,6 +87,7 @@ function FilaAporte({
   monto,
   moneda,
   destacado = false,
+  base,
 }: {
   concepto: string;
   codigo: string;
@@ -89,6 +96,11 @@ function FilaAporte({
   monto: number;
   moneda: string;
   destacado?: boolean;
+  // Monto base sobre el que se aplica pct — solo se pasa cuando la fila
+  // representa una fórmula simple "base × pct = monto" (las filas TOTAL
+  // no, porque suman conceptos distintos). Habilita el ícono de info con
+  // la cuenta completa al hover/tap.
+  base?: number;
 }) {
   return (
     <div
@@ -97,8 +109,18 @@ function FilaAporte({
         destacado ? "bg-slate-50 border-t border-slate-200" : "border-b border-slate-50 last:border-0"
       )}
     >
-      <div className={cn("flex-1 min-w-0 text-sm truncate", destacado ? "font-bold text-[#1A3A5C] uppercase tracking-wide text-xs" : "text-slate-700")}>
-        {concepto}
+      <div className="flex-1 min-w-0 flex items-center gap-1">
+        <span className={cn("text-sm truncate", destacado ? "font-bold text-[#1A3A5C] uppercase tracking-wide text-xs" : "text-slate-700")}>
+          {concepto}
+        </span>
+        {base != null && (
+          <span
+            title={`${fmtMoneda(base, moneda)} × ${fmtPct(pct)}% = ${fmtMoneda(monto, moneda)}`}
+            className="inline-flex flex-shrink-0 cursor-help"
+          >
+            <Info className="w-3 h-3 text-slate-300 hover:text-slate-500 transition-colors" />
+          </span>
+        )}
       </div>
       <div className="text-[11px] text-slate-400 tabular-nums" style={{ width: 56 }}>
         Cód. {codigo}
@@ -137,9 +159,11 @@ export default function SeccionLeyesSociales({
   metodoMontoImponible,
   jornalMedioOficial,
   timbresCJP,
+  desgloseMOPorCapitulo,
 }: Props) {
   const [expandido, setExpandido] = useState(false);
   const [editandoMonto, setEditandoMonto] = useState(false);
+  const [desgloseExpandido, setDesgloseExpandido] = useState(false);
 
   const base = data.montoImponibleMO;
 
@@ -148,6 +172,13 @@ export default function SeccionLeyesSociales({
   // pueden diferir (edición manual acá, o método "estimado" 38%).
   const jornalesMontoImponible =
     jornalMedioOficial != null && jornalMedioOficial > 0 ? base / jornalMedioOficial : null;
+
+  // Suma del desglose por capítulo — se compara contra el monto imponible
+  // MOSTRADO (editable/persistido) para avisar si divergen, en vez de
+  // asumir que siempre van a coincidir (ver comentario del prop).
+  const sumaDesglose = desgloseMOPorCapitulo?.reduce((s, d) => s + d.monto, 0) ?? null;
+  const hayDiscrepanciaDesglose =
+    sumaDesglose != null && Math.abs(sumaDesglose - base) > 1;
 
   // Propietario — AUC patronal + Timbres CJP/CJPPU (proyecto.timbresCJP,
   // mismo campo real que ya usan SeccionResumenPresupuesto y el PDF).
@@ -189,9 +220,10 @@ export default function SeccionLeyesSociales({
         </div>
         <div className="flex items-center gap-3">
           {!!totalPropietario && (
-            <span className="text-sm font-bold text-[#2563EB] tabular-nums">
-              Aportes propietario: {fmtMoneda(totalPropietario, moneda)}
-            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xs font-normal text-slate-400">(aportes propietario)</span>
+              <span className="text-lg font-bold text-[#2563EB] tabular-nums">{fmtMoneda(totalPropietario, moneda)}</span>
+            </div>
           )}
           <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
             {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -218,9 +250,9 @@ export default function SeccionLeyesSociales({
                     {jornalesMontoImponible != null && (
                       <span
                         title="Jornales que representa este monto respecto al jornal SUNCA de Medio Oficial — mismo cálculo que la Cuantía de obra."
-                        className="text-[8px] font-bold text-slate-400 bg-slate-100 rounded px-1 leading-4 normal-case tracking-normal whitespace-nowrap"
+                        className="text-xs font-bold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 leading-4 normal-case tracking-normal whitespace-nowrap"
                       >
-                        ≈ {Math.round(jornalesMontoImponible)} jornales
+                        ≈ {Math.round(jornalesMontoImponible)} jornales de medio oficial
                       </span>
                     )}
                   </label>
@@ -257,6 +289,52 @@ export default function SeccionLeyesSociales({
                       ⚠ Monto imponible estimado (38% sobre precio unitario). Cargá el APU con mano de obra para mayor precisión.
                     </p>
                   )}
+
+                  {desgloseMOPorCapitulo && desgloseMOPorCapitulo.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => setDesgloseExpandido((p) => !p)}
+                        className="flex items-center gap-1 mt-2 text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {desgloseExpandido ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                        Ver desglose por capítulo
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {desgloseExpandido && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-2 rounded-[8px] border border-slate-200 bg-white overflow-hidden max-w-md">
+                              {desgloseMOPorCapitulo.map((d) => (
+                                <div key={d.capituloId} className="flex items-center px-3 py-1.5 border-b border-slate-50 last:border-0">
+                                  <div className="flex-1 min-w-0 text-xs text-slate-600 truncate">
+                                    {d.codigo ? `${d.codigo} — ${d.nombre}` : d.nombre}
+                                  </div>
+                                  <div className="text-xs font-semibold tabular-nums text-[#2563EB]">
+                                    {fmtMoneda(d.monto, moneda)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {hayDiscrepanciaDesglose && (
+                              <div className="flex items-start gap-2 mt-2 rounded-[8px] bg-amber-50 border border-amber-200 px-3 py-2 max-w-md">
+                                <span className="text-amber-500 flex-shrink-0">⚠</span>
+                                <p className="text-xs text-amber-700">
+                                  Este desglose refleja el presupuesto actual — puede no coincidir con el monto de
+                                  arriba si lo editaste a mano o si el presupuesto cambió después del último
+                                  &quot;Calcular&quot;.
+                                </p>
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </>
+                  )}
                 </div>
 
                 <div>
@@ -289,6 +367,7 @@ export default function SeccionLeyesSociales({
                     onPctChange={(v) => set("aucPct", v)}
                     monto={montoAUC}
                     moneda={moneda}
+                    base={base}
                   />
                   <div className="flex items-center px-4 py-1.5 border-b border-slate-50">
                     <div className="flex-1 min-w-0 text-sm text-slate-700 truncate">Timbres CJP/CJPPU</div>
@@ -313,12 +392,12 @@ export default function SeccionLeyesSociales({
                   <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
                     <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Empresa paga</span>
                   </div>
-                  <FilaAporte concepto="FOCER patronal"           codigo="145" pct={data.focerPatronalPct} onPctChange={(v) => set("focerPatronalPct", v)} monto={montoFocerPatronal} moneda={moneda} />
-                  <FilaAporte concepto="FSC/FOCAP"                codigo="34"  pct={data.fscFocapPct}      onPctChange={(v) => set("fscFocapPct", v)}      monto={montoFscFocap}      moneda={moneda} />
-                  <FilaAporte concepto="FOSVOC"                   codigo="43"  pct={data.fosvocPct}        onPctChange={(v) => set("fosvocPct", v)}        monto={montoFosvoc}        moneda={moneda} />
-                  <FilaAporte concepto="FRL"                      codigo="47"  pct={data.frlPct}           onPctChange={(v) => set("frlPct", v)}           monto={montoFrl}           moneda={moneda} />
-                  <FilaAporte concepto="Fdo. Garantía Créd. Lab." codigo="49"  pct={data.fondoGarantiaPct} onPctChange={(v) => set("fondoGarantiaPct", v)} monto={montoFondoGarantia} moneda={moneda} />
-                  <FilaAporte concepto="SNIS adicional"           codigo="108" pct={data.snisAdicionalPct} onPctChange={(v) => set("snisAdicionalPct", v)} monto={montoSnisAdicional} moneda={moneda} />
+                  <FilaAporte concepto="FOCER patronal"           codigo="145" pct={data.focerPatronalPct} onPctChange={(v) => set("focerPatronalPct", v)} monto={montoFocerPatronal} moneda={moneda} base={base} />
+                  <FilaAporte concepto="FSC/FOCAP"                codigo="34"  pct={data.fscFocapPct}      onPctChange={(v) => set("fscFocapPct", v)}      monto={montoFscFocap}      moneda={moneda} base={base} />
+                  <FilaAporte concepto="FOSVOC"                   codigo="43"  pct={data.fosvocPct}        onPctChange={(v) => set("fosvocPct", v)}        monto={montoFosvoc}        moneda={moneda} base={base} />
+                  <FilaAporte concepto="FRL"                      codigo="47"  pct={data.frlPct}           onPctChange={(v) => set("frlPct", v)}           monto={montoFrl}           moneda={moneda} base={base} />
+                  <FilaAporte concepto="Fdo. Garantía Créd. Lab." codigo="49"  pct={data.fondoGarantiaPct} onPctChange={(v) => set("fondoGarantiaPct", v)} monto={montoFondoGarantia} moneda={moneda} base={base} />
+                  <FilaAporte concepto="SNIS adicional"           codigo="108" pct={data.snisAdicionalPct} onPctChange={(v) => set("snisAdicionalPct", v)} monto={montoSnisAdicional} moneda={moneda} base={base} />
                   <FilaAporte concepto="TOTAL Empresa" codigo="" pct={pctTotalEmpresa} monto={totalEmpresa} moneda={moneda} destacado />
                 </div>
               </div>
@@ -335,6 +414,7 @@ export default function SeccionLeyesSociales({
                   onPctChange={(v) => set("focerPersonalPct", v)}
                   monto={montoFocerPersonal}
                   moneda={moneda}
+                  base={base}
                 />
               </div>
 

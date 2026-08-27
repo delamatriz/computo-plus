@@ -418,6 +418,31 @@ function computarCostoManoObraTotal(capitulos: Capitulo[], apuData: Record<strin
   return total;
 }
 
+interface DesgloseMOCapitulo {
+  capituloId: string;
+  nombre: string;
+  codigo?: string;
+  monto: number;
+}
+
+/** Mismo cálculo que computarCostoManoObraTotal, agrupado por capítulo en
+ *  vez de sumado en un solo número — para el desglose expandible de
+ *  "Monto imponible mano de obra" en Leyes Sociales. Sobre datos ya
+ *  cargados en memoria (capitulos + apuData), sin consulta nueva. */
+function computarMOTotalPorCapitulo(capitulos: Capitulo[], apuData: Record<string, APU>): DesgloseMOCapitulo[] {
+  return capitulos
+    .map((cap) => {
+      let monto = 0;
+      for (const rubro of cap.rubros) {
+        const apu = apuData[rubro.id];
+        if (!apu || rubro.cantidad == null) continue;
+        monto += sumManoObra(apu.manoObra, apu.equipos) * rubro.cantidad;
+      }
+      return { capituloId: cap.id, nombre: cap.nombre, codigo: cap.codigo, monto };
+    })
+    .filter((d) => d.monto > 0);
+}
+
 // Tope de jornales de Medio Oficial que separa Menor de Mayor cuantía
 // (clasificación BPS) — hardcodeado a propósito, mismo criterio que otros
 // valores legales de la app: se actualiza a mano el día que cambie la ley.
@@ -2839,6 +2864,7 @@ export default function ProyectoPage() {
   // sección), no del costo de mano de obra en vivo de cuantiaObra — ambos
   // pueden diferir (edición manual, o método "estimado" 38%).
   const jornalMedioOficial = categoriasLaborales.find((c) => c.categoria === "medio_oficial")?.jornal;
+  const desgloseMOPorCapitulo = computarMOTotalPorCapitulo(capitulos, apuData);
   // Todo proyecto tiene siempre ≥1 Título (implícito o explícito, ver
   // POST /api/proyectos) — un título sin ningún capítulo no cuenta para
   // esta decisión, mismo criterio que ya usan el PDF/Excel/Planilla de
@@ -4712,6 +4738,7 @@ export default function ProyectoPage() {
             metodoMontoImponible={metodoMontoImponible}
             jornalMedioOficial={jornalMedioOficial}
             timbresCJP={proyecto?.timbresCJP ?? 0}
+            desgloseMOPorCapitulo={desgloseMOPorCapitulo}
           />
         )}
 
