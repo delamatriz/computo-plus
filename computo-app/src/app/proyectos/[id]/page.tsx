@@ -2833,6 +2833,12 @@ export default function ProyectoPage() {
   const soloLectura = proyectoActivo.estado === "FINALIZADO";
   const totalGeneral = capitulos.reduce((s, c) => s + totalCapitulo(c), 0);
   const cuantiaObra = computarCuantiaObra(capitulos, apuData, categoriasLaborales);
+  // Mismo jornal de referencia que usa computarCuantiaObra — se pasa aparte
+  // a SeccionLeyesSociales para calcular sus propios jornales a partir de
+  // data.montoImponibleMO (el monto imponible mostrado/editable en esa
+  // sección), no del costo de mano de obra en vivo de cuantiaObra — ambos
+  // pueden diferir (edición manual, o método "estimado" 38%).
+  const jornalMedioOficial = categoriasLaborales.find((c) => c.categoria === "medio_oficial")?.jornal;
   // Todo proyecto tiene siempre ≥1 Título (implícito o explícito, ver
   // POST /api/proyectos) — un título sin ningún capítulo no cuenta para
   // esta decisión, mismo criterio que ya usan el PDF/Excel/Planilla de
@@ -4704,6 +4710,8 @@ export default function ProyectoPage() {
             recalculando={recalculandoMO}
             guardando={guardandoLeyes}
             metodoMontoImponible={metodoMontoImponible}
+            jornalMedioOficial={jornalMedioOficial}
+            timbresCJP={proyecto?.timbresCJP ?? 0}
           />
         )}
 

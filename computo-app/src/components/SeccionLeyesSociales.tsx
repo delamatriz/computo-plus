@@ -28,6 +28,14 @@ interface Props {
   recalculando: boolean;
   guardando: boolean;
   metodoMontoImponible?: "apu" | "estimado" | null;
+  // Jornal SUNCA de Medio Oficial — mismo valor que usa la Cuantía de obra
+  // en proyectos/[id]/page.tsx (computarCuantiaObra), para expresar el
+  // monto imponible en cantidad de jornales. undefined si todavía no hay
+  // categorías laborales cargadas.
+  jornalMedioOficial?: number;
+  // Monto real de proyecto.timbresCJP — mismo campo que ya usan
+  // SeccionResumenPresupuesto y el PDF (fuente única, no se duplica acá).
+  timbresCJP: number;
 }
 
 function fmtMoneda(v: number, moneda: string): string {
@@ -127,15 +135,24 @@ export default function SeccionLeyesSociales({
   recalculando,
   guardando,
   metodoMontoImponible,
+  jornalMedioOficial,
+  timbresCJP,
 }: Props) {
   const [expandido, setExpandido] = useState(false);
   const [editandoMonto, setEditandoMonto] = useState(false);
 
   const base = data.montoImponibleMO;
 
-  // Propietario
+  // Jornales que representa el monto imponible MOSTRADO (editable a mano),
+  // no el costo de mano de obra en vivo de la Cuantía de obra — ambos
+  // pueden diferir (edición manual acá, o método "estimado" 38%).
+  const jornalesMontoImponible =
+    jornalMedioOficial != null && jornalMedioOficial > 0 ? base / jornalMedioOficial : null;
+
+  // Propietario — AUC patronal + Timbres CJP/CJPPU (proyecto.timbresCJP,
+  // mismo campo real que ya usan SeccionResumenPresupuesto y el PDF).
   const montoAUC = base * data.aucPct;
-  const totalPropietario = montoAUC; // timbres CJP: monto fijo a confirmar, no se suma aún
+  const totalPropietario = montoAUC + timbresCJP;
 
   // Empresa — patronal
   const montoFocerPatronal = base * data.focerPatronalPct;
@@ -170,9 +187,16 @@ export default function SeccionLeyesSociales({
           <Building2 className="w-4 h-4 text-[#2563EB]" />
           <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Leyes Sociales / BPS</h2>
         </div>
-        <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
-          {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </span>
+        <div className="flex items-center gap-3">
+          {!!totalPropietario && (
+            <span className="text-sm font-bold text-[#2563EB] tabular-nums">
+              Aportes propietario: {fmtMoneda(totalPropietario, moneda)}
+            </span>
+          )}
+          <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
+            {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </span>
+        </div>
       </button>
 
       <AnimatePresence initial={false}>
@@ -189,8 +213,16 @@ export default function SeccionLeyesSociales({
               {/* Bloque superior — monto imponible */}
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                 <div className="flex-1">
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                     Monto imponible mano de obra (calculado automáticamente)
+                    {jornalesMontoImponible != null && (
+                      <span
+                        title="Jornales que representa este monto respecto al jornal SUNCA de Medio Oficial — mismo cálculo que la Cuantía de obra."
+                        className="text-[8px] font-bold text-slate-400 bg-slate-100 rounded px-1 leading-4 normal-case tracking-normal whitespace-nowrap"
+                      >
+                        ≈ {Math.round(jornalesMontoImponible)} jornales
+                      </span>
+                    )}
                   </label>
                   <div className="flex items-center gap-2">
                     {editandoMonto ? (
@@ -262,8 +294,8 @@ export default function SeccionLeyesSociales({
                     <div className="flex-1 min-w-0 text-sm text-slate-700 truncate">Timbres CJP/CJPPU</div>
                     <div className="text-[11px] text-slate-400 tabular-nums" style={{ width: 56 }}>Cód. 113</div>
                     <div className="text-right text-xs text-slate-400" style={{ width: 80 }}>—</div>
-                    <div className="text-right tabular-nums pl-3 text-xs text-slate-400 italic" style={{ width: 110 }}>
-                      monto fijo (a confirmar)
+                    <div className="text-right tabular-nums pl-3 text-sm font-semibold text-[#2563EB]" style={{ width: 110 }}>
+                      {fmtMoneda(timbresCJP, moneda)}
                     </div>
                   </div>
                   <FilaAporte
