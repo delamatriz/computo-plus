@@ -4651,68 +4651,6 @@ export default function ProyectoPage() {
             <span className="text-lg font-bold text-[#2563EB]">{fmtMoneda(totalGeneral * 1.22, moneda)}</span>
           </div>
 
-          {/* Fecha de inicio (se carga desde /editar, acá es de solo
-              lectura) + placeholder de Plazo de obra — a futuro se calcula
-              solo a partir de los jornales de mano de obra del presupuesto,
-              todavía no implementado. Debajo: Forma de realización de la
-              obra — Modalidad (manual, se carga en /editar) + Cuantía
-              (calculada siempre, nunca editable ni persistida — ver
-              computarCuantiaObra) + Tipo de contratación (ya cargado desde
-              el wizard, mostrado acá también como referencia). */}
-          <div className="bg-white border border-slate-200 rounded-lg px-5 py-3">
-            <div className="grid grid-cols-2 divide-x divide-slate-100">
-              <div className="pr-4">
-                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Fecha de inicio</p>
-                <p className="text-sm font-semibold text-slate-700">
-                  {fmtFecha(proyectoActivo.fechaInicio) ?? <span className="font-normal text-slate-400">A definir</span>}
-                </p>
-              </div>
-              <div className="pl-4">
-                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Plazo de obra</p>
-                <p className="text-sm font-medium text-slate-400">A definir</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 mt-3 pt-3">
-              <div className="pr-4">
-                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Forma de realización</p>
-                <p className="text-sm font-semibold text-slate-700">
-                  {proyectoActivo.modalidadEjecucion
-                    ? MODALIDAD_EJECUCION_LABEL[proyectoActivo.modalidadEjecucion] ?? proyectoActivo.modalidadEjecucion
-                    : <span className="font-normal text-slate-400">A definir</span>}
-                </p>
-              </div>
-              <div className="pl-4">
-                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5 flex items-center gap-1">
-                  Cuantía
-                  <span
-                    title="Calculado automáticamente a partir del costo de mano de obra del presupuesto vigente — dato de referencia, no editable. Compará contra el tope vigente de BPS por tu cuenta."
-                    className="text-[8px] font-bold text-slate-400 bg-slate-100 rounded px-1 leading-4 normal-case tracking-normal"
-                  >
-                    calc.
-                  </span>
-                </p>
-                <p className="text-sm font-semibold text-slate-700">
-                  {cuantiaObra ? (
-                    <>
-                      {cuantiaObra.clasificacion}
-                      <span className="font-normal text-slate-400"> ({Math.round(cuantiaObra.jornales)} jornales)</span>
-                    </>
-                  ) : (
-                    <span className="font-normal text-slate-400">A definir</span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="border-t border-slate-100 mt-3 pt-3">
-              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Tipo de contratación</p>
-              <p className="text-sm font-semibold text-slate-700">
-                {proyectoActivo.tipoContratacion === "PUBLICA" ? "Pública" : "Privada"}
-              </p>
-            </div>
-          </div>
-
         </div>
 
         {mostrarModalCapitulo && (
@@ -4837,6 +4775,70 @@ export default function ProyectoPage() {
           placeholders "Próximamente" — sin diseñar todavía. ── */}
       {tabActiva === "gestion-obra" && (
         <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
+          {/* Fecha de inicio (se carga desde /editar, acá es de solo
+              lectura) + placeholder de Plazo de obra — a futuro se calcula
+              solo a partir de los jornales de mano de obra del presupuesto,
+              todavía no implementado. Debajo: Forma de realización de la
+              obra — Modalidad (manual, se carga en /editar) + Cuantía
+              (calculada siempre, nunca editable ni persistida — ver
+              computarCuantiaObra) + Tipo de contratación (ya cargado desde
+              el wizard, mostrado acá también como referencia). Datos de
+              ejecución de la obra, no de presupuesto — por eso viven acá
+              y no en la pestaña Presupuesto. */}
+          <div className="bg-white border border-slate-200 rounded-lg px-5 py-3">
+            <div className="grid grid-cols-2 divide-x divide-slate-100">
+              <div className="pr-4">
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Fecha de inicio</p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {fmtFecha(proyectoActivo.fechaInicio) ?? <span className="font-normal text-slate-400">A definir</span>}
+                </p>
+              </div>
+              <div className="pl-4">
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Plazo de obra</p>
+                <p className="text-sm font-medium text-slate-400">A definir</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 mt-3 pt-3">
+              <div className="pr-4">
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Forma de realización</p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {proyectoActivo.modalidadEjecucion
+                    ? MODALIDAD_EJECUCION_LABEL[proyectoActivo.modalidadEjecucion] ?? proyectoActivo.modalidadEjecucion
+                    : <span className="font-normal text-slate-400">A definir</span>}
+                </p>
+              </div>
+              <div className="pl-4">
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5 flex items-center gap-1">
+                  Cuantía
+                  <span
+                    title="Calculado automáticamente a partir del costo de mano de obra del presupuesto vigente — dato de referencia, no editable. Compará contra el tope vigente de BPS por tu cuenta."
+                    className="text-[8px] font-bold text-slate-400 bg-slate-100 rounded px-1 leading-4 normal-case tracking-normal"
+                  >
+                    calc.
+                  </span>
+                </p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {cuantiaObra ? (
+                    <>
+                      {cuantiaObra.clasificacion}
+                      <span className="font-normal text-slate-400"> ({Math.round(cuantiaObra.jornales)} jornales)</span>
+                    </>
+                  ) : (
+                    <span className="font-normal text-slate-400">A definir</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 mt-3 pt-3">
+              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Tipo de contratación</p>
+              <p className="text-sm font-semibold text-slate-700">
+                {proyectoActivo.tipoContratacion === "PUBLICA" ? "Pública" : "Privada"}
+              </p>
+            </div>
+          </div>
+
           <TarjetaProximamente
             icono={FileSignature}
             titulo="Contrato"
