@@ -226,7 +226,7 @@ export default function SeccionLeyesSociales({
   const inputCls = "px-2 py-1 text-sm text-slate-700 bg-white border border-slate-200 rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]";
 
   return (
-    <div id="seccion-leyes-sociales" className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden scroll-mt-6">
+    <div id="seccion-leyes-sociales" className="mt-6 bg-white rounded-[16px] border-2 border-[#1A3A5C] shadow-sm overflow-hidden scroll-mt-6">
       {/* Header colapsable */}
       <button
         onClick={() => setExpandido((p) => !p)}
