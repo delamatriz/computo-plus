@@ -164,6 +164,7 @@ export default function SeccionLeyesSociales({
   const [expandido, setExpandido] = useState(false);
   const [editandoMonto, setEditandoMonto] = useState(false);
   const [desgloseExpandido, setDesgloseExpandido] = useState(false);
+  const [desgloseAUCExpandido, setDesgloseAUCExpandido] = useState(false);
 
   const base = data.montoImponibleMO;
 
@@ -184,6 +185,23 @@ export default function SeccionLeyesSociales({
   // mismo campo real que ya usan SeccionResumenPresupuesto y el PDF).
   const montoAUC = base * data.aucPct;
   const totalPropietario = montoAUC + timbresCJP;
+
+  // Desglose legal del 71,4% de AUC (fuente: sau.org.uy) — 4 componentes
+  // fijos que no se editan por separado, solo informativos. Se calculan
+  // sobre `base` con los porcentajes legales, no sobre `data.aucPct`
+  // (editable) — si alguien edita el % de AUC arriba, este desglose puede
+  // dejar de sumar exactamente lo mismo, y se avisa igual que en el
+  // desglose por capítulo.
+  const AUC_PCT_JUBILATORIOS = 0.09 + 0.179; // patronal 9% + personal 17,9%
+  const AUC_PCT_CARGAS_SALARIALES = 0.295;
+  const AUC_PCT_FONASA = 0.055 + 0.035; // patronal 5,5% + obrero 3,5%
+  const AUC_PCT_BSE = 0.06;
+  const montoAucJubilatorios = base * AUC_PCT_JUBILATORIOS;
+  const montoAucCargasSalariales = base * AUC_PCT_CARGAS_SALARIALES;
+  const montoAucFonasa = base * AUC_PCT_FONASA;
+  const montoAucBSE = base * AUC_PCT_BSE;
+  const sumaDesgloseAUC = montoAucJubilatorios + montoAucCargasSalariales + montoAucFonasa + montoAucBSE;
+  const hayDiscrepanciaAUC = Math.abs(sumaDesgloseAUC - montoAUC) > 1;
 
   // Empresa — patronal
   const montoFocerPatronal = base * data.focerPatronalPct;
@@ -373,6 +391,54 @@ export default function SeccionLeyesSociales({
                     moneda={moneda}
                     base={base}
                   />
+                  <div className="px-4 py-1.5 border-b border-slate-50 bg-slate-50/50">
+                    <button
+                      onClick={() => setDesgloseAUCExpandido((p) => !p)}
+                      className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {desgloseAUCExpandido ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                      Ver de qué se compone el 71,4%
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {desgloseAUCExpandido && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-2 space-y-1">
+                            {[
+                              { label: "Aportes jubilatorios (patronal 9% + personal 17,9%)", pct: AUC_PCT_JUBILATORIOS, monto: montoAucJubilatorios },
+                              { label: "Cargas salariales (licencia, aguinaldo, salario vacacional)", pct: AUC_PCT_CARGAS_SALARIALES, monto: montoAucCargasSalariales },
+                              { label: "Seguro Nacional de Salud — FONASA (patronal 5,5% + obrero 3,5%)", pct: AUC_PCT_FONASA, monto: montoAucFonasa },
+                              { label: "Banco de Seguros del Estado (BSE)", pct: AUC_PCT_BSE, monto: montoAucBSE },
+                            ].map((item) => (
+                              <div key={item.label} className="flex items-center gap-2">
+                                <div className="flex-1 min-w-0 text-[11px] text-slate-500">{item.label}</div>
+                                <div className="text-[11px] text-slate-400 tabular-nums flex-shrink-0" style={{ width: 40 }}>
+                                  {fmtPct(item.pct)}%
+                                </div>
+                                <div className="text-[11px] font-medium text-slate-600 tabular-nums flex-shrink-0 text-right" style={{ width: 80 }}>
+                                  {fmtMoneda(item.monto, moneda)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {hayDiscrepanciaAUC && (
+                            <div className="flex items-start gap-2 mt-2 rounded-[8px] bg-amber-50 border border-amber-200 px-3 py-2">
+                              <span className="text-amber-500 flex-shrink-0">⚠</span>
+                              <p className="text-[11px] text-amber-700">
+                                Este desglose usa los porcentajes legales fijos (71,4% en total) — si editaste el %
+                                de AUC arriba, puede no coincidir con el monto mostrado.
+                              </p>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                   <div className="flex items-center px-4 py-1.5 border-b border-slate-50">
                     <div className="flex-1 min-w-0 text-sm text-slate-700 truncate">Timbres CJP/CJPPU</div>
                     <div className="text-[11px] text-slate-400 tabular-nums" style={{ width: 56 }}>Cód. 113</div>
