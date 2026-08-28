@@ -61,6 +61,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           }
         : null,
       gastosGenerales,
+      // Timbres CJP no lleva IVA (confirmado) — se pasa aparte de
+      // gastosGenerales para que el PDF pueda excluirlo de la base de IVA
+      // sin perder el desglose (gastosGenerales sigue siendo timbres+ítems
+      // combinados para la línea "GASTOS GENERALES", sin cambios ahí).
+      timbresCJP: proyecto.timbresCJP,
       incluyeIVA: proyecto.incluyeIVA,
       montoImponibleMO: proyecto.leyesSociales?.montoImponibleMO ?? null,
       fechaInicio: proyecto.fechaInicio,

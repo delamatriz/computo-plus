@@ -76,6 +76,10 @@ export interface ProyectoConCapitulos {
   titulos: TituloPDF[];
   capitulos: CapituloPDF[];
   gastosGenerales: number;
+  // Timbres CJP, aparte de gastosGenerales — no lleva IVA, se resta de la
+  // base gravada aunque siga formando parte del "Costo" y de la línea
+  // combinada "GASTOS GENERALES" (que no cambia).
+  timbresCJP: number;
   incluyeIVA: boolean;
   montoImponibleMO: number | null;
   fechaInicio?: string | Date | null;
@@ -858,10 +862,18 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
     (acc, cap) => acc + cap.rubros.reduce((a, r) => a + r.cantidad * r.precioUnit, 0),
     0
   );
-  const subtotal = subtotalObra + proyecto.gastosGenerales;
-  const montoIVA = subtotal * 0.22;
+  // Costo = obra + gastos generales (timbres + ítems), SIN AUC — esto es
+  // lo que la empresa factura. Timbres CJP no lleva IVA (confirmado): la
+  // base gravada excluye timbres, dejando obra + ítems extra solamente.
+  const subtotal = subtotalObra + proyecto.gastosGenerales; // = "Costo"
+  const baseIVA = subtotal - proyecto.timbresCJP;
+  const montoIVA = baseIVA * 0.22;
   const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * 0.714 : null;
-  const totalGeneral = subtotal + montoIVA + (leyesSocialesPropietario ?? 0);
+  // AUC (leyesSocialesPropietario) NO se suma acá — es un aporte aparte del
+  // propietario a BPS, mensual, ligado al avance real de obra, no parte de
+  // lo que la empresa factura (Ley 18.172, Título 10 exonera de IVA los
+  // servicios bajo régimen AUC). Sigue mostrándose como línea separada.
+  const totalGeneral = subtotal + montoIVA;
 
   // Un título vacío (sin capítulos asignados) no imprime bloque ni consume
   // numeración — los números de título siempre reflejan lo que realmente

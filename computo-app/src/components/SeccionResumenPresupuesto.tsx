@@ -52,13 +52,21 @@ export default function SeccionResumenPresupuesto({
 
   const capitulosConTotal = capitulos.filter((c) => c.subtotal > 0);
 
+  // AUC propietario — Leyes Sociales, aporte mensual directo del
+  // propietario a BPS ligado al avance real de obra. NO es parte de lo
+  // que la empresa constructora factura (Ley 18.172, Título 10 IVA
+  // exonera servicios bajo régimen AUC) — se muestra aparte, nunca
+  // sumado a Costo, base de IVA, ni Total con IVA.
   const montoAUC = montoImponibleMO != null ? montoImponibleMO * AUC_PCT : null;
   const sumaItemsExtras = gastosGeneralesItems.reduce((s, item) => s + (item.monto || 0), 0);
-  const subtotalGastosGenerales = (montoAUC ?? 0) + timbresCJP + sumaItemsExtras;
+  // Timbres CJP no lleva IVA (confirmado) — Gastos Generales acá adentro
+  // ya no incluye AUC (ver bloque aparte más abajo), solo Timbres + ítems.
+  const subtotalGastosGenerales = timbresCJP + sumaItemsExtras;
 
-  const baseIVA = subtotalObra + subtotalGastosGenerales;
+  const baseIVA = subtotalObra + sumaItemsExtras; // sin Timbres, sin AUC
   const montoIVA = baseIVA * IVA_PCT;
-  const totalFinal = baseIVA + montoIVA;
+  const costo = subtotalObra + timbresCJP + sumaItemsExtras; // sin AUC
+  const totalConIVA = costo + montoIVA;
 
   const agregarItem = () => {
     onChangeGastosGeneralesItems([
@@ -147,15 +155,6 @@ export default function SeccionResumenPresupuesto({
                 </div>
 
                 <div className="flex items-center px-4 py-1.5 border-b border-slate-50">
-                  <div className="flex-1 min-w-0 text-sm text-slate-700">AUC propietario (71,4%)</div>
-                  <div className="text-sm font-semibold tabular-nums text-slate-600 pl-3">
-                    {montoAUC != null ? fmtMoneda(montoAUC, moneda) : (
-                      <span className="text-xs text-amber-600 italic">Calculá Leyes Sociales primero</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center px-4 py-1.5 border-b border-slate-50">
                   <div className="flex-1 min-w-0 text-sm text-slate-700">Timbres CJP</div>
                   <input
                     type="number"
@@ -211,22 +210,47 @@ export default function SeccionResumenPresupuesto({
                 </div>
               </div>
 
-              {/* D) Total final — IVA siempre se muestra */}
+              {/* D) Costo → IVA → Total con IVA — lo que la empresa factura.
+                  AUC queda deliberadamente afuera de este flujo. */}
               <div className="border-t border-slate-300 pt-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-base font-bold text-[#1A3A5C] uppercase tracking-wide">Total presupuesto</span>
-                  <span className="text-2xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(baseIVA, moneda)}</span>
+                  <span className="text-base font-semibold text-[#1A3A5C] uppercase tracking-wide">Costo</span>
+                  <span className="text-base font-semibold tabular-nums text-slate-700">{fmtMoneda(costo, moneda)}</span>
                 </div>
 
                 <div className="flex items-center justify-between mt-3">
-                  <span className="text-sm text-slate-600">IVA (22%)</span>
-                  <span className="text-sm font-semibold tabular-nums text-slate-600">
+                  <span className="text-base font-semibold text-[#1A3A5C] uppercase tracking-wide">IVA (22%)</span>
+                  <span className="text-base font-semibold tabular-nums text-slate-700">
                     {fmtMoneda(montoIVA, moneda)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t-2 border-slate-300">
                   <span className="text-base font-bold text-[#1A3A5C] uppercase tracking-wide">Total con IVA</span>
-                  <span className="text-2xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(totalFinal, moneda)}</span>
+                  <span className="text-2xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(totalConIVA, moneda)}</span>
+                </div>
+              </div>
+
+              {/* E) AUC propietario — aparte, a propósito. No es parte de lo
+                  que la empresa factura: es un aporte del propietario a BPS,
+                  mensual, ligado al avance real de obra (ver Certificaciones).
+                  Nunca se suma a Costo, base de IVA, ni Total con IVA. */}
+              <div className="rounded-[10px] border border-slate-200 bg-white overflow-hidden">
+                <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
+                  <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">
+                    AUC propietario (solo AUC — Timbres ya están en Costo)
+                  </span>
+                </div>
+                <div className="flex items-center px-4 py-3">
+                  <p className="flex-1 min-w-0 text-xs text-slate-500 pr-3">
+                    Aporte del propietario a BPS, mensual y ligado al avance real de obra — no forma parte de lo
+                    que la empresa constructora factura. No incluye Timbres CJP (ya sumados en &quot;Costo&quot;
+                    arriba).
+                  </p>
+                  <div className="text-base font-semibold tabular-nums text-slate-700 flex-shrink-0">
+                    {montoAUC != null ? fmtMoneda(montoAUC, moneda) : (
+                      <span className="text-xs text-amber-600 italic">Calculá Leyes Sociales primero</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

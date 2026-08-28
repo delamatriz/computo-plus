@@ -239,7 +239,7 @@ export default function SeccionLeyesSociales({
         <div className="flex items-center gap-3">
           {!!totalPropietario && (
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xs font-normal text-slate-400">(aportes propietario)</span>
+              <span className="text-xs font-normal text-slate-400">(aportes propietario: AUC + Timbres)</span>
               <span className="text-lg font-bold text-[#2563EB] tabular-nums">{fmtMoneda(totalPropietario, moneda)}</span>
             </div>
           )}
