@@ -47,6 +47,18 @@ export function sumManoObra(manoObra: ManoObraCalc[], equipos: EquipoCalc[]): nu
   }, 0);
 }
 
+// Fórmula canónica única de precioUnit — antes triplicada de forma
+// independiente en DrawerAPU (cliente), resolverPreciosVigentes.ts y
+// clonar-apu/route.ts (servidor). gastosGeneralesPct/utilidadPct van en
+// puntos porcentuales (15 = 15%, no 0.15), igual que se guardan en APU.
+export function calcularPrecioUnitario(
+  costoDirecto: number,
+  gastosGeneralesPct: number,
+  utilidadPct: number
+): number {
+  return costoDirecto * (1 + gastosGeneralesPct / 100) * (1 + utilidadPct / 100);
+}
+
 // ── % Piedra en hormigón ciclópeo ───────────────────────────────────────
 // La piedra desplaza volumen de hormigón simple completo (cemento + arena
 // gruesa + balasto, escalando parejo) — no volumen de un agregado en

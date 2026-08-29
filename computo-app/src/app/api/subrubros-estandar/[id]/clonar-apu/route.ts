@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sumEquipos, sumManoObra } from "@/lib/apu-calc";
+import { sumEquipos, sumManoObra, calcularPrecioUnitario } from "@/lib/apu-calc";
 
 // POST — clona el APUEstandar de un subrubro de biblioteca al APU real de un rubro
 export async function POST(
@@ -141,8 +141,7 @@ export async function POST(
     const sumMO = sumManoObra(apuCompleto!.manoObra, apuCompleto!.equipos);
     const sumEq = sumEquipos(apuCompleto!.equipos);
     const costoDirecto = sumMat + sumMO + sumEq;
-    const precioUnit =
-      costoDirecto * (1 + apuCompleto!.gastosGeneralesPct / 100) * (1 + apuCompleto!.utilidadPct / 100);
+    const precioUnit = calcularPrecioUnitario(costoDirecto, apuCompleto!.gastosGeneralesPct, apuCompleto!.utilidadPct);
 
     const rubro = await db.rubro.update({
       where: { id: rubroId },

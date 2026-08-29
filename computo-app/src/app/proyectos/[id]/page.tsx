@@ -27,7 +27,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra } from "@/lib/apu-calc";
+import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario } from "@/lib/apu-calc";
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
@@ -857,7 +857,7 @@ function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
   const sumMO  = sumManoObra(apu.manoObra, apu.equipos);
   const sumEq  = sumEquipos(apu.equipos);
   const costoDirecto = sumMat + sumMO + sumEq;
-  const precioFinal  = costoDirecto * (1 + apu.gastosGeneralesPct / 100) * (1 + apu.utilidadPct / 100);
+  const precioFinal  = calcularPrecioUnitario(costoDirecto, apu.gastosGeneralesPct, apu.utilidadPct);
   return { costoDirecto, precioFinal };
 }
 

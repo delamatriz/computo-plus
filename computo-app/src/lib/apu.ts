@@ -2,12 +2,19 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 import { buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, type SubrubroConApu } from "@/lib/bibliotecaApus";
+import { sumManoObra, calcularPrecioUnitario } from "@/lib/apu-calc";
 
 const client = new Anthropic();
 
 interface ApuGenerado {
   materiales: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }[];
   manoObra: { categoria: string; rendimiento: number; jornal: number }[];
+  // Calculado server-side con calcularPrecioUnitario() sobre el costo
+  // directo real de materiales/mano de obra que la IA generó, más
+  // gastosGeneralesPct/utilidadPct — nunca es un número que la IA
+  // reporte directamente (ver bug histórico: le pedíamos un margen
+  // plano de 25% que no coincidía con el 15%/10% que se guarda en el
+  // APU, dando un ~1,2% de gap de origen en todo rubro generado por IA).
   precioUnitarioEstimado: number;
   // "biblioteca" si la IA tomó como base un subrubro real de SubrubroEstandar
   // (ver bibliotecaApus.ts); "estimado" si no había ninguno aplicable para
@@ -82,7 +89,6 @@ Devolvé SOLO un JSON con esta estructura exacta:
   "manoObra": [
     { "categoria": string, "rendimiento": number, "jornal": number }
   ],
-  "precioUnitarioEstimado": number,
   "origen": "biblioteca" | "estimado",
   "subrubroCodigoBase": string | null
 }
@@ -90,7 +96,7 @@ Devolvé SOLO un JSON con esta estructura exacta:
 Reglas:
 - "rendimiento" en materiales = cantidad de material por unidad de rubro (ej: 0.35 m³ de arena por m² de revoque).
 - "rendimiento" en mano de obra = unidades de rubro producidas por jornada de 8hs (ej: 12 m² de revoque por jornada).
-- "precioUnitarioEstimado" = suma(rendimiento × precioUnit para materiales) + suma(jornal / rendimiento para mano de obra), con un margen de 25% de gastos generales y utilidad.
+- No calcules ni devuelvas ningún precio unitario final — eso lo calcula el sistema a partir de los materiales y mano de obra que devuelvas.
 - Usá precios MTOP cuando el material coincida. Para mano de obra, usá la categoría SUNCA más adecuada.
 - Si usaste como base alguno de los SUBRUBROS REALES DE BIBLIOTECA de arriba (aunque hayas ajustado cantidades a la escala de este rubro), marcá "origen": "biblioteca" y poné en "subrubroCodigoBase" el código entre corchetes de ese subrubro (ej. "1.1"). Si no había ninguno aplicable y generaste todo con tu criterio, marcá "origen": "estimado" y "subrubroCodigoBase": null.
 - Respondé SOLO con JSON válido, sin texto adicional ni markdown.`;
@@ -112,7 +118,6 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
   const apuBruto = JSON.parse(match[0]) as {
     materiales: ApuGenerado["materiales"];
     manoObra: ApuGenerado["manoObra"];
-    precioUnitarioEstimado: number;
     origen?: string;
     subrubroCodigoBase?: string | null;
   };
@@ -125,17 +130,29 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
     ? subrubrosBiblioteca.find((s) => s.codigo === apuBruto.subrubroCodigoBase)
     : undefined;
 
+  const gastosGeneralesPct = 15;
+  const utilidadPct = 10;
+
+  // precioUnitarioEstimado se calcula acá, NUNCA se toma de lo que reporte
+  // la IA — mismo patrón que clonar-apu/route.ts. Este flujo no genera
+  // equipos, así que el costo directo es solo materiales + mano de obra.
+  const costoDirecto =
+    apuBruto.materiales.reduce((s, m) => s + (m.rendimiento ?? 0) * (m.precioUnit ?? 0), 0) +
+    sumManoObra(
+      apuBruto.manoObra.map((mo) => ({ rendimiento: mo.rendimiento ?? 1, jornalRef: mo.jornal ?? 0 })),
+      []
+    );
+  const precioUnitarioEstimado = calcularPrecioUnitario(costoDirecto, gastosGeneralesPct, utilidadPct);
+
   const apu: ApuGenerado = {
     materiales: apuBruto.materiales,
     manoObra: apuBruto.manoObra,
-    precioUnitarioEstimado: apuBruto.precioUnitarioEstimado,
+    precioUnitarioEstimado,
     origen: apuBruto.origen === "biblioteca" && subrubroBase ? "biblioteca" : "estimado",
     subrubroBaseId: subrubroBase?.id ?? null,
   };
 
   const apuExistente = await db.aPU.findUnique({ where: { rubroId } });
-  const gastosGeneralesPct = 15;
-  const utilidadPct = 10;
 
   const apuRecord = apuExistente
     ? await db.aPU.update({ where: { rubroId }, data: { gastosGeneralesPct, utilidadPct } })

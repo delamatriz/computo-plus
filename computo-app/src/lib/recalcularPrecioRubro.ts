@@ -15,7 +15,7 @@
 // sin tocar este archivo cuando cambie el convenio el año que viene.
 
 import { db } from "@/lib/db";
-import { sumEquipos, sumManoObra } from "@/lib/apu-calc";
+import { sumEquipos, sumManoObra, calcularPrecioUnitario } from "@/lib/apu-calc";
 import type { MaterialAPU, ManoObraAPU, EquipoAPU, APU } from "@/generated/prisma/client";
 
 type RubroConAPU = {
@@ -107,7 +107,7 @@ async function resolverPreciosVigentes(rubro: RubroConAPU): Promise<ResolucionRu
   const sumEq = sumEquipos(apu.equipos);
   const costoDirecto = sumMat + sumMO + sumEq;
   const precioUnitVigente =
-    Math.round(costoDirecto * (1 + apu.gastosGeneralesPct / 100) * (1 + apu.utilidadPct / 100) * 100) / 100;
+    Math.round(calcularPrecioUnitario(costoDirecto, apu.gastosGeneralesPct, apu.utilidadPct) * 100) / 100;
 
   return { precioUnitVigente, materialesAActualizar, manoObraAActualizar };
 }
