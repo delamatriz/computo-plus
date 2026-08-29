@@ -38,7 +38,7 @@ import SeccionGastosGeneralesUtilidades, {
   ModoGastosGenerales,
   sumarGastosGeneralesDetallado,
 } from "@/components/SeccionGastosGeneralesUtilidades";
-import SeccionCostoPrecioFinal from "@/components/SeccionCostoPrecioFinal";
+import { TarjetaCostoDirecto, TarjetaCostoTotalPrecioFinal } from "@/components/SeccionCostoPrecioFinal";
 import SeccionGarantias from "@/components/SeccionGarantias";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
@@ -4765,20 +4765,36 @@ export default function ProyectoPage() {
           </div>
         </div>
 
-        {/* ── Costo Directo → Costos Indirectos → Costo Total → Utilidad
-            → Base Imponible → Precio Final — reemplaza a la vieja tarjeta
-            fija Total/IVA/Total+IVA (ya no existe: Gastos Generales pasó a
-            ser un monto agregado acá, no ignorado como antes). ── */}
-        <SeccionCostoPrecioFinal
+        {/* ── Costo Directo → Gastos Generales y Beneficio (colapsable,
+            monto combinado) → Costo Total → IVA → Precio Final —
+            reemplaza a la vieja tarjeta fija Total/IVA/Total+IVA (ya no
+            existe: Gastos Generales pasó a ser un monto agregado acá, no
+            ignorado como antes). ── */}
+        <TarjetaCostoDirecto
           moneda={moneda}
           costoDirecto={costoDirectoAgregado.total}
           metodoCostoDirecto={costoDirectoAgregado.metodo}
           rubrosSinApu={costoDirectoAgregado.rubrosSinApu}
-          modoGastosGenerales={proyecto?.modoGastosGenerales ?? "PORCENTAJE"}
+        />
+
+        <SeccionGastosGeneralesUtilidades
+          moneda={moneda}
+          modo={proyecto?.modoGastosGenerales ?? "PORCENTAJE"}
           gastosGeneralesPctDefault={proyecto?.gastosGeneralesPctDefault ?? null}
-          gastosGeneralesDetallado={proyecto?.gastosGeneralesDetallado ?? null}
-          costosIndirectos={costosIndirectosAgregados}
+          utilidadPctDefault={proyecto?.utilidadPctDefault ?? null}
+          categorias={proyecto?.gastosGeneralesDetallado ?? null}
+          costosIndirectosAgregados={costosIndirectosAgregados}
           utilidadAgregada={utilidadAgregada}
+          onChangeModo={actualizarModoGastosGenerales}
+          onChangeGastosGeneralesPctDefault={actualizarGastosGeneralesPctDefault}
+          onChangeUtilidadPctDefault={actualizarUtilidadPctDefault}
+          onChangeCategorias={actualizarGastosGeneralesDetallado}
+        />
+
+        <TarjetaCostoTotalPrecioFinal
+          moneda={moneda}
+          costoDirecto={costoDirectoAgregado.total}
+          montoGastosGeneralesYBeneficio={costosIndirectosAgregados + utilidadAgregada}
         />
 
         {mostrarModalCapitulo && (
@@ -4837,19 +4853,6 @@ export default function ProyectoPage() {
             desgloseMOPorCapitulo={desgloseMOPorCapitulo}
           />
         )}
-
-        {/* ── Gastos Generales y Utilidades ─────────────────── */}
-        <SeccionGastosGeneralesUtilidades
-          moneda={moneda}
-          modo={proyecto?.modoGastosGenerales ?? "PORCENTAJE"}
-          gastosGeneralesPctDefault={proyecto?.gastosGeneralesPctDefault ?? null}
-          utilidadPctDefault={proyecto?.utilidadPctDefault ?? null}
-          categorias={proyecto?.gastosGeneralesDetallado ?? null}
-          onChangeModo={actualizarModoGastosGenerales}
-          onChangeGastosGeneralesPctDefault={actualizarGastosGeneralesPctDefault}
-          onChangeUtilidadPctDefault={actualizarUtilidadPctDefault}
-          onChangeCategorias={actualizarGastosGeneralesDetallado}
-        />
 
         {/* ── Resumen del Presupuesto ───────────────────────── */}
         <SeccionResumenPresupuesto

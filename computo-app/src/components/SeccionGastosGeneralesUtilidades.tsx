@@ -31,6 +31,12 @@ interface Props {
   gastosGeneralesPctDefault: number | null;
   utilidadPctDefault: number | null;
   categorias: CategoriaGastoGeneral[] | null;
+  // Ya calculados a nivel proyecto (ver costoAgregado.ts) — se muestran
+  // combinados ($ único) en el header colapsado, mismo patrón que ya usa
+  // Leyes Sociales. No se recalculan acá, son la misma fuente de verdad
+  // que usa la cascada Costo Directo → Costo Total → Precio Final.
+  costosIndirectosAgregados: number;
+  utilidadAgregada: number;
   onChangeModo: (modo: ModoGastosGenerales) => void;
   onChangeGastosGeneralesPctDefault: (v: number) => void;
   onChangeUtilidadPctDefault: (v: number) => void;
@@ -69,6 +75,8 @@ export default function SeccionGastosGeneralesUtilidades({
   gastosGeneralesPctDefault,
   utilidadPctDefault,
   categorias,
+  costosIndirectosAgregados,
+  utilidadAgregada,
   onChangeModo,
   onChangeGastosGeneralesPctDefault,
   onChangeUtilidadPctDefault,
@@ -83,6 +91,10 @@ export default function SeccionGastosGeneralesUtilidades({
     (s, cat) => s + cat.items.reduce((si, it) => si + (it.monto || 0), 0),
     0
   );
+  // Monto combinado para el header colapsado — Costos Indirectos +
+  // Utilidad, ya calculados a nivel proyecto (props), mismo patrón que
+  // Leyes Sociales ("$X" único junto al chevron).
+  const montoCombinado = costosIndirectosAgregados + utilidadAgregada;
 
   const agregarItem = (categoriaId: string) => {
     onChangeCategorias(
@@ -127,14 +139,15 @@ export default function SeccionGastosGeneralesUtilidades({
       >
         <div className="flex items-center gap-2.5">
           <Percent className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Gastos Generales y Utilidades</h2>
+          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Gastos Generales y Beneficio</h2>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs font-normal text-slate-400 tabular-nums">
-            {modo === "DETALLADO"
-              ? `GG ${fmtMoneda(totalDetallado, moneda)} (detallado) · Utilidad ${pctUtilEfectivo}%`
-              : `GG ${pctGGEfectivo}% · Utilidad ${pctUtilEfectivo}%`}
-          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xs font-normal text-slate-400 whitespace-nowrap">
+              Gastos Generales + Beneficio
+            </span>
+            <span className="text-lg font-bold text-[#2563EB] tabular-nums">{fmtMoneda(montoCombinado, moneda)}</span>
+          </div>
           <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
             {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </span>
