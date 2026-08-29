@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { PresupuestoPDF, ProyectoConCapitulos } from "@/components/PresupuestoPDF";
+import { PresupuestoPDF, ProyectoConCapitulos, ModoPDF } from "@/components/PresupuestoPDF";
+import { sumarGastosGeneralesDetallado } from "@/lib/gastosGenerales";
 import React from "react";
+
+const MODOS_VALIDOS: ModoPDF[] = ["cerrado", "abierto", "interno"];
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+
+    const modoParam = req.nextUrl.searchParams.get("modo");
+    const modo: ModoPDF = MODOS_VALIDOS.includes(modoParam as ModoPDF) ? (modoParam as ModoPDF) : "abierto";
 
     const proyecto = await db.proyecto.findUnique({
       where: { id },
@@ -37,7 +43,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       ? (proyecto.gastosGeneralesItems as { id: string; descripcion: string; monto: number }[])
       : [];
     const sumaItemsExtras = itemsExtras.reduce((s, item) => s + (item.monto || 0), 0);
-    const gastosGenerales = proyecto.timbresCJP + sumaItemsExtras;
+    // Modo Detallado (ver SeccionGastosGeneralesUtilidades.tsx) — mismo
+    // cálculo que SeccionResumenPresupuesto.tsx: Timbres + Ítems extra
+    // SIEMPRE, más el total fijo de las 5 categorías solo si el proyecto
+    // está en modo Detallado (0 en modo Porcentaje, donde ya viene
+    // prorrateado dentro de cada precioUnit). Antes de este fix, el PDF
+    // ignoraba el modo Detallado por completo.
+    const montoGastosGeneralesDetallado =
+      proyecto.modoGastosGenerales === "DETALLADO"
+        ? sumarGastosGeneralesDetallado(proyecto.gastosGeneralesDetallado)
+        : 0;
+    const gastosGenerales = proyecto.timbresCJP + sumaItemsExtras + montoGastosGeneralesDetallado;
 
     const datos: ProyectoConCapitulos = {
       id: proyecto.id,
@@ -97,7 +113,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       })),
     };
 
-    const elemento = React.createElement(PresupuestoPDF, { proyecto: datos }) as Parameters<typeof renderToBuffer>[0];
+    const elemento = React.createElement(PresupuestoPDF, { proyecto: datos, modo }) as Parameters<typeof renderToBuffer>[0];
     const buffer = await renderToBuffer(elemento);
 
     // Nombre de archivo seguro para el header (ASCII) + versión UTF-8 (RFC 5987) para nombres con tildes/símbolos

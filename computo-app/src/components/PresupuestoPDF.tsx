@@ -52,6 +52,15 @@ interface TituloPDF {
   color: string;
 }
 
+// "cerrado" — entrega a cliente chico/privado: capítulos agregados, sin
+// desglose de rubros; "abierto" (default) — entrega a obra grande/pública:
+// detalle rubro por rubro, igual que siempre; "interno" — copia de trabajo
+// propia, mismo detalle que "abierto" pero sin Memoria Descriptiva (no es
+// un documento de entrega). Utilidad nunca se muestra como línea separada
+// en ninguno de los 3 — sigue prorrateada dentro de cada precioUnit
+// (decisión de hace meses, sin cambios acá).
+export type ModoPDF = "cerrado" | "abierto" | "interno";
+
 interface EmpresaPDF {
   nombre: string;
   rut: string | null;
@@ -618,11 +627,13 @@ function BloqueCapitulo({
   codigo,
   simbolo,
   subtotalObra,
+  modo,
 }: {
   capitulo: CapituloPDF;
   codigo: string;
   simbolo: string;
   subtotalObra: number;
+  modo: ModoPDF;
 }) {
   const subtotal = capitulo.rubros.reduce((acc, r) => acc + r.cantidad * r.precioUnit, 0);
   return (
@@ -632,15 +643,21 @@ function BloqueCapitulo({
           {codigo} · {capitulo.nombre}
         </Text>
       </View>
-      <EncabezadoColumnas />
-      {capitulo.rubros.length === 0 ? (
-        <View style={styles.filaRubro}>
-          <Text style={styles.textoCeldaMuted}>Sin rubros cargados en este capítulo</Text>
-        </View>
-      ) : (
-        capitulo.rubros.map((r, i) => (
-          <FilaRubro key={r.id} rubro={r} index={i} simbolo={simbolo} subtotalObra={subtotalObra} />
-        ))
+      {/* Modo "cerrado" — el capítulo es una sola línea agregada, sin
+          desglose de rubros individuales ni encabezado de columnas. */}
+      {modo !== "cerrado" && (
+        <>
+          <EncabezadoColumnas />
+          {capitulo.rubros.length === 0 ? (
+            <View style={styles.filaRubro}>
+              <Text style={styles.textoCeldaMuted}>Sin rubros cargados en este capítulo</Text>
+            </View>
+          ) : (
+            capitulo.rubros.map((r, i) => (
+              <FilaRubro key={r.id} rubro={r} index={i} simbolo={simbolo} subtotalObra={subtotalObra} />
+            ))
+          )}
+        </>
       )}
       <View style={styles.filaSubtotal} wrap={false}>
         <Text style={styles.textoSubtotalLabel}>SUBTOTAL {capitulo.nombre.toUpperCase()}</Text>
@@ -665,12 +682,14 @@ function BloqueTitulo({
   capitulos,
   simbolo,
   subtotalObra,
+  modo,
 }: {
   titulo: TituloPDF;
   numero: number;
   capitulos: CapituloPDF[];
   simbolo: string;
   subtotalObra: number;
+  modo: ModoPDF;
 }) {
   const subtotalTitulo = capitulos.reduce(
     (acc, cap) => acc + cap.rubros.reduce((a, r) => a + r.cantidad * r.precioUnit, 0),
@@ -690,6 +709,7 @@ function BloqueTitulo({
           codigo={`${numero}.${cIdx + 1}`}
           simbolo={simbolo}
           subtotalObra={subtotalObra}
+          modo={modo}
         />
       ))}
       <View style={styles.filaSubtotalTitulo} wrap={false}>
@@ -856,7 +876,13 @@ function PiePagina({ nombreProyecto }: { nombreProyecto: string }) {
 }
 
 /* ─── Documento principal ─────────────────────────────────── */
-export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos }) {
+export function PresupuestoPDF({
+  proyecto,
+  modo = "abierto",
+}: {
+  proyecto: ProyectoConCapitulos;
+  modo?: ModoPDF;
+}) {
   const simbolo = simboloMoneda(proyecto.moneda);
   const subtotalObra = proyecto.capitulos.reduce(
     (acc, cap) => acc + cap.rubros.reduce((a, r) => a + r.cantidad * r.precioUnit, 0),
@@ -922,8 +948,10 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
         <View style={styles.separador} />
 
         {/* Memoria Descriptiva — antes de la tabla de precios, ausente por
-            completo si el proyecto todavía no la tiene generada/cargada. */}
-        {memoriaBloques.length > 0 && (
+            completo si el proyecto todavía no la tiene generada/cargada, y
+            también en modo "interno" (copia de trabajo propia, no es un
+            documento de entrega). */}
+        {modo !== "interno" && memoriaBloques.length > 0 && (
           <View style={styles.bloqueMemoria}>
             <Text style={styles.tituloMemoria}>Memoria del Presupuesto</Text>
             {memoriaBloques.map((b, i) => {
@@ -965,6 +993,7 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
                 capitulos={capitulos}
                 simbolo={simbolo}
                 subtotalObra={subtotalObra}
+                modo={modo}
               />
             ))
           : proyecto.capitulos.map((cap, i) => (
@@ -974,6 +1003,7 @@ export function PresupuestoPDF({ proyecto }: { proyecto: ProyectoConCapitulos })
                 codigo={String(i + 1).padStart(2, "0")}
                 simbolo={simbolo}
                 subtotalObra={subtotalObra}
+                modo={modo}
               />
             ))}
 

@@ -4,52 +4,24 @@ import { useState } from "react";
 import { Percent, ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import {
+  CATEGORIAS_GASTOS_GENERALES_FIJAS,
+  normalizarCategoriasGastosGenerales,
+  sumarGastosGeneralesDetallado,
+  type ItemGastoGeneral,
+  type CategoriaGastoGeneral,
+  type ModoGastosGenerales,
+} from "@/lib/gastosGenerales";
 
-export interface ItemGastoGeneral {
-  id: string;
-  descripcion: string;
-  monto: number;
-}
-
-export interface CategoriaGastoGeneral {
-  id: string;
-  nombre: string;
-  items: ItemGastoGeneral[];
-}
-
-export type ModoGastosGenerales = "PORCENTAJE" | "DETALLADO";
-
-// 5 categorías fijas del modo Detallado — id estable (clave de matching
-// contra el JSON guardado), nombre fijo no editable por el usuario.
-export const CATEGORIAS_GASTOS_GENERALES_FIJAS: { id: string; nombre: string }[] = [
-  { id: "personal_tecnico", nombre: "Personal Técnico y Administrativo en Obra" },
-  { id: "equipamiento", nombre: "Equipamiento y Alquileres" },
-  { id: "consumos_servicios", nombre: "Consumos y Servicios de Obra" },
-  { id: "seguridad_higiene", nombre: "Seguridad, Higiene y Salud Ocupacional" },
-  { id: "logistica_transporte", nombre: "Logística y Transporte" },
-];
-
-// Siempre devuelve exactamente las 5 categorías fijas, en el mismo orden,
-// completando desde lo guardado por id — así el JSON persistido puede venir
-// vacío, incompleto o con orden distinto sin romper el render.
-export function normalizarCategoriasGastosGenerales(raw: unknown): CategoriaGastoGeneral[] {
-  const existentes = Array.isArray(raw) ? (raw as Partial<CategoriaGastoGeneral>[]) : [];
-  return CATEGORIAS_GASTOS_GENERALES_FIJAS.map((fija) => {
-    const encontrada = existentes.find((c) => c?.id === fija.id);
-    return {
-      id: fija.id,
-      nombre: fija.nombre,
-      items: Array.isArray(encontrada?.items) ? (encontrada!.items as ItemGastoGeneral[]) : [],
-    };
-  });
-}
-
-export function sumarGastosGeneralesDetallado(raw: unknown): number {
-  return normalizarCategoriasGastosGenerales(raw).reduce(
-    (s, cat) => s + cat.items.reduce((si, it) => si + (it.monto || 0), 0),
-    0
-  );
-}
+// Re-exportado desde @/lib/gastosGenerales (lógica pura, compartida con
+// pdf/route.ts) — se mantiene acá para no tener que tocar los imports
+// existentes de page.tsx.
+export {
+  CATEGORIAS_GASTOS_GENERALES_FIJAS,
+  normalizarCategoriasGastosGenerales,
+  sumarGastosGeneralesDetallado,
+};
+export type { ItemGastoGeneral, CategoriaGastoGeneral, ModoGastosGenerales };
 
 interface Props {
   moneda: string;

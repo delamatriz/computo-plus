@@ -2550,6 +2550,7 @@ export default function ProyectoPage() {
 
   // ─── Estado ────────────────────────────────────────────────
   const [proyecto, setProyecto] = useState<ProyectoData | null>(null);
+  const [menuPDFAbierto, setMenuPDFAbierto] = useState(false);
   const [mostrarConfirmEliminar, setMostrarConfirmEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [mostrarConfirmEntregar, setMostrarConfirmEntregar] = useState(false);
@@ -4359,14 +4360,52 @@ export default function ProyectoPage() {
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" /> <span className="hidden md:inline">Excel</span>
               </button>
-              <a
-                href={`/api/proyectos/${proyectoActivo.id}/pdf`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" /> <span className="hidden md:inline">PDF</span>
-              </a>
+              <div className="relative">
+                <button
+                  onClick={() => setMenuPDFAbierto((p) => !p)}
+                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" /> <span className="hidden md:inline">PDF</span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+                {menuPDFAbierto && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setMenuPDFAbierto(false)} />
+                    <div className="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white rounded-[10px] border border-slate-200 shadow-lg overflow-hidden">
+                      <a
+                        href={`/api/proyectos/${proyectoActivo.id}/pdf?modo=cerrado`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setMenuPDFAbierto(false)}
+                        className="block px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-100"
+                      >
+                        <p className="text-sm font-semibold text-[#1E293B]">PDF para cliente</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Capítulos agregados, sin desglose de rubros</p>
+                      </a>
+                      <a
+                        href={`/api/proyectos/${proyectoActivo.id}/pdf?modo=abierto`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setMenuPDFAbierto(false)}
+                        className="block px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-100"
+                      >
+                        <p className="text-sm font-semibold text-[#1E293B]">PDF detallado</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Obra grande / obra pública — rubro por rubro</p>
+                      </a>
+                      <a
+                        href={`/api/proyectos/${proyectoActivo.id}/pdf?modo=interno`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setMenuPDFAbierto(false)}
+                        className="block px-4 py-2.5 hover:bg-slate-50 transition-colors"
+                      >
+                        <p className="text-sm font-semibold text-[#1E293B]">PDF de trabajo</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Uso interno, sin Memoria Descriptiva</p>
+                      </a>
+                    </div>
+                  </>
+                )}
+              </div>
               <button
                 onClick={() => setMostrarConfirmEliminar(true)}
                 className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
