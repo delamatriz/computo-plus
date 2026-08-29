@@ -15,7 +15,7 @@
 // sin tocar este archivo cuando cambie el convenio el año que viene.
 
 import { db } from "@/lib/db";
-import { sumEquipos, sumManoObra, calcularPrecioUnitario } from "@/lib/apu-calc";
+import { sumEquipos, sumManoObra, calcularPrecioUnitario, montoAportesPatronales } from "@/lib/apu-calc";
 import type { MaterialAPU, ManoObraAPU, EquipoAPU, APU } from "@/generated/prisma/client";
 
 type RubroConAPU = {
@@ -105,7 +105,10 @@ async function resolverPreciosVigentes(rubro: RubroConAPU): Promise<ResolucionRu
   const sumMat = materialesEfectivos.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
   const sumMO = sumManoObra(manoObraEfectiva, apu.equipos);
   const sumEq = sumEquipos(apu.equipos);
-  const costoDirecto = sumMat + sumMO + sumEq;
+  // Aportes Patronales: apu.aportesPatronalesPct queda congelado — este flujo
+  // ("actualizar al precio vigente") refresca materiales/jornales, no los %
+  // guardados en el APU (mismo criterio ya aplicado a gastosGeneralesPct/utilidadPct).
+  const costoDirecto = sumMat + sumMO + sumEq + montoAportesPatronales(sumMO, apu.aportesPatronalesPct);
   const precioUnitVigente =
     Math.round(calcularPrecioUnitario(costoDirecto, apu.gastosGeneralesPct, apu.utilidadPct) * 100) / 100;
 

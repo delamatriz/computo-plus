@@ -27,7 +27,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario } from "@/lib/apu-calc";
+import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario, montoAportesPatronales, sumarAportesPatronalesPct, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/apu-calc";
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
@@ -282,6 +282,10 @@ interface APU {
   equipos: EquipoAPU[];
   gastosGeneralesPct: number;
   utilidadPct: number;
+  // % de Aportes Patronales BPS (Empresa paga), aplicado solo sobre Mano de
+  // Obra dentro de Costo Directo — congelado al crearse el APU, igual que
+  // gastosGeneralesPct/utilidadPct (ver montoAportesPatronales en apu-calc.ts).
+  aportesPatronalesPct: number;
   // % de piedra bruta sobre 1 m3 en hormigón ciclópeo — solo relevante si
   // hay un material "Piedra bruta" en la lista (ver tieneMaterialPiedra).
   porcentajePiedra?: number;
@@ -370,6 +374,7 @@ const APU_INICIALES: Record<string, APU> = {
     equipos:    [],
     gastosGeneralesPct: 15,
     utilidadPct: 10,
+    aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
   },
   r005: {
     materiales: [
@@ -394,6 +399,7 @@ const APU_INICIALES: Record<string, APU> = {
     equipos: [{ id: "e1", descripcion: "Vibrador de inmersión", unidad: "día", rendimiento: 0.8, costoUnit: 45 }],
     gastosGeneralesPct: 15,
     utilidadPct: 10,
+    aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
   },
 };
 
@@ -868,7 +874,9 @@ function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
   // La mano de obra de armado vinculada a un equipo Alquilado se excluye — ver apu-calc.ts.
   const sumMO  = sumManoObra(apu.manoObra, apu.equipos);
   const sumEq  = sumEquipos(apu.equipos);
-  const costoDirecto = sumMat + sumMO + sumEq;
+  // Aportes Patronales es un componente más de Costo Directo — se aplica
+  // solo sobre sumMO, nunca sobre materiales ni equipos (ver apu-calc.ts).
+  const costoDirecto = sumMat + sumMO + sumEq + montoAportesPatronales(sumMO, apu.aportesPatronalesPct);
   const precioFinal  = calcularPrecioUnitario(costoDirecto, apu.gastosGeneralesPct, apu.utilidadPct);
   return { costoDirecto, precioFinal };
 }
@@ -2288,7 +2296,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
           >
             <div className="px-4 pt-3 pb-3 space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">Costo directo (Mat + MO + Equipos)</span>
+                <span className="text-slate-500">Costo directo (Mat + MO + Equipos + Aportes Patr.)</span>
                 <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
@@ -2718,6 +2726,7 @@ export default function ProyectoPage() {
               equipos:            rubro.apu.equipos    ?? [],
               gastosGeneralesPct: rubro.apu.gastosGeneralesPct ?? 15,
               utilidadPct:        rubro.apu.utilidadPct        ?? 10,
+              aportesPatronalesPct: rubro.apu.aportesPatronalesPct ?? APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra:   rubro.apu.porcentajePiedra   ?? 0.30,
             };
           }
@@ -2938,9 +2947,16 @@ export default function ProyectoPage() {
   const ggPctDefaultRubroNuevo =
     proyecto?.modoGastosGenerales === "DETALLADO" ? 0 : proyecto?.gastosGeneralesPctDefault ?? 15;
   const utilidadPctDefaultRubroNuevo = proyecto?.utilidadPctDefault ?? 10;
+  // Aportes Patronales: se lee en vivo de Leyes Sociales del proyecto (ya
+  // cargado en estado) — fallback al default legal si todavía no se
+  // calculó Leyes Sociales para este proyecto (registro perezoso).
+  const aportesPatronalesPctDefaultRubroNuevo = leyesSociales
+    ? sumarAportesPatronalesPct(leyesSociales)
+    : APORTES_PATRONALES_PCT_LEGAL_DEFAULT;
   const drawerAPU = drawerRubroId ? (apuData[drawerRubroId] ?? {
     materiales: [], manoObra: [], equipos: [],
-    gastosGeneralesPct: ggPctDefaultRubroNuevo, utilidadPct: utilidadPctDefaultRubroNuevo, porcentajePiedra: 0.30,
+    gastosGeneralesPct: ggPctDefaultRubroNuevo, utilidadPct: utilidadPctDefaultRubroNuevo,
+    aportesPatronalesPct: aportesPatronalesPctDefaultRubroNuevo, porcentajePiedra: 0.30,
   }) : null;
 
   const toggleCapitulo = (id: string) => {
@@ -3149,6 +3165,7 @@ export default function ProyectoPage() {
             const nuevoAPU: APU = {
               gastosGeneralesPct: 15,
               utilidadPct: 10,
+              aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra: 0.30,
               materiales: data.materiales.map((m: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }, i: number) => ({
                 id: `ai-mat-${i}`,
@@ -3389,6 +3406,7 @@ export default function ProyectoPage() {
             const nuevoAPU: APU = {
               gastosGeneralesPct: apuClonado.gastosGeneralesPct,
               utilidadPct: apuClonado.utilidadPct,
+              aportesPatronalesPct: apuClonado.aportesPatronalesPct ?? APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra: apuClonado.porcentajePiedra ?? 0.30,
               materiales: apuClonado.materiales.map((m: InsumoAPU) => ({
                 id: m.id,
@@ -3451,6 +3469,7 @@ export default function ProyectoPage() {
             const nuevoAPU: APU = {
               gastosGeneralesPct: 15,
               utilidadPct: 10,
+              aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra: 0.30,
               materiales: data.materiales.map((m: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }, i: number) => ({
                 id: `ai-mat-${i}`,
@@ -3755,6 +3774,7 @@ export default function ProyectoPage() {
       const nuevoAPU: APU = {
         gastosGeneralesPct: 15,
         utilidadPct: 10,
+        aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
         porcentajePiedra: 0.30,
         materiales: data.materiales.map((m, i) => ({
           id: `ai-mat-${i}`,

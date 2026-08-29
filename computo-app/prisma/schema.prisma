@@ -244,6 +244,14 @@ model APU {
   id                 String        @id @default(cuid())
   gastosGeneralesPct Float         @default(15)
   utilidadPct        Float         @default(10)
+  // % de Aportes Patronales BPS (Empresa paga — FOCER patronal, FSC/FOCAP,
+  // FOSVOC, FRL, Fondo Garantía, SNIS adicional), aplicado SOLO sobre la
+  // porción de Mano de Obra del Costo Directo (ver montoAportesPatronales en
+  // apu-calc.ts). Se lee en vivo desde LeyesSociales del proyecto (o el
+  // default legal 10,2% si el registro no existe todavía) únicamente al
+  // crear/regenerar este APU — después queda congelado acá, mismo criterio
+  // que gastosGeneralesPct/utilidadPct.
+  aportesPatronalesPct Float       @default(10.2)
   // % de piedra bruta sobre 1 m3, para hormigón ciclópeo — desplaza volumen
   // de hormigón simple (cemento+arena+balasto) al recalcular en vivo.
   porcentajePiedra   Float         @default(0.30)

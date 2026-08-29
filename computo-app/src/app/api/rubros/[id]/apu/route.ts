@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sumarAportesPatronalesPct } from "@/lib/apu-calc";
 
 // PUT — reemplaza el APU completo del rubro (upsert + recrear hijos)
 export async function PUT(
@@ -11,20 +12,29 @@ export async function PUT(
     const body = await req.json();
 
     // eslint-disable-next-line prefer-const
-    let { gastosGeneralesPct, utilidadPct } = body;
+    let { gastosGeneralesPct, utilidadPct, aportesPatronalesPct } = body;
     const { porcentajePiedra = 0.30, materiales = [], manoObra = [], equipos = [] } = body;
 
     // El cliente (DrawerAPU) siempre manda un valor explícito — este
     // fallback solo entra en juego si el body no los trae. Usa el default
-    // del proyecto en vez de 15/10 fijo (ver Proyecto.gastosGeneralesPctDefault).
-    if (gastosGeneralesPct == null || utilidadPct == null) {
+    // del proyecto en vez de 15/10/10,2 fijo (ver
+    // Proyecto.gastosGeneralesPctDefault y LeyesSociales del proyecto).
+    if (gastosGeneralesPct == null || utilidadPct == null || aportesPatronalesPct == null) {
       const rubro = await db.rubro.findUnique({
         where: { id: rubroId },
         select: {
           capitulo: {
             select: {
               proyecto: {
-                select: { gastosGeneralesPctDefault: true, utilidadPctDefault: true, modoGastosGenerales: true },
+                select: {
+                  gastosGeneralesPctDefault: true, utilidadPctDefault: true, modoGastosGenerales: true,
+                  leyesSociales: {
+                    select: {
+                      focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
+                      frlPct: true, fondoGarantiaPct: true, snisAdicionalPct: true,
+                    },
+                  },
+                },
               },
             },
           },
@@ -38,6 +48,9 @@ export async function PUT(
       if (utilidadPct == null) {
         utilidadPct = proyectoDefaults?.utilidadPctDefault ?? 10;
       }
+      if (aportesPatronalesPct == null) {
+        aportesPatronalesPct = sumarAportesPatronalesPct(proyectoDefaults?.leyesSociales);
+      }
     }
 
     // Upsert APU
@@ -46,10 +59,10 @@ export async function PUT(
     const apu = apuExistente
       ? await db.aPU.update({
           where: { rubroId },
-          data: { gastosGeneralesPct, utilidadPct, porcentajePiedra },
+          data: { gastosGeneralesPct, utilidadPct, aportesPatronalesPct, porcentajePiedra },
         })
       : await db.aPU.create({
-          data: { rubroId, gastosGeneralesPct, utilidadPct, porcentajePiedra },
+          data: { rubroId, gastosGeneralesPct, utilidadPct, aportesPatronalesPct, porcentajePiedra },
         });
 
     const apuId = apu.id;

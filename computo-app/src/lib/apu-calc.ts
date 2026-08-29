@@ -51,12 +51,57 @@ export function sumManoObra(manoObra: ManoObraCalc[], equipos: EquipoCalc[]): nu
 // independiente en DrawerAPU (cliente), resolverPreciosVigentes.ts y
 // clonar-apu/route.ts (servidor). gastosGeneralesPct/utilidadPct van en
 // puntos porcentuales (15 = 15%, no 0.15), igual que se guardan en APU.
+// Nota: Aportes Patronales NO es un parámetro acá — es un componente más
+// del costoDirecto que recibe esta función (ver montoAportesPatronales),
+// no una pirámide extra sobre el resultado.
 export function calcularPrecioUnitario(
   costoDirecto: number,
   gastosGeneralesPct: number,
   utilidadPct: number
 ): number {
   return costoDirecto * (1 + gastosGeneralesPct / 100) * (1 + utilidadPct / 100);
+}
+
+// ── Aportes Patronales BPS (Empresa paga) ───────────────────────────────
+// % legal por default (Uruguay 2025) — FOCER patronal 7,5% + FSC/FOCAP 1% +
+// FOSVOC 0,5% + FRL 0,2% + Fondo Garantía 0,5% + SNIS adicional 0,5% =
+// 10,2%. Mismo valor que el @default() de LeyesSociales en schema.prisma,
+// usado acá como fallback cuando el proyecto todavía no tiene un registro
+// LeyesSociales — se crea de forma perezosa (ver
+// GET /api/proyectos/[id]/leyes-sociales), así que un rubro puede necesitar
+// este % antes de que exista esa fila.
+export const APORTES_PATRONALES_PCT_LEGAL_DEFAULT = 10.2;
+
+export interface AportesPatronalesPcts {
+  focerPatronalPct: number;
+  fscFocapPct: number;
+  fosvocPct: number;
+  frlPct: number;
+  fondoGarantiaPct: number;
+  snisAdicionalPct: number;
+}
+
+// Suma los 6 sub-componentes de "Empresa paga" en LeyesSociales (guardados
+// como fracción, 0.075 = 7,5%) y los convierte a puntos porcentuales (7.5),
+// mismo formato en que se guarda APU.aportesPatronalesPct. null/undefined
+// (proyecto sin LeyesSociales todavía) usa el default legal.
+export function sumarAportesPatronalesPct(pcts: AportesPatronalesPcts | null | undefined): number {
+  if (!pcts) return APORTES_PATRONALES_PCT_LEGAL_DEFAULT;
+  return (
+    pcts.focerPatronalPct +
+    pcts.fscFocapPct +
+    pcts.fosvocPct +
+    pcts.frlPct +
+    pcts.fondoGarantiaPct +
+    pcts.snisAdicionalPct
+  ) * 100;
+}
+
+// Monto de Aportes Patronales a sumar dentro de Costo Directo — aplica el %
+// SOLO sobre el subtotal de Mano de Obra (sumManoObra), nunca sobre
+// materiales ni equipos.
+export function montoAportesPatronales(sumManoObraValor: number, aportesPatronalesPct: number): number {
+  return sumManoObraValor * (aportesPatronalesPct / 100);
 }
 
 // ── % Piedra en hormigón ciclópeo ───────────────────────────────────────

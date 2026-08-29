@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 import { buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, type SubrubroConApu } from "@/lib/bibliotecaApus";
-import { sumManoObra, calcularPrecioUnitario } from "@/lib/apu-calc";
+import { sumManoObra, calcularPrecioUnitario, sumarAportesPatronalesPct, montoAportesPatronales } from "@/lib/apu-calc";
 
 const client = new Anthropic();
 
@@ -43,7 +43,15 @@ export async function generarApuParaRubro(
         capitulo: {
           select: {
             proyecto: {
-              select: { gastosGeneralesPctDefault: true, utilidadPctDefault: true, modoGastosGenerales: true },
+              select: {
+                gastosGeneralesPctDefault: true, utilidadPctDefault: true, modoGastosGenerales: true,
+                leyesSociales: {
+                  select: {
+                    focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
+                    frlPct: true, fondoGarantiaPct: true, snisAdicionalPct: true,
+                  },
+                },
+              },
             },
           },
         },
@@ -157,16 +165,24 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
       ? 0
       : proyectoDefaults?.gastosGeneralesPctDefault ?? 15;
   const utilidadPct = apuExistente ? apuExistente.utilidadPct : proyectoDefaults?.utilidadPctDefault ?? 10;
+  // Aportes Patronales: mismo congelamiento — se lee en vivo de LeyesSociales
+  // del proyecto (fallback al default legal si el registro no existe
+  // todavía) solo si este rubro no tenía APU previo.
+  const aportesPatronalesPct = apuExistente
+    ? apuExistente.aportesPatronalesPct
+    : sumarAportesPatronalesPct(proyectoDefaults?.leyesSociales);
 
   // precioUnitarioEstimado se calcula acá, NUNCA se toma de lo que reporte
   // la IA — mismo patrón que clonar-apu/route.ts. Este flujo no genera
   // equipos, así que el costo directo es solo materiales + mano de obra.
+  const sumMO = sumManoObra(
+    apuBruto.manoObra.map((mo) => ({ rendimiento: mo.rendimiento ?? 1, jornalRef: mo.jornal ?? 0 })),
+    []
+  );
   const costoDirecto =
     apuBruto.materiales.reduce((s, m) => s + (m.rendimiento ?? 0) * (m.precioUnit ?? 0), 0) +
-    sumManoObra(
-      apuBruto.manoObra.map((mo) => ({ rendimiento: mo.rendimiento ?? 1, jornalRef: mo.jornal ?? 0 })),
-      []
-    );
+    sumMO +
+    montoAportesPatronales(sumMO, aportesPatronalesPct);
   const precioUnitarioEstimado = calcularPrecioUnitario(costoDirecto, gastosGeneralesPct, utilidadPct);
 
   const apu: ApuGenerado = {
@@ -178,8 +194,8 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
   };
 
   const apuRecord = apuExistente
-    ? await db.aPU.update({ where: { rubroId }, data: { gastosGeneralesPct, utilidadPct } })
-    : await db.aPU.create({ data: { rubroId, gastosGeneralesPct, utilidadPct } });
+    ? await db.aPU.update({ where: { rubroId }, data: { gastosGeneralesPct, utilidadPct, aportesPatronalesPct } })
+    : await db.aPU.create({ data: { rubroId, gastosGeneralesPct, utilidadPct, aportesPatronalesPct } });
 
   const apuId = apuRecord.id;
 

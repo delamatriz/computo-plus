@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sumEquipos, sumManoObra, calcularPrecioUnitario } from "@/lib/apu-calc";
+import { sumEquipos, sumManoObra, calcularPrecioUnitario, sumarAportesPatronalesPct, montoAportesPatronales } from "@/lib/apu-calc";
 
 // POST — clona el APUEstandar de un subrubro de biblioteca al APU real de un rubro
 export async function POST(
@@ -32,12 +32,42 @@ export async function POST(
 
     // 1 — Crear (o reusar) el APU del rubro real
     const apuExistente = await db.aPU.findUnique({ where: { rubroId } });
+
+    // Aportes Patronales: congelado si el rubro ya tenía APU — se lee en
+    // vivo de LeyesSociales del proyecto (fallback al default legal si el
+    // registro no existe todavía) solo la primera vez, igual que
+    // generarApuParaRubro (ver lib/apu.ts).
+    let aportesPatronalesPct = apuExistente?.aportesPatronalesPct;
+    if (aportesPatronalesPct == null) {
+      const rubroConProyecto = await db.rubro.findUnique({
+        where: { id: rubroId },
+        select: {
+          capitulo: {
+            select: {
+              proyecto: {
+                select: {
+                  leyesSociales: {
+                    select: {
+                      focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
+                      frlPct: true, fondoGarantiaPct: true, snisAdicionalPct: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      aportesPatronalesPct = sumarAportesPatronalesPct(rubroConProyecto?.capitulo?.proyecto?.leyesSociales);
+    }
+
     const apu = apuExistente
       ? await db.aPU.update({
           where: { rubroId },
           data: {
             gastosGeneralesPct: apuEstandar.gastosGeneralesPct,
             utilidadPct: apuEstandar.utilidadPct,
+            aportesPatronalesPct,
             porcentajePiedra: apuEstandar.porcentajePiedra,
           },
         })
@@ -46,6 +76,7 @@ export async function POST(
             rubroId,
             gastosGeneralesPct: apuEstandar.gastosGeneralesPct,
             utilidadPct: apuEstandar.utilidadPct,
+            aportesPatronalesPct,
             porcentajePiedra: apuEstandar.porcentajePiedra,
           },
         });
@@ -140,7 +171,7 @@ export async function POST(
     const sumMat = apuCompleto!.materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
     const sumMO = sumManoObra(apuCompleto!.manoObra, apuCompleto!.equipos);
     const sumEq = sumEquipos(apuCompleto!.equipos);
-    const costoDirecto = sumMat + sumMO + sumEq;
+    const costoDirecto = sumMat + sumMO + sumEq + montoAportesPatronales(sumMO, apuCompleto!.aportesPatronalesPct);
     const precioUnit = calcularPrecioUnitario(costoDirecto, apuCompleto!.gastosGeneralesPct, apuCompleto!.utilidadPct);
 
     const rubro = await db.rubro.update({
