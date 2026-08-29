@@ -25,6 +25,11 @@ interface Props {
   montoImponibleMO: number | null;
   timbresCJP: number;
   gastosGeneralesItems: GastoGeneralItem[];
+  // Total fijo de las 5 categorías del modo Detallado (ver
+  // SeccionGastosGeneralesUtilidades) — 0 si el proyecto está en modo
+  // Porcentaje, donde Gastos Generales ya viene prorrateado dentro de
+  // subtotalObra (precioUnit de cada rubro).
+  montoGastosGeneralesDetallado: number;
   onChangeTimbresCJP: (v: number) => void;
   onChangeGastosGeneralesItems: (items: GastoGeneralItem[]) => void;
 }
@@ -45,6 +50,7 @@ export default function SeccionResumenPresupuesto({
   montoImponibleMO,
   timbresCJP,
   gastosGeneralesItems,
+  montoGastosGeneralesDetallado,
   onChangeTimbresCJP,
   onChangeGastosGeneralesItems,
 }: Props) {
@@ -60,12 +66,14 @@ export default function SeccionResumenPresupuesto({
   const montoAUC = montoImponibleMO != null ? montoImponibleMO * AUC_PCT : null;
   const sumaItemsExtras = gastosGeneralesItems.reduce((s, item) => s + (item.monto || 0), 0);
   // Timbres CJP no lleva IVA (confirmado) — Gastos Generales acá adentro
-  // ya no incluye AUC (ver bloque aparte más abajo), solo Timbres + ítems.
-  const subtotalGastosGenerales = timbresCJP + sumaItemsExtras;
+  // ya no incluye AUC (ver bloque aparte más abajo), solo Timbres + ítems +
+  // el total fijo del modo Detallado (0 en modo Porcentaje, donde ya viene
+  // prorrateado dentro de subtotalObra).
+  const subtotalGastosGenerales = timbresCJP + sumaItemsExtras + montoGastosGeneralesDetallado;
 
-  const baseIVA = subtotalObra + sumaItemsExtras; // sin Timbres, sin AUC
+  const baseIVA = subtotalObra + sumaItemsExtras + montoGastosGeneralesDetallado; // sin Timbres, sin AUC
   const montoIVA = baseIVA * IVA_PCT;
-  const costo = subtotalObra + timbresCJP + sumaItemsExtras; // sin AUC
+  const costo = subtotalObra + timbresCJP + sumaItemsExtras + montoGastosGeneralesDetallado; // sin AUC
   const totalConIVA = costo + montoIVA;
 
   const agregarItem = () => {
@@ -164,6 +172,17 @@ export default function SeccionResumenPresupuesto({
                     className={cn(inputCls, "w-28 text-right tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
                   />
                 </div>
+
+                {montoGastosGeneralesDetallado > 0 && (
+                  <div className="flex items-center px-4 py-1.5 border-b border-slate-50">
+                    <div className="flex-1 min-w-0 text-sm text-slate-700">
+                      Gastos Generales (modo Detallado — ver tarjeta arriba)
+                    </div>
+                    <div className="text-sm font-semibold tabular-nums text-[#2563EB]">
+                      {fmtMoneda(montoGastosGeneralesDetallado, moneda)}
+                    </div>
+                  </div>
+                )}
 
                 {gastosGeneralesItems.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-50">

@@ -32,6 +32,11 @@ import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionResumenPresupuesto, { GastoGeneralItem } from "@/components/SeccionResumenPresupuesto";
+import SeccionGastosGeneralesUtilidades, {
+  CategoriaGastoGeneral,
+  ModoGastosGenerales,
+  sumarGastosGeneralesDetallado,
+} from "@/components/SeccionGastosGeneralesUtilidades";
 import SeccionGarantias from "@/components/SeccionGarantias";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
@@ -85,6 +90,13 @@ interface ProyectoData {
   incluyeIVA?: boolean;
   timbresCJP?: number;
   gastosGeneralesItems?: GastoGeneralItem[];
+  // Default de GG%/Utilidad% para rubros nuevos, y desglose del modo
+  // Detallado — ver SeccionGastosGeneralesUtilidades.tsx. null/undefined en
+  // los %s = comportamiento histórico (15/10).
+  gastosGeneralesPctDefault?: number | null;
+  utilidadPctDefault?: number | null;
+  modoGastosGenerales?: ModoGastosGenerales;
+  gastosGeneralesDetallado?: CategoriaGastoGeneral[] | null;
   // Se carga desde /editar — acá es de solo lectura, mostrada al pie del
   // presupuesto junto a donde eventualmente va a vivir el Plazo de obra
   // calculado (ver placeholder más abajo, todavía sin implementar).
@@ -2632,6 +2644,10 @@ export default function ProyectoPage() {
         incluyeIVA: data.incluyeIVA ?? false,
         timbresCJP: data.timbresCJP ?? 0,
         gastosGeneralesItems: Array.isArray(data.gastosGeneralesItems) ? data.gastosGeneralesItems : [],
+        gastosGeneralesPctDefault: data.gastosGeneralesPctDefault ?? null,
+        utilidadPctDefault: data.utilidadPctDefault ?? null,
+        modoGastosGenerales: data.modoGastosGenerales === "DETALLADO" ? "DETALLADO" : "PORCENTAJE",
+        gastosGeneralesDetallado: Array.isArray(data.gastosGeneralesDetallado) ? data.gastosGeneralesDetallado : null,
         fechaInicio: data.fechaInicio ?? null,
         plazoObra: data.plazoObra ?? null,
         diasLaborales: data.diasLaborales ?? null,
@@ -2834,6 +2850,27 @@ export default function ProyectoPage() {
     guardarCampoProyecto("gastosGeneralesItems", items);
   }, [guardarCampoProyecto]);
 
+  // ─── Gastos Generales y Utilidades — defaults para rubros nuevos ──
+  const actualizarModoGastosGenerales = useCallback((v: ModoGastosGenerales) => {
+    setProyecto((prev) => prev ? { ...prev, modoGastosGenerales: v } : prev);
+    guardarCampoProyecto("modoGastosGenerales", v);
+  }, [guardarCampoProyecto]);
+
+  const actualizarGastosGeneralesPctDefault = useCallback((v: number) => {
+    setProyecto((prev) => prev ? { ...prev, gastosGeneralesPctDefault: v } : prev);
+    guardarCampoProyecto("gastosGeneralesPctDefault", v);
+  }, [guardarCampoProyecto]);
+
+  const actualizarUtilidadPctDefault = useCallback((v: number) => {
+    setProyecto((prev) => prev ? { ...prev, utilidadPctDefault: v } : prev);
+    guardarCampoProyecto("utilidadPctDefault", v);
+  }, [guardarCampoProyecto]);
+
+  const actualizarGastosGeneralesDetallado = useCallback((categorias: CategoriaGastoGeneral[]) => {
+    setProyecto((prev) => prev ? { ...prev, gastosGeneralesDetallado: categorias } : prev);
+    guardarCampoProyecto("gastosGeneralesDetallado", categorias);
+  }, [guardarCampoProyecto]);
+
   // ─── Garantías ──────────────────────────────────────────────
   const actualizarGarantiaFielCumplimiento = useCallback((v: string) => {
     setProyecto((prev) => prev ? { ...prev, garantiaFielCumplimiento: v } : prev);
@@ -2893,8 +2930,17 @@ export default function ProyectoPage() {
   const drawerCapId = drawerRubroId
     ? capitulos.find((c) => c.rubros.some((r) => r.id === drawerRubroId))?.id ?? null
     : null;
+  // Default para el APU de un rubro SIN APU propio todavía (rubro recién
+  // creado a mano) — usa el default del proyecto en vez de 15/10 fijo (ver
+  // Proyecto.gastosGeneralesPctDefault/utilidadPctDefault). En modo
+  // Detallado, Gastos Generales arranca en 0% (se cobra aparte, ver
+  // SeccionGastosGeneralesUtilidades).
+  const ggPctDefaultRubroNuevo =
+    proyecto?.modoGastosGenerales === "DETALLADO" ? 0 : proyecto?.gastosGeneralesPctDefault ?? 15;
+  const utilidadPctDefaultRubroNuevo = proyecto?.utilidadPctDefault ?? 10;
   const drawerAPU = drawerRubroId ? (apuData[drawerRubroId] ?? {
-    materiales: [], manoObra: [], equipos: [], gastosGeneralesPct: 15, utilidadPct: 10, porcentajePiedra: 0.30,
+    materiales: [], manoObra: [], equipos: [],
+    gastosGeneralesPct: ggPctDefaultRubroNuevo, utilidadPct: utilidadPctDefaultRubroNuevo, porcentajePiedra: 0.30,
   }) : null;
 
   const toggleCapitulo = (id: string) => {
@@ -4742,6 +4788,19 @@ export default function ProyectoPage() {
           />
         )}
 
+        {/* ── Gastos Generales y Utilidades ─────────────────── */}
+        <SeccionGastosGeneralesUtilidades
+          moneda={moneda}
+          modo={proyecto?.modoGastosGenerales ?? "PORCENTAJE"}
+          gastosGeneralesPctDefault={proyecto?.gastosGeneralesPctDefault ?? null}
+          utilidadPctDefault={proyecto?.utilidadPctDefault ?? null}
+          categorias={proyecto?.gastosGeneralesDetallado ?? null}
+          onChangeModo={actualizarModoGastosGenerales}
+          onChangeGastosGeneralesPctDefault={actualizarGastosGeneralesPctDefault}
+          onChangeUtilidadPctDefault={actualizarUtilidadPctDefault}
+          onChangeCategorias={actualizarGastosGeneralesDetallado}
+        />
+
         {/* ── Resumen del Presupuesto ───────────────────────── */}
         <SeccionResumenPresupuesto
           moneda={moneda}
@@ -4750,6 +4809,11 @@ export default function ProyectoPage() {
           montoImponibleMO={leyesSociales ? leyesSociales.montoImponibleMO : null}
           timbresCJP={proyecto?.timbresCJP ?? 0}
           gastosGeneralesItems={proyecto?.gastosGeneralesItems ?? []}
+          montoGastosGeneralesDetallado={
+            proyecto?.modoGastosGenerales === "DETALLADO"
+              ? sumarGastosGeneralesDetallado(proyecto.gastosGeneralesDetallado ?? null)
+              : 0
+          }
           onChangeTimbresCJP={actualizarTimbresCJP}
           onChangeGastosGeneralesItems={actualizarGastosGeneralesItems}
         />

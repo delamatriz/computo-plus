@@ -33,8 +33,23 @@ export async function generarApuParaRubro(
 ): Promise<ApuGenerado> {
   const { descripcion, unidad, capitulo, tipoObra } = datos;
 
-  const [rubro, categorias, preciosMTOP, capituloCatalogoId] = await Promise.all([
-    db.rubro.findUnique({ where: { id: rubroId }, select: { trabajoEnAltura: true } }),
+  const [rubro, apuExistente, categorias, preciosMTOP, capituloCatalogoId] = await Promise.all([
+    db.rubro.findUnique({
+      where: { id: rubroId },
+      select: {
+        trabajoEnAltura: true,
+        // Default de GG%/Utilidad% del proyecto — solo se usa si este rubro
+        // todavía no tiene un APU propio (ver apuExistente más abajo).
+        capitulo: {
+          select: {
+            proyecto: {
+              select: { gastosGeneralesPctDefault: true, utilidadPctDefault: true, modoGastosGenerales: true },
+            },
+          },
+        },
+      },
+    }),
+    db.aPU.findUnique({ where: { rubroId } }),
     db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),
     db.precioMTOP.findMany({ take: 50, orderBy: { descripcion: "asc" } }),
     // Mismo resolver ya usado al crear un capítulo real (Fase 2, Etapa 5) —
@@ -130,8 +145,18 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
     ? subrubrosBiblioteca.find((s) => s.codigo === apuBruto.subrubroCodigoBase)
     : undefined;
 
-  const gastosGeneralesPct = 15;
-  const utilidadPct = 10;
+  // Si el rubro YA tiene un APU guardado, su GG%/Utilidad% queda congelado
+  // — regenerar por IA no debe pisarlo con el default vigente del proyecto
+  // (ver Proyecto.gastosGeneralesPctDefault). Recién si es la primera vez
+  // que este rubro tiene APU se usa el default (0% de GG si el proyecto
+  // está en modo Detallado, ver SeccionGastosGeneralesUtilidades).
+  const proyectoDefaults = rubro?.capitulo?.proyecto;
+  const gastosGeneralesPct = apuExistente
+    ? apuExistente.gastosGeneralesPct
+    : proyectoDefaults?.modoGastosGenerales === "DETALLADO"
+      ? 0
+      : proyectoDefaults?.gastosGeneralesPctDefault ?? 15;
+  const utilidadPct = apuExistente ? apuExistente.utilidadPct : proyectoDefaults?.utilidadPctDefault ?? 10;
 
   // precioUnitarioEstimado se calcula acá, NUNCA se toma de lo que reporte
   // la IA — mismo patrón que clonar-apu/route.ts. Este flujo no genera
@@ -151,8 +176,6 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
     origen: apuBruto.origen === "biblioteca" && subrubroBase ? "biblioteca" : "estimado",
     subrubroBaseId: subrubroBase?.id ?? null,
   };
-
-  const apuExistente = await db.aPU.findUnique({ where: { rubroId } });
 
   const apuRecord = apuExistente
     ? await db.aPU.update({ where: { rubroId }, data: { gastosGeneralesPct, utilidadPct } })

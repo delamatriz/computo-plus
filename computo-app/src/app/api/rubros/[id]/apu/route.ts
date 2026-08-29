@@ -10,14 +10,35 @@ export async function PUT(
     const { id: rubroId } = await params;
     const body = await req.json();
 
-    const {
-      gastosGeneralesPct = 15,
-      utilidadPct = 10,
-      porcentajePiedra = 0.30,
-      materiales = [],
-      manoObra = [],
-      equipos = [],
-    } = body;
+    // eslint-disable-next-line prefer-const
+    let { gastosGeneralesPct, utilidadPct } = body;
+    const { porcentajePiedra = 0.30, materiales = [], manoObra = [], equipos = [] } = body;
+
+    // El cliente (DrawerAPU) siempre manda un valor explícito — este
+    // fallback solo entra en juego si el body no los trae. Usa el default
+    // del proyecto en vez de 15/10 fijo (ver Proyecto.gastosGeneralesPctDefault).
+    if (gastosGeneralesPct == null || utilidadPct == null) {
+      const rubro = await db.rubro.findUnique({
+        where: { id: rubroId },
+        select: {
+          capitulo: {
+            select: {
+              proyecto: {
+                select: { gastosGeneralesPctDefault: true, utilidadPctDefault: true, modoGastosGenerales: true },
+              },
+            },
+          },
+        },
+      });
+      const proyectoDefaults = rubro?.capitulo?.proyecto;
+      if (gastosGeneralesPct == null) {
+        gastosGeneralesPct =
+          proyectoDefaults?.modoGastosGenerales === "DETALLADO" ? 0 : proyectoDefaults?.gastosGeneralesPctDefault ?? 15;
+      }
+      if (utilidadPct == null) {
+        utilidadPct = proyectoDefaults?.utilidadPctDefault ?? 10;
+      }
+    }
 
     // Upsert APU
     const apuExistente = await db.aPU.findUnique({ where: { rubroId } });

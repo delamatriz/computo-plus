@@ -116,6 +116,10 @@ export async function PATCH(
         ...(body.incluyeIVA  !== undefined && { incluyeIVA: !!body.incluyeIVA }),
         ...(body.timbresCJP  !== undefined && { timbresCJP: parseFloat(body.timbresCJP) || 0 }),
         ...(body.gastosGeneralesItems !== undefined && { gastosGeneralesItems: body.gastosGeneralesItems }),
+        ...(body.gastosGeneralesPctDefault !== undefined && { gastosGeneralesPctDefault: body.gastosGeneralesPctDefault }),
+        ...(body.utilidadPctDefault !== undefined && { utilidadPctDefault: body.utilidadPctDefault }),
+        ...(body.modoGastosGenerales !== undefined && { modoGastosGenerales: body.modoGastosGenerales }),
+        ...(body.gastosGeneralesDetallado !== undefined && { gastosGeneralesDetallado: body.gastosGeneralesDetallado }),
       },
     });
     return NextResponse.json(proyecto);

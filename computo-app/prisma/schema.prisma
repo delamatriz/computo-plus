@@ -68,6 +68,22 @@ model Proyecto {
   incluyeIVA            Boolean   @default(false)
   timbresCJP            Float     @default(0)
   gastosGeneralesItems  Json?     // [{ id: string, descripcion: string, monto: number }]
+  // Default de Gastos Generales/Utilidad para rubros NUEVOS — null usa el
+  // comportamiento histórico (15/10). Los rubros que ya tienen un APU
+  // guardado quedan con su valor congelado; cambiar esto nunca los toca
+  // (ver generarApuParaRubro y PUT /api/rubros/[id]/apu).
+  gastosGeneralesPctDefault Float?
+  utilidadPctDefault        Float?
+  // "PORCENTAJE" (prorrateado por rubro, comportamiento histórico) |
+  // "DETALLADO" (monto fijo por las 5 categorías de abajo, cobrado una sola
+  // vez en el Resumen del Presupuesto — rubros nuevos arrancan en 0% GG).
+  modoGastosGenerales       String    @default("PORCENTAJE")
+  // [{ id: string, nombre: string, items: [{ id, descripcion, monto }] }] —
+  // siempre las mismas 5 categorías fijas (ver CATEGORIAS_GASTOS_GENERALES_FIJAS
+  // en SeccionGastosGeneralesUtilidades.tsx). Independiente de
+  // gastosGeneralesItems (Ítems extra, lista libre sin categoría, sigue
+  // existiendo sin cambios en el Resumen del Presupuesto).
+  gastosGeneralesDetallado  Json?
   diasLaborales         Int?
   garantiaFielCumplimiento String? @db.Text
   garantiaViciosOcultos    String? @db.Text
