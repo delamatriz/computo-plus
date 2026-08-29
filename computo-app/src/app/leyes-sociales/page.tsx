@@ -29,6 +29,7 @@ const secciones = [
   { id: "excluido-ley", label: "Excluido de Ley 14.411" },
   { id: "regimen-especial", label: "Régimen especial" },
   { id: "obra-publica", label: "Obra pública" },
+  { id: "actualizar-porcentajes", label: "Actualizar los %" },
 ];
 
 // El click nativo en <a href="#id"> dentro de este layout (contenido
@@ -295,6 +296,70 @@ export default function LeyesSocialesPage() {
                 son otros aspectos (garantías, RUPE, retenciones, ajuste
                 paramétrico) — ver guía aparte de Obra Pública
                 (próximamente).
+              </p>
+            </section>
+
+            <section id="actualizar-porcentajes" className="scroll-mt-20">
+              <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
+                Actualizar los porcentajes
+              </h3>
+              <p className="text-sm text-slate-500 mb-3">
+                Los porcentajes de esta guía (AUC, FOCER, FSC/FOCAP, y el resto)
+                no son fijos para siempre — cuando cambia la normativa, se
+                editan dentro de cada proyecto, en{" "}
+                <strong className="text-slate-700">
+                  Presupuesto → Leyes Sociales/BPS
+                </strong>
+                . Ahí vas a ver dos tablas, &quot;Empresa paga&quot; y
+                &quot;Propietario paga&quot;, con cada fila (AUC, FOCER
+                patronal, FSC/FOCAP, FOSVOC, FRL, etc.) editable una por una.
+                Apenas cambiás un valor, el total de esa tarjeta se actualiza
+                al instante — es un cálculo en vivo.
+              </p>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-amber-800 mb-3">
+                <span className="font-semibold">Ojo con esto:</span> ese cambio
+                no le llega solo a los rubros que ya tenías cargados en el
+                presupuesto. Cada rubro guarda, en el momento en que se crea o
+                se vuelve a generar su Análisis de Precio Unitario, el
+                porcentaje de Aportes Patronales vigente en ese momento — y lo
+                mantiene así aunque después edites el porcentaje general. Solo
+                los rubros que agregues <strong>después</strong> del cambio
+                van a usar el porcentaje nuevo.
+              </div>
+
+              <p className="text-sm text-slate-500 mb-3">
+                Es la misma lógica que ya usa Cómputo+ para Gastos Generales y
+                Utilidad: un presupuesto que ya armaste (o que ya le entregaste
+                a un cliente) no tiene que cambiar de precio solo porque en
+                otro lado se actualizó una tasa. Si necesitás que un rubro
+                puntual tome el porcentaje nuevo, hay que volver a generar su
+                Análisis de Precio Unitario a mano.
+              </p>
+
+              <p className="text-sm text-slate-500 mb-2">
+                Por este mismo motivo, vas a ver dos números que hablan de
+                &quot;Aportes Patronales&quot; y que legítimamente pueden no
+                coincidir exactamente:
+              </p>
+              <Tabla
+                encabezados={["Dónde lo ves", "Cómo se calcula"]}
+                filas={[
+                  [
+                    "Tarjeta Leyes Sociales/BPS",
+                    "Siempre en vivo, sobre el Monto Imponible total del presupuesto",
+                  ],
+                  [
+                    "Dentro de cada rubro (dentro de su precio unitario)",
+                    "Congelado al crear o regenerar ese rubro puntual",
+                  ],
+                ]}
+              />
+              <p className="text-sm text-slate-500 mt-3">
+                El primero sirve para controlar cuánto hay que declarar a BPS
+                hoy. El segundo hace que el precio de cada rubro refleje su
+                costo real de mano de obra en el momento en que se armó. No
+                son el mismo número, y no hace falta que lo sean.
               </p>
             </section>
           </div>
