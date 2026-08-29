@@ -106,11 +106,12 @@ async function resolverPreciosVigentes(rubro: RubroConAPU): Promise<ResolucionRu
   const sumMO = sumManoObra(manoObraEfectiva, apu.equipos);
   const sumEq = sumEquipos(apu.equipos);
   // Aportes Patronales: apu.aportesPatronalesPct queda congelado — este flujo
-  // ("actualizar al precio vigente") refresca materiales/jornales, no los %
-  // guardados en el APU (mismo criterio ya aplicado a gastosGeneralesPct/utilidadPct).
+  // ("actualizar al precio vigente") refresca materiales/jornales, no el %
+  // guardado en el APU (mismo criterio ya aplicado a utilidadPct). Gastos
+  // Generales ya no participa acá — dejó de prorratearse por rubro.
   const costoDirecto = sumMat + sumMO + sumEq + montoAportesPatronales(sumMO, apu.aportesPatronalesPct);
   const precioUnitVigente =
-    Math.round(calcularPrecioUnitario(costoDirecto, apu.gastosGeneralesPct, apu.utilidadPct) * 100) / 100;
+    Math.round(calcularPrecioUnitario(costoDirecto, apu.utilidadPct) * 100) / 100;
 
   return { precioUnitVigente, materialesAActualizar, manoObraAActualizar };
 }

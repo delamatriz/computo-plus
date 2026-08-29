@@ -49,17 +49,20 @@ export function sumManoObra(manoObra: ManoObraCalc[], equipos: EquipoCalc[]): nu
 
 // Fórmula canónica única de precioUnit — antes triplicada de forma
 // independiente en DrawerAPU (cliente), resolverPreciosVigentes.ts y
-// clonar-apu/route.ts (servidor). gastosGeneralesPct/utilidadPct van en
-// puntos porcentuales (15 = 15%, no 0.15), igual que se guardan en APU.
+// clonar-apu/route.ts (servidor). utilidadPct va en puntos porcentuales
+// (10 = 10%, no 0.10), igual que se guarda en APU.
 // Nota: Aportes Patronales NO es un parámetro acá — es un componente más
 // del costoDirecto que recibe esta función (ver montoAportesPatronales),
-// no una pirámide extra sobre el resultado.
+// no una pirámide extra sobre el resultado. Gastos Generales (Costos
+// Indirectos) ya NO participa de esta fórmula — dejó de prorratearse por
+// rubro, pasó a ser un monto agregado a nivel proyecto (ver
+// costoAgregado.ts). precioUnit de cada rubro es, desde este cambio,
+// exclusivamente Costo Directo × (1 + Utilidad%).
 export function calcularPrecioUnitario(
   costoDirecto: number,
-  gastosGeneralesPct: number,
   utilidadPct: number
 ): number {
-  return costoDirecto * (1 + gastosGeneralesPct / 100) * (1 + utilidadPct / 100);
+  return costoDirecto * (1 + utilidadPct / 100);
 }
 
 // ── Aportes Patronales BPS (Empresa paga) ───────────────────────────────

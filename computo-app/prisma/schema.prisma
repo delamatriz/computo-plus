@@ -242,7 +242,10 @@ model CotizacionProveedor {
 
 model APU {
   id                 String        @id @default(cuid())
-  gastosGeneralesPct Float         @default(15)
+  // Ya no se prorratea por rubro — Gastos Generales pasó a ser un monto
+  // agregado a nivel proyecto (ver costoAgregado.ts). Campo inerte,
+  // conservado en el modelo por ahora; siempre se escribe/lee como 0.
+  gastosGeneralesPct Float         @default(0)
   utilidadPct        Float         @default(10)
   // % de Aportes Patronales BPS (Empresa paga — FOCER patronal, FSC/FOCAP,
   // FOSVOC, FRL, Fondo Garantía, SNIS adicional), aplicado SOLO sobre la
@@ -702,7 +705,9 @@ model APUEstandar {
   id                 String                @id @default(cuid())
   subrubroId         String                @unique
   subrubro           SubrubroEstandar      @relation(fields: [subrubroId], references: [id], onDelete: Cascade)
-  gastosGeneralesPct Float                 @default(15)
+  // Mismo criterio que APU.gastosGeneralesPct — la biblioteca también dejó
+  // de aplicar Gastos Generales a su precio de referencia.
+  gastosGeneralesPct Float                 @default(0)
   utilidadPct        Float                 @default(10)
   // Ver APU.porcentajePiedra — mismo campo a nivel de biblioteca estándar.
   porcentajePiedra   Float                 @default(0.30)

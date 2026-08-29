@@ -61,11 +61,16 @@ export async function POST(
       aportesPatronalesPct = sumarAportesPatronalesPct(rubroConProyecto?.capitulo?.proyecto?.leyesSociales);
     }
 
+    // gastosGeneralesPct se fuerza a 0 siempre — Gastos Generales dejó de
+    // prorratearse por rubro (biblioteca incluida), pasó a ser un monto
+    // agregado a nivel proyecto (ver costoAgregado.ts). No se copia de
+    // apuEstandar.gastosGeneralesPct: ese campo queda inerte en la
+    // biblioteca también.
     const apu = apuExistente
       ? await db.aPU.update({
           where: { rubroId },
           data: {
-            gastosGeneralesPct: apuEstandar.gastosGeneralesPct,
+            gastosGeneralesPct: 0,
             utilidadPct: apuEstandar.utilidadPct,
             aportesPatronalesPct,
             porcentajePiedra: apuEstandar.porcentajePiedra,
@@ -74,7 +79,7 @@ export async function POST(
       : await db.aPU.create({
           data: {
             rubroId,
-            gastosGeneralesPct: apuEstandar.gastosGeneralesPct,
+            gastosGeneralesPct: 0,
             utilidadPct: apuEstandar.utilidadPct,
             aportesPatronalesPct,
             porcentajePiedra: apuEstandar.porcentajePiedra,
@@ -172,7 +177,7 @@ export async function POST(
     const sumMO = sumManoObra(apuCompleto!.manoObra, apuCompleto!.equipos);
     const sumEq = sumEquipos(apuCompleto!.equipos);
     const costoDirecto = sumMat + sumMO + sumEq + montoAportesPatronales(sumMO, apuCompleto!.aportesPatronalesPct);
-    const precioUnit = calcularPrecioUnitario(costoDirecto, apuCompleto!.gastosGeneralesPct, apuCompleto!.utilidadPct);
+    const precioUnit = calcularPrecioUnitario(costoDirecto, apuCompleto!.utilidadPct);
 
     const rubro = await db.rubro.update({
       where: { id: rubroId },

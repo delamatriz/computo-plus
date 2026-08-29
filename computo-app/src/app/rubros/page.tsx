@@ -79,7 +79,6 @@ interface Descompuesto {
   capitulo: string | null;
   subcapitulo: string | null;
   apu: {
-    gastosGeneralesPct: number;
     utilidadPct: number;
     materiales: MaterialDescompuesto[];
     manoObra: ManoObraDescompuesto[];
@@ -288,7 +287,7 @@ function PanelDescompuesto({ data }: { data: Descompuesto }) {
               <span className="font-medium text-slate-700">{fmtMoneda(apu.costoDirecto)}</span>
             </div>
             <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>Gastos generales ({fmtNum(apu.gastosGeneralesPct, 1)}%) + Utilidad ({fmtNum(apu.utilidadPct, 1)}%)</span>
+              <span>Utilidad ({fmtNum(apu.utilidadPct, 1)}%)</span>
               <span className="font-medium text-slate-700">
                 {fmtMoneda(apu.precioUnitFinal - apu.costoDirecto)}
               </span>

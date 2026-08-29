@@ -38,13 +38,15 @@ export async function generarApuParaRubro(
       where: { id: rubroId },
       select: {
         trabajoEnAltura: true,
-        // Default de GG%/Utilidad% del proyecto — solo se usa si este rubro
-        // todavía no tiene un APU propio (ver apuExistente más abajo).
+        // Default de Utilidad%/Aportes Patronales del proyecto — solo se usa
+        // si este rubro todavía no tiene un APU propio (ver apuExistente más
+        // abajo). Gastos Generales ya no se resuelve acá — dejó de
+        // prorratearse por rubro.
         capitulo: {
           select: {
             proyecto: {
               select: {
-                gastosGeneralesPctDefault: true, utilidadPctDefault: true, modoGastosGenerales: true,
+                utilidadPctDefault: true,
                 leyesSociales: {
                   select: {
                     focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
@@ -153,17 +155,12 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
     ? subrubrosBiblioteca.find((s) => s.codigo === apuBruto.subrubroCodigoBase)
     : undefined;
 
-  // Si el rubro YA tiene un APU guardado, su GG%/Utilidad% queda congelado
-  // — regenerar por IA no debe pisarlo con el default vigente del proyecto
-  // (ver Proyecto.gastosGeneralesPctDefault). Recién si es la primera vez
-  // que este rubro tiene APU se usa el default (0% de GG si el proyecto
-  // está en modo Detallado, ver SeccionGastosGeneralesUtilidades).
+  // Si el rubro YA tiene un APU guardado, su Utilidad% queda congelado —
+  // regenerar por IA no debe pisarlo con el default vigente del proyecto.
+  // Recién si es la primera vez que este rubro tiene APU se usa el default.
+  // Gastos Generales ya no se congela por rubro — queda fijo en 0.
   const proyectoDefaults = rubro?.capitulo?.proyecto;
-  const gastosGeneralesPct = apuExistente
-    ? apuExistente.gastosGeneralesPct
-    : proyectoDefaults?.modoGastosGenerales === "DETALLADO"
-      ? 0
-      : proyectoDefaults?.gastosGeneralesPctDefault ?? 15;
+  const gastosGeneralesPct = 0;
   const utilidadPct = apuExistente ? apuExistente.utilidadPct : proyectoDefaults?.utilidadPctDefault ?? 10;
   // Aportes Patronales: mismo congelamiento — se lee en vivo de LeyesSociales
   // del proyecto (fallback al default legal si el registro no existe
@@ -183,7 +180,7 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
     apuBruto.materiales.reduce((s, m) => s + (m.rendimiento ?? 0) * (m.precioUnit ?? 0), 0) +
     sumMO +
     montoAportesPatronales(sumMO, aportesPatronalesPct);
-  const precioUnitarioEstimado = calcularPrecioUnitario(costoDirecto, gastosGeneralesPct, utilidadPct);
+  const precioUnitarioEstimado = calcularPrecioUnitario(costoDirecto, utilidadPct);
 
   const apu: ApuGenerado = {
     materiales: apuBruto.materiales,

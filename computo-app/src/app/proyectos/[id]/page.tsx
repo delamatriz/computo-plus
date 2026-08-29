@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario, montoAportesPatronales, sumarAportesPatronalesPct, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/apu-calc";
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
+import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularUtilidadAgregada } from "@/lib/costoAgregado";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionResumenPresupuesto, { GastoGeneralItem } from "@/components/SeccionResumenPresupuesto";
@@ -37,6 +38,7 @@ import SeccionGastosGeneralesUtilidades, {
   ModoGastosGenerales,
   sumarGastosGeneralesDetallado,
 } from "@/components/SeccionGastosGeneralesUtilidades";
+import SeccionCostoPrecioFinal from "@/components/SeccionCostoPrecioFinal";
 import SeccionGarantias from "@/components/SeccionGarantias";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
@@ -372,7 +374,7 @@ const APU_INICIALES: Record<string, APU> = {
     materiales: [{ id: "m1", descripcion: "Bolsa de residuos", unidad: "u", rendimiento: 0.5, precioUnit: 3 }],
     manoObra:   [{ id: "mo1", categoria: "Peón", jornadaHs: 8, rendimiento: 80, jornalRef: 950 }],
     equipos:    [],
-    gastosGeneralesPct: 15,
+    gastosGeneralesPct: 0,
     utilidadPct: 10,
     aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
   },
@@ -397,7 +399,7 @@ const APU_INICIALES: Record<string, APU> = {
       { id: "mo2", categoria: "Peón",    jornadaHs: 8, rendimiento: 1.2, jornalRef: 950  },
     ],
     equipos: [{ id: "e1", descripcion: "Vibrador de inmersión", unidad: "día", rendimiento: 0.8, costoUnit: 45 }],
-    gastosGeneralesPct: 15,
+    gastosGeneralesPct: 0,
     utilidadPct: 10,
     aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
   },
@@ -877,7 +879,7 @@ function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
   // Aportes Patronales es un componente más de Costo Directo — se aplica
   // solo sobre sumMO, nunca sobre materiales ni equipos (ver apu-calc.ts).
   const costoDirecto = sumMat + sumMO + sumEq + montoAportesPatronales(sumMO, apu.aportesPatronalesPct);
-  const precioFinal  = calcularPrecioUnitario(costoDirecto, apu.gastosGeneralesPct, apu.utilidadPct);
+  const precioFinal  = calcularPrecioUnitario(costoDirecto, apu.utilidadPct);
   return { costoDirecto, precioFinal };
 }
 
@@ -2301,21 +2303,6 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
               </div>
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-500">Gastos generales</span>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      value={apu.gastosGeneralesPct}
-                      onChange={(e) => onApuChange({ ...apu, gastosGeneralesPct: parseFloat(e.target.value) || 0 })}
-                      className="w-10 text-center text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
-                    />
-                    <span className="text-xs text-slate-400">%</span>
-                  </div>
-                </div>
-                <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto * apu.gastosGeneralesPct / 100)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
                   <span className="text-slate-500">Utilidad</span>
                   <div className="flex items-center gap-1">
                     <input
@@ -2327,7 +2314,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <span className="text-xs text-slate-400">%</span>
                   </div>
                 </div>
-                <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto * (1 + apu.gastosGeneralesPct / 100) * apu.utilidadPct / 100)}</span>
+                <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto * apu.utilidadPct / 100)}</span>
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-slate-200">
@@ -2725,7 +2712,7 @@ export default function ProyectoPage() {
               materiales:         rubro.apu.materiales ?? [],
               manoObra:           rubro.apu.manoObra   ?? [],
               equipos:            rubro.apu.equipos    ?? [],
-              gastosGeneralesPct: rubro.apu.gastosGeneralesPct ?? 15,
+              gastosGeneralesPct: rubro.apu.gastosGeneralesPct ?? 0,
               utilidadPct:        rubro.apu.utilidadPct        ?? 10,
               aportesPatronalesPct: rubro.apu.aportesPatronalesPct ?? APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra:   rubro.apu.porcentajePiedra   ?? 0.30,
@@ -2904,6 +2891,18 @@ export default function ProyectoPage() {
   // guards reales en las rutas PATCH/DELETE/POST de rubros y capítulos).
   const soloLectura = proyectoActivo.estado === "FINALIZADO";
   const totalGeneral = capitulos.reduce((s, c) => s + totalCapitulo(c), 0);
+  // Costo Directo → Costos Indirectos → Utilidad agregados a nivel
+  // proyecto — reemplazan a la vieja tarjeta fija Total/IVA/Total+IVA (ver
+  // costoAgregado.ts). Sobre datos ya cargados en memoria, sin consulta
+  // nueva — mismo patrón que computarMOTotalPorCapitulo.
+  const costoDirectoAgregado = calcularCostoDirectoAgregado(capitulos, apuData);
+  const costosIndirectosAgregados = calcularCostosIndirectosAgregados(
+    proyecto?.modoGastosGenerales,
+    proyecto?.gastosGeneralesDetallado,
+    proyecto?.gastosGeneralesPctDefault,
+    costoDirectoAgregado.total
+  );
+  const utilidadAgregada = calcularUtilidadAgregada(capitulos, apuData);
   const cuantiaObra = computarCuantiaObra(capitulos, apuData, categoriasLaborales);
   // Mismo jornal de referencia que usa computarCuantiaObra — se pasa aparte
   // a SeccionLeyesSociales para calcular sus propios jornales a partir de
@@ -2941,12 +2940,11 @@ export default function ProyectoPage() {
     ? capitulos.find((c) => c.rubros.some((r) => r.id === drawerRubroId))?.id ?? null
     : null;
   // Default para el APU de un rubro SIN APU propio todavía (rubro recién
-  // creado a mano) — usa el default del proyecto en vez de 15/10 fijo (ver
-  // Proyecto.gastosGeneralesPctDefault/utilidadPctDefault). En modo
-  // Detallado, Gastos Generales arranca en 0% (se cobra aparte, ver
-  // SeccionGastosGeneralesUtilidades).
-  const ggPctDefaultRubroNuevo =
-    proyecto?.modoGastosGenerales === "DETALLADO" ? 0 : proyecto?.gastosGeneralesPctDefault ?? 15;
+  // creado a mano) — usa el default del proyecto en vez de 10 fijo (ver
+  // Proyecto.utilidadPctDefault). Gastos Generales ya no se prorratea por
+  // rubro (pasó a ser un monto agregado a nivel proyecto, ver
+  // costoAgregado.ts) — gastosGeneralesPct queda siempre en 0, campo inerte
+  // que se conserva en el modelo pero ya no participa de ningún cálculo.
   const utilidadPctDefaultRubroNuevo = proyecto?.utilidadPctDefault ?? 10;
   // Aportes Patronales: se lee en vivo de Leyes Sociales del proyecto (ya
   // cargado en estado) — fallback al default legal si todavía no se
@@ -2956,7 +2954,7 @@ export default function ProyectoPage() {
     : APORTES_PATRONALES_PCT_LEGAL_DEFAULT;
   const drawerAPU = drawerRubroId ? (apuData[drawerRubroId] ?? {
     materiales: [], manoObra: [], equipos: [],
-    gastosGeneralesPct: ggPctDefaultRubroNuevo, utilidadPct: utilidadPctDefaultRubroNuevo,
+    gastosGeneralesPct: 0, utilidadPct: utilidadPctDefaultRubroNuevo,
     aportesPatronalesPct: aportesPatronalesPctDefaultRubroNuevo, porcentajePiedra: 0.30,
   }) : null;
 
@@ -3164,7 +3162,7 @@ export default function ProyectoPage() {
           .then((data) => {
             if (!data) return;
             const nuevoAPU: APU = {
-              gastosGeneralesPct: 15,
+              gastosGeneralesPct: 0,
               utilidadPct: 10,
               aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra: 0.30,
@@ -3468,7 +3466,7 @@ export default function ProyectoPage() {
           .then((data) => {
             if (!data) return;
             const nuevoAPU: APU = {
-              gastosGeneralesPct: 15,
+              gastosGeneralesPct: 0,
               utilidadPct: 10,
               aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra: 0.30,
@@ -3773,7 +3771,7 @@ export default function ProyectoPage() {
 
       // Construir objeto APU compatible con el estado local
       const nuevoAPU: APU = {
-        gastosGeneralesPct: 15,
+        gastosGeneralesPct: 0,
         utilidadPct: 10,
         aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
         porcentajePiedra: 0.30,
@@ -4767,28 +4765,21 @@ export default function ProyectoPage() {
           </div>
         </div>
 
-        {/* ── Total / IVA / Total + IVA — tarjetas separadas ── */}
-        <div className="flex flex-col gap-2 mt-2">
-
-          {/* Tarjeta 1 - TOTAL */}
-          <div className="bg-white border border-slate-200 rounded-lg px-5 py-3 flex justify-between items-center">
-            <span className="text-sm font-medium text-slate-700 uppercase tracking-wide">Total</span>
-            <span className="text-lg font-semibold text-slate-900">{fmtMoneda(totalGeneral, moneda)}</span>
-          </div>
-
-          {/* Tarjeta 2 - IVA */}
-          <div className="bg-white border border-slate-200 rounded-lg px-5 py-3 flex justify-between items-center">
-            <span className="text-sm font-medium text-slate-500">IVA (22%)</span>
-            <span className="text-base font-medium text-slate-700">+ {fmtMoneda(totalGeneral * 0.22, moneda)}</span>
-          </div>
-
-          {/* Tarjeta 3 - TOTAL + IVA */}
-          <div className="bg-white border-2 border-[#1A3A5C] rounded-lg px-5 py-4 flex justify-between items-center">
-            <span className="text-sm font-semibold uppercase tracking-wide text-[#2563EB]">Total + IVA</span>
-            <span className="text-lg font-bold text-[#2563EB]">{fmtMoneda(totalGeneral * 1.22, moneda)}</span>
-          </div>
-
-        </div>
+        {/* ── Costo Directo → Costos Indirectos → Costo Total → Utilidad
+            → Base Imponible → Precio Final — reemplaza a la vieja tarjeta
+            fija Total/IVA/Total+IVA (ya no existe: Gastos Generales pasó a
+            ser un monto agregado acá, no ignorado como antes). ── */}
+        <SeccionCostoPrecioFinal
+          moneda={moneda}
+          costoDirecto={costoDirectoAgregado.total}
+          metodoCostoDirecto={costoDirectoAgregado.metodo}
+          rubrosSinApu={costoDirectoAgregado.rubrosSinApu}
+          modoGastosGenerales={proyecto?.modoGastosGenerales ?? "PORCENTAJE"}
+          gastosGeneralesPctDefault={proyecto?.gastosGeneralesPctDefault ?? null}
+          gastosGeneralesDetallado={proyecto?.gastosGeneralesDetallado ?? null}
+          costosIndirectos={costosIndirectosAgregados}
+          utilidadAgregada={utilidadAgregada}
+        />
 
         {mostrarModalCapitulo && (
           <ModalAgregarCapitulo

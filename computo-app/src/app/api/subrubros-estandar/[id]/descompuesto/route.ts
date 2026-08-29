@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sumEquipos, sumManoObra } from "@/lib/apu-calc";
+import { sumEquipos, sumManoObra, calcularPrecioUnitario } from "@/lib/apu-calc";
 
 // GET — descompuesto (APU) completo de un rubro del catálogo maestro, para
 // consulta de solo lectura en la Biblioteca (/rubros).
@@ -123,14 +123,16 @@ export async function GET(
     const sumMat = materiales.reduce((s, m) => s + m.subtotal, 0);
     const sumMO = sumManoObra(manoObra, equipos);
     const sumEq = sumEquipos(equipos);
+    // Gastos Generales ya no compone el precio de referencia de biblioteca —
+    // dejó de prorratearse por rubro/subrubro, pasó a ser un monto agregado
+    // a nivel proyecto (ver costoAgregado.ts). Usa la fórmula canónica
+    // compartida en vez de una copia inline (como tenía antes).
     const costoDirecto = sumMat + sumMO + sumEq;
-    const precioUnitFinal =
-      costoDirecto * (1 + apuEstandar.gastosGeneralesPct / 100) * (1 + apuEstandar.utilidadPct / 100);
+    const precioUnitFinal = calcularPrecioUnitario(costoDirecto, apuEstandar.utilidadPct);
 
     return NextResponse.json({
       ...base,
       apu: {
-        gastosGeneralesPct: apuEstandar.gastosGeneralesPct,
         utilidadPct: apuEstandar.utilidadPct,
         materiales,
         manoObra,

@@ -12,14 +12,18 @@ export async function PUT(
     const body = await req.json();
 
     // eslint-disable-next-line prefer-const
-    let { gastosGeneralesPct, utilidadPct, aportesPatronalesPct } = body;
+    let { utilidadPct, aportesPatronalesPct } = body;
     const { porcentajePiedra = 0.30, materiales = [], manoObra = [], equipos = [] } = body;
 
     // El cliente (DrawerAPU) siempre manda un valor explícito — este
     // fallback solo entra en juego si el body no los trae. Usa el default
-    // del proyecto en vez de 15/10/10,2 fijo (ver
-    // Proyecto.gastosGeneralesPctDefault y LeyesSociales del proyecto).
-    if (gastosGeneralesPct == null || utilidadPct == null || aportesPatronalesPct == null) {
+    // del proyecto en vez de 10/10,2 fijo (ver Proyecto.utilidadPctDefault
+    // y LeyesSociales del proyecto). gastosGeneralesPct ya NO se lee del
+    // body ni tiene fallback — Gastos Generales dejó de prorratearse por
+    // rubro, es un monto agregado a nivel proyecto (ver costoAgregado.ts);
+    // el campo se fuerza a 0 más abajo, campo inerte conservado en el
+    // modelo por ahora.
+    if (utilidadPct == null || aportesPatronalesPct == null) {
       const rubro = await db.rubro.findUnique({
         where: { id: rubroId },
         select: {
@@ -27,7 +31,7 @@ export async function PUT(
             select: {
               proyecto: {
                 select: {
-                  gastosGeneralesPctDefault: true, utilidadPctDefault: true, modoGastosGenerales: true,
+                  utilidadPctDefault: true,
                   leyesSociales: {
                     select: {
                       focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
@@ -41,10 +45,6 @@ export async function PUT(
         },
       });
       const proyectoDefaults = rubro?.capitulo?.proyecto;
-      if (gastosGeneralesPct == null) {
-        gastosGeneralesPct =
-          proyectoDefaults?.modoGastosGenerales === "DETALLADO" ? 0 : proyectoDefaults?.gastosGeneralesPctDefault ?? 15;
-      }
       if (utilidadPct == null) {
         utilidadPct = proyectoDefaults?.utilidadPctDefault ?? 10;
       }
@@ -59,10 +59,10 @@ export async function PUT(
     const apu = apuExistente
       ? await db.aPU.update({
           where: { rubroId },
-          data: { gastosGeneralesPct, utilidadPct, aportesPatronalesPct, porcentajePiedra },
+          data: { gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra },
         })
       : await db.aPU.create({
-          data: { rubroId, gastosGeneralesPct, utilidadPct, aportesPatronalesPct, porcentajePiedra },
+          data: { rubroId, gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra },
         });
 
     const apuId = apu.id;
