@@ -146,7 +146,11 @@ export default function SeccionGastosGeneralesUtilidades({
             <span className="text-xs font-normal text-slate-400 whitespace-nowrap">
               Gastos Generales + Beneficio
             </span>
-            <span className="text-lg font-bold text-[#2563EB] tabular-nums">{fmtMoneda(montoCombinado, moneda)}</span>
+            {/* Negro, no azul — el azul acento (#2563EB) queda reservado
+                solo para Precio Final y Leyes Sociales/BPS. Mismo tamaño
+                que el título (text-sm) — antes se veía más grande y
+                desequilibraba la fila. */}
+            <span className="text-sm font-bold text-slate-900 tabular-nums">{fmtMoneda(montoCombinado, moneda)}</span>
           </div>
           <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
             {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}

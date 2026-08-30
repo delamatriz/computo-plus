@@ -234,12 +234,17 @@ export default function SeccionLeyesSociales({
       >
         <div className="flex items-center gap-2.5">
           <Building2 className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Leyes Sociales / BPS</h2>
+          {/* Única tarjeta (junto con Precio Final) que lleva el azul
+              acento en el título — no el navy #1A3A5C que usan las demás. */}
+          <h2 className="text-sm font-bold text-[#2563EB] uppercase tracking-wide">Leyes Sociales / BPS</h2>
         </div>
         <div className="flex items-center gap-3">
           {!!totalPropietario && (
             <div className="flex items-baseline gap-1.5">
               <span className="text-xs font-normal text-slate-400">(aportes propietario: AUC + Timbres)</span>
+              {/* Mismo tamaño que el monto de Precio Final (text-lg) —
+                  las dos únicas tarjetas en azul de la cascada comparten
+                  el mismo peso visual, incluido el tamaño del monto. */}
               <span className="text-lg font-bold text-[#2563EB] tabular-nums">{fmtMoneda(totalPropietario, moneda)}</span>
             </div>
           )}

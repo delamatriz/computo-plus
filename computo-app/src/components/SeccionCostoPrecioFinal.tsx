@@ -17,28 +17,31 @@ function EspaciadorChevron() {
   return <span className="w-4 h-4 flex-shrink-0" aria-hidden="true" />;
 }
 
-// Tarjeta apilada suelta — mismo estilo que ya usaban Total/IVA antes de
-// esta feature: fondo blanco, borde fino, sombra sutil, sin el peso visual
-// de una tarjeta con borde grueso (eso queda reservado para "Precio Final").
+// Tarjeta apilada suelta — fondo blanco, borde fino, sombra sutil, sin el
+// peso visual de una tarjeta con borde grueso (eso queda reservado para
+// "Precio Final", la única realmente "destacada" de la cascada, con su
+// monto a propósito más grande que su título — es el número final de
+// toda la obra). En el resto (Costo Total acá; Costo Directo, Gastos
+// Generales y Leyes Sociales/BPS en sus propios archivos), el monto en
+// negrita usa el MISMO tamaño que su título — antes se veía más grande,
+// desequilibrando la fila. IVA no entra en esta variante — su monto no
+// es negrita, queda con su propio tamaño sin tocar (ver JSX inline en
+// TarjetaCostoTotalPrecioFinal).
 function TarjetaSuelta({
   label,
   monto,
   moneda,
-  prefijo,
   destacado = false,
-  pesoMedio = false,
 }: {
   label: string;
   monto: number;
   moneda: string;
-  prefijo?: string;
   destacado?: boolean;
-  pesoMedio?: boolean;
 }) {
   if (destacado) {
     return (
       <div className="bg-white border-2 border-[#1A3A5C] rounded-lg px-5 py-4 flex justify-between items-center">
-        <span className="text-sm font-semibold uppercase tracking-wide text-[#2563EB]">{label}</span>
+        <span className="text-sm font-bold uppercase tracking-wide text-[#2563EB]">{label}</span>
         <div className="flex items-center gap-3">
           <span className="text-lg font-bold text-[#2563EB]">{fmtMoneda(monto, moneda)}</span>
           <EspaciadorChevron />
@@ -46,25 +49,11 @@ function TarjetaSuelta({
       </div>
     );
   }
-  if (pesoMedio) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-lg px-5 py-3 flex justify-between items-center">
-        <span className="text-sm font-medium text-slate-700 uppercase tracking-wide">{label}</span>
-        <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-slate-900">{fmtMoneda(monto, moneda)}</span>
-          <EspaciadorChevron />
-        </div>
-      </div>
-    );
-  }
   return (
     <div className="bg-white border border-slate-200 rounded-lg px-5 py-3 flex justify-between items-center">
-      <span className="text-sm font-medium text-slate-500">{label}</span>
+      <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">{label}</span>
       <div className="flex items-center gap-3">
-        <span className="text-base font-medium text-slate-700">
-          {prefijo}
-          {fmtMoneda(monto, moneda)}
-        </span>
+        <span className="text-sm font-bold text-slate-900">{fmtMoneda(monto, moneda)}</span>
         <EspaciadorChevron />
       </div>
     </div>
@@ -101,18 +90,18 @@ export function TarjetaCostoDirecto({
           </p>
         </div>
       )}
-      {/* Misma jerarquía visual que el header de "Gastos Generales y
-          Beneficio" (icono + título bold azul oscuro uppercase, monto
-          bold azul brillante) — antes usaba TarjetaSuelta default, que
-          la dejaba con menos peso visual que la tarjeta siguiente en la
-          misma cascada. */}
+      {/* Mismo peso tipográfico que el header de "Gastos Generales y
+          Beneficio" (icono + título bold azul oscuro uppercase) — el
+          monto va en negro, no azul: el azul acento (#2563EB) queda
+          reservado solo para Precio Final y Leyes Sociales/BPS, las
+          únicas 2 tarjetas de la cascada que lo llevan. */}
       <div className="bg-white border border-slate-200 rounded-lg px-5 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <Layers className="w-4 h-4 text-[#2563EB]" />
           <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Costo Directo</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-lg font-bold text-[#2563EB] tabular-nums">{fmtMoneda(costoDirecto, moneda)}</span>
+          <span className="text-sm font-bold text-slate-900 tabular-nums">{fmtMoneda(costoDirecto, moneda)}</span>
           <EspaciadorChevron />
         </div>
       </div>
@@ -139,8 +128,17 @@ export function TarjetaCostoTotalPrecioFinal({
 
   return (
     <div className="flex flex-col gap-2 mt-2">
-      <TarjetaSuelta label="Costo Total" monto={costoTotal} moneda={moneda} pesoMedio />
-      <TarjetaSuelta label="IVA (22%)" monto={montoIVA} moneda={moneda} prefijo="+ " />
+      <TarjetaSuelta label="Costo Total" monto={costoTotal} moneda={moneda} />
+      {/* IVA no lleva monto en negrita (sigue font-semibold, no bold) —
+          pero mismo tamaño que el resto de la cascada (text-sm), para
+          no desequilibrar la fila. */}
+      <div className="bg-white border border-slate-200 rounded-lg px-5 py-3 flex justify-between items-center">
+        <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">IVA (22%)</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-slate-900">+ {fmtMoneda(montoIVA, moneda)}</span>
+          <EspaciadorChevron />
+        </div>
+      </div>
       <TarjetaSuelta label="Precio Final" monto={precioFinal} moneda={moneda} destacado />
     </div>
   );
