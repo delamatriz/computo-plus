@@ -24,6 +24,7 @@ import {
   ClipboardCheck,
   Lock,
   LockOpen,
+  Clock,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -4008,6 +4009,24 @@ export default function ProyectoPage() {
                     const materialesSinPrecioRubro = tieneAPU
                       ? apuData[rubro.id].materiales.filter((m) => m.precioUnit === 0).length
                       : 0;
+                    // Mismo criterio que BadgeVerificacion.tsx para "Pendiente de
+                    // verificar" — proveedor real (mercado libre, no MTOP oficial)
+                    // sin fechaUltimaVerificacion, excluyendo los casos que ya
+                    // tienen su propio badge distinto ahí (alerta específica o "a
+                    // cotizar"). Duplicado a propósito acá en vez de importar
+                    // ETIQUETAS_MOTIVO_ESPECIFICO (no exportado) — mantener en
+                    // sync si esa lista cambia.
+                    const materialesPendientesVerificar = tieneAPU
+                      ? apuData[rubro.id].materiales.filter(
+                          (m) =>
+                            !!m.proveedor &&
+                            !m.fechaUltimaVerificacion &&
+                            m.motivoVerificacion !== "sin_precio_referencia" &&
+                            !["variacion_alta", "producto_no_encontrado", "fuente_no_disponible", "sin_costo_referencia"].includes(
+                              m.motivoVerificacion ?? ""
+                            )
+                        ).length
+                      : 0;
                     const precioDesactualizado = tieneAPU && precioAPUDesincronizado(rubro.precioUnit, apuPrecio);
                     // Rubro con precio pactado (sobrevivió a un "Entregar") sin
                     // decisión todavía en esta sesión — cantidad/precioUnit se
@@ -4070,7 +4089,7 @@ export default function ProyectoPage() {
                                   ? "Precio pactado — cantidad libre, precio unitario bloqueado"
                                   : decisionPrecio === "actualizar"
                                   ? "Precio actualizado al vigente en esta edición"
-                                  : "Rubro con precio pactado — tocá cantidad o precio unitario para decidir si actualizar"
+                                  : "Precio pactado de una entrega anterior — tocá cantidad o precio para elegir mantenerlo o actualizarlo al vigente"
                               }
                             >
                               <Lock className={cn("w-3 h-3", pendienteDecisionPrecio ? "text-amber-500" : "text-slate-300")} />
@@ -4079,8 +4098,15 @@ export default function ProyectoPage() {
                           {apuGenerando.has(rubro.id) && (
                             <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Generando APU…" />
                           )}
-                          {!apuGenerando.has(rubro.id) && tieneAPU && apuPrecio > 0 && (
-                            <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" title="Precio de referencia — requiere verificación" />
+                          {materialesPendientesVerificar > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setDrawerRubroId(rubro.id); }}
+                              title={`${materialesPendientesVerificar} material${materialesPendientesVerificar !== 1 ? "es" : ""} sin verificar precio de mercado — click para revisar en el descompuesto`}
+                              className="flex-shrink-0 hover:opacity-70 transition-opacity"
+                            >
+                              <Clock className="w-3 h-3 text-amber-500" />
+                            </button>
                           )}
                           {materialesSinPrecioRubro > 0 && (
                             <span
