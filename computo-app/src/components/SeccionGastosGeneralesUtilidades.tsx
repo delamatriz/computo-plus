@@ -12,6 +12,7 @@ import {
   type CategoriaGastoGeneral,
   type ModoGastosGenerales,
 } from "@/lib/gastosGenerales";
+import { RESERVA_COLA_TABLA } from "@/lib/layoutTablaPresupuesto";
 
 // Re-exportado desde @/lib/gastosGenerales (lógica pura, compartida con
 // pdf/route.ts) — se mantiene acá para no tener que tocar los imports
@@ -155,6 +156,11 @@ export default function SeccionGastosGeneralesUtilidades({
           <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
             {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </span>
+          {/* Mismo ancho de cola que la tabla de capítulos/rubros después
+              del chevron (ver layoutTablaPresupuesto.ts) — sin esto, el
+              monto quedaba alineado solo contra el chevron, no contra el
+              TOTAL de la tabla. */}
+          <span style={{ width: `calc(${RESERVA_COLA_TABLA} - 40px)` }} className="flex-shrink-0" aria-hidden="true" />
         </div>
       </button>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, Layers } from "lucide-react";
+import { RESERVA_COLA_TABLA } from "@/lib/layoutTablaPresupuesto";
 
 function fmtMoneda(v: number, moneda: string): string {
   if (!v) return "—";
@@ -8,13 +9,15 @@ function fmtMoneda(v: number, moneda: string): string {
   return moneda === "USD" ? `U$S ${fmt}` : `$ ${fmt}`;
 }
 
-// Espaciador invisible — mismo ancho + separación que el chevron de las
-// tarjetas colapsables vecinas (Gastos Generales y Beneficio, Leyes
-// Sociales/BPS: `gap-3` + `w-4 h-4`), para que el monto de las tarjetas
-// SIN chevron quede en la misma columna vertical que el de las que sí
-// tienen uno, en vez de correrse hacia la derecha.
+// Espaciador invisible — reserva el mismo ancho de cola que la tabla de
+// capítulos/rubros (COL_PCT + COL_ACCION × 2, ver layoutTablaPresupuesto.ts)
+// después del monto, menos el gap-3 (12px) que ya separa el monto de este
+// espaciador en el flex de cada tarjeta — así el borde derecho del monto
+// queda en la misma columna vertical que el TOTAL de la tabla, en vez de
+// alinearse solo contra el chevron de las tarjetas colapsables vecinas
+// (que era la referencia anterior, antes de esta corrección).
 function EspaciadorChevron() {
-  return <span className="w-4 h-4 flex-shrink-0" aria-hidden="true" />;
+  return <span style={{ width: `calc(${RESERVA_COLA_TABLA} - 12px)` }} className="flex-shrink-0" aria-hidden="true" />;
 }
 
 // Tarjeta apilada suelta — fondo blanco, borde fino, sombra sutil, sin el

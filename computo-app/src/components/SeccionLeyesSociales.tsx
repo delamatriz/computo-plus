@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Building2, ChevronDown, ChevronRight, RotateCw, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { RESERVA_COLA_TABLA } from "@/lib/layoutTablaPresupuesto";
 
 export interface LeyesSocialesData {
   tipoContratante: "empresa" | "propietario_directo";
@@ -251,6 +252,11 @@ export default function SeccionLeyesSociales({
           <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
             {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </span>
+          {/* Mismo ancho de cola que la tabla de capítulos/rubros después
+              del chevron (ver layoutTablaPresupuesto.ts) — sin esto, el
+              monto quedaba alineado solo contra el chevron, no contra el
+              TOTAL de la tabla. */}
+          <span style={{ width: `calc(${RESERVA_COLA_TABLA} - 40px)` }} className="flex-shrink-0" aria-hidden="true" />
         </div>
       </button>
 

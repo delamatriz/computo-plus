@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario, montoAportesPatronales, sumarAportesPatronalesPct, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/apu-calc";
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
+import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularUtilidadAgregada } from "@/lib/costoAgregado";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
@@ -842,26 +843,10 @@ function fmtPct(v: number | null): string {
   return `${v.toLocaleString("es-UY", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
 
-// Anchos de columna compartidos entre la fila de Capítulo y la fila de Rubro
-// de la tabla del proyecto. Total y % Incid. existen en ambos niveles y tienen
-// que quedar alineados verticalmente — en vez de repetir los mismos anchos en
-// dos lugares (y tener que acordarse de tocar los dos si cambian), ambas filas
-// usan CSS Grid con una plantilla de columnas que comparte estos mismos
-// valores, así solo hay un lugar para ajustar.
-const COL_TOTAL = "116px";
-const COL_PCT = "80px";
-const COL_ACCION = "28px";
-const COL_ICONO = "64px";
-const GRID_CAPITULO = `minmax(0,1fr) ${COL_TOTAL} ${COL_PCT} ${COL_ACCION} ${COL_ACCION}`;
-// minmax(160px,1fr) en vez de minmax(0,1fr) — con un mínimo de 0 y el
-// min-w del contenedor apenas más ancho que la suma de columnas fijas
-// (bug real visto en mobile, reportado por Luis), Descripción quedaba
-// con ~24px reales: el texto del header ("Descripción") no entraba y
-// se dibujaba encima de "Unidad" sin que el grid layout tuviera ningún
-// error de superposición — simplemente no había ancho para contenerlo.
-// 160px mínimo + el resto de las columnas fijas fuerza scroll horizontal
-// real en mobile en vez de un ancho inutilizable.
-const GRID_RUBRO = `${COL_ICONO} minmax(160px,1fr) 76px 96px 116px ${COL_TOTAL} ${COL_PCT} ${COL_ACCION}`;
+// Anchos de columna de la tabla del proyecto — ver layoutTablaPresupuesto.ts
+// (importados desde ahí, no declarados acá, para que las tarjetas de la
+// cascada de abajo, Costo Directo/Gastos Generales/etc., puedan usar los
+// mismos valores sin depender circularmente de este archivo).
 
 // Columna Descripción fija a la izquierda al hacer scroll horizontal en
 // mobile (diseño acordado — la tabla de rubros no pasa a tarjetas
@@ -3999,6 +3984,7 @@ export default function ProyectoPage() {
                   <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Total</div>
                   <div className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">% Incid.</div>
                   <div />
+                  <div />
                 </div>
 
                 {/* Filas */}
@@ -4238,6 +4224,7 @@ export default function ProyectoPage() {
                             </button>
                           )}
                         </div>
+                        <div />
                       </div>
                     );
                   })}
@@ -4257,6 +4244,7 @@ export default function ProyectoPage() {
                   <div className="px-2 text-xs font-bold tabular-nums text-right text-[#2563EB] whitespace-nowrap">
                     {fmtPct(pctIncidencia(totalCap, totalGeneral))}
                   </div>
+                  <div />
                   <div />
                 </div>
 
