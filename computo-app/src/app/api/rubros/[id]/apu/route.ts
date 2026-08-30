@@ -82,8 +82,11 @@ export async function PUT(
           orden:        i,
           // Se recrea todo el APU en cada autosave — sin esto, el motivo
           // clonado de la biblioteca se perdía apenas el usuario tocaba
-          // cualquier otro campo del APU (ver clonar-apu/route.ts).
+          // cualquier otro campo del APU (ver clonar-apu/route.ts). Mismo
+          // criterio para proveedor/fechaUltimaVerificacion (ver BadgeVerificacion).
           motivoVerificacion: m.motivoVerificacion ?? null,
+          proveedor: m.proveedor ?? null,
+          fechaUltimaVerificacion: m.fechaUltimaVerificacion ? new Date(m.fechaUltimaVerificacion) : null,
         },
       });
       if (Array.isArray(m.componentes)) {

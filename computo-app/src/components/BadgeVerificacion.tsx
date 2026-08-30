@@ -1,4 +1,4 @@
-import { AlertTriangle, BadgeCheck, HelpCircle } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Clock, HelpCircle } from "lucide-react";
 
 // Badge de gobernanza FEAT-AI-006 — compartido entre la biblioteca de
 // solo lectura (/rubros) y el editor real de proyecto (DrawerAPU en
@@ -69,12 +69,28 @@ export function BadgeVerificacion({ fuente }: { fuente: FuenteMaterial }) {
   }
 
   if (fuente.proveedor) {
-    const fecha = fuente.fechaUltimaVerificacion
-      ? new Date(fuente.fechaUltimaVerificacion).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" })
-      : null;
+    // Elegible para el job de verificación de precios (FEAT-AI-006) pero
+    // todavía sin ninguna corrida real encima — fechaUltimaVerificacion
+    // null es la señal (limpiada de backfills falsos, ver
+    // scripts/limpiar-fecha-verificacion-falsa.ts). Estilo neutro
+    // (slate/azul), a propósito distinto del ámbar de alerta y del verde
+    // de confirmado — "todavía no lo chequeamos" no es un problema.
+    if (!fuente.fechaUltimaVerificacion) {
+      return (
+        <span
+          title="Todavía no pasó por el job de verificación de precios de mercado"
+          className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-slate-100 text-slate-500 border border-slate-200 uppercase tracking-wide whitespace-nowrap"
+        >
+          <Clock className="w-2.5 h-2.5" />
+          Pendiente de verificar
+        </span>
+      );
+    }
+
+    const fecha = new Date(fuente.fechaUltimaVerificacion).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
     return (
       <span
-        title={fecha ? `Verificado ${fecha}` : "Fuente verificada"}
+        title={`Verificado ${fecha}`}
         className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide whitespace-nowrap"
       >
         <BadgeCheck className="w-2.5 h-2.5" />

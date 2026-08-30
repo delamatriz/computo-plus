@@ -115,6 +115,11 @@ export async function POST(
           // Propagado del match, si lo hay — para que DrawerAPU pueda
           // mostrar el motivo real en vez de un $0 mudo (ver BadgeVerificacion).
           motivoVerificacion: precioMTOP?.motivoVerificacion ?? null,
+          // Mismo propósito: sin esto, DrawerAPU no podía distinguir
+          // "Pendiente de verificar" de "genuinamente verificado" — solo
+          // /rubros (biblioteca) podía, porque consulta PrecioMTOP en vivo.
+          proveedor: precioMTOP?.proveedor ?? null,
+          fechaUltimaVerificacion: precioMTOP?.fechaUltimaVerificacion ?? null,
         },
       });
     }

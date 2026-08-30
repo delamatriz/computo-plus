@@ -227,6 +227,12 @@ interface InsumoAPU {
   // biblioteca — ver BadgeVerificacion. null/undefined = sin motivo
   // conocido (cae al mensaje genérico "Precio incompleto").
   motivoVerificacion?: string | null;
+  // Mismo origen que motivoVerificacion, agregados después — sin estos,
+  // BadgeVerificacion no puede distinguir "Pendiente de verificar" (sin
+  // motivo, sin fecha) de "genuinamente verificado" (sin motivo, con
+  // fecha) acá en DrawerAPU.
+  proveedor?: string | null;
+  fechaUltimaVerificacion?: string | null;
 }
 
 interface PrecioMTOPResult {
@@ -1748,18 +1754,16 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                 ref={m.id === nuevoMatId ? (el) => el?.scrollIntoView({ block: "center" }) : undefined}
                                 onFocus={() => { if (m.id === nuevoMatId) setNuevoMatId(null); }}
                               />
-                              {m.motivoVerificacion && (
-                                <BadgeVerificacion
-                                  fuente={{
-                                    proveedor: null,
-                                    nombreProducto: null,
-                                    urlReferencia: null,
-                                    fechaUltimaVerificacion: null,
-                                    requiereVerificacion: true,
-                                    motivoVerificacion: m.motivoVerificacion,
-                                  }}
-                                />
-                              )}
+                              <BadgeVerificacion
+                                fuente={{
+                                  proveedor: m.proveedor ?? null,
+                                  nombreProducto: null,
+                                  urlReferencia: null,
+                                  fechaUltimaVerificacion: m.fechaUltimaVerificacion ?? null,
+                                  requiereVerificacion: false,
+                                  motivoVerificacion: m.motivoVerificacion ?? null,
+                                }}
+                              />
                             </div>
                           </td>
                           <td className="text-center">
@@ -2123,18 +2127,20 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                               placeholder="Descripción"
                               className={cn(inputCls, "flex-1 min-w-0", modo === "PROPIO_SIN_COSTO" && "italic")}
                             />
-                            {eq.motivoVerificacion && (
-                              <BadgeVerificacion
-                                fuente={{
-                                  proveedor: null,
-                                  nombreProducto: null,
-                                  urlReferencia: null,
-                                  fechaUltimaVerificacion: null,
-                                  requiereVerificacion: true,
-                                  motivoVerificacion: eq.motivoVerificacion,
-                                }}
-                              />
-                            )}
+                            {/* Equipos no tienen proveedor/fechaUltimaVerificacion —
+                                salen de PrecioEquipo, sin el aparato de gobernanza de
+                                FEAT-AI-006 (ver investigación). Nunca van a mostrar
+                                "Pendiente de verificar", queda igual que antes. */}
+                            <BadgeVerificacion
+                              fuente={{
+                                proveedor: null,
+                                nombreProducto: null,
+                                urlReferencia: null,
+                                fechaUltimaVerificacion: null,
+                                requiereVerificacion: false,
+                                motivoVerificacion: eq.motivoVerificacion ?? null,
+                              }}
+                            />
                           </div>
                           <SelectorModoCosteo modo={modo} onChange={(m) => setModoCosteoEq(eq.id, m)} />
                         </td>
@@ -3415,6 +3421,8 @@ export default function ProyectoPage() {
                 precioUnit: m.precioUnit,
                 dosificacion: m.dosificacion,
                 motivoVerificacion: m.motivoVerificacion,
+                proveedor: m.proveedor,
+                fechaUltimaVerificacion: m.fechaUltimaVerificacion,
               })),
               manoObra: apuClonado.manoObra.map((mo: ManoObraAPU) => ({
                 id: mo.id,

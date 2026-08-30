@@ -287,6 +287,13 @@ model MaterialAPU {
   // Mismos valores posibles que en PrecioMTOP — no es un enum a propósito,
   // mismo criterio que el campo de origen.
   motivoVerificacion String?
+  // Mismo criterio que motivoVerificacion, agregados después — sin estos
+  // dos, BadgeVerificacion no podía distinguir "elegible para el job de
+  // FEAT-AI-006 pero nunca procesado" (Pendiente de verificar) de
+  // "genuinamente verificado" en DrawerAPU, aunque en /rubros (biblioteca)
+  // sí podía (ver PrecioMTOP.proveedor/fechaUltimaVerificacion).
+  proveedor               String?
+  fechaUltimaVerificacion DateTime?
 }
 
 model ComponenteAPU {
