@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Layers } from "lucide-react";
 
 function fmtMoneda(v: number, moneda: string): string {
   if (!v) return "—";
@@ -101,7 +101,21 @@ export function TarjetaCostoDirecto({
           </p>
         </div>
       )}
-      <TarjetaSuelta label="Costo Directo" monto={costoDirecto} moneda={moneda} />
+      {/* Misma jerarquía visual que el header de "Gastos Generales y
+          Beneficio" (icono + título bold azul oscuro uppercase, monto
+          bold azul brillante) — antes usaba TarjetaSuelta default, que
+          la dejaba con menos peso visual que la tarjeta siguiente en la
+          misma cascada. */}
+      <div className="bg-white border border-slate-200 rounded-lg px-5 py-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <Layers className="w-4 h-4 text-[#2563EB]" />
+          <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Costo Directo</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-lg font-bold text-[#2563EB] tabular-nums">{fmtMoneda(costoDirecto, moneda)}</span>
+          <EspaciadorChevron />
+        </div>
+      </div>
     </div>
   );
 }
