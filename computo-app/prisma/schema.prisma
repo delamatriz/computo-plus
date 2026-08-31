@@ -61,6 +61,11 @@ model Proyecto {
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
   memoriaDescriptiva String? @db.Text
+  // Notas del Presupuesto (sección propia, entre Garantías y Resumen del
+  // Presupuesto) — deliberadamente separado de "notas" de arriba, que es
+  // del Visor de Planos/Metraje (otra pantalla, otro propósito). Texto
+  // plano simple, sin Markdown, mismo criterio que memoriaDescriptiva.
+  notasPresupuesto   String? @db.Text
   fechaBaseIndice    DateTime?
   indiceBaseValor    Float?
   ultimaActualizacionIndice DateTime?

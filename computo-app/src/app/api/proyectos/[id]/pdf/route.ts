@@ -132,6 +132,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       garantiaViciosOcultos: proyecto.garantiaViciosOcultos,
       garantiaResponsabilidad: proyecto.garantiaResponsabilidad,
       memoriaDescriptiva: proyecto.memoriaDescriptiva,
+      notasPresupuesto: proyecto.notasPresupuesto,
       titulos: proyecto.titulos.map((t) => ({
         id: t.id,
         nombre: t.nombre,

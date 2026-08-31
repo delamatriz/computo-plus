@@ -113,6 +113,11 @@ export interface ProyectoConCapitulos {
   garantiaViciosOcultos?: string | null;
   garantiaResponsabilidad?: string | null;
   memoriaDescriptiva?: string | null;
+  // Notas del Presupuesto (SeccionNotas.tsx, campo Proyecto.notasPresupuesto
+  // — distinto de Proyecto.notas, que es del Visor de Planos/Metraje) —
+  // texto plano simple sin Markdown, visible en Cerrado/Abierto igual que
+  // Memoria Descriptiva, oculta en "interno".
+  notasPresupuesto?: string | null;
 }
 
 export const TEXTO_LEGAL_RESPONSABILIDAD_DEFAULT =
@@ -197,6 +202,17 @@ function parsearMemoriaDescriptiva(texto: string): BloqueMemoria[] {
     bloques.push({ tipo: "parrafo", texto: trim });
   }
   return bloques;
+}
+
+/* ─── Notas del Presupuesto ────────────────────────────────── */
+// Texto plano simple, sin Markdown (a diferencia de Memoria Descriptiva,
+// que sí necesita parsearMemoriaDescriptiva por su historial de memorias
+// generadas con sintaxis vieja) — cada línea no vacía es un párrafo.
+function parsearNotasPresupuesto(texto: string): string[] {
+  return texto
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
 }
 
 /** Divide un texto por segmentos "**negrita**", para renderizar <Text> anidados
@@ -543,6 +559,31 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: "#475569",
     lineHeight: 1.4,
+  },
+
+  // Notas del Presupuesto — mismo peso visual que Garantías, justo después
+  // en el documento (mismo orden que en la app: Garantías → Notas).
+  bloqueNotas: {
+    marginTop: 18,
+  },
+  separadorNotas: {
+    borderTopWidth: 0.5,
+    borderTopColor: "#CBD5E1",
+    marginBottom: 10,
+  },
+  tituloNotas: {
+    fontSize: 9,
+    fontFamily: "DM Sans", fontWeight: 700,
+    color: "#1A3A5C",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  textoNota: {
+    fontSize: 8,
+    color: "#475569",
+    lineHeight: 1.4,
+    marginBottom: 5,
   },
 
   // Portada
@@ -932,6 +973,10 @@ export function PresupuestoPDF({
     ? parsearMemoriaDescriptiva(proyecto.memoriaDescriptiva)
     : [];
 
+  const notasParrafos = proyecto.notasPresupuesto?.trim()
+    ? parsearNotasPresupuesto(proyecto.notasPresupuesto)
+    : [];
+
   return (
     <Document>
       <Portada proyecto={proyecto} />
@@ -1108,6 +1153,21 @@ export function PresupuestoPDF({
             </Text>
           </View>
         </View>
+
+        {/* Notas — mismo criterio de visibilidad que Memoria Descriptiva
+            (oculta en modo "interno", copia de trabajo propia). Texto
+            plano simple, sin headings/negrita/listas. */}
+        {modo !== "interno" && notasParrafos.length > 0 && (
+          <View style={styles.bloqueNotas} wrap={false}>
+            <View style={styles.separadorNotas} />
+            <Text style={styles.tituloNotas}>Notas</Text>
+            {notasParrafos.map((linea, i) => (
+              <Text key={i} style={styles.textoNota}>
+                {linea}
+              </Text>
+            ))}
+          </View>
+        )}
 
         <PiePagina nombreProyecto={proyecto.nombre} />
       </Page>

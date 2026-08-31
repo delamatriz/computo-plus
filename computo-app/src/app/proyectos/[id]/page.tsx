@@ -43,6 +43,7 @@ import SeccionGastosGeneralesUtilidades, {
 } from "@/components/SeccionGastosGeneralesUtilidades";
 import { TarjetaCostoDirecto, TarjetaCostoTotalPrecioFinal } from "@/components/SeccionCostoPrecioFinal";
 import SeccionGarantias from "@/components/SeccionGarantias";
+import SeccionNotas from "@/components/SeccionNotas";
 import SeccionDiasDeObra from "@/components/SeccionDiasDeObra";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
@@ -89,6 +90,7 @@ interface ProyectoData {
   area: number;
   direccion: string;
   memoriaDescriptiva?: string | null;
+  notasPresupuesto?: string | null;
   createdAt?: string | null;
   fechaBaseIndice?: string | null;
   ultimaActualizacionIndice?: string | null;
@@ -316,6 +318,7 @@ const PROYECTO = {
   area: 120,
   direccion: "Bulevar España 2345, Montevideo",
   memoriaDescriptiva: null as string | null,
+  notasPresupuesto: null as string | null,
   createdAt: null as string | null,
   fechaInicio: null as string | null,
   fechaBaseIndice: null as string | null,
@@ -2627,6 +2630,7 @@ export default function ProyectoPage() {
         area:      data.area       ?? 0,
         direccion: data.direccion  ?? "",
         memoriaDescriptiva: data.memoriaDescriptiva ?? null,
+        notasPresupuesto: data.notasPresupuesto ?? null,
         createdAt: data.createdAt ?? null,
         fechaBaseIndice: data.fechaBaseIndice ?? null,
         ultimaActualizacionIndice: data.ultimaActualizacionIndice ?? null,
@@ -4899,21 +4903,6 @@ export default function ProyectoPage() {
           />
         )}
 
-        {/* ── Resumen del Presupuesto — desglose por capítulo + espejo de
-            solo lectura de la cascada de arriba y de Leyes Sociales/BPS,
-            mismos valores por props (ver SeccionResumenPresupuesto.tsx). ── */}
-        <SeccionResumenPresupuesto
-          moneda={moneda}
-          capitulos={capitulosConSubtotal}
-          costoDirecto={costoDirectoAgregado.total}
-          montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
-          costoTotal={costoTotalAgregado}
-          montoIVA={montoIVAAgregado}
-          precioFinal={precioFinalAgregado}
-          montoLeyesSociales={montoLeyesSociales}
-          diasObra={diasObra.total}
-        />
-
         {/* ── Días de Obra ───────────────────────────────────── */}
         <SeccionDiasDeObra
           diasObra={diasObra.total}
@@ -4932,6 +4921,27 @@ export default function ProyectoPage() {
           tipoContratacion={proyectoActivo.tipoContratacion ?? "PRIVADA"}
           totalGeneral={totalGeneral}
           moneda={moneda}
+        />
+
+        {/* ── Notas ──────────────────────────────────────────── */}
+        <SeccionNotas
+          proyectoId={proyectoActivo.id}
+          notasInicial={proyectoActivo.notasPresupuesto ?? null}
+        />
+
+        {/* ── Resumen del Presupuesto — desglose por capítulo + espejo de
+            solo lectura de la cascada de arriba y de Leyes Sociales/BPS,
+            mismos valores por props (ver SeccionResumenPresupuesto.tsx). ── */}
+        <SeccionResumenPresupuesto
+          moneda={moneda}
+          capitulos={capitulosConSubtotal}
+          costoDirecto={costoDirectoAgregado.total}
+          montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
+          costoTotal={costoTotalAgregado}
+          montoIVA={montoIVAAgregado}
+          precioFinal={precioFinalAgregado}
+          montoLeyesSociales={montoLeyesSociales}
+          diasObra={diasObra.total}
         />
 
         {/* ── Comparativo de ofertas ────────────────────────── */}
