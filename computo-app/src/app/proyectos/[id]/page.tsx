@@ -34,10 +34,11 @@ import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupues
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularUtilidadAgregada } from "@/lib/costoAgregado";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
-import SeccionResumenPresupuesto, { GastoGeneralItem } from "@/components/SeccionResumenPresupuesto";
+import SeccionResumenPresupuesto from "@/components/SeccionResumenPresupuesto";
 import SeccionGastosGeneralesUtilidades, {
   CategoriaGastoGeneral,
   ModoGastosGenerales,
+  ItemGastoGeneral,
 } from "@/components/SeccionGastosGeneralesUtilidades";
 import { TarjetaCostoDirecto, TarjetaCostoTotalPrecioFinal } from "@/components/SeccionCostoPrecioFinal";
 import SeccionGarantias from "@/components/SeccionGarantias";
@@ -92,7 +93,7 @@ interface ProyectoData {
   generandoRubros?: boolean;
   incluyeIVA?: boolean;
   timbresCJP?: number;
-  gastosGeneralesItems?: GastoGeneralItem[];
+  gastosGeneralesItems?: ItemGastoGeneral[];
   // Default de GG%/Utilidad% para rubros nuevos, y desglose del modo
   // Detallado — ver SeccionGastosGeneralesUtilidades.tsx. null/undefined en
   // los %s = comportamiento histórico (15/10).
@@ -2833,7 +2834,7 @@ export default function ProyectoPage() {
     guardarCampoProyecto("timbresCJP", v);
   }, [guardarCampoProyecto]);
 
-  const actualizarGastosGeneralesItems = useCallback((items: GastoGeneralItem[]) => {
+  const actualizarGastosGeneralesItems = useCallback((items: ItemGastoGeneral[]) => {
     setProyecto((prev) => prev ? { ...prev, gastosGeneralesItems: items } : prev);
     guardarCampoProyecto("gastosGeneralesItems", items);
   }, [guardarCampoProyecto]);
@@ -2894,6 +2895,19 @@ export default function ProyectoPage() {
     costoDirectoAgregado.total
   );
   const utilidadAgregada = calcularUtilidadAgregada(capitulos, apuData);
+  // Mismos 3 términos derivados que ya calcula TarjetaCostoTotalPrecioFinal
+  // internamente a partir de costoDirecto+montoGastosGeneralesYBeneficio —
+  // nombrados acá (en vez de solo inline en esa tarjeta) para que
+  // SeccionResumenPresupuesto pueda mostrarlos como filas de solo lectura,
+  // sin reimplementar la fórmula ni duplicar la fuente de verdad.
+  const montoGastosGeneralesYBeneficio = costosIndirectosAgregados + utilidadAgregada;
+  const costoTotalAgregado = costoDirectoAgregado.total + montoGastosGeneralesYBeneficio;
+  const montoIVAAgregado = costoTotalAgregado * 0.22;
+  const precioFinalAgregado = costoTotalAgregado * 1.22;
+  // Mismo cálculo que el header de SeccionLeyesSociales (montoAUC + timbresCJP).
+  const montoLeyesSociales = leyesSociales
+    ? leyesSociales.montoImponibleMO * leyesSociales.aucPct + (proyecto?.timbresCJP ?? 0)
+    : null;
   const cuantiaObra = computarCuantiaObra(capitulos, apuData, categoriasLaborales);
   // Mismo jornal de referencia que usa computarCuantiaObra — se pasa aparte
   // a SeccionLeyesSociales para calcular sus propios jornales a partir de
@@ -4806,16 +4820,20 @@ export default function ProyectoPage() {
           categorias={proyecto?.gastosGeneralesDetallado ?? null}
           costosIndirectosAgregados={costosIndirectosAgregados}
           utilidadAgregada={utilidadAgregada}
+          timbresCJP={proyecto?.timbresCJP ?? 0}
+          gastosGeneralesItems={proyecto?.gastosGeneralesItems ?? []}
           onChangeModo={actualizarModoGastosGenerales}
           onChangeGastosGeneralesPctDefault={actualizarGastosGeneralesPctDefault}
           onChangeUtilidadPctDefault={actualizarUtilidadPctDefault}
           onChangeCategorias={actualizarGastosGeneralesDetallado}
+          onChangeTimbresCJP={actualizarTimbresCJP}
+          onChangeGastosGeneralesItems={actualizarGastosGeneralesItems}
         />
 
         <TarjetaCostoTotalPrecioFinal
           moneda={moneda}
           costoDirecto={costoDirectoAgregado.total}
-          montoGastosGeneralesYBeneficio={costosIndirectosAgregados + utilidadAgregada}
+          montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
         />
 
         {mostrarModalCapitulo && (
@@ -4875,18 +4893,18 @@ export default function ProyectoPage() {
           />
         )}
 
-        {/* ── Resumen del Presupuesto ───────────────────────── */}
+        {/* ── Resumen del Presupuesto — desglose por capítulo + espejo de
+            solo lectura de la cascada de arriba y de Leyes Sociales/BPS,
+            mismos valores por props (ver SeccionResumenPresupuesto.tsx). ── */}
         <SeccionResumenPresupuesto
           moneda={moneda}
           capitulos={capitulosConSubtotal}
-          costoDirectoAgregado={costoDirectoAgregado.total}
-          costosIndirectosAgregados={costosIndirectosAgregados}
-          utilidadAgregada={utilidadAgregada}
-          montoImponibleMO={leyesSociales ? leyesSociales.montoImponibleMO : null}
-          timbresCJP={proyecto?.timbresCJP ?? 0}
-          gastosGeneralesItems={proyecto?.gastosGeneralesItems ?? []}
-          onChangeTimbresCJP={actualizarTimbresCJP}
-          onChangeGastosGeneralesItems={actualizarGastosGeneralesItems}
+          costoDirecto={costoDirectoAgregado.total}
+          montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
+          costoTotal={costoTotalAgregado}
+          montoIVA={montoIVAAgregado}
+          precioFinal={precioFinalAgregado}
+          montoLeyesSociales={montoLeyesSociales}
         />
 
         {/* ── Garantías ──────────────────────────────────────── */}

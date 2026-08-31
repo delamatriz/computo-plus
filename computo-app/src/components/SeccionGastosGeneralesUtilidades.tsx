@@ -38,10 +38,20 @@ interface Props {
   // que usa la cascada Costo Directo → Costo Total → Precio Final.
   costosIndirectosAgregados: number;
   utilidadAgregada: number;
+  // Timbres CJP e Ítems extra — antes se editaban en "Resumen del
+  // Presupuesto" (ver git history); se mudaron acá por conveniencia de
+  // UX, no de cálculo: siguen sin formar parte de montoCombinado
+  // (Costos Indirectos + Utilidad) de abajo, van directo a "Costo" en
+  // la cascada (ver page.tsx) y a la línea "GASTOS GENERALES" del PDF,
+  // sin pasar por costoAgregado.ts.
+  timbresCJP: number;
+  gastosGeneralesItems: ItemGastoGeneral[];
   onChangeModo: (modo: ModoGastosGenerales) => void;
   onChangeGastosGeneralesPctDefault: (v: number) => void;
   onChangeUtilidadPctDefault: (v: number) => void;
   onChangeCategorias: (categorias: CategoriaGastoGeneral[]) => void;
+  onChangeTimbresCJP: (v: number) => void;
+  onChangeGastosGeneralesItems: (items: ItemGastoGeneral[]) => void;
 }
 
 function fmtMoneda(v: number, moneda: string): string {
@@ -78,10 +88,14 @@ export default function SeccionGastosGeneralesUtilidades({
   categorias,
   costosIndirectosAgregados,
   utilidadAgregada,
+  timbresCJP,
+  gastosGeneralesItems,
   onChangeModo,
   onChangeGastosGeneralesPctDefault,
   onChangeUtilidadPctDefault,
   onChangeCategorias,
+  onChangeTimbresCJP,
+  onChangeGastosGeneralesItems,
 }: Props) {
   const [expandido, setExpandido] = useState(false);
 
@@ -128,6 +142,27 @@ export default function SeccionGastosGeneralesUtilidades({
         cat.id !== categoriaId ? cat : { ...cat, items: cat.items.filter((it) => it.id !== itemId) }
       )
     );
+  };
+
+  // Ítems extra — lista plana, independiente de las 5 categorías del modo
+  // Detallado (esos van con categoriaId; estos no tienen categoría).
+  const agregarItemExtra = () => {
+    onChangeGastosGeneralesItems([
+      ...gastosGeneralesItems,
+      { id: `gg-${Date.now()}`, descripcion: "", monto: 0 },
+    ]);
+  };
+
+  const actualizarItemExtra = (id: string, campo: "descripcion" | "monto", valor: string) => {
+    onChangeGastosGeneralesItems(
+      gastosGeneralesItems.map((item) =>
+        item.id !== id ? item : { ...item, [campo]: campo === "monto" ? parseFloat(valor) || 0 : valor }
+      )
+    );
+  };
+
+  const eliminarItemExtra = (id: string) => {
+    onChangeGastosGeneralesItems(gastosGeneralesItems.filter((item) => item.id !== id));
   };
 
   const inputCls = "px-2 py-1 text-sm text-slate-700 bg-white border border-slate-200 rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]";
@@ -285,6 +320,62 @@ export default function SeccionGastosGeneralesUtilidades({
                     <p className="text-xs text-slate-400 mt-0.5">Se precarga en el APU de cada rubro nuevo.</p>
                   </div>
                   <PctInput value={pctUtilEfectivo} onChange={onChangeUtilidadPctDefault} />
+                </div>
+              </div>
+
+              {/* Timbres CJP e Ítems extra — conceptualmente distintos de
+                  Costos Indirectos/Utilidad de arriba (no entran en
+                  montoCombinado, van directo a "Costo" en la cascada, ver
+                  page.tsx) — viven acá solo por conveniencia de edición. */}
+              <div className="rounded-[10px] border border-slate-200 bg-white overflow-hidden">
+                <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
+                  <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Timbres CJP e ítems extra</span>
+                </div>
+
+                <div className="flex items-center px-4 py-1.5 border-b border-slate-50">
+                  <div className="flex-1 min-w-0 text-sm text-slate-700">Timbres CJP</div>
+                  <input
+                    type="number"
+                    value={timbresCJP === 0 ? "" : timbresCJP}
+                    onChange={(e) => onChangeTimbresCJP(parseFloat(e.target.value) || 0)}
+                    placeholder="0"
+                    className={cn(inputCls, "w-28 text-right tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                  />
+                </div>
+
+                {gastosGeneralesItems.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-50">
+                    <input
+                      type="text"
+                      value={item.descripcion}
+                      onChange={(e) => actualizarItemExtra(item.id, "descripcion", e.target.value)}
+                      placeholder="Descripción del ítem"
+                      className={cn(inputCls, "flex-1 min-w-0")}
+                    />
+                    <input
+                      type="number"
+                      value={item.monto === 0 ? "" : item.monto}
+                      onChange={(e) => actualizarItemExtra(item.id, "monto", e.target.value)}
+                      placeholder="0"
+                      className={cn(inputCls, "w-28 text-right tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                    />
+                    <button
+                      onClick={() => eliminarItemExtra(item.id)}
+                      className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
+                      aria-label="Quitar ítem"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                <div className="px-4 py-2">
+                  <button
+                    onClick={agregarItemExtra}
+                    className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-[#2563EB] transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar ítem
+                  </button>
                 </div>
               </div>
             </div>
