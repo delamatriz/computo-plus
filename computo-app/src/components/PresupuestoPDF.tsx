@@ -93,6 +93,11 @@ export interface ProyectoConCapitulos {
   costoDirectoAgregado: number;
   costosIndirectosAgregados: number;
   utilidadAgregada: number;
+  // "Días Estimados de Obra" — caso empresa chica (una cuadrilla de
+  // referencia de dos a tres personas), ver lib/diasObra.ts. Distinto
+  // del "Plazo de obra" (plazoObra/diasLaborales, campos manuales
+  // cargados a mano) — este es calculado.
+  diasObra: number;
   // Sin efecto en el bloque de totales por ahora (pendiente de rediseño
   // en otra sesión) — se conservan estos 2 campos en la interfaz para no
   // tocar route.ts, pero no se leen en ningún lado de este archivo.
@@ -1038,6 +1043,16 @@ export function PresupuestoPDF({
             <Text style={styles.labelTotalGeneral}>Precio Final</Text>
             <Text style={styles.montoTotalGeneral}>{fmtMonTotal(precioFinal, simbolo)}</Text>
           </View>
+
+          {proyecto.diasObra > 0 && (
+            <View style={styles.filaPlazo}>
+              <Text style={styles.labelPlazo}>Días Estimados de Obra</Text>
+              <Text style={styles.montoPlazo}>
+                {fmtNum(proyecto.diasObra)} día{Math.round(proyecto.diasObra) !== 1 ? "s" : ""}{" "}
+                (basados en una plantilla de dos a tres personas trabajando en simultáneo)
+              </Text>
+            </View>
+          )}
 
           {proyecto.diasLaborales != null && (
             <View style={styles.filaPlazo}>

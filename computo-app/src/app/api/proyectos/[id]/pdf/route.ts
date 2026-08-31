@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { PresupuestoPDF, ProyectoConCapitulos, ModoPDF } from "@/components/PresupuestoPDF";
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularUtilidadAgregada, type ApuParaCosto } from "@/lib/costoAgregado";
+import { calcularDiasObra } from "@/lib/diasObra";
 import React from "react";
 
 const MODOS_VALIDOS: ModoPDF[] = ["cerrado", "abierto", "interno"];
@@ -84,6 +85,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       proyecto.gastosGeneralesPctDefault,
       costoDirectoAgregado.total
     );
+    // "Días de Obra" — misma función pura que ya usa proyectos/[id]/page.tsx
+    // (lib/diasObra.ts), sobre los mismos capitulosParaCosto/apuDataParaCosto
+    // ya armados arriba (ambos ya tienen "rendimiento" por línea de mano de
+    // obra, no hace falta una consulta ni un mapeo nuevo).
+    const diasObra = calcularDiasObra(capitulosParaCosto, apuDataParaCosto);
 
     const datos: ProyectoConCapitulos = {
       id: proyecto.id,
@@ -109,6 +115,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       costoDirectoAgregado: costoDirectoAgregado.total,
       costosIndirectosAgregados,
       utilidadAgregada,
+      diasObra: diasObra.total,
       sumaItemsExtras,
       // Timbres CJP no lleva IVA (confirmado) — se pasa aparte para que el
       // PDF pueda excluirlo de la base de IVA sin perder el desglose (se

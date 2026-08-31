@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario, montoAportesPatronales, sumarAportesPatronalesPct, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/apu-calc";
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
+import { calcularDiasObra } from "@/lib/diasObra";
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularUtilidadAgregada } from "@/lib/costoAgregado";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
@@ -42,6 +43,7 @@ import SeccionGastosGeneralesUtilidades, {
 } from "@/components/SeccionGastosGeneralesUtilidades";
 import { TarjetaCostoDirecto, TarjetaCostoTotalPrecioFinal } from "@/components/SeccionCostoPrecioFinal";
 import SeccionGarantias from "@/components/SeccionGarantias";
+import SeccionDiasDeObra from "@/components/SeccionDiasDeObra";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
@@ -2908,6 +2910,10 @@ export default function ProyectoPage() {
   const montoLeyesSociales = leyesSociales
     ? leyesSociales.montoImponibleMO * leyesSociales.aucPct + (proyecto?.timbresCJP ?? 0)
     : null;
+  // "Días de Obra" — caso empresa chica (una sola cuadrilla), ver
+  // diasObra.ts. Sobre los mismos capitulos+apuData ya en memoria, sin
+  // consulta nueva — mismo patrón que costoDirectoAgregado.
+  const diasObra = calcularDiasObra(capitulos, apuData);
   const cuantiaObra = computarCuantiaObra(capitulos, apuData, categoriasLaborales);
   // Mismo jornal de referencia que usa computarCuantiaObra — se pasa aparte
   // a SeccionLeyesSociales para calcular sus propios jornales a partir de
@@ -4905,6 +4911,14 @@ export default function ProyectoPage() {
           montoIVA={montoIVAAgregado}
           precioFinal={precioFinalAgregado}
           montoLeyesSociales={montoLeyesSociales}
+          diasObra={diasObra.total}
+        />
+
+        {/* ── Días de Obra ───────────────────────────────────── */}
+        <SeccionDiasDeObra
+          diasObra={diasObra.total}
+          rubrosConDatos={diasObra.rubrosConDatos}
+          rubrosSinDatos={diasObra.rubrosSinDatos}
         />
 
         {/* ── Garantías ──────────────────────────────────────── */}

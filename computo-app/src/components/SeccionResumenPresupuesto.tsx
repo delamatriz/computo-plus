@@ -24,12 +24,20 @@ interface Props {
   montoIVA: number;
   precioFinal: number;
   montoLeyesSociales: number | null;
+  // "Días de Obra" — mismo valor ya calculado que la sección propia
+  // (SeccionDiasDeObra, lib/diasObra.ts), acá solo como fila de lectura.
+  diasObra: number;
 }
 
 function fmtMoneda(v: number, moneda: string): string {
   if (!v) return "—";
   const fmt = Math.round(v).toLocaleString("es-UY");
   return moneda === "USD" ? `U$S ${fmt}` : `$ ${fmt}`;
+}
+
+function fmtDias(v: number): string {
+  const redondeado = Math.round(v);
+  return `${redondeado} día${redondeado !== 1 ? "s" : ""}`;
 }
 
 // Antes esta sección tenía sus propias versiones editables de Gastos
@@ -51,6 +59,7 @@ export default function SeccionResumenPresupuesto({
   montoIVA,
   precioFinal,
   montoLeyesSociales,
+  diasObra,
 }: Props) {
   const [expandido, setExpandido] = useState(false);
 
@@ -111,6 +120,24 @@ export default function SeccionResumenPresupuesto({
                     </div>
                   ))
                 )}
+              </div>
+
+              {/* Días Estimados de Obra — mismo valor y mismo nombre que
+                  SeccionDiasDeObra, acá solo como fila de lectura (sin el
+                  texto explicativo largo ni el aviso de rubros sin datos,
+                  que ya viven en su propia sección) — la aclaración corta
+                  de la cuadrilla de referencia sí se repite, mismo texto
+                  en los 3 lugares (app/Resumen/PDF). */}
+              <div className="rounded-[10px] border border-slate-200 bg-white overflow-hidden mt-3">
+                <div className="flex items-center px-4 py-1.5">
+                  <div className="flex-1 min-w-0 text-sm text-slate-700">Días Estimados de Obra</div>
+                  <div className="text-sm font-semibold tabular-nums text-[#2563EB] pl-3">{fmtDias(diasObra)}</div>
+                </div>
+                <div className="px-4 pb-2">
+                  <p className="text-xs text-slate-400">
+                    Basados en una plantilla de dos a tres personas trabajando en simultáneo.
+                  </p>
+                </div>
               </div>
 
               {/* Espejo de solo lectura de la cascada de tarjetas de arriba
