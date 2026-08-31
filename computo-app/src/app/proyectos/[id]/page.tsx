@@ -38,7 +38,6 @@ import SeccionResumenPresupuesto, { GastoGeneralItem } from "@/components/Seccio
 import SeccionGastosGeneralesUtilidades, {
   CategoriaGastoGeneral,
   ModoGastosGenerales,
-  sumarGastosGeneralesDetallado,
 } from "@/components/SeccionGastosGeneralesUtilidades";
 import { TarjetaCostoDirecto, TarjetaCostoTotalPrecioFinal } from "@/components/SeccionCostoPrecioFinal";
 import SeccionGarantias from "@/components/SeccionGarantias";
@@ -4880,15 +4879,12 @@ export default function ProyectoPage() {
         <SeccionResumenPresupuesto
           moneda={moneda}
           capitulos={capitulosConSubtotal}
-          subtotalObra={totalGeneral}
+          costoDirectoAgregado={costoDirectoAgregado.total}
+          costosIndirectosAgregados={costosIndirectosAgregados}
+          utilidadAgregada={utilidadAgregada}
           montoImponibleMO={leyesSociales ? leyesSociales.montoImponibleMO : null}
           timbresCJP={proyecto?.timbresCJP ?? 0}
           gastosGeneralesItems={proyecto?.gastosGeneralesItems ?? []}
-          montoGastosGeneralesDetallado={
-            proyecto?.modoGastosGenerales === "DETALLADO"
-              ? sumarGastosGeneralesDetallado(proyecto.gastosGeneralesDetallado ?? null)
-              : 0
-          }
           onChangeTimbresCJP={actualizarTimbresCJP}
           onChangeGastosGeneralesItems={actualizarGastosGeneralesItems}
         />

@@ -21,15 +21,21 @@ interface CapituloResumen {
 interface Props {
   moneda: string;
   capitulos: CapituloResumen[];
-  subtotalObra: number;
+  // Costo Directo, Costos Indirectos y Utilidad agregados del proyecto —
+  // los mismos 3 términos que ya calcula costoAgregado.ts para la cascada
+  // de tarjetas (SeccionCostoPrecioFinal, fuente de verdad). Antes este
+  // componente recibía un solo "subtotalObra" (Σ cantidad×precioUnit, que
+  // desde que GG% salió de precioUnit ya NO incluye Costos Indirectos) y
+  // sumaba por separado un "montoGastosGeneralesDetallado" que en modo
+  // Porcentaje era directamente 0 — el % de Gastos Generales configurado
+  // se perdía por completo. Recibir los 3 términos ya calculados evita
+  // reimplementar la lógica de costoAgregado.ts acá.
+  costoDirectoAgregado: number;
+  costosIndirectosAgregados: number;
+  utilidadAgregada: number;
   montoImponibleMO: number | null;
   timbresCJP: number;
   gastosGeneralesItems: GastoGeneralItem[];
-  // Total fijo de las 5 categorías del modo Detallado (ver
-  // SeccionGastosGeneralesUtilidades) — 0 si el proyecto está en modo
-  // Porcentaje, donde Gastos Generales ya viene prorrateado dentro de
-  // subtotalObra (precioUnit de cada rubro).
-  montoGastosGeneralesDetallado: number;
   onChangeTimbresCJP: (v: number) => void;
   onChangeGastosGeneralesItems: (items: GastoGeneralItem[]) => void;
 }
@@ -46,17 +52,25 @@ const IVA_PCT = 0.22;
 export default function SeccionResumenPresupuesto({
   moneda,
   capitulos,
-  subtotalObra,
+  costoDirectoAgregado,
+  costosIndirectosAgregados,
+  utilidadAgregada,
   montoImponibleMO,
   timbresCJP,
   gastosGeneralesItems,
-  montoGastosGeneralesDetallado,
   onChangeTimbresCJP,
   onChangeGastosGeneralesItems,
 }: Props) {
   const [expandido, setExpandido] = useState(false);
 
   const capitulosConTotal = capitulos.filter((c) => c.subtotal > 0);
+
+  // Subtotal Obra = Costo Directo + Costos Indirectos + Utilidad — mismos
+  // 3 términos y mismo total que "Costo Total" en la cascada de tarjetas,
+  // en los 2 modos de Gastos Generales (Porcentaje o Detallado). Antes
+  // faltaba Costos Indirectos acá en modo Porcentaje (ver comentario en
+  // la interfaz Props).
+  const subtotalObra = costoDirectoAgregado + costosIndirectosAgregados + utilidadAgregada;
 
   // AUC propietario — Leyes Sociales, aporte mensual directo del
   // propietario a BPS ligado al avance real de obra. NO es parte de lo
@@ -65,15 +79,16 @@ export default function SeccionResumenPresupuesto({
   // sumado a Costo, base de IVA, ni Total con IVA.
   const montoAUC = montoImponibleMO != null ? montoImponibleMO * AUC_PCT : null;
   const sumaItemsExtras = gastosGeneralesItems.reduce((s, item) => s + (item.monto || 0), 0);
-  // Timbres CJP no lleva IVA (confirmado) — Gastos Generales acá adentro
-  // ya no incluye AUC (ver bloque aparte más abajo), solo Timbres + ítems +
-  // el total fijo del modo Detallado (0 en modo Porcentaje, donde ya viene
-  // prorrateado dentro de subtotalObra).
-  const subtotalGastosGenerales = timbresCJP + sumaItemsExtras + montoGastosGeneralesDetallado;
+  // Timbres CJP no lleva IVA (confirmado) — Ítems extra sí. Costos
+  // Indirectos ya está adentro de subtotalObra, no se vuelve a sumar acá
+  // (antes de este fix, sumarlo también acá en modo Detallado era
+  // redundante pero no incorrecto porque subtotalObra no lo incluía — con
+  // el fix, incluirlo dos veces sí duplicaría el monto).
+  const subtotalGastosGenerales = timbresCJP + sumaItemsExtras;
 
-  const baseIVA = subtotalObra + sumaItemsExtras + montoGastosGeneralesDetallado; // sin Timbres, sin AUC
+  const baseIVA = subtotalObra + sumaItemsExtras; // sin Timbres, sin AUC
   const montoIVA = baseIVA * IVA_PCT;
-  const costo = subtotalObra + timbresCJP + sumaItemsExtras + montoGastosGeneralesDetallado; // sin AUC
+  const costo = subtotalObra + timbresCJP + sumaItemsExtras; // sin AUC
   const totalConIVA = costo + montoIVA;
 
   const agregarItem = () => {
@@ -145,7 +160,11 @@ export default function SeccionResumenPresupuesto({
                     </div>
                   ))
                 )}
-                {/* B) SUBTOTAL OBRA */}
+                {/* B) SUBTOTAL OBRA — Costo Directo + Costos Indirectos +
+                    Utilidad (ver comentario en Props); ya incluye Gastos
+                    Generales en ambos modos, Porcentaje o Detallado —
+                    el desglose vive en la tarjeta "Gastos Generales y
+                    Beneficio" de la cascada de arriba, no se repite acá. */}
                 <div className="flex items-center px-4 py-2 bg-slate-50 border-t border-slate-200">
                   <div className="flex-1 min-w-0 text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">
                     Subtotal obra
@@ -156,7 +175,11 @@ export default function SeccionResumenPresupuesto({
                 </div>
               </div>
 
-              {/* C) Gastos Generales */}
+              {/* C) Gastos Generales — acá solo Timbres CJP e Ítems extra,
+                  los 2 conceptos que esta pantalla administra directamente
+                  y que NO forman parte de la cascada de arriba. Costos
+                  Indirectos (Porcentaje o Detallado) ya está sumado dentro
+                  de "Subtotal obra" — mostrarlo acá también lo duplicaría. */}
               <div className="rounded-[10px] border border-slate-200 bg-white overflow-hidden">
                 <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
                   <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Gastos generales</span>
@@ -172,17 +195,6 @@ export default function SeccionResumenPresupuesto({
                     className={cn(inputCls, "w-28 text-right tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
                   />
                 </div>
-
-                {montoGastosGeneralesDetallado > 0 && (
-                  <div className="flex items-center px-4 py-1.5 border-b border-slate-50">
-                    <div className="flex-1 min-w-0 text-sm text-slate-700">
-                      Gastos Generales (modo Detallado — ver tarjeta arriba)
-                    </div>
-                    <div className="text-sm font-semibold tabular-nums text-[#2563EB]">
-                      {fmtMoneda(montoGastosGeneralesDetallado, moneda)}
-                    </div>
-                  </div>
-                )}
 
                 {gastosGeneralesItems.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-50">

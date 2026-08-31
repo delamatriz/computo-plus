@@ -84,10 +84,20 @@ export interface ProyectoConCapitulos {
   empresa: EmpresaPDF | null;
   titulos: TituloPDF[];
   capitulos: CapituloPDF[];
-  gastosGenerales: number;
-  // Timbres CJP, aparte de gastosGenerales — no lleva IVA, se resta de la
-  // base gravada aunque siga formando parte del "Costo" y de la línea
-  // combinada "GASTOS GENERALES" (que no cambia).
+  // Costo Directo, Costos Indirectos y Utilidad agregados — mismos 3
+  // términos que ya calcula costoAgregado.ts para la cascada de tarjetas
+  // (SeccionCostoPrecioFinal, fuente de verdad). Antes este componente
+  // recibía un solo "gastosGenerales" ya combinado (Timbres + Ítems extra
+  // + el total fijo del modo Detallado, 0 en modo Porcentaje) — el % de
+  // Costos Indirectos configurado en modo Porcentaje se perdía por
+  // completo. costosIndirectosAgregados ahora es correcto en los 2 modos.
+  costoDirectoAgregado: number;
+  costosIndirectosAgregados: number;
+  utilidadAgregada: number;
+  sumaItemsExtras: number;
+  // Timbres CJP, aparte del resto — no lleva IVA, se resta de la base
+  // gravada aunque siga formando parte del "Costo" y de la línea
+  // combinada "GASTOS GENERALES" (que no cambia visualmente).
   timbresCJP: number;
   incluyeIVA: boolean;
   montoImponibleMO: number | null;
@@ -884,14 +894,25 @@ export function PresupuestoPDF({
   modo?: ModoPDF;
 }) {
   const simbolo = simboloMoneda(proyecto.moneda);
+  // Suma de cantidad×precioUnit de cada rubro — Costo Directo + Utilidad
+  // (precioUnit ya no lleva Costos Indirectos adentro, ver
+  // costoAgregado.ts). Matemáticamente igual a
+  // costoDirectoAgregado+utilidadAgregada por construcción de esas 2
+  // funciones; se sigue calculando así (no desde las props) porque
+  // también sirve de denominador de "% incidencia" fila por fila, igual
+  // que en la tabla de proyectos/[id]/page.tsx.
   const subtotalObra = proyecto.capitulos.reduce(
     (acc, cap) => acc + cap.rubros.reduce((a, r) => a + r.cantidad * r.precioUnit, 0),
     0
   );
-  // Costo = obra + gastos generales (timbres + ítems), SIN AUC — esto es
-  // lo que la empresa factura. Timbres CJP no lleva IVA (confirmado): la
-  // base gravada excluye timbres, dejando obra + ítems extra solamente.
-  const subtotal = subtotalObra + proyecto.gastosGenerales; // = "Costo"
+  // Gastos Generales — Costos Indirectos (Porcentaje o Detallado, ya
+  // correcto en los 2 modos) + Timbres CJP + Ítems extra, todo combinado
+  // en una sola línea "GASTOS GENERALES", igual que siempre visualmente.
+  const gastosGenerales = proyecto.costosIndirectosAgregados + proyecto.timbresCJP + proyecto.sumaItemsExtras;
+  // Costo = obra + gastos generales, SIN AUC — esto es lo que la empresa
+  // factura. Timbres CJP no lleva IVA (confirmado): la base gravada
+  // excluye timbres, dejando obra + Costos Indirectos + ítems extra.
+  const subtotal = subtotalObra + gastosGenerales; // = "Costo"
   const baseIVA = subtotal - proyecto.timbresCJP;
   const montoIVA = baseIVA * 0.22;
   const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * 0.714 : null;
@@ -1021,7 +1042,7 @@ export function PresupuestoPDF({
           <Text style={styles.textoCapitulo}>
             {codigoGastosGenerales} · GASTOS GENERALES
           </Text>
-          <Text style={styles.montoGastosGenerales}>{fmtMonTotal(proyecto.gastosGenerales, simbolo)}</Text>
+          <Text style={styles.montoGastosGenerales}>{fmtMonTotal(gastosGenerales, simbolo)}</Text>
         </View>
 
         {/* Líneas finales — SUBTOTAL (obra + GG), IVA, leyes sociales, total */}
