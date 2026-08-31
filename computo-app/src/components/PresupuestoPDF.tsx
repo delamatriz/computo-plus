@@ -87,17 +87,16 @@ export interface ProyectoConCapitulos {
   // Costo Directo, Costos Indirectos y Utilidad agregados — mismos 3
   // términos que ya calcula costoAgregado.ts para la cascada de tarjetas
   // (SeccionCostoPrecioFinal, fuente de verdad). Antes este componente
-  // recibía un solo "gastosGenerales" ya combinado (Timbres + Ítems extra
-  // + el total fijo del modo Detallado, 0 en modo Porcentaje) — el % de
-  // Costos Indirectos configurado en modo Porcentaje se perdía por
-  // completo. costosIndirectosAgregados ahora es correcto en los 2 modos.
+  // recibía un solo "gastosGenerales" ya combinado, que en modo
+  // Porcentaje ignoraba el % de Costos Indirectos configurado —
+  // costosIndirectosAgregados ahora es correcto en los 2 modos.
   costoDirectoAgregado: number;
   costosIndirectosAgregados: number;
   utilidadAgregada: number;
+  // Sin efecto en el bloque de totales por ahora (pendiente de rediseño
+  // en otra sesión) — se conservan estos 2 campos en la interfaz para no
+  // tocar route.ts, pero no se leen en ningún lado de este archivo.
   sumaItemsExtras: number;
-  // Timbres CJP, aparte del resto — no lleva IVA, se resta de la base
-  // gravada aunque siga formando parte del "Costo" y de la línea
-  // combinada "GASTOS GENERALES" (que no cambia visualmente).
   timbresCJP: number;
   incluyeIVA: boolean;
   montoImponibleMO: number | null;
@@ -440,24 +439,8 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
   },
 
-  // Capítulo de Gastos Generales — mismo estilo de header que un capítulo de obra,
-  // pero de una sola línea (sin tabla de rubros ni desglose interno).
-  filaGastosGenerales: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#1A3A5C",
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    marginTop: 12,
-  },
-  montoGastosGenerales: {
-    color: "#FFFFFF",
-    fontFamily: "DM Sans", fontWeight: 700,
-    fontSize: 9,
-  },
-
-  // Líneas finales — subtotal, gastos generales, IVA, leyes sociales, total
+  // Líneas finales — Costo Directo, Gastos Generales y Beneficio, Costo
+  // Total, IVA, Precio Final (destacado), Leyes Sociales/BPS.
   bloqueFinal: {
     marginTop: 14,
   },
@@ -905,22 +888,24 @@ export function PresupuestoPDF({
     (acc, cap) => acc + cap.rubros.reduce((a, r) => a + r.cantidad * r.precioUnit, 0),
     0
   );
-  // Gastos Generales — Costos Indirectos (Porcentaje o Detallado, ya
-  // correcto en los 2 modos) + Timbres CJP + Ítems extra, todo combinado
-  // en una sola línea "GASTOS GENERALES", igual que siempre visualmente.
-  const gastosGenerales = proyecto.costosIndirectosAgregados + proyecto.timbresCJP + proyecto.sumaItemsExtras;
-  // Costo = obra + gastos generales, SIN AUC — esto es lo que la empresa
-  // factura. Timbres CJP no lleva IVA (confirmado): la base gravada
-  // excluye timbres, dejando obra + Costos Indirectos + ítems extra.
-  const subtotal = subtotalObra + gastosGenerales; // = "Costo"
-  const baseIVA = subtotal - proyecto.timbresCJP;
-  const montoIVA = baseIVA * 0.22;
+  // Bloque de totales — mismo espejo que la cascada de tarjetas
+  // (SeccionCostoPrecioFinal) y "Resumen del Presupuesto": Costo Directo,
+  // Gastos Generales y Beneficio (Costos Indirectos + Utilidad
+  // combinados, sin desglosar), Costo Total, IVA, Precio Final. Sin
+  // efecto por ahora en este bloque (pendiente de rediseño, ver
+  // ProyectoConCapitulos más arriba) — mismo criterio que la cascada y
+  // Resumen, que tampoco los incluyen en su monto combinado.
+  const costoDirecto = proyecto.costoDirectoAgregado;
+  const montoGastosGeneralesYBeneficio = proyecto.costosIndirectosAgregados + proyecto.utilidadAgregada;
+  const costoTotal = costoDirecto + montoGastosGeneralesYBeneficio;
+  const montoIVA = costoTotal * 0.22;
+  const precioFinal = costoTotal * 1.22;
   const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * 0.714 : null;
-  // AUC (leyesSocialesPropietario) NO se suma acá — es un aporte aparte del
-  // propietario a BPS, mensual, ligado al avance real de obra, no parte de
-  // lo que la empresa factura (Ley 18.172, Título 10 exonera de IVA los
-  // servicios bajo régimen AUC). Sigue mostrándose como línea separada.
-  const totalGeneral = subtotal + montoIVA;
+  // AUC (leyesSocialesPropietario) — aporte aparte del propietario a BPS,
+  // mensual, ligado al avance real de obra, no parte de lo que la empresa
+  // factura (Ley 18.172, Título 10 exonera de IVA los servicios bajo
+  // régimen AUC). Se muestra después de Precio Final, claramente
+  // separado (ver JSX más abajo), nunca sumado al Precio Final.
 
   // Un título vacío (sin capítulos asignados) no imprime bloque ni consume
   // numeración — los números de título siempre reflejan lo que realmente
@@ -933,13 +918,6 @@ export function PresupuestoPDF({
     .map((titulo) => ({ titulo, capitulos: proyecto.capitulos.filter((c) => c.tituloId === titulo.id) }))
     .filter((t) => t.capitulos.length > 0);
   const modoMultiTitulo = titulosConCapitulos.length >= 2;
-
-  // Gastos Generales es un bloque más al mismo nivel que un Título (modo
-  // agrupado) o que un capítulo (modo plano) — su código es el próximo
-  // número de bloque.
-  const codigoGastosGenerales = String(
-    (modoMultiTitulo ? titulosConCapitulos.length : proyecto.capitulos.length) + 1
-  ).padStart(2, "0");
 
   const datosSubtitulo = [proyecto.cliente, proyecto.tipo, proyecto.direccion]
     .filter(Boolean)
@@ -1028,29 +1006,26 @@ export function PresupuestoPDF({
               />
             ))}
 
-        {/* Subtotal de obra, antes de sumar Gastos Generales */}
+        {/* Bloque de totales — mismo espejo que la cascada de tarjetas y
+            "Resumen del Presupuesto": Costo Directo, Gastos Generales y
+            Beneficio (monto combinado), Costo Total, IVA, Precio Final
+            (destacado). Sin sección numerada de "Gastos Generales" —
+            pasó a ser una línea más de este bloque, no un capítulo. */}
         <View style={styles.bloqueFinal} wrap={false}>
           <View style={styles.separadorFinal} />
           <View style={styles.filaResumenLinea}>
-            <Text style={styles.labelResumenLinea}>Subtotal</Text>
-            <Text style={styles.montoResumenLinea}>{fmtMonTotal(subtotalObra, simbolo)}</Text>
+            <Text style={styles.labelResumenLinea}>Costo Directo</Text>
+            <Text style={styles.montoResumenLinea}>{fmtMonTotal(costoDirecto, simbolo)}</Text>
           </View>
-        </View>
 
-        {/* Capítulo de Gastos Generales — una sola línea, sin desglose interno */}
-        <View style={styles.filaGastosGenerales} wrap={false}>
-          <Text style={styles.textoCapitulo}>
-            {codigoGastosGenerales} · GASTOS GENERALES
-          </Text>
-          <Text style={styles.montoGastosGenerales}>{fmtMonTotal(gastosGenerales, simbolo)}</Text>
-        </View>
-
-        {/* Líneas finales — SUBTOTAL (obra + GG), IVA, leyes sociales, total */}
-        <View style={styles.bloqueFinal} wrap={false}>
-          <View style={styles.separadorFinal} />
           <View style={styles.filaResumenLinea}>
-            <Text style={styles.labelResumenLinea}>SUBTOTAL</Text>
-            <Text style={styles.montoResumenLinea}>{fmtMonTotal(subtotal, simbolo)}</Text>
+            <Text style={styles.labelResumenLinea}>Gastos Generales y Beneficio</Text>
+            <Text style={styles.montoResumenLinea}>{fmtMonTotal(montoGastosGeneralesYBeneficio, simbolo)}</Text>
+          </View>
+
+          <View style={styles.filaResumenLinea}>
+            <Text style={styles.labelResumenLinea}>Costo Total</Text>
+            <Text style={styles.montoResumenLinea}>{fmtMonTotal(costoTotal, simbolo)}</Text>
           </View>
 
           <View style={styles.filaResumenLinea}>
@@ -1058,17 +1033,10 @@ export function PresupuestoPDF({
             <Text style={styles.montoResumenLinea}>{fmtMonTotal(montoIVA, simbolo)}</Text>
           </View>
 
-          {leyesSocialesPropietario != null && (
-            <View style={styles.filaResumenLinea}>
-              <Text style={styles.labelResumenLinea}>Leyes sociales — Aporte propietario</Text>
-              <Text style={styles.montoResumenLinea}>{fmtMonTotal(leyesSocialesPropietario, simbolo)}</Text>
-            </View>
-          )}
-
           <View style={styles.separadorTotal} />
           <View style={styles.filaTotalGeneral}>
-            <Text style={styles.labelTotalGeneral}>Total presupuesto</Text>
-            <Text style={styles.montoTotalGeneral}>{fmtMonTotal(totalGeneral, simbolo)}</Text>
+            <Text style={styles.labelTotalGeneral}>Precio Final</Text>
+            <Text style={styles.montoTotalGeneral}>{fmtMonTotal(precioFinal, simbolo)}</Text>
           </View>
 
           {proyecto.diasLaborales != null && (
@@ -1081,6 +1049,22 @@ export function PresupuestoPDF({
             </View>
           )}
         </View>
+
+        {/* Leyes Sociales/BPS — claramente separado de Precio Final, no
+            sandwiched entre IVA y el total (como estaba antes). Nunca se
+            suma a Precio Final: aporte aparte del propietario a BPS.
+            !! en vez de != null — mismo criterio que el header de
+            SeccionLeyesSociales.tsx: si el monto es 0 (no configurado o
+            imponible en $0), no se muestra "$0", se oculta la fila. */}
+        {!!leyesSocialesPropietario && (
+          <View style={styles.bloqueFinal} wrap={false}>
+            <View style={styles.separadorFinal} />
+            <View style={styles.filaResumenLinea}>
+              <Text style={styles.labelResumenLinea}>LEYES SOCIALES/BPS</Text>
+              <Text style={styles.montoResumenLinea}>{fmtMonTotal(leyesSocialesPropietario, simbolo)}</Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.bloqueGarantias} wrap={false}>
           <View style={styles.separadorGarantias} />
