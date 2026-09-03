@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Package, Search, Upload, Loader2 } from "lucide-react";
+import { Package, Search, Upload, Loader2, Pencil } from "lucide-react";
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
@@ -82,6 +82,10 @@ export default function MaterialesPage() {
   const [filtroSinPrecio, setFiltroSinPrecio] = useState(false);
   const [filtroPendiente, setFiltroPendiente] = useState(false);
   const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
+  // Material cuyo precio está en edición inline (click-to-edit) — mismo
+  // patrón que precioEditId en DrawerAPU (proyectos/[id]/page.tsx).
+  const [precioEditId, setPrecioEditId] = useState<string | null>(null);
+  const [guardandoPrecioId, setGuardandoPrecioId] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
     setCargando(true);
@@ -101,6 +105,46 @@ export default function MaterialesPage() {
     for (const m of materiales) if (m.proveedor) set.add(m.proveedor);
     return [...set].sort((a, b) => a.localeCompare(b, "es"));
   }, [materiales]);
+
+  // Guarda el precio corregido inline y actualiza el material local (sin
+  // re-fetch de toda la tabla) con lo que devuelve el server — mismo
+  // criterio que sincronizarPrecioMTOP en proyectos/[id]/page.tsx: así el
+  // badge y la columna "Actualizado" pasan a "Verificado" al instante.
+  async function guardarPrecio(id: string, valor: number) {
+    setPrecioEditId(null);
+    if (!Number.isFinite(valor) || valor <= 0) return;
+    const actual = materiales.find((m) => m.id === id);
+    if (actual && actual.precioUnitario === valor) return; // sin cambios, no pega al servidor
+
+    setGuardandoPrecioId(id);
+    try {
+      const res = await fetch(`/api/precios-mtop/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ precioUnitario: valor }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setMateriales((prev) =>
+        prev.map((m) =>
+          m.id !== id
+            ? m
+            : {
+                ...m,
+                precioUnitario: data.precioUnitario,
+                fechaUltimaVerificacion: data.fechaUltimaVerificacion,
+                requiereVerificacion: data.requiereVerificacion,
+                motivoVerificacion: data.motivoVerificacion,
+                actualizadoEn: data.fechaUltimaVerificacion ?? m.actualizadoEn,
+              }
+        )
+      );
+    } catch (err) {
+      console.error("[editar precio inline]", err);
+    } finally {
+      setGuardandoPrecioId(null);
+    }
+  }
 
   function esPendiente(m: MaterialCatalogo): boolean {
     return !!(m.proveedor || m.notaProcedencia) && !m.fechaUltimaVerificacion;
@@ -247,8 +291,37 @@ export default function MaterialesPage() {
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-slate-500">{m.unidad}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-medium text-slate-700">
-                        {fmtMon(m.precioUnitario)}
+                      <td className="px-4 py-2.5 text-right">
+                        {precioEditId === m.id ? (
+                          <input
+                            type="number"
+                            autoFocus
+                            defaultValue={m.precioUnitario || ""}
+                            onBlur={(e) => guardarPrecio(m.id, parseFloat(e.target.value))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") e.currentTarget.blur();
+                              if (e.key === "Escape") setPrecioEditId(null);
+                            }}
+                            placeholder="0.00"
+                            className="w-24 text-right text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-[6px] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        ) : (
+                          <div className="relative group inline-flex items-center gap-1.5 justify-end w-full">
+                            {guardandoPrecioId === m.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setPrecioEditId(m.id)}
+                                title="Editar precio"
+                                className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-[#2563EB] transition-opacity"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            )}
+                            <span className="tabular-nums font-medium text-slate-700">{fmtMon(m.precioUnitario)}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-2.5">
                         {m.proveedor || m.notaProcedencia ? (

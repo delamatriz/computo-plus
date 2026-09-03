@@ -208,20 +208,31 @@ export async function PATCH(req: NextRequest) {
     // codigo dejó de ser único por sí solo (PrecioMTOP.codigo pasó a
     // @@unique([codigo, proveedor])) — hay que resolver el id real de cada
     // fila antes de poder actualizarla. Se resuelve con findFirst (no
-    // findUnique) y se actualiza por id (no por el compuesto
-    // codigo_proveedor, que Prisma no acepta con proveedor=null — la
-    // mayoría de las filas hoy). Tampoco updateMany por código solo, a
-    // propósito: actualizaría TODAS las filas con ese código si algún día
-    // hay más de un proveedor compartiéndolo — la colisión que se evita.
+    // findUnique) y se actualiza por id. Tampoco updateMany por código
+    // solo, a propósito: actualizaría TODAS las filas con ese código si
+    // algún día hay más de un proveedor compartiéndolo — la colisión que
+    // se evita.
+    //
+    // Filtrado también por proveedor: null — este endpoint lo usa
+    // exclusivamente "Precios de Referencia de Materiales" en
+    // Configuración, sobre 12 códigos fijos (TICH-*, LAD-*, etc.) que HOY
+    // son todos proveedor=null (confirmado contra la base). Sin este
+    // filtro, un findFirst por codigo solo podría traer la fila
+    // equivocada si algún día otro proveedor reusa uno de estos códigos.
     await Promise.all(
       materiales
         .filter((m) => m?.codigo && Number.isFinite(m.precioUnitario))
         .map(async (m: { codigo: string; precioUnitario: number }) => {
-          const fila = await db.precioMTOP.findFirst({ where: { codigo: m.codigo }, select: { id: true } });
+          const fila = await db.precioMTOP.findFirst({
+            where: { codigo: m.codigo, proveedor: null },
+            select: { id: true },
+          });
           if (!fila) return;
+          // datosCorreccionPrecio: mismo criterio de limpieza de estado
+          // pendiente que el resto del sistema (ver lib/resolverPrecioMTOP.ts).
           await db.precioMTOP.update({
             where: { id: fila.id },
-            data: { precioUnitario: m.precioUnitario, precioConIva: m.precioUnitario },
+            data: datosCorreccionPrecio(m.precioUnitario),
           });
         })
     );
