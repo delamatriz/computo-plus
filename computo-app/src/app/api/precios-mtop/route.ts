@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
 
 /** Normaliza tildes para que "hormigon" también encuentre "Hormigón" */
 function normalizar(s: string): string {
@@ -13,9 +14,34 @@ function normalizar(s: string): string {
     .replace(/ñ/g, "n");
 }
 
+// Select completo — para /materiales (catálogo) y para la vista previa de
+// importación (candidatos de un proveedor puntual), que necesitan mostrar
+// el badge de verificación completo (BadgeVerificacion), no solo
+// proveedor/notaProcedencia como el buscador chico de un APU.
+const SELECT_CATALOGO_COMPLETO = {
+  id: true,
+  codigo: true,
+  descripcion: true,
+  unidad: true,
+  precioUnitario: true,
+  precioConIva: true,
+  cantidadUnidad: true,
+  numeroLista: true,
+  proveedor: true,
+  notaProcedencia: true,
+  fechaUltimaVerificacion: true,
+  requiereVerificacion: true,
+  motivoVerificacion: true,
+} as const;
+
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   const codigosParam = req.nextUrl.searchParams.get("codigos")?.trim() ?? "";
+  // Presente (aunque sea "") cuando el caller pide TODOS los materiales de
+  // un proveedor exacto — usado por la vista previa de importación para
+  // traer los candidatos contra los que comparar por similitud. Distinto
+  // de "q" (contains, libre): acá es igualdad exacta de proveedor.
+  const proveedorExactoParam = req.nextUrl.searchParams.get("proveedorExacto");
 
   // Búsqueda exacta por lista de códigos — usada para cargar precios de
   // referencia de materiales que no son resultado de búsqueda libre.
@@ -42,6 +68,37 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(resultados);
     } catch (err) {
       console.error("[GET /api/precios-mtop?codigos]", err);
+      return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    }
+  }
+
+  if (proveedorExactoParam !== null) {
+    try {
+      const resultados = await db.precioMTOP.findMany({
+        where: { proveedor: proveedorExactoParam },
+        select: SELECT_CATALOGO_COMPLETO,
+        orderBy: { descripcion: "asc" },
+      });
+      return NextResponse.json(resultados);
+    } catch (err) {
+      console.error("[GET /api/precios-mtop?proveedorExacto]", err);
+      return NextResponse.json({ error: "Error interno" }, { status: 500 });
+    }
+  }
+
+  // Sin q ni codigos ni proveedorExacto — catálogo completo, para
+  // /materiales. Ningún caller existente llama a este endpoint sin
+  // ninguno de los 3 params (BuscadorCatalogo siempre manda q con 2+
+  // caracteres), así que esta rama es nueva sin pisar ningún contrato.
+  if (!q) {
+    try {
+      const resultados = await db.precioMTOP.findMany({
+        select: SELECT_CATALOGO_COMPLETO,
+        orderBy: { descripcion: "asc" },
+      });
+      return NextResponse.json(resultados);
+    } catch (err) {
+      console.error("[GET /api/precios-mtop (catálogo completo)]", err);
       return NextResponse.json({ error: "Error interno" }, { status: 500 });
     }
   }
@@ -118,22 +175,13 @@ export async function PATCH(req: NextRequest) {
         );
       }
       const match = matches[0];
-      // Corregir el precio a mano es, en los hechos, la misma resolución
-      // que "aceptar" en la Cola de Revisión (ver resolver/route.ts) —
-      // mismo criterio que escribirResultado() para el caso "actualizado"
-      // del job automático: limpia el estado pendiente/alerta y marca
-      // fechaUltimaVerificacion = ahora, para que BadgeVerificacion deje
-      // de mostrar "Pendiente de verificar" apenas se corrige.
+      // datosCorreccionPrecio: misma resolución que "aceptar" en la Cola
+      // de Revisión (ver resolver/route.ts) y que la importación masiva
+      // (importar/route.ts) — un solo lugar para el criterio, ver
+      // lib/resolverPrecioMTOP.ts.
       const actualizado = await db.precioMTOP.update({
         where: { id: match.id },
-        data: {
-          precioUnitario: body.precioUnitario,
-          precioConIva: body.precioUnitario,
-          fechaUltimaVerificacion: new Date(),
-          requiereVerificacion: false,
-          motivoVerificacion: null,
-          precioSugeridoPendiente: null,
-        },
+        data: datosCorreccionPrecio(body.precioUnitario),
       });
       return NextResponse.json({
         ok: true,
