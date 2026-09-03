@@ -8,12 +8,21 @@ import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
 // conoce el id exacto de la fila — sin ambigüedad que resolver, un
 // update directo por clave primaria. Misma resolución de "limpiar estado
 // pendiente" que el resto del sistema (ver lib/resolverPrecioMTOP.ts).
+//
+// Vive en la carpeta [codigo] (no [id]) a propósito — Next.js exige que
+// todos los segmentos dinámicos hermanos bajo el mismo padre usen el
+// MISMO nombre de parámetro; esta carpeta ya tenía a [codigo]/resolver
+// como hermana. Tener [id] y [codigo] como hermanos rompía el árbol de
+// rutas completo al arrancar con "next start" (rompió producción en
+// Render — ni "next dev" ni "next build" lo detectan, solo un servidor
+// real). El nombre de la carpeta es solo de Next.js — el valor que
+// recibe sigue siendo el id real de PrecioMTOP, no un código.
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ codigo: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { codigo: id } = await params;
     const body = await req.json().catch(() => null);
 
     if (!Number.isFinite(body?.precioUnitario) || body.precioUnitario <= 0) {
@@ -46,7 +55,7 @@ export async function PATCH(
       motivoVerificacion: actualizado.motivoVerificacion,
     });
   } catch (err) {
-    console.error("[PATCH /api/precios-mtop/[id]]", err);
+    console.error("[PATCH /api/precios-mtop/[codigo] (id real)]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
