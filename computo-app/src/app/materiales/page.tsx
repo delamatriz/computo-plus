@@ -33,11 +33,34 @@ interface MaterialCatalogo {
   fechaUltimaVerificacion: string | null;
   requiereVerificacion: boolean;
   motivoVerificacion: string | null;
+  actualizadoEn: string;
 }
 
 function fmtMon(v: number): string {
   if (!v) return "—";
   return `$ ${Math.round(v).toLocaleString("es-UY")}`;
+}
+
+function fmtFecha(v: Date): string {
+  return v.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+// Fecha general del catálogo — el MAX entre fechaUltimaVerificacion (la
+// última vez que un precio se confirmó/corrigió) y actualizadoEn (que
+// @updatedAt toca en CUALQUIER escritura, incluida la creación) de TODOS
+// los materiales. No es "por material" — ese detalle ya vive en el
+// tooltip del badge de cada fila (BadgeVerificacion), esto no lo toca.
+function calcularFechaMaxima(materiales: MaterialCatalogo[]): Date | null {
+  let max: Date | null = null;
+  for (const m of materiales) {
+    for (const raw of [m.fechaUltimaVerificacion, m.actualizadoEn]) {
+      if (!raw) continue;
+      const fecha = new Date(raw);
+      if (Number.isNaN(fecha.getTime())) continue;
+      if (!max || fecha > max) max = fecha;
+    }
+  }
+  return max;
 }
 
 export default function MaterialesPage() {
@@ -81,6 +104,8 @@ export default function MaterialesPage() {
     });
   }, [materiales, busqueda, filtroSinPrecio, filtroPendiente]);
 
+  const fechaMaxima = useMemo(() => calcularFechaMaxima(materiales), [materiales]);
+
   return (
     <div className="p-8 max-w-5xl">
       <div className="flex items-start justify-between gap-4 mb-2">
@@ -89,6 +114,16 @@ export default function MaterialesPage() {
           <p className="text-slate-500">
             Catálogo de materiales de construcción y sus precios de referencia — {materiales.length} en total.
           </p>
+          <p className="text-sm text-slate-400 mt-2 max-w-2xl">
+            Este catálogo combina la Lista Oficial MTOP N°599 con materiales de mercado libre y listas importadas. El
+            badge de cada fila indica si el precio está verificado, pendiente de verificar, o si falta cotizar. Usá
+            los filtros para encontrar rápido lo que necesitás revisar.
+          </p>
+          {!cargando && (
+            <p className="text-xs text-slate-400 mt-1.5">
+              Catálogo actualizado al: {fechaMaxima ? fmtFecha(fechaMaxima) : "Sin actualizaciones registradas"}
+            </p>
+          )}
         </div>
         <button
           onClick={() => setModalImportarAbierto(true)}

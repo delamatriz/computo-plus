@@ -32,6 +32,12 @@ const SELECT_CATALOGO_COMPLETO = {
   fechaUltimaVerificacion: true,
   requiereVerificacion: true,
   motivoVerificacion: true,
+  // Para la fecha general "Catálogo actualizado al" de /materiales —
+  // @updatedAt, se toca en CUALQUIER escritura (corrección de precio,
+  // importación, etc.), así que es la señal más completa de "última vez
+  // que se tocó el catálogo" — más completa que fechaUltimaVerificacion
+  // sola, que queda null en materiales nunca verificados.
+  actualizadoEn: true,
 } as const;
 
 export async function GET(req: NextRequest) {
