@@ -1395,14 +1395,36 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
 
   // Actualiza PrecioMTOP si existe un registro cuya descripción coincide
   // con la del material editado — mantiene el catálogo alineado con lo
-  // que el usuario corrige a mano en el APU.
-  const sincronizarPrecioMTOP = (m: InsumoAPU) => {
+  // que el usuario corrige a mano en el APU. Corregir el precio a mano
+  // limpia el estado "Pendiente de verificar"/alerta (ver PATCH), así
+  // que acá reflejamos ese mismo cambio en el material local (sin
+  // recargar la página) y lo persistimos en MaterialAPU — si no, el
+  // badge volvería a mostrar "Pendiente" apenas se recarga.
+  const sincronizarPrecioMTOP = async (m: InsumoAPU) => {
     if (!m.descripcion.trim() || m.precioUnit <= 0) return;
-    fetch("/api/precios-mtop", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ descripcion: m.descripcion, precioUnitario: m.precioUnit }),
-    }).catch((err) => console.error("[sync precio MTOP]", err));
+    try {
+      const res = await fetch("/api/precios-mtop", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descripcion: m.descripcion, precioUnitario: m.precioUnit }),
+      });
+      if (!res.ok) return; // 409 ambiguo u otro error — no se sabe a qué material corregir, no se toca nada local
+      const data = await res.json();
+      if (!data.actualizado) return;
+      const materialesActualizados = apu.materiales.map((mat) =>
+        mat.id !== m.id
+          ? mat
+          : {
+              ...mat,
+              fechaUltimaVerificacion: data.fechaUltimaVerificacion ?? null,
+              motivoVerificacion: data.motivoVerificacion ?? null,
+            }
+      );
+      setMat(materialesActualizados);
+      guardarApuActual({ ...apu, materiales: materialesActualizados });
+    } catch (err) {
+      console.error("[sync precio MTOP]", err);
+    }
   };
 
   // Estima el precio unitario de un material con IA cuando no tiene precio cargado

@@ -118,11 +118,31 @@ export async function PATCH(req: NextRequest) {
         );
       }
       const match = matches[0];
-      await db.precioMTOP.update({
+      // Corregir el precio a mano es, en los hechos, la misma resolución
+      // que "aceptar" en la Cola de Revisión (ver resolver/route.ts) —
+      // mismo criterio que escribirResultado() para el caso "actualizado"
+      // del job automático: limpia el estado pendiente/alerta y marca
+      // fechaUltimaVerificacion = ahora, para que BadgeVerificacion deje
+      // de mostrar "Pendiente de verificar" apenas se corrige.
+      const actualizado = await db.precioMTOP.update({
         where: { id: match.id },
-        data: { precioUnitario: body.precioUnitario, precioConIva: body.precioUnitario },
+        data: {
+          precioUnitario: body.precioUnitario,
+          precioConIva: body.precioUnitario,
+          fechaUltimaVerificacion: new Date(),
+          requiereVerificacion: false,
+          motivoVerificacion: null,
+          precioSugeridoPendiente: null,
+        },
       });
-      return NextResponse.json({ ok: true, actualizado: true, codigo: match.codigo });
+      return NextResponse.json({
+        ok: true,
+        actualizado: true,
+        codigo: match.codigo,
+        fechaUltimaVerificacion: actualizado.fechaUltimaVerificacion,
+        requiereVerificacion: actualizado.requiereVerificacion,
+        motivoVerificacion: actualizado.motivoVerificacion,
+      });
     }
 
     const { materiales } = body;
