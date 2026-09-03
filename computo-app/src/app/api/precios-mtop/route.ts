@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
           cantidadUnidad: true,
           actualizadoEn: true,
           numeroLista: true,
+          proveedor: true,
+          notaProcedencia: true,
         },
         orderBy: { descripcion: "asc" },
       });
@@ -67,6 +69,8 @@ export async function GET(req: NextRequest) {
         precioConIva: true,
         cantidadUnidad: true,
         numeroLista: true,
+        proveedor: true,
+        notaProcedencia: true,
       },
       orderBy: { descripcion: "asc" },
       take: 8,
@@ -92,13 +96,28 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
 
     if (typeof body?.descripcion === "string" && Number.isFinite(body?.precioUnitario)) {
-      const match = await db.precioMTOP.findFirst({
+      // Hasta 2 matches alcanza para decidir: 0 (nada que hacer), 1 (caso
+      // normal, sigue de largo), 2+ (ambiguo, no adivinamos cuál — no hace
+      // falta traer más de 2 filas para saber que hay más de una).
+      const matches = await db.precioMTOP.findMany({
         where: { descripcion: { contains: body.descripcion, mode: "insensitive" } },
         orderBy: { id: "asc" },
+        take: 2,
       });
-      if (!match) {
+      if (matches.length === 0) {
         return NextResponse.json({ ok: true, actualizado: false });
       }
+      if (matches.length > 1) {
+        return NextResponse.json(
+          {
+            error: "descripcion_ambigua",
+            mensaje: `Más de un material coincide con "${body.descripcion}" — no se puede corregir el precio sin saber a cuál te referís.`,
+            candidatos: matches.map((m) => ({ codigo: m.codigo, descripcion: m.descripcion, proveedor: m.proveedor })),
+          },
+          { status: 409 }
+        );
+      }
+      const match = matches[0];
       await db.precioMTOP.update({
         where: { id: match.id },
         data: { precioUnitario: body.precioUnitario, precioConIva: body.precioUnitario },
@@ -112,15 +131,25 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Falta el array de materiales" }, { status: 400 });
     }
 
+    // codigo dejó de ser único por sí solo (PrecioMTOP.codigo pasó a
+    // @@unique([codigo, proveedor])) — hay que resolver el id real de cada
+    // fila antes de poder actualizarla. Se resuelve con findFirst (no
+    // findUnique) y se actualiza por id (no por el compuesto
+    // codigo_proveedor, que Prisma no acepta con proveedor=null — la
+    // mayoría de las filas hoy). Tampoco updateMany por código solo, a
+    // propósito: actualizaría TODAS las filas con ese código si algún día
+    // hay más de un proveedor compartiéndolo — la colisión que se evita.
     await Promise.all(
       materiales
         .filter((m) => m?.codigo && Number.isFinite(m.precioUnitario))
-        .map((m: { codigo: string; precioUnitario: number }) =>
-          db.precioMTOP.update({
-            where: { codigo: m.codigo },
+        .map(async (m: { codigo: string; precioUnitario: number }) => {
+          const fila = await db.precioMTOP.findFirst({ where: { codigo: m.codigo }, select: { id: true } });
+          if (!fila) return;
+          await db.precioMTOP.update({
+            where: { id: fila.id },
             data: { precioUnitario: m.precioUnitario, precioConIva: m.precioUnitario },
-          })
-        )
+          });
+        })
     );
 
     return NextResponse.json({ ok: true });

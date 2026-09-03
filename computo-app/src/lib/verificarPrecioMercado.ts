@@ -131,7 +131,9 @@ export interface ResultadoVerificacionPrecio {
 // diseño confirmado no tiene gate de confirmación aparte, cada tanda se
 // aplica sola, ver SeccionActualizacionDatos.tsx).
 export async function verificarPrecioMTOP(codigo: string, escribir = true): Promise<ResultadoVerificacionPrecio> {
-  const item = await db.precioMTOP.findUnique({ where: { codigo } });
+  // findFirst en vez de findUnique — codigo dejó de ser único por sí solo
+  // (PrecioMTOP.codigo pasó a @@unique([codigo, proveedor])).
+  const item = await db.precioMTOP.findFirst({ where: { codigo } });
   if (!item) {
     throw new Error(`Código no encontrado en PrecioMTOP: ${codigo}`);
   }
@@ -144,7 +146,7 @@ export async function verificarPrecioMTOP(codigo: string, escribir = true): Prom
   } catch (err) {
     if (escribir) {
       await db.precioMTOP.update({
-        where: { codigo: item.codigo },
+        where: { id: item.id },
         data: { requiereVerificacion: true, motivoVerificacion: "fuente_no_disponible" },
       });
     }
@@ -160,7 +162,7 @@ export async function verificarPrecioMTOP(codigo: string, escribir = true): Prom
   if (!resultado.encontrado || resultado.precio_encontrado == null) {
     if (escribir) {
       await db.precioMTOP.update({
-        where: { codigo: item.codigo },
+        where: { id: item.id },
         data: {
           requiereVerificacion: true,
           motivoVerificacion: resultado.motivo_no_encontrado ?? "producto_no_encontrado",
@@ -184,7 +186,7 @@ export async function verificarPrecioMTOP(codigo: string, escribir = true): Prom
   if (variacionPct < umbral) {
     if (escribir) {
       await db.precioMTOP.update({
-        where: { codigo: item.codigo },
+        where: { id: item.id },
         data: {
           precioUnitario: precioNuevoUYU,
           precioConIva: precioNuevoUYU,
@@ -199,7 +201,7 @@ export async function verificarPrecioMTOP(codigo: string, escribir = true): Prom
 
   if (escribir) {
     await db.precioMTOP.update({
-      where: { codigo: item.codigo },
+      where: { id: item.id },
       data: {
         requiereVerificacion: true,
         motivoVerificacion: "variacion_alta",

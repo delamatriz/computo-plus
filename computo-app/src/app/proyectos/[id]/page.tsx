@@ -238,6 +238,10 @@ interface InsumoAPU {
   // motivo, sin fecha) de "genuinamente verificado" (sin motivo, con
   // fecha) acá en DrawerAPU.
   proveedor?: string | null;
+  // Nota de procedencia/metodología cuando el precio no viene de un
+  // proveedor comercial real (ver investigación proveedor/notaProcedencia)
+  // — mismo criterio que proveedor para BadgeVerificacion.
+  notaProcedencia?: string | null;
   fechaUltimaVerificacion?: string | null;
 }
 
@@ -248,6 +252,8 @@ interface PrecioMTOPResult {
   unidad: string;
   precioUnitario: number;
   numeroLista: number;
+  proveedor: string | null;
+  notaProcedencia: string | null;
 }
 
 interface PrecioEquipoResult {
@@ -901,6 +907,8 @@ interface BuscadorCatalogoResultBase {
   descripcion: string;
   unidad: string;
   numeroLista?: number;
+  proveedor?: string | null;
+  notaProcedencia?: string | null;
 }
 
 function BuscadorCatalogo<T extends BuscadorCatalogoResultBase>({
@@ -976,10 +984,25 @@ function BuscadorCatalogo<T extends BuscadorCatalogoResultBase>({
               </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] text-slate-400">{r.unidad}</span>
-                {mostrarBadgeLista && r.numeroLista != null && (
-                  <span className="text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide">
-                    Lista {r.numeroLista}
-                  </span>
+                {mostrarBadgeLista && (
+                  r.proveedor || r.notaProcedencia ? (
+                    // Origen distinto a la Lista MTOP oficial — proveedor
+                    // real (propio importado o de mercado libre) o, si no
+                    // hay proveedor real, la nota de procedencia (ver
+                    // investigación proveedor/notaProcedencia). Se
+                    // prioriza sobre "Lista {numeroLista}" para que nunca
+                    // se confunda con un material MTOP.
+                    <span
+                      title={r.proveedor ?? r.notaProcedencia ?? undefined}
+                      className="text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-blue-50 text-blue-600 border border-blue-200 uppercase tracking-wide truncate max-w-[140px]"
+                    >
+                      {r.proveedor ?? r.notaProcedencia}
+                    </span>
+                  ) : r.numeroLista != null && (
+                    <span className="text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide">
+                      Lista {r.numeroLista}
+                    </span>
+                  )
                 )}
               </div>
             </button>
@@ -1748,6 +1771,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                               <BadgeVerificacion
                                 fuente={{
                                   proveedor: m.proveedor ?? null,
+                                  notaProcedencia: m.notaProcedencia ?? null,
                                   nombreProducto: null,
                                   urlReferencia: null,
                                   fechaUltimaVerificacion: m.fechaUltimaVerificacion ?? null,

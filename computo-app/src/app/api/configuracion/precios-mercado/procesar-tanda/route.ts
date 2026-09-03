@@ -29,7 +29,9 @@ export async function POST(req: NextRequest) {
       // haber cambiado de estado entre que el cliente pidió la lista de
       // elegibles y que le tocó el turno a esta tanda (otra pestaña
       // corriendo la misma pantalla, por ejemplo).
-      const item = await db.precioMTOP.findUnique({
+      // findFirst en vez de findUnique — codigo dejó de ser único por sí
+      // solo (PrecioMTOP.codigo pasó a @@unique([codigo, proveedor])).
+      const item = await db.precioMTOP.findFirst({
         where: { codigo },
         select: { codigo: true, descripcion: true, precioUnitario: true, proveedor: true, motivoVerificacion: true, requiereVerificacion: true },
       });

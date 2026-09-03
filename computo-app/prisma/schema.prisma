@@ -298,6 +298,10 @@ model MaterialAPU {
   // "genuinamente verificado" en DrawerAPU, aunque en /rubros (biblioteca)
   // sí podía (ver PrecioMTOP.proveedor/fechaUltimaVerificacion).
   proveedor               String?
+  // Mismo criterio que PrecioMTOP.notaProcedencia — propagado al clonar
+  // desde la biblioteca cuando el material de catálogo tiene una nota de
+  // procedencia en vez de un proveedor real (ver BadgeVerificacion).
+  notaProcedencia         String?
   fechaUltimaVerificacion DateTime?
 }
 
@@ -763,7 +767,13 @@ model EquipoAPUEstandar {
 
 model PrecioMTOP {
   id             String   @id @default(cuid())
-  codigo         String   @unique
+  // Antes @unique a nivel de columna sola. Pasó a único combinado con
+  // proveedor (abajo, @@unique) para poder alojar listas de precios de
+  // más de un origen (Lista MTOP oficial, listas importadas de un
+  // proveedor propio) sin que dos orígenes distintos choquen si por
+  // casualidad reusan el mismo código — cada fila sigue siendo única
+  // por (codigo, proveedor), nunca por codigo solo.
+  codigo         String
   descripcion    String
   cantidadUnidad String
   unidad         String
@@ -779,6 +789,15 @@ model PrecioMTOP {
   // Todos opcionales/con default: no rompen los registros existentes
   // (Lista MTOP oficial ni los 334 de Fase 2 sin estos datos aún).
   proveedor               String?
+  // Nombre/explicación de CÓMO se derivó el precio cuando no viene de un
+  // proveedor comercial real (ej. "Derivado — modelo de regresión...",
+  // "Lista Oficial MTOP (código 203)") — separado de proveedor, que de
+  // acá en más significa exclusivamente "nombre de proveedor/comercio
+  // real". Antes estas notas vivían mezcladas en proveedor mismo (ver
+  // investigación); motivoVerificacion sigue siendo el criterio real de
+  // elegibilidad para FEAT-AI-006, sin cambios — este campo es solo para
+  // mostrar la nota, nunca se usa como input de búsqueda de la IA.
+  notaProcedencia         String?
   nombreProducto          String?
   urlReferencia           String?
   fechaUltimaVerificacion DateTime?
@@ -792,6 +811,8 @@ model PrecioMTOP {
   // mostrar contexto real y no solo el número — antes se perdía apenas se
   // cerraba la pestaña de la corrida.
   detalleVerificacion     String?   @db.Text
+
+  @@unique([codigo, proveedor])
 }
 
 model PrecioEquipo {

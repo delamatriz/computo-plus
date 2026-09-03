@@ -36,10 +36,16 @@ export async function POST(
       );
     }
 
-    const item = await db.precioMTOP.findUnique({ where: { codigo } });
+    // findFirst en vez de findUnique — codigo dejó de ser único por sí
+    // solo (PrecioMTOP.codigo pasó a @@unique([codigo, proveedor])). Los
+    // updates de abajo van por id (no por el compuesto codigo_proveedor):
+    // Prisma no acepta null en el shorthand de un compound unique, y la
+    // mayoría de las filas hoy tiene proveedor=null.
+    const item = await db.precioMTOP.findFirst({ where: { codigo } });
     if (!item) {
       return NextResponse.json({ error: "no_encontrado", mensaje: "Código no encontrado" }, { status: 404 });
     }
+    const whereUnico = { id: item.id };
 
     if (!item.requiereVerificacion) {
       return NextResponse.json(
@@ -64,7 +70,7 @@ export async function POST(
       }
       const precio = item.precioSugeridoPendiente;
       const actualizado = await db.precioMTOP.update({
-        where: { codigo },
+        where: whereUnico,
         data: { ...base, precioUnitario: precio, precioConIva: precio },
       });
       return NextResponse.json(actualizado);
@@ -81,7 +87,7 @@ export async function POST(
         );
       }
       const actualizado = await db.precioMTOP.update({
-        where: { codigo },
+        where: whereUnico,
         data: { ...base, detalleVerificacion: null, urlReferencia: null },
       });
       return NextResponse.json(actualizado);
@@ -96,7 +102,7 @@ export async function POST(
       );
     }
     const actualizado = await db.precioMTOP.update({
-      where: { codigo },
+      where: whereUnico,
       data: { ...base, precioUnitario: precioManual, precioConIva: precioManual, detalleVerificacion: null, urlReferencia: null },
     });
     return NextResponse.json(actualizado);

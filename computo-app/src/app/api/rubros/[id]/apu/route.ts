@@ -86,6 +86,7 @@ export async function PUT(
           // criterio para proveedor/fechaUltimaVerificacion (ver BadgeVerificacion).
           motivoVerificacion: m.motivoVerificacion ?? null,
           proveedor: m.proveedor ?? null,
+          notaProcedencia: m.notaProcedencia ?? null,
           fechaUltimaVerificacion: m.fechaUltimaVerificacion ? new Date(m.fechaUltimaVerificacion) : null,
         },
       });

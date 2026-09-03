@@ -71,6 +71,7 @@ export async function GET(
           fuente: precioMTOP
             ? {
                 proveedor: precioMTOP.proveedor,
+                notaProcedencia: precioMTOP.notaProcedencia,
                 nombreProducto: precioMTOP.nombreProducto,
                 urlReferencia: precioMTOP.urlReferencia,
                 fechaUltimaVerificacion: precioMTOP.fechaUltimaVerificacion,

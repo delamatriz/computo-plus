@@ -119,6 +119,7 @@ export async function POST(
           // "Pendiente de verificar" de "genuinamente verificado" — solo
           // /rubros (biblioteca) podía, porque consulta PrecioMTOP en vivo.
           proveedor: precioMTOP?.proveedor ?? null,
+          notaProcedencia: precioMTOP?.notaProcedencia ?? null,
           fechaUltimaVerificacion: precioMTOP?.fechaUltimaVerificacion ?? null,
         },
       });

@@ -9,6 +9,10 @@ import { AlertTriangle, BadgeCheck, Clock, HelpCircle } from "lucide-react";
 // esos dos modelos y su propagación en /clonar-apu.
 export interface FuenteMaterial {
   proveedor: string | null;
+  // Nota de procedencia/metodología cuando el precio no viene de un
+  // proveedor comercial real (ver investigación proveedor/notaProcedencia)
+  // — cuenta como "fuente resuelta" para el badge, igual que proveedor.
+  notaProcedencia?: string | null;
   nombreProducto: string | null;
   urlReferencia: string | null;
   fechaUltimaVerificacion: string | null;
@@ -68,7 +72,7 @@ export function BadgeVerificacion({ fuente }: { fuente: FuenteMaterial }) {
     );
   }
 
-  if (fuente.proveedor) {
+  if (fuente.proveedor || fuente.notaProcedencia) {
     // Elegible para el job de verificación de precios (FEAT-AI-006) pero
     // todavía sin ninguna corrida real encima — fechaUltimaVerificacion
     // null es la señal (limpiada de backfills falsos, ver

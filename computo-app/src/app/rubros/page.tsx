@@ -339,8 +339,10 @@ function SeccionMateriales({ materiales }: { materiales: MaterialDescompuesto[] 
               </div>
               {m.fuente?.nombreProducto && (
                 <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                  {m.fuente.proveedor && <span className="font-medium text-slate-500">{m.fuente.proveedor}</span>}
-                  {m.fuente.proveedor && " — "}
+                  {(m.fuente.proveedor || m.fuente.notaProcedencia) && (
+                    <span className="font-medium text-slate-500">{m.fuente.proveedor || m.fuente.notaProcedencia}</span>
+                  )}
+                  {(m.fuente.proveedor || m.fuente.notaProcedencia) && " — "}
                   {m.fuente.nombreProducto}
                 </p>
               )}
