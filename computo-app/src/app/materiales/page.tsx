@@ -45,6 +45,18 @@ function fmtFecha(v: Date): string {
   return v.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+// Fecha de la columna "Actualizado" — fechaUltimaVerificacion si existe
+// (verificación real de precio de mercado, texto normal) o si no,
+// actualizadoEn (fecha de carga/última edición del registro — nunca pasó
+// por el sistema de verificación, por eso va en gris tenue: no hay que
+// confundir "se cargó/corrigió" con "se verificó contra el mercado").
+function fechaColumna(m: MaterialCatalogo): { texto: string; verificada: boolean } {
+  if (m.fechaUltimaVerificacion) {
+    return { texto: fmtFecha(new Date(m.fechaUltimaVerificacion)), verificada: true };
+  }
+  return { texto: fmtFecha(new Date(m.actualizadoEn)), verificada: false };
+}
+
 // Fecha general del catálogo — el MAX entre fechaUltimaVerificacion (la
 // última vez que un precio se confirmó/corrigió) y actualizadoEn (que
 // @updatedAt toca en CUALQUIER escritura, incluida la creación) de TODOS
@@ -117,7 +129,8 @@ export default function MaterialesPage() {
           <p className="text-sm text-slate-400 mt-2 max-w-2xl">
             Este catálogo combina la Lista Oficial MTOP N°599 con materiales de mercado libre y listas importadas. El
             badge de cada fila indica si el precio está verificado, pendiente de verificar, o si falta cotizar. Usá
-            los filtros para encontrar rápido lo que necesitás revisar.
+            los filtros para encontrar rápido lo que necesitás revisar. ¿Tenés tu propia lista de precios? Subila
+            para complementar este catálogo — hacé clic en &quot;Importar lista de precios&quot;.
           </p>
           {!cargando && (
             <p className="text-xs text-slate-400 mt-1.5">
@@ -208,6 +221,9 @@ export default function MaterialesPage() {
                   <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-xs uppercase tracking-wide">
                     Fuente
                   </th>
+                  <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-xs uppercase tracking-wide">
+                    Actualizado
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -221,6 +237,7 @@ export default function MaterialesPage() {
                     requiereVerificacion: m.requiereVerificacion,
                     motivoVerificacion: m.motivoVerificacion,
                   };
+                  const fecha = fechaColumna(m);
                   return (
                     <tr key={m.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
                       <td className="px-4 py-2.5">
@@ -241,6 +258,14 @@ export default function MaterialesPage() {
                         ) : (
                           <span className="text-xs text-emerald-600 font-semibold">Lista {m.numeroLista}</span>
                         )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={cn("text-xs tabular-nums", fecha.verificada ? "text-slate-600" : "text-slate-300")}
+                          title={fecha.verificada ? undefined : "Fecha de carga/última edición — no pasó por verificación de precio de mercado"}
+                        >
+                          {fecha.texto}
+                        </span>
                       </td>
                     </tr>
                   );
