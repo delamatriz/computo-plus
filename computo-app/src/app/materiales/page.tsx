@@ -41,6 +41,19 @@ function fmtMon(v: number): string {
   return `$ ${Math.round(v).toLocaleString("es-UY")}`;
 }
 
+// Parsea el precio tipeado a mano en el lápiz de edición — a propósito
+// DISTINTO del criterio de Cantidad/Precio Unitario del rubro (valores
+// chicos: m³, m², rendimientos, donde "." sí es decimal). Acá los precios
+// suelen estar en el orden de los miles y la propia UI los muestra con
+// punto como separador de miles al perder el foco (ver fmtMon) — si "."
+// se leyera como decimal mientras se edita, lo tipeado ("1.800") dejaría
+// de coincidir con lo que el usuario ve formateado un instante después
+// ("$ 1.800"). Por eso acá "." se descarta siempre (nunca decimal) y
+// solo "," representa el decimal.
+function parsearPrecioTipeado(texto: string): number {
+  return parseFloat(texto.replace(/\./g, "").replace(",", "."));
+}
+
 function fmtFecha(v: Date): string {
   return v.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
@@ -85,6 +98,12 @@ export default function MaterialesPage() {
   // Material cuyo precio está en edición inline (click-to-edit) — mismo
   // patrón que precioEditId en DrawerAPU (proyectos/[id]/page.tsx).
   const [precioEditId, setPrecioEditId] = useState<string | null>(null);
+  // Texto crudo tipeado mientras precioEditId está activo — mismo criterio
+  // que el fix de Cantidad/Precio Unitario del rubro (commit 05c2953):
+  // el input muestra este texto tal cual, sin reconstruirlo desde el
+  // número parseado en cada tecla, así "." o "," nunca desaparecen a
+  // mitad de tipeo.
+  const [precioEditTexto, setPrecioEditTexto] = useState("");
   const [guardandoPrecioId, setGuardandoPrecioId] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
@@ -294,16 +313,19 @@ export default function MaterialesPage() {
                       <td className="px-4 py-2.5 text-right">
                         {precioEditId === m.id ? (
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             autoFocus
-                            defaultValue={m.precioUnitario || ""}
-                            onBlur={(e) => guardarPrecio(m.id, parseFloat(e.target.value))}
+                            value={precioEditTexto}
+                            onChange={(e) => setPrecioEditTexto(e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={() => guardarPrecio(m.id, parsearPrecioTipeado(precioEditTexto))}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") e.currentTarget.blur();
                               if (e.key === "Escape") setPrecioEditId(null);
                             }}
                             placeholder="0.00"
-                            className="w-24 text-right text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-[6px] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-24 text-right text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-[6px] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 tabular-nums"
                           />
                         ) : (
                           <div className="relative group inline-flex items-center gap-1.5 justify-end w-full">
@@ -312,7 +334,10 @@ export default function MaterialesPage() {
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => setPrecioEditId(m.id)}
+                                onClick={() => {
+                                  setPrecioEditId(m.id);
+                                  setPrecioEditTexto(m.precioUnitario ? String(m.precioUnitario) : "");
+                                }}
                                 title="Editar precio"
                                 className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-[#2563EB] transition-opacity"
                               >
