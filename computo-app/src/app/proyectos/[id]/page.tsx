@@ -1570,7 +1570,10 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const updateMO = (id: string, field: keyof ManoObraAPU, val: string) =>
     setMO(apu.manoObra.map((mo) => mo.id !== id ? mo : {
       ...mo,
-      [field]: field === "categoria" ? val : (val === "" ? 0 : parseFloat(val)),
+      // .replace(",", ".") — mismo bug que Cantidad/Precio Unitario de la
+      // tabla de rubros: parseFloat("2,5") === 2, pierde el decimal en
+      // silencio si el usuario escribe con coma (jornalRef, sobre todo).
+      [field]: field === "categoria" ? val : (val === "" ? 0 : parseFloat(val.replace(",", "."))),
     }));
 
   // Quita una línea de mano de obra y persiste de inmediato. Si estaba
@@ -1585,7 +1588,11 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const updateEq = (id: string, field: keyof EquipoAPU, val: string) =>
     setEq(apu.equipos.map((e) => e.id !== id ? e : {
       ...e,
-      [field]: field === "descripcion" || field === "unidad" ? val : (val === "" ? 0 : parseFloat(val)),
+      // .replace(",", ".") — mismo bug que Cantidad/Precio Unitario de la
+      // tabla de rubros: parseFloat("2,5") === 2, pierde el decimal en
+      // silencio si el usuario escribe con coma (costoUnit/costoUnitPropio,
+      // sobre todo).
+      [field]: field === "descripcion" || field === "unidad" ? val : (val === "" ? 0 : parseFloat(val.replace(",", "."))),
     }));
 
   // Quita un equipo y persiste de inmediato. Cualquier mano de obra
@@ -3710,8 +3717,13 @@ export default function ProyectoPage() {
           rubros: c.rubros.map((r) =>
             r.id !== rubroId ? r : {
               ...r,
+              // .replace(",", ".") — el usuario escribe decimales con coma
+              // (convención uruguaya, "2,5"); parseFloat no la entiende y
+              // corta ahí (parseFloat("2,5") === 2, perdiendo el decimal en
+              // silencio). Sin redondeo ni tope de decimales para ninguno
+              // de los dos campos — lo que se tipea es lo que se guarda.
               [field]: field === "cantidad" || field === "precioUnit"
-                ? value === "" ? null : field === "precioUnit" ? Math.round(parseFloat(value) * 100) / 100 : parseFloat(value)
+                ? value === "" ? null : parseFloat(value.replace(",", "."))
                 : value,
             }
           ),
@@ -3725,8 +3737,10 @@ export default function ProyectoPage() {
     clearTimeout(debounceTimers.current[key]);
     debounceTimers.current[key] = setTimeout(async () => {
       try {
+        // Mismo criterio que la actualización optimista de arriba —
+        // .replace(",", ".") antes de parsear, sin redondear.
         const parsedValue = field === "cantidad" || field === "precioUnit"
-          ? value === "" ? 0 : field === "precioUnit" ? Math.round(parseFloat(value) * 100) / 100 : parseFloat(value)
+          ? value === "" ? 0 : parseFloat(value.replace(",", "."))
           : value;
         await fetch(`/api/rubros/${rubroId}`, {
           method: "PATCH",
