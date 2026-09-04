@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Calculator, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,15 +32,66 @@ function fmtNum(v: number, decimals = 2) {
 
 export function CalculadoraFlotante() {
   const pathname = usePathname();
-  const [abierta, setAbierta] = useState(false);
+  // Visible/oculta — a diferencia del viejo "abierta", nunca desmonta el
+  // panel de abajo: ocultar cambia solo el atributo `hidden` (CSS), no la
+  // presencia en el árbol. Antes el panel vivía dentro de {abierta && (...)},
+  // así que cerrar (click afuera del modal) destruía React el componente
+  // entero — y con él, la cuenta en curso de CalculadoraBasica.
+  const [visible, setVisible] = useState(false);
   const [modo, setModo] = useState<Modo>("basica");
+
+  // Posición del panel al arrastrarlo — null hasta el primer arrastre
+  // (mientras tanto se ancla por CSS arriba del botón circular, `style`
+  // más abajo). Se fija en píxeles absolutos recién en iniciarArrastre,
+  // leyendo la posición real ya renderizada — así no hace falta calcular
+  // nada de memoria antes de que exista el layout (SSR-safe: sin usar
+  // `window` en el render).
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Offset del click dentro del panel al empezar a arrastrar — ref porque
+  // se lee/escribe desde el listener de mousemove, no dispara render.
+  const arrastreRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
+
+  // mousemove/mouseup en window (no en el panel): el mouse sale del panel
+  // apenas se mueve rápido, y el arrastre tiene que seguir funcionando —
+  // mismo patrón estándar de "drag manual" sin librería.
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!arrastreRef.current || !panelRef.current) return;
+      const panel = panelRef.current;
+      const w = panel.offsetWidth;
+      const h = panel.offsetHeight;
+      // Clamp contra el viewport — el panel nunca queda fuera de pantalla.
+      const x = Math.min(Math.max(0, e.clientX - arrastreRef.current.offsetX), window.innerWidth - w);
+      const y = Math.min(Math.max(0, e.clientY - arrastreRef.current.offsetY), window.innerHeight - h);
+      setPos({ x, y });
+    }
+    function onMouseUp() {
+      arrastreRef.current = null;
+    }
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
+  const iniciarArrastre = (e: React.MouseEvent) => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    arrastreRef.current = { offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+    if (!pos) setPos({ x: rect.left, y: rect.top });
+    e.preventDefault();
+  };
 
   if (!pathname.startsWith("/proyectos")) return null;
 
   return (
     <>
       <button
-        onClick={() => setAbierta(true)}
+        onClick={() => setVisible(true)}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center transition-colors"
         style={{ boxShadow: "0 8px 24px 0 rgb(37 99 235 / 0.4)" }}
         aria-label="Abrir calculadora"
@@ -48,64 +99,81 @@ export function CalculadoraFlotante() {
         <Calculator className="w-6 h-6" />
       </button>
 
-      {abierta && (
+      {/* Panel flotante — sin overlay ni bloqueo de clicks: el resto de la
+          pantalla (presupuesto de fondo) sigue completamente interactivo
+          mientras está abierto. Montado siempre (nunca condicionado a
+          `visible`) — ocultar con `hidden` en vez de desmontar es lo que
+          deja la cuenta en curso intacta al volver a abrir. */}
+      <div
+        ref={panelRef}
+        hidden={!visible}
+        className="fixed z-50 bg-white rounded-[16px] w-full max-w-sm shadow-xl"
+        style={pos ? { left: pos.x, top: pos.y } : { right: 24, bottom: 96 }}
+      >
+        {/* Header — a la vez barra de arrastre (mousedown acá mueve el
+            panel); el botón de cerrar corta la propagación para no
+            arrastrar sin querer al hacer click en él. */}
         <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-          onClick={() => setAbierta(false)}
+          onMouseDown={iniciarArrastre}
+          className="flex items-center justify-between px-5 py-4 border-b border-slate-200 cursor-move select-none"
         >
-          <div
-            className="bg-white rounded-[16px] w-full max-w-sm shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+          <h2 className="text-sm font-bold text-[#1A3A5C]">Calculadora de obra</h2>
+          <button
+            onClick={() => setVisible(false)}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+            aria-label="Ocultar calculadora"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-              <h2 className="text-sm font-bold text-[#1A3A5C]">Calculadora de obra</h2>
-              <button
-                onClick={() => setAbierta(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
-                aria-label="Cerrar"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Tabs */}
-            <div className="grid grid-cols-4 gap-1 px-3 pt-3">
-              {MODOS.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setModo(m.id)}
-                  className={cn(
-                    "py-2 rounded-[8px] text-xs font-semibold transition-all text-center",
-                    modo === m.id
-                      ? "bg-blue-50 text-[#2563EB]"
-                      : "text-slate-500 hover:bg-slate-50"
-                  )}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="p-5">
-              {modo === "basica" && <CalculadoraBasica />}
-              {modo === "superficie" && <CalculadoraSuperficie />}
-              {modo === "volumen" && <CalculadoraVolumen />}
-              {modo === "mezclas" && <CalculadoraMezclas />}
-            </div>
-          </div>
+            <X className="w-5 h-5" />
+          </button>
         </div>
-      )}
+
+        {/* Tabs */}
+        <div className="grid grid-cols-4 gap-1 px-3 pt-3">
+          {MODOS.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setModo(m.id)}
+              className={cn(
+                "py-2 rounded-[8px] text-xs font-semibold transition-all text-center",
+                modo === m.id
+                  ? "bg-blue-50 text-[#2563EB]"
+                  : "text-slate-500 hover:bg-slate-50"
+              )}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-5">
+          {modo === "basica" && <CalculadoraBasica activo={visible} />}
+          {modo === "superficie" && <CalculadoraSuperficie />}
+          {modo === "volumen" && <CalculadoraVolumen />}
+          {modo === "mezclas" && <CalculadoraMezclas />}
+        </div>
+      </div>
     </>
   );
 }
 
 /* ─── Básica ──────────────────────────────────────────────── */
-function CalculadoraBasica() {
+// `activo` — true mientras el panel está visible en esta pestaña; dispara
+// el foco automático del contenedor (ver useEffect abajo) para que el
+// teclado físico funcione apenas se abre, sin necesidad de clickear un
+// botón primero. El estado de la cuenta (display, prevValue, etc.) vive
+// en este componente sin cambios — sobrevive solo porque el padre ya no
+// desmonta el árbol al ocultar el panel (ver CalculadoraFlotante).
+function CalculadoraBasica({ activo }: { activo: boolean }) {
   const [display, setDisplay] = useState("0");
   const [prevValue, setPrevValue] = useState<number | null>(null);
   const [operador, setOperador] = useState<string | null>(null);
   const [esperandoOperando, setEsperandoOperando] = useState(false);
+  const contenedorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activo) contenedorRef.current?.focus();
+  }, [activo]);
 
   const inputDigito = (d: string) => {
     if (esperandoOperando) {
@@ -166,6 +234,29 @@ function CalculadoraBasica() {
     }
   };
 
+  // Backspace — borra el último carácter, no existía como botón en
+  // pantalla (solo "C" borra todo). Deja "0" en vez de string vacío.
+  const borrarUltimo = () => {
+    setDisplay((d) => (d.length > 1 ? d.slice(0, -1) : "0"));
+  };
+
+  // Teclado físico — dispara las MISMAS funciones que ya usa cada botón,
+  // sin duplicar lógica de cálculo acá. Foco en el propio contenedor (no
+  // un listener global de document): así tipear en cualquier otro campo
+  // de la pantalla (ej. Cantidad de un rubro) mientras el panel sigue
+  // abierto no interfiere con la calculadora ni viceversa.
+  const manejarTeclado = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key >= "0" && e.key <= "9") { e.preventDefault(); inputDigito(e.key); return; }
+    if (e.key === "," || e.key === ".") { e.preventDefault(); inputDecimal(); return; }
+    if (e.key === "+") { e.preventDefault(); seleccionarOperador("+"); return; }
+    if (e.key === "-") { e.preventDefault(); seleccionarOperador("-"); return; }
+    if (e.key === "*") { e.preventDefault(); seleccionarOperador("×"); return; }
+    if (e.key === "/") { e.preventDefault(); seleccionarOperador("÷"); return; }
+    if (e.key === "Enter" || e.key === "=") { e.preventDefault(); igual(); return; }
+    if (e.key === "Escape") { e.preventDefault(); limpiar(); return; }
+    if (e.key === "Backspace") { e.preventDefault(); borrarUltimo(); return; }
+  };
+
   const botones: { label: string; onClick: () => void; clase?: string }[] = [
     { label: "C", onClick: limpiar, clase: "text-red-500" },
     { label: "÷", onClick: () => seleccionarOperador("÷"), clase: "text-[#2563EB]" },
@@ -187,7 +278,7 @@ function CalculadoraBasica() {
   ];
 
   return (
-    <div>
+    <div ref={contenedorRef} tabIndex={0} onKeyDown={manejarTeclado} className="outline-none">
       <div className="bg-slate-50 rounded-[10px] px-4 py-4 mb-3 text-right">
         <span className="text-2xl font-bold text-[#1A3A5C] tabular-nums break-all">
           {display}
