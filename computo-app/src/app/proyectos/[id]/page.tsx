@@ -123,6 +123,17 @@ interface ProyectoData {
 }
 
 /* ─── Tipos base ──────────────────────────────────────────── */
+// Estado de "campo numérico en edición" — guarda además el texto crudo que
+// se está tipeando, no solo qué fila está en foco. Necesario para no
+// reconstruir el valor mostrado desde el número ya parseado en cada tecla:
+// eso es lo que borraba el separador decimal recién tipeado ("." o ",")
+// antes de que el usuario terminara de escribirlo — parseFloat("2.") es
+// válido y da 2, así que re-mostrar String(2) hacía desaparecer el punto
+// a mitad de tipeo (bug real: "2.5" tipeado de a un carácter terminaba
+// guardando 25). Mismo shape reusado en los 5 campos afectados (Cantidad,
+// Precio Unitario del rubro, jornalRef, costoUnit, costoUnitPropio).
+type EdicionNumerica = { id: string; texto: string } | null;
+
 interface Rubro {
   id: string;
   descripcion: string;
@@ -1379,12 +1390,12 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const [precioEditId, setPrecioEditId] = useState<string | null>(null);
   // Material cuyo precio se está estimando con IA (loading del botón "Estimar")
   const [estimandoPrecioId, setEstimandoPrecioId] = useState<string | null>(null);
-  // Fila de mano de obra cuyo jornal de referencia está siendo editado — mientras tanto se muestra el valor crudo, no formateado
-  const [jornalRefEnFoco, setJornalRefEnFoco] = useState<string | null>(null);
+  // Fila de mano de obra cuyo jornal de referencia está siendo editado — mientras tanto se muestra el texto crudo tipeado, no formateado (ver EdicionNumerica)
+  const [jornalRefEnFoco, setJornalRefEnFoco] = useState<EdicionNumerica>(null);
   // Fila de equipo cuyo precio unitario está siendo editado — mismo criterio
-  const [costoUnitEnFoco, setCostoUnitEnFoco] = useState<string | null>(null);
+  const [costoUnitEnFoco, setCostoUnitEnFoco] = useState<EdicionNumerica>(null);
   // Fila de equipo cuyo costo propio (modo Propio con costo) está siendo editado
-  const [costoUnitPropioEnFoco, setCostoUnitPropioEnFoco] = useState<string | null>(null);
+  const [costoUnitPropioEnFoco, setCostoUnitPropioEnFoco] = useState<EdicionNumerica>(null);
   const { costoDirecto, precioFinal } = calcAPU(apu);
 
   const totalMateriales = apu.materiales.reduce((acc, m) => {
@@ -2133,12 +2144,15 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                             type="text"
                             inputMode="decimal"
                             value={
-                              jornalRefEnFoco === mo.id
-                                ? (mo.jornalRef ? String(mo.jornalRef) : "")
+                              jornalRefEnFoco?.id === mo.id
+                                ? jornalRefEnFoco.texto
                                 : (mo.jornalRef ? fmtMon(mo.jornalRef) : "")
                             }
-                            onChange={(e) => updateMO(mo.id, "jornalRef", e.target.value)}
-                            onFocus={() => setJornalRefEnFoco(mo.id)}
+                            onChange={(e) => {
+                              setJornalRefEnFoco({ id: mo.id, texto: e.target.value });
+                              updateMO(mo.id, "jornalRef", e.target.value);
+                            }}
+                            onFocus={() => setJornalRefEnFoco({ id: mo.id, texto: mo.jornalRef ? String(mo.jornalRef) : "" })}
                             onBlur={() => { setJornalRefEnFoco(null); guardarApuActual(); }}
                             placeholder="0"
                             className={cn(inputCls, "text-right")}
@@ -2306,12 +2320,15 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                               type="text"
                               inputMode="decimal"
                               value={
-                                costoUnitEnFoco === eq.id
-                                  ? (eq.costoUnit ? String(eq.costoUnit) : "")
+                                costoUnitEnFoco?.id === eq.id
+                                  ? costoUnitEnFoco.texto
                                   : (eq.costoUnit ? fmtMon(eq.costoUnit) : "")
                               }
-                              onChange={(e) => updateEq(eq.id, "costoUnit", e.target.value)}
-                              onFocus={() => setCostoUnitEnFoco(eq.id)}
+                              onChange={(e) => {
+                                setCostoUnitEnFoco({ id: eq.id, texto: e.target.value });
+                                updateEq(eq.id, "costoUnit", e.target.value);
+                              }}
+                              onFocus={() => setCostoUnitEnFoco({ id: eq.id, texto: eq.costoUnit ? String(eq.costoUnit) : "" })}
                               onBlur={() => { setCostoUnitEnFoco(null); guardarApuActual(); }}
                               placeholder="0.00"
                               className={cn(inputCls, "text-right")}
@@ -2323,12 +2340,15 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                 type="text"
                                 inputMode="decimal"
                                 value={
-                                  costoUnitPropioEnFoco === eq.id
-                                    ? (eq.costoUnitPropio ? String(eq.costoUnitPropio) : "")
+                                  costoUnitPropioEnFoco?.id === eq.id
+                                    ? costoUnitPropioEnFoco.texto
                                     : (eq.costoUnitPropio ? fmtMon(eq.costoUnitPropio) : "")
                                 }
-                                onChange={(e) => updateEq(eq.id, "costoUnitPropio", e.target.value)}
-                                onFocus={() => setCostoUnitPropioEnFoco(eq.id)}
+                                onChange={(e) => {
+                                  setCostoUnitPropioEnFoco({ id: eq.id, texto: e.target.value });
+                                  updateEq(eq.id, "costoUnitPropio", e.target.value);
+                                }}
+                                onFocus={() => setCostoUnitPropioEnFoco({ id: eq.id, texto: eq.costoUnitPropio ? String(eq.costoUnitPropio) : "" })}
                                 onBlur={() => { setCostoUnitPropioEnFoco(null); guardarApuActual(); }}
                                 placeholder="0.00"
                                 className={cn(inputCls, "text-right bg-amber-50 rounded px-1")}
@@ -2691,10 +2711,10 @@ export default function ProyectoPage() {
   const [mostrarModalCapitulo, setMostrarModalCapitulo] = useState(false);
   // Rubro cuya descripción está siendo editada — mientras tanto se muestra el valor real, no toTitleCase
   const [descripcionEnFoco, setDescripcionEnFoco] = useState<string | null>(null);
-  // Rubro cuyo precio unitario está siendo editado — mientras tanto se muestra sin separador de miles
-  const [precioUnitEnFoco, setPrecioUnitEnFoco] = useState<string | null>(null);
-  // Rubro cuya cantidad está siendo editada — mientras tanto se muestra el valor crudo, no formateado
-  const [cantidadEnFoco, setCantidadEnFoco] = useState<string | null>(null);
+  // Rubro cuyo precio unitario está siendo editado — mientras tanto se muestra el texto crudo tipeado, no formateado (ver EdicionNumerica)
+  const [precioUnitEnFoco, setPrecioUnitEnFoco] = useState<EdicionNumerica>(null);
+  // Rubro cuya cantidad está siendo editada — mismo criterio
+  const [cantidadEnFoco, setCantidadEnFoco] = useState<EdicionNumerica>(null);
   // Rubro con precio pactado (precioCongelado) tocado por primera vez en
   // esta sesión de edición — abre el modal "actualizar vigente vs.
   // mantener pactado" antes de dejar tocar cantidad/precioUnit.
@@ -4410,12 +4430,15 @@ export default function ProyectoPage() {
                             type="text"
                             inputMode="decimal"
                             value={
-                              cantidadEnFoco === rubro.id
-                                ? (rubro.cantidad != null ? String(rubro.cantidad) : "")
+                              cantidadEnFoco?.id === rubro.id
+                                ? cantidadEnFoco.texto
                                 : (rubro.cantidad != null ? fmtRendimiento(rubro.cantidad) : "")
                             }
-                            onChange={(e) => actualizarRubro(cap.id, rubro.id, "cantidad", e.target.value)}
-                            onFocus={() => setCantidadEnFoco(rubro.id)}
+                            onChange={(e) => {
+                              setCantidadEnFoco({ id: rubro.id, texto: e.target.value });
+                              actualizarRubro(cap.id, rubro.id, "cantidad", e.target.value);
+                            }}
+                            onFocus={() => setCantidadEnFoco({ id: rubro.id, texto: rubro.cantidad != null ? String(rubro.cantidad) : "" })}
                             onBlur={() => setCantidadEnFoco(null)}
                             onMouseDown={(e) => {
                               if (pendienteDecisionPrecio) {
@@ -4437,12 +4460,15 @@ export default function ProyectoPage() {
                             type="text"
                             inputMode="decimal"
                             value={
-                              precioUnitEnFoco === rubro.id
-                                ? (rubro.precioUnit != null ? String(Math.round(rubro.precioUnit * 100) / 100) : "")
+                              precioUnitEnFoco?.id === rubro.id
+                                ? precioUnitEnFoco.texto
                                 : (rubro.precioUnit != null && rubro.precioUnit > 0 ? fmtMon(rubro.precioUnit) : "")
                             }
-                            onChange={(e) => actualizarRubro(cap.id, rubro.id, "precioUnit", e.target.value)}
-                            onFocus={() => setPrecioUnitEnFoco(rubro.id)}
+                            onChange={(e) => {
+                              setPrecioUnitEnFoco({ id: rubro.id, texto: e.target.value });
+                              actualizarRubro(cap.id, rubro.id, "precioUnit", e.target.value);
+                            }}
+                            onFocus={() => setPrecioUnitEnFoco({ id: rubro.id, texto: rubro.precioUnit != null ? String(rubro.precioUnit) : "" })}
                             onBlur={() => setPrecioUnitEnFoco(null)}
                             onMouseDown={(e) => {
                               if (pendienteDecisionPrecio) {
