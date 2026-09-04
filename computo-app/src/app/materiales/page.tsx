@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Package, Search, Upload, Loader2, Pencil } from "lucide-react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Package, Search, Upload, Loader2, Pencil } from "lucide-react";
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
@@ -88,12 +90,27 @@ function calcularFechaMaxima(materiales: MaterialCatalogo[]): Date | null {
   return max;
 }
 
-export default function MaterialesPage() {
+// useSearchParams() exige un límite de Suspense alrededor — ver el export
+// default más abajo, que envuelve esto para poder leer ?q=/&from= del
+// deep-link desde "Pendiente de verificar" en el drawer del APU.
+function MaterialesPageInner() {
+  const searchParams = useSearchParams();
+  // Descripción exacta del material y id del proyecto de origen — solo
+  // presentes cuando se llega acá vía el deep-link de "Pendiente de
+  // verificar" (ver irAMaterialPendiente en proyectos/[id]/page.tsx). Se
+  // leen una sola vez al montar: si el usuario despeja el buscador a mano
+  // después, no queremos que un re-render los vuelva a imponer.
+  const qInicial = useRef(searchParams.get("q")).current;
+  const proyectoOrigenId = searchParams.get("from");
+
   const [materiales, setMateriales] = useState<MaterialCatalogo[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useState(qInicial ?? "");
   const [filtroSinPrecio, setFiltroSinPrecio] = useState(false);
   const [filtroPendiente, setFiltroPendiente] = useState(false);
+  // Se aplica una sola vez, apenas cargan los materiales — ver el efecto
+  // más abajo que decide si corresponde prender filtroPendiente.
+  const filtroAutoAplicado = useRef(false);
   const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
   // Material cuyo precio está en edición inline (click-to-edit) — mismo
   // patrón que precioEditId en DrawerAPU (proyectos/[id]/page.tsx).
@@ -169,6 +186,23 @@ export default function MaterialesPage() {
     return !!(m.proveedor || m.notaProcedencia) && !m.fechaUltimaVerificacion;
   }
 
+  // Deep-link desde "Pendiente de verificar" (ver qInicial arriba) — si
+  // hay una coincidencia EXACTA de descripción que además está pendiente,
+  // prendemos también el filtro "Pendiente de verificar" para que quede
+  // una sola fila a la vista. Si hay más de una coincidencia por texto
+  // (match parcial, no exacto), no forzamos nada — el buscador ya las
+  // muestra todas. Se corre una sola vez, apenas termina de cargar el
+  // catálogo (no en cada cambio de "materiales").
+  useEffect(() => {
+    if (filtroAutoAplicado.current || !qInicial || materiales.length === 0) return;
+    filtroAutoAplicado.current = true;
+    const qNorm = qInicial.trim().toLowerCase();
+    const hayExactoPendiente = materiales.some(
+      (m) => m.descripcion.trim().toLowerCase() === qNorm && esPendiente(m)
+    );
+    if (hayExactoPendiente) setFiltroPendiente(true);
+  }, [materiales, qInicial]);
+
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return materiales.filter((m) => {
@@ -183,6 +217,15 @@ export default function MaterialesPage() {
 
   return (
     <div className="p-8 max-w-5xl">
+      {proyectoOrigenId && (
+        <Link
+          href={`/proyectos/${proyectoOrigenId}`}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#2563EB] transition-colors mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver al proyecto
+        </Link>
+      )}
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
           <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Materiales</h1>
@@ -387,5 +430,13 @@ export default function MaterialesPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function MaterialesPage() {
+  return (
+    <Suspense fallback={null}>
+      <MaterialesPageInner />
+    </Suspense>
   );
 }

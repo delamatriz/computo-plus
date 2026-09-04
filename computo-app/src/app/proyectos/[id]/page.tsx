@@ -1296,6 +1296,10 @@ interface DrawerAPUProps {
   // Sincroniza SOLO este material contra el catálogo (sin tocar los demás
   // ni precioCongelado) — ver sincronizarPrecioAPU en el componente padre.
   onSincronizarMaterial: (materialId: string) => void;
+  // Para el deep-link desde "Pendiente de verificar" hacia /materiales
+  // (ver irAMaterialPendiente) — así el botón "Volver al proyecto" de esa
+  // página sabe a dónde volver.
+  proyectoId: string;
 }
 
 function SeccionAPU({
@@ -1378,8 +1382,16 @@ function SelectorModoCosteo({ modo, onChange }: { modo: ModoCosteoEquipo; onChan
   );
 }
 
-function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura, preciosVigentesPorMaterial, onSincronizarMaterial }: DrawerAPUProps) {
+function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura, preciosVigentesPorMaterial, onSincronizarMaterial, proyectoId }: DrawerAPUProps) {
   const dragControls = useDragControls();
+  const router = useRouter();
+  // Deep-link desde la etiqueta "Pendiente de verificar" de un material —
+  // misma descripción que usa el matching de sincronizarPrecioMTOP/
+  // recalcularPrecioRubro, para que el buscador de /materiales encuentre
+  // la fila correcta. `from` deja armado el botón "Volver al proyecto" allá.
+  const irAMaterialPendiente = (descripcion: string) => {
+    router.push(`/materiales?q=${encodeURIComponent(descripcion)}&from=${proyectoId}`);
+  };
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [mostrarBuscadorEquipo, setMostrarBuscadorEquipo] = useState(false);
   const [mostrarSelectorMO, setMostrarSelectorMO] = useState(false);
@@ -1900,6 +1912,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                   requiereVerificacion: false,
                                   motivoVerificacion: m.motivoVerificacion ?? null,
                                 }}
+                                onClickPendiente={() => irAMaterialPendiente(m.descripcion)}
                               />
                               {preciosVigentesPorMaterial[m.id] != null && (
                                 <button
@@ -5371,6 +5384,7 @@ export default function ProyectoPage() {
             onToggleTrabajoEnAltura={(actual) => toggleTrabajoEnAltura(drawerCapId, drawerRubroId, actual)}
             preciosVigentesPorMaterial={preciosVigentesPorMaterial}
             onSincronizarMaterial={(materialId) => sincronizarPrecioAPU(drawerRubroId, drawerAPU, materialId)}
+            proyectoId={proyectoId}
           />
         )}
       </AnimatePresence>
