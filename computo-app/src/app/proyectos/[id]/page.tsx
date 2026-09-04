@@ -899,6 +899,81 @@ function precioAPUDesincronizado(precioGuardado: number | null | undefined, prec
   return diff > 1 && diffPct > 0.5;
 }
 
+type ItemCatalogoMTOP = { id: string; descripcion: string; precioUnitario: number };
+
+// Busca el precio vigente de un material en el catálogo completo de
+// PrecioMTOP — MISMO criterio que resolverPreciosVigentes() en el servidor
+// (lib/recalcularPrecioRubro.ts): la descripción del catálogo CONTIENE la
+// del material (no al revés), sin distinguir mayúsculas/tildes, y ante más
+// de un candidato se toma el de id más chico (mismo desempate que el
+// findFirst + orderBy: id asc del servidor). Un solo lugar de verdad para
+// este matching en el cliente — lo usa detectarPreciosDesactualizados, para
+// que el ícono nunca señale un material distinto al que el click termina
+// actualizando.
+function buscarPrecioVigenteCatalogo(descripcionMaterial: string, catalogo: ItemCatalogoMTOP[]): number | null {
+  if (!descripcionMaterial) return null;
+  const descLower = descripcionMaterial.toLowerCase();
+  let match: ItemCatalogoMTOP | null = null;
+  for (const p of catalogo) {
+    if (!p.descripcion.toLowerCase().includes(descLower)) continue;
+    if (!match || p.id < match.id) match = p;
+  }
+  return match ? match.precioUnitario : null;
+}
+
+interface PreciosDesactualizados {
+  // rubroId -> descripciones de los materiales desactualizados (tooltip
+  // agregado del ícono en la tabla de rubros).
+  porRubro: Record<string, string[]>;
+  // materialId -> precio vigente en catálogo — SOLO para materiales cuyo
+  // precioUnit guardado quedó atrás (alimenta el indicador puntual dentro
+  // del DrawerAPU y el propio click de sincronizar, ver
+  // aplicarPreciosVigentesAMateriales).
+  porMaterial: Record<string, number>;
+}
+
+// Cruza los materiales de TODOS los rubros ya cargados (apuData, ya vino
+// completo en la carga inicial del proyecto) contra el catálogo vigente —
+// UN SOLO pase que arma las dos granularidades que necesita la UI (rubro y
+// material), para no repetir el cruce. Se corre una sola vez al terminar
+// cargar() (ver ahí), no en cada render — evita repetir el cruce contra el
+// catálogo completo en cada tecla que se tipea en cualquier input.
+function detectarPreciosDesactualizados(apus: Record<string, APU>, catalogo: ItemCatalogoMTOP[]): PreciosDesactualizados {
+  const porRubro: Record<string, string[]> = {};
+  const porMaterial: Record<string, number> = {};
+
+  for (const [rubroId, apu] of Object.entries(apus)) {
+    const desactualizados: string[] = [];
+    for (const m of apu.materiales) {
+      const vigente = buscarPrecioVigenteCatalogo(m.descripcion, catalogo);
+      if (vigente != null && vigente !== m.precioUnit) {
+        desactualizados.push(m.descripcion);
+        porMaterial[m.id] = vigente;
+      }
+    }
+    if (desactualizados.length > 0) porRubro[rubroId] = desactualizados;
+  }
+
+  return { porRubro, porMaterial };
+}
+
+// Devuelve una copia del APU con las líneas de material ya actualizadas al
+// precio vigente — si se pasa soloMaterialId, actualiza ÚNICAMENTE esa
+// línea (click puntual dentro del DrawerAPU); si no, todas las que
+// aparezcan en preciosVigentes (click a nivel rubro, en la tabla). Nada más
+// se toca (ni mano de obra, ni equipos, ni precioCongelado) — mismo
+// criterio que "corregir un material a mano", nunca "Entregar" de nuevo.
+function aplicarPreciosVigentesAMateriales(apu: APU, preciosVigentes: Record<string, number>, soloMaterialId?: string): APU {
+  return {
+    ...apu,
+    materiales: apu.materiales.map((m) => {
+      if (soloMaterialId && m.id !== soloMaterialId) return m;
+      const vigente = preciosVigentes[m.id];
+      return vigente != null ? { ...m, precioUnit: vigente } : m;
+    }),
+  };
+}
+
 /* ─── Buscador de catálogo inline (MTOP materiales / equipos) ──────
    Genérico sobre T para poder apuntar a distintos endpoints
    (/api/precios-mtop, /api/precios-equipos) sin duplicar el patrón. ── */
@@ -1203,6 +1278,13 @@ interface DrawerAPUProps {
   onApuChange: (apu: APU) => void;
   onAplicar: (precioUnit: number, apu: APU) => void;
   onToggleTrabajoEnAltura: (actual: boolean) => void;
+  // Precio vigente de catálogo por materialId — solo trae entradas para
+  // materiales de ESTE rubro cuyo precio guardado quedó atrás del de
+  // PrecioMTOP (ver detectarPreciosDesactualizados en el componente padre).
+  preciosVigentesPorMaterial: Record<string, number>;
+  // Sincroniza SOLO este material contra el catálogo (sin tocar los demás
+  // ni precioCongelado) — ver sincronizarPrecioAPU en el componente padre.
+  onSincronizarMaterial: (materialId: string) => void;
 }
 
 function SeccionAPU({
@@ -1285,7 +1367,7 @@ function SelectorModoCosteo({ modo, onChange }: { modo: ModoCosteoEquipo; onChan
   );
 }
 
-function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura }: DrawerAPUProps) {
+function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura, preciosVigentesPorMaterial, onSincronizarMaterial }: DrawerAPUProps) {
   const dragControls = useDragControls();
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [mostrarBuscadorEquipo, setMostrarBuscadorEquipo] = useState(false);
@@ -1801,6 +1883,16 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                   motivoVerificacion: m.motivoVerificacion ?? null,
                                 }}
                               />
+                              {preciosVigentesPorMaterial[m.id] != null && (
+                                <button
+                                  type="button"
+                                  onClick={() => onSincronizarMaterial(m.id)}
+                                  title={`Precio en catálogo: ${fmtMon(preciosVigentesPorMaterial[m.id])} — este material tiene ${fmtMon(m.precioUnit)} cargado. Click para actualizar.`}
+                                  className="flex-shrink-0 hover:opacity-70 transition-opacity"
+                                >
+                                  <RefreshCw className="w-3 h-3 text-amber-500" />
+                                </button>
+                              )}
                             </div>
                           </td>
                           <td className="text-center">
@@ -2621,6 +2713,16 @@ export default function ProyectoPage() {
   // capítulo" (ver SelectorCapitulosEstandar) — null = cerrado.
   const [tituloParaAgregarCapitulos, setTituloParaAgregarCapitulos] = useState<Titulo | null>(null);
   const [apuData, setApuData] = useState<Record<string, APU>>({});
+  // Rubros con al menos un material cuyo precio guardado quedó atrás del
+  // vigente en PrecioMTOP — valor: descripciones de los materiales
+  // afectados (para el tooltip). Amplía la condición del RefreshCw ámbar
+  // que ya existía (precioAPUDesincronizado) sin reemplazarla.
+  const [rubrosConPrecioDesactualizado, setRubrosConPrecioDesactualizado] = useState<Record<string, string[]>>({});
+  // Precio vigente de catálogo por materialId — solo trae entradas para
+  // materiales cuyo precio guardado quedó atrás (mismo cruce de arriba, ver
+  // detectarPreciosDesactualizados). Alimenta el indicador puntual dentro
+  // del DrawerAPU y el click de sincronizar (a nivel rubro o material).
+  const [preciosVigentesPorMaterial, setPreciosVigentesPorMaterial] = useState<Record<string, number>>({});
   // Jornal SUNCA vigente de "Medio Oficial" (Cat. V) — para clasificar la
   // Cuantía de la obra (ver computarCuantiaObra). DrawerAPU carga su propia
   // copia de categoriasLaborales por su cuenta (componente separado); esta
@@ -2765,6 +2867,20 @@ export default function ProyectoPage() {
         }
       }
       setApuData(apus);
+
+      // Cruce contra el catálogo vigente de materiales — un solo fetch al
+      // catálogo completo (mismo endpoint que ya usa /materiales, sin
+      // parámetros), matching en memoria contra los materiales recién
+      // cargados. No bloquea el resto de la carga: si falla, simplemente
+      // no se detecta nada (no rompe la pantalla).
+      fetch("/api/precios-mtop")
+        .then((res) => (res.ok ? res.json() : []))
+        .then((catalogo: ItemCatalogoMTOP[]) => {
+          const { porRubro, porMaterial } = detectarPreciosDesactualizados(apus, Array.isArray(catalogo) ? catalogo : []);
+          setRubrosConPrecioDesactualizado(porRubro);
+          setPreciosVigentesPorMaterial(porMaterial);
+        })
+        .catch((err) => console.error("[cruce catálogo vigente]", err));
     } catch (err) {
       console.error("[cargar proyecto]", err);
       setErrorCarga(err instanceof Error ? err.message : "Error al cargar el proyecto");
@@ -3902,6 +4018,48 @@ export default function ProyectoPage() {
     setDrawerRubroId(null);
   }, [capitulos, actualizarRubro]);
 
+  // Sincroniza el/los material(es) de un rubro cuyo precio quedó atrás del
+  // catálogo (PrecioMTOP) y encadena con aplicarPrecioAPU para recalcular y
+  // guardar Rubro.precioUnit — SIN el paso de congelar que sí hace
+  // aplicarPrecioVigenteRubro() (precio pactado, ver recalcularPrecioRubro.ts):
+  // mismo criterio que corregir un material a mano. Sin soloMaterialId
+  // sincroniza TODOS los materiales desactualizados del rubro (ícono en la
+  // tabla); con soloMaterialId, solo ese (indicador puntual en el
+  // DrawerAPU).
+  const sincronizarPrecioAPU = useCallback(async (rubroId: string, apuActual: APU, soloMaterialId?: string) => {
+    const idsASincronizar = soloMaterialId
+      ? [soloMaterialId]
+      : apuActual.materiales.filter((m) => preciosVigentesPorMaterial[m.id] != null).map((m) => m.id);
+    if (idsASincronizar.length === 0) return;
+
+    const apuSincronizado = aplicarPreciosVigentesAMateriales(apuActual, preciosVigentesPorMaterial, soloMaterialId);
+    const { precioFinal } = calcAPU(apuSincronizado);
+
+    setApuData((prev) => ({ ...prev, [rubroId]: apuSincronizado }));
+
+    setPreciosVigentesPorMaterial((prev) => {
+      const next = { ...prev };
+      for (const id of idsASincronizar) delete next[id];
+      return next;
+    });
+
+    setRubrosConPrecioDesactualizado((prev) => {
+      const idsSincronizadosSet = new Set(idsASincronizar);
+      const desactualizadosRestantes = apuSincronizado.materiales
+        .filter((m) => !idsSincronizadosSet.has(m.id) && preciosVigentesPorMaterial[m.id] != null)
+        .map((m) => m.descripcion);
+      if (desactualizadosRestantes.length === 0) {
+        if (!(rubroId in prev)) return prev;
+        const next = { ...prev };
+        delete next[rubroId];
+        return next;
+      }
+      return { ...prev, [rubroId]: desactualizadosRestantes };
+    });
+
+    await aplicarPrecioAPU(rubroId, precioFinal, apuSincronizado);
+  }, [aplicarPrecioAPU, preciosVigentesPorMaterial]);
+
   // Fila de un capítulo (colapsada + panel expandido de rubros) — extraída
   // del .map() original a una función nombrada (no un componente aparte,
   // para no tener que prop-drillear los ~30 handlers/estados que ya usa
@@ -4082,7 +4240,14 @@ export default function ProyectoPage() {
                             )
                         ).length
                       : 0;
-                    const precioDesactualizado = tieneAPU && precioAPUDesincronizado(rubro.precioUnit, apuPrecio);
+                    const precioAPUSinAplicar = tieneAPU && precioAPUDesincronizado(rubro.precioUnit, apuPrecio);
+                    // Materiales de este rubro cuyo precio guardado quedó
+                    // atrás del catálogo (PrecioMTOP) — detectado una sola
+                    // vez al cargar el proyecto, ver rubrosConPrecioDesactualizado.
+                    const materialesDesactualizadosCatalogo = rubrosConPrecioDesactualizado[rubro.id];
+                    const catalogoDesactualizado = !!materialesDesactualizadosCatalogo?.length;
+                    // Mismo ícono para las dos causas — ver RefreshCw abajo.
+                    const precioDesactualizado = precioAPUSinAplicar || catalogoDesactualizado;
                     // Rubro con precio pactado (sobrevivió a un "Entregar") sin
                     // decisión todavía en esta sesión — cantidad/precioUnit se
                     // bloquean hasta elegir "actualizar" o "mantener" en el modal.
@@ -4176,9 +4341,19 @@ export default function ProyectoPage() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                aplicarPrecioAPU(rubro.id, apuPrecio, apuData[rubro.id]);
+                                if (catalogoDesactualizado) {
+                                  sincronizarPrecioAPU(rubro.id, apuData[rubro.id]);
+                                } else {
+                                  aplicarPrecioAPU(rubro.id, apuPrecio, apuData[rubro.id]);
+                                }
                               }}
-                              title={`APU modificado — precio desactualizado (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(apuPrecio)}). Click para aplicar y sincronizar.`}
+                              title={
+                                catalogoDesactualizado && precioAPUSinAplicar
+                                  ? `${materialesDesactualizadosCatalogo!.length === 1 ? `"${materialesDesactualizadosCatalogo![0]}" cambió` : `${materialesDesactualizadosCatalogo!.length} materiales cambiaron`} de precio en el catálogo, y el APU tiene cambios sin aplicar (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(apuPrecio)}). Click para sincronizar todo.`
+                                  : catalogoDesactualizado
+                                  ? `${materialesDesactualizadosCatalogo!.length === 1 ? `"${materialesDesactualizadosCatalogo![0]}" cambió` : `${materialesDesactualizadosCatalogo!.length} materiales cambiaron`} de precio en el catálogo — click para sincronizar.`
+                                  : `APU modificado — precio desactualizado (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(apuPrecio)}). Click para aplicar y sincronizar.`
+                              }
                               className="flex-shrink-0 hover:opacity-70 transition-opacity"
                             >
                               <RefreshCw className="w-3 h-3 text-amber-500" />
@@ -5154,6 +5329,8 @@ export default function ProyectoPage() {
             onApuChange={(apu) => setApuData((prev) => ({ ...prev, [drawerRubroId]: apu }))}
             onAplicar={(precio, apuActual) => aplicarPrecioAPU(drawerRubroId, precio, apuActual)}
             onToggleTrabajoEnAltura={(actual) => toggleTrabajoEnAltura(drawerCapId, drawerRubroId, actual)}
+            preciosVigentesPorMaterial={preciosVigentesPorMaterial}
+            onSincronizarMaterial={(materialId) => sincronizarPrecioAPU(drawerRubroId, drawerAPU, materialId)}
           />
         )}
       </AnimatePresence>
