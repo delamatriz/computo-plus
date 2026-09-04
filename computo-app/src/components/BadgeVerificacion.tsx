@@ -86,9 +86,10 @@ export function BadgeVerificacion({ fuente, onClickPendiente }: BadgeVerificacio
     // Elegible para el job de verificación de precios (FEAT-AI-006) pero
     // todavía sin ninguna corrida real encima — fechaUltimaVerificacion
     // null es la señal (limpiada de backfills falsos, ver
-    // scripts/limpiar-fecha-verificacion-falsa.ts). Estilo neutro
-    // (slate/azul), a propósito distinto del ámbar de alerta y del verde
-    // de confirmado — "todavía no lo chequeamos" no es un problema.
+    // scripts/limpiar-fecha-verificacion-falsa.ts). Ámbar — mismo color
+    // que el reloj de "pendiente de verificar" en la lista de rubros
+    // (mismo estado, misma señal), y acá además refuerza que la etiqueta
+    // es clickeable (deep-link a Materiales, ver onClickPendiente).
     if (!fuente.fechaUltimaVerificacion) {
       if (onClickPendiente) {
         return (
@@ -96,7 +97,7 @@ export function BadgeVerificacion({ fuente, onClickPendiente }: BadgeVerificacio
             type="button"
             onClick={onClickPendiente}
             title="Todavía no pasó por el job de verificación de precios de mercado — click para revisarlo en Materiales"
-            className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-slate-100 text-slate-500 border border-slate-200 uppercase tracking-wide whitespace-nowrap hover:bg-slate-200 hover:text-slate-700 transition-colors"
+            className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap hover:bg-amber-100 hover:text-amber-700 transition-colors"
           >
             <Clock className="w-2.5 h-2.5" />
             Pendiente de verificar
@@ -106,7 +107,7 @@ export function BadgeVerificacion({ fuente, onClickPendiente }: BadgeVerificacio
       return (
         <span
           title="Todavía no pasó por el job de verificación de precios de mercado"
-          className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-slate-100 text-slate-500 border border-slate-200 uppercase tracking-wide whitespace-nowrap"
+          className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap"
         >
           <Clock className="w-2.5 h-2.5" />
           Pendiente de verificar
