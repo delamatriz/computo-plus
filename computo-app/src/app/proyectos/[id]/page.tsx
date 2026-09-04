@@ -1970,7 +1970,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                   type="button"
                                   onClick={() => setPrecioEditId(m.id)}
                                   title="Editar precio"
-                                  className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-[#2563EB] transition-opacity"
+                                  className="absolute right-0 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 text-slate-400 hover:text-[#2563EB] transition-opacity"
                                 >
                                   <Pencil className="w-3 h-3" />
                                 </button>
