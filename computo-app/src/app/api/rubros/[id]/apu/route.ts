@@ -2,6 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sumarAportesPatronalesPct } from "@/lib/apu-calc";
 
+const MENSAJE_PROYECTO_FINALIZADO =
+  "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
+
+// Mismo guard que el resto de las escrituras de rubro/capítulo/título (ver
+// api/rubros/[id]/route.ts) — presupuesto entregado es de solo lectura
+// hasta "Habilitar edición". Era el único endpoint de mutación de rubro sin
+// este chequeo: se podía seguir editando materiales/mano de obra/equipos de
+// un proyecto ya FINALIZADO. Se chequea ANTES de abrir la transacción con
+// el lock (ver más abajo) — si total va a rechazar el request, no tiene
+// sentido tomar el SELECT ... FOR UPDATE primero.
+async function proyectoFinalizado(rubroId: string): Promise<boolean> {
+  const rubro = await db.rubro.findUnique({
+    where: { id: rubroId },
+    select: { capitulo: { select: { proyecto: { select: { estado: true } } } } },
+  });
+  return rubro?.capitulo.proyecto.estado === "FINALIZADO";
+}
+
 // PUT — reemplaza el APU completo del rubro (upsert + recrear hijos)
 //
 // Envuelto en una transacción con lock explícito (ver el SELECT ... FOR
@@ -29,6 +47,11 @@ export async function PUT(
 ) {
   try {
     const { id: rubroId } = await params;
+
+    if (await proyectoFinalizado(rubroId)) {
+      return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });
+    }
+
     const body = await req.json();
 
     // eslint-disable-next-line prefer-const
