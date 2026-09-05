@@ -240,6 +240,14 @@ interface InsumoAPU {
   codigoMTOP?: string;       // código de la lista oficial si fue seleccionado
   precioMTOPOrig?: number;   // precio original MTOP para detectar modificaciones
   precioEstimadoIA?: boolean; // precio recién estimado por IA, aún no confirmado por el usuario
+  // Vínculo REAL y durable con PrecioMTOP.id (a diferencia de codigoMTOP,
+  // que nunca se persiste — ver MaterialAPU.precioMTOPId en schema.prisma
+  // y la investigación de matching por texto). null/undefined = material
+  // agregado a mano ("+ Agregar manualmente sin buscar") o cuya
+  // descripción se editó después de haberse agregado del catálogo (ver
+  // updateMat). Todavía NO se usa para resolver precios — sincronizarPrecioMTOP/
+  // resolverPreciosVigentes siguen matcheando por texto (Paso C, pendiente).
+  precioMTOPId?: string | null;
   // Propagado desde PrecioMTOP.motivoVerificacion al clonar desde la
   // biblioteca — ver BadgeVerificacion. null/undefined = sin motivo
   // conocido (cae al mensaje genérico "Precio incompleto").
@@ -1486,7 +1494,12 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
       [field]: field === "descripcion" || field === "unidad" || field === "dosificacion" || field === "codigoMTOP"
         ? val
         : (val === "" ? 0 : parseFloat(val)),
-      ...(field === "descripcion" ? { codigoMTOP: undefined, precioMTOPOrig: undefined } : {}),
+      // Editar la descripción invalida cualquier vínculo con el catálogo
+      // — ya no hay garantía de que precioMTOPId siga describiendo lo
+      // mismo que el usuario acaba de escribir. Editar precio/rendimiento
+      // sin tocar la descripción NO lo limpia — el vínculo sigue siendo
+      // válido, el usuario solo está corrigiendo el valor localmente.
+      ...(field === "descripcion" ? { codigoMTOP: undefined, precioMTOPOrig: undefined, precioMTOPId: null } : {}),
       ...(field === "precioUnit" ? { precioEstimadoIA: undefined } : {}),
     }));
 
@@ -1567,6 +1580,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
       precioUnit:     m.precioUnitario,
       codigoMTOP:     m.codigo,
       precioMTOPOrig: m.precioUnitario,
+      precioMTOPId:   m.id,
     }];
     setMat(nuevosMateriales);
     setMostrarBuscador(false);

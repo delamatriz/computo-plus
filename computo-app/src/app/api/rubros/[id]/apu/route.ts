@@ -88,6 +88,11 @@ export async function PUT(
           proveedor: m.proveedor ?? null,
           notaProcedencia: m.notaProcedencia ?? null,
           fechaUltimaVerificacion: m.fechaUltimaVerificacion ? new Date(m.fechaUltimaVerificacion) : null,
+          // Vínculo real con PrecioMTOP (ver agregarDesdeMTOP en
+          // proyectos/[id]/page.tsx) — antes de este campo, ni codigoMTOP
+          // ni precioMTOPOrig llegaban a persistirse acá, así que el
+          // vínculo con el catálogo se perdía apenas se recreaba el APU.
+          precioMTOPId: m.precioMTOPId ?? null,
         },
       });
       if (Array.isArray(m.componentes)) {

@@ -303,6 +303,22 @@ model MaterialAPU {
   // procedencia en vez de un proveedor real (ver BadgeVerificacion).
   notaProcedencia         String?
   fechaUltimaVerificacion DateTime?
+
+  // Vínculo REAL y durable con la fila de catálogo de la que se agregó
+  // este material (ver agregarDesdeMTOP en proyectos/[id]/page.tsx) —
+  // antes de esto, el único rastro (codigoMTOP/precioMTOPOrig) vivía solo
+  // en el estado de React de esa sesión y nunca se persistía (ver
+  // investigación). Opcional: un material agregado por texto libre
+  // ("+ Agregar manualmente sin buscar") nunca tiene este campo, y se
+  // limpia a null si el usuario edita la descripción a mano (el vínculo
+  // deja de ser confiable, mismo criterio que codigoMTOP hoy). onDelete:
+  // SetNull — borrar la fila del catálogo no debe romper ni vaciar el
+  // precio ya guardado acá, solo perder el vínculo. Todavía NO se usa
+  // para reemplazar el matching por texto de sincronizarPrecioMTOP/
+  // resolverPreciosVigentes — eso es el Paso C, después del backfill
+  // (Paso B) sobre los materiales ya existentes.
+  precioMTOPId String?
+  precioMTOP   PrecioMTOP? @relation(fields: [precioMTOPId], references: [id], onDelete: SetNull)
 }
 
 model ComponenteAPU {
@@ -811,6 +827,10 @@ model PrecioMTOP {
   // mostrar contexto real y no solo el número — antes se perdía apenas se
   // cerraba la pestaña de la corrida.
   detalleVerificacion     String?   @db.Text
+
+  // Lado opuesto de MaterialAPU.precioMTOP — sin uso directo hoy, Prisma
+  // exige declarar ambos lados de una relación explícita.
+  materialesAPU MaterialAPU[]
 
   @@unique([codigo, proveedor])
 }
