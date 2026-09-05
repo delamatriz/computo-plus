@@ -2024,7 +2024,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                 <tbody>
                   {apu.materiales.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="pl-4 py-2 text-slate-400 italic">Sin materiales</td>
+                      <td colSpan={7} className="pl-4 py-2 text-slate-400 italic">Sin materiales</td>
                     </tr>
                   )}
                   {apu.materiales.map((m) => {
@@ -2193,7 +2193,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                 {apu.materiales.length > 0 && (
                   <tfoot>
                     <tr style={{ background: "#F1F5F9", height: 28 }} className="border-t border-slate-200">
-                      <td colSpan={5} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MATERIALES</td>
+                      <td colSpan={4} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MATERIALES</td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalMaterialesPUnit)}</td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalMateriales)}</td>
                       <td />
