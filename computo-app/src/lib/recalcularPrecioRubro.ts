@@ -78,10 +78,20 @@ async function resolverPreciosVigentes(rubro: RubroConAPU): Promise<ResolucionRu
   const materialesAActualizar: { id: string; precioUnit: number }[] = [];
   const materialesEfectivos = await Promise.all(
     apu.materiales.map(async (m) => {
-      const precioMTOP = await db.precioMTOP.findFirst({
-        where: { descripcion: { contains: m.descripcion, mode: "insensitive" } },
-        orderBy: { id: "asc" },
-      });
+      // Con vínculo real (Paso A/B, ver MaterialAPU.precioMTOPId): resolver
+      // por id, sin ambigüedad posible. Si el vínculo apunta a una fila ya
+      // borrada del catálogo (no debería pasar — onDelete: SetNull limpia
+      // el campo solo — pero por las dudas), se trata como "sin match": NO
+      // se cae al matching por texto como alternativa silenciosa, para no
+      // reintroducir la misma ambigüedad que este vínculo vino a resolver.
+      // Solo un material sin vínculo (agregado a mano, o de los 4 sin
+      // match del backfill) sigue matcheando por texto como respaldo.
+      const precioMTOP = m.precioMTOPId
+        ? await db.precioMTOP.findUnique({ where: { id: m.precioMTOPId } })
+        : await db.precioMTOP.findFirst({
+            where: { descripcion: { contains: m.descripcion, mode: "insensitive" } },
+            orderBy: { id: "asc" },
+          });
       if (!precioMTOP || precioMTOP.precioUnitario === m.precioUnit) {
         return { rendimiento: m.rendimiento, precioUnit: m.precioUnit };
       }

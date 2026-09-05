@@ -1524,7 +1524,14 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
       const res = await fetch("/api/precios-mtop", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ descripcion: m.descripcion, precioUnitario: m.precioUnit }),
+        body: JSON.stringify({
+          descripcion: m.descripcion,
+          precioUnitario: m.precioUnit,
+          // Vínculo real (ver precioMTOPId en InsumoAPU) — si existe, el
+          // PATCH resuelve por id sin ambigüedad; si no, sigue matcheando
+          // por texto como respaldo (ver comentario en la ruta).
+          precioMTOPId: m.precioMTOPId ?? undefined,
+        }),
       });
       if (!res.ok) return; // 409 ambiguo u otro error — no se sabe a qué material corregir, no se toca nada local
       const data = await res.json();

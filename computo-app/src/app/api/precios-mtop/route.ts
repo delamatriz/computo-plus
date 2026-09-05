@@ -150,37 +150,58 @@ export async function GET(req: NextRequest) {
 // por código. Usado por la sección "Precios de Referencia de Materiales" en
 // Configuración para materiales que no están en la Lista MTOP N°599.
 //
-// También acepta { descripcion, precioUnitario } para actualizar por
-// coincidencia de descripción (contains, insensitive) — usado al editar
-// inline el precio de un material en el APU de un rubro, para mantener
+// También acepta { descripcion, precioUnitario, precioMTOPId? } para
+// actualizar el material editado inline en el APU de un rubro, y mantener
 // el catálogo alineado con lo que el usuario corrige a mano.
+//
+// Con precioMTOPId (vínculo real, ver MaterialAPU.precioMTOPId — Paso A/B/C
+// de la migración fuera del matching por texto): se busca esa fila por id,
+// sin ambigüedad posible. Si el id ya no existe en el catálogo (no debería
+// pasar — onDelete: SetNull limpia el campo solo — pero por las dudas), se
+// trata como "sin match": NO se cae al matching por texto como alternativa
+// silenciosa, para no reintroducir la ambigüedad que el vínculo vino a
+// resolver. Sin precioMTOPId (material agregado a mano, o de los pocos sin
+// vínculo del backfill), sigue el matching por texto de siempre.
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
 
     if (typeof body?.descripcion === "string" && Number.isFinite(body?.precioUnitario)) {
-      // Hasta 2 matches alcanza para decidir: 0 (nada que hacer), 1 (caso
-      // normal, sigue de largo), 2+ (ambiguo, no adivinamos cuál — no hace
-      // falta traer más de 2 filas para saber que hay más de una).
-      const matches = await db.precioMTOP.findMany({
-        where: { descripcion: { contains: body.descripcion, mode: "insensitive" } },
-        orderBy: { id: "asc" },
-        take: 2,
-      });
-      if (matches.length === 0) {
-        return NextResponse.json({ ok: true, actualizado: false });
+      let match: { id: string; codigo: string } | null = null;
+
+      if (typeof body?.precioMTOPId === "string") {
+        match = await db.precioMTOP.findUnique({
+          where: { id: body.precioMTOPId },
+          select: { id: true, codigo: true },
+        });
+        if (!match) {
+          return NextResponse.json({ ok: true, actualizado: false });
+        }
+      } else {
+        // Hasta 2 matches alcanza para decidir: 0 (nada que hacer), 1 (caso
+        // normal, sigue de largo), 2+ (ambiguo, no adivinamos cuál — no hace
+        // falta traer más de 2 filas para saber que hay más de una).
+        const matches = await db.precioMTOP.findMany({
+          where: { descripcion: { contains: body.descripcion, mode: "insensitive" } },
+          orderBy: { id: "asc" },
+          take: 2,
+        });
+        if (matches.length === 0) {
+          return NextResponse.json({ ok: true, actualizado: false });
+        }
+        if (matches.length > 1) {
+          return NextResponse.json(
+            {
+              error: "descripcion_ambigua",
+              mensaje: `Más de un material coincide con "${body.descripcion}" — no se puede corregir el precio sin saber a cuál te referís.`,
+              candidatos: matches.map((m) => ({ codigo: m.codigo, descripcion: m.descripcion, proveedor: m.proveedor })),
+            },
+            { status: 409 }
+          );
+        }
+        match = matches[0];
       }
-      if (matches.length > 1) {
-        return NextResponse.json(
-          {
-            error: "descripcion_ambigua",
-            mensaje: `Más de un material coincide con "${body.descripcion}" — no se puede corregir el precio sin saber a cuál te referís.`,
-            candidatos: matches.map((m) => ({ codigo: m.codigo, descripcion: m.descripcion, proveedor: m.proveedor })),
-          },
-          { status: 409 }
-        );
-      }
-      const match = matches[0];
+
       // datosCorreccionPrecio: misma resolución que "aceptar" en la Cola
       // de Revisión (ver resolver/route.ts) y que la importación masiva
       // (importar/route.ts) — un solo lugar para el criterio, ver
