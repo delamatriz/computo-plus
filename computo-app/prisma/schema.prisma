@@ -263,6 +263,14 @@ model APU {
   // % de piedra bruta sobre 1 m3, para hormigón ciclópeo — desplaza volumen
   // de hormigón simple (cemento+arena+balasto) al recalcular en vivo.
   porcentajePiedra   Float         @default(0.30)
+  // Dosificación de la mezcla del rubro (ej. "1:2:3" cemento:arena:piedra)
+  // — propiedad de la mezcla completa, no de cada material por separado.
+  // Antes vivía como columna por-material (MaterialAPU.dosificacion),
+  // pero 0 de 100 materiales reales la tenían cargada nunca — se
+  // reemplaza por este campo único a nivel de APU/rubro, opcional,
+  // completado una sola vez (ver checkbox de trabajo en altura, mismo
+  // lugar en el drawer).
+  dosificacion       String?
   rubroId            String        @unique
   rubro              Rubro         @relation(fields: [rubroId], references: [id], onDelete: Cascade)
   materiales         MaterialAPU[]
@@ -278,7 +286,6 @@ model MaterialAPU {
   unidad       String
   rendimiento  Float
   precioUnit   Float           @default(0)
-  dosificacion String?
   orden        Int             @default(0)
   apuId        String
   apu          APU             @relation(fields: [apuId], references: [id], onDelete: Cascade)

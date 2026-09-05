@@ -65,7 +65,6 @@ export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNom
             <div className="flex items-center px-5 py-2 bg-slate-50 border-b border-slate-200">
               <div className="flex-1 pr-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Material</div>
               <div style={{ width: 56 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center">Unidad</div>
-              <div style={{ width: 100 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center">Dosif.</div>
               <div style={{ width: 110 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
               <div style={{ width: 100 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">P. unit.</div>
               <div style={{ width: 140 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right pr-4">Costo total</div>
@@ -80,7 +79,6 @@ export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNom
                 >
                   <div className="flex-1 pr-2 text-sm text-slate-700 font-medium truncate">{f.descripcion}</div>
                   <div style={{ width: 56 }} className="text-sm text-slate-500 text-center">{f.unidad}</div>
-                  <div style={{ width: 100 }} className="text-sm text-slate-500 text-center">{f.dosificacion || "—"}</div>
                   <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-700 font-semibold text-right">{fmtMon(f.cantidadTotal)}</div>
                   <div style={{ width: 100 }} className="text-sm tabular-nums text-slate-500 text-right">{f.precioUnit != null ? fmtMon(f.precioUnit) : "—"}</div>
                   <div style={{ width: 140 }} className="text-sm font-bold tabular-nums text-[#2563EB] text-right pr-4">{costoTotal != null ? fmtMon(costoTotal) : "—"}</div>

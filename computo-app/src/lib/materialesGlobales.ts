@@ -15,7 +15,6 @@ interface InsumoAPULite {
   unidad: string;
   rendimiento: number;
   precioUnit: number;
-  dosificacion?: string;
   componentes?: ComponenteInsumoLite[];
 }
 
@@ -35,7 +34,6 @@ interface CapituloLite {
 export type FilaMaterialGlobal = {
   descripcion: string;
   unidad: string;
-  dosificacion?: string;
   cantidadTotal: number;
   precioUnit?: number;
 };
@@ -47,12 +45,12 @@ export function computarMaterialesGlobales(
 ): { filas: FilaMaterialGlobal[]; total: number } {
   const mapa = new Map<string, FilaMaterialGlobal>();
 
-  const agregar = (key: string, desc: string, unidad: string, dosif: string | undefined, cant: number, precio: number | undefined) => {
+  const agregar = (key: string, desc: string, unidad: string, cant: number, precio: number | undefined) => {
     const ex = mapa.get(key);
     if (ex) {
       ex.cantidadTotal += cant;
     } else {
-      mapa.set(key, { descripcion: desc, unidad, dosificacion: dosif, cantidadTotal: cant, precioUnit: precio });
+      mapa.set(key, { descripcion: desc, unidad, cantidadTotal: cant, precioUnit: precio });
     }
   };
 
@@ -64,11 +62,11 @@ export function computarMaterialesGlobales(
         if (m.componentes && m.componentes.length > 0) {
           for (const comp of m.componentes) {
             const cant = comp.rendimientoPorUnidad * m.rendimiento * rubro.cantidad;
-            agregar(`${comp.descripcion}||${comp.unidad}`, comp.descripcion, comp.unidad, undefined, cant, comp.precioUnit);
+            agregar(`${comp.descripcion}||${comp.unidad}`, comp.descripcion, comp.unidad, cant, comp.precioUnit);
           }
         } else {
           const cant = m.rendimiento * rubro.cantidad;
-          agregar(`${m.descripcion}||${m.unidad}`, m.descripcion, m.unidad, m.dosificacion, cant, m.precioUnit);
+          agregar(`${m.descripcion}||${m.unidad}`, m.descripcion, m.unidad, cant, m.precioUnit);
         }
       }
     }
@@ -92,28 +90,27 @@ export function descargarExcelMateriales(nombreProyecto: string, filas: FilaMate
     [`LISTA DE MATERIALES — ${nombreProyecto}`],
     [`Fecha de generación: ${fecha}`],
     [],
-    ["MATERIAL", "UNIDAD", "DOSIFICACIÓN", "CANTIDAD", "PRECIO UNIT. (UYU)", "COSTO TOTAL (UYU)"],
+    ["MATERIAL", "UNIDAD", "CANTIDAD", "PRECIO UNIT. (UYU)", "COSTO TOTAL (UYU)"],
     ...filas.map((f) => [
       f.descripcion,
       f.unidad,
-      f.dosificacion ?? "",
       parseFloat(f.cantidadTotal.toFixed(2)),
       f.precioUnit != null ? parseFloat(f.precioUnit.toFixed(2)) : null,
       f.precioUnit != null ? parseFloat((f.cantidadTotal * f.precioUnit).toFixed(2)) : null,
     ]),
-    ["TOTAL MATERIALES", "", "", "", "", parseFloat(total.toFixed(2))],
+    ["TOTAL MATERIALES", "", "", "", parseFloat(total.toFixed(2))],
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(datos);
 
   ws["!cols"] = [
-    { wch: 35 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 18 },
+    { wch: 35 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 18 },
   ];
 
   // Aplicar formato numérico directamente en cada celda numérica
-  // Columnas D(3), E(4), F(5) — filas de datos + fila total
-  const COLS = ["A", "B", "C", "D", "E", "F"];
-  const numColIdx = [3, 4, 5];
+  // Columnas C(2), D(3), E(4) — filas de datos + fila total
+  const COLS = ["A", "B", "C", "D", "E"];
+  const numColIdx = [2, 3, 4];
   const dataStart = 4; // índice 0-based de la primera fila de datos
   const totalRowIdx = datos.length - 1;
 

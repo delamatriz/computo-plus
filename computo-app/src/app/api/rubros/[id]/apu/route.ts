@@ -56,7 +56,7 @@ export async function PUT(
 
     // eslint-disable-next-line prefer-const
     let { utilidadPct, aportesPatronalesPct } = body;
-    const { porcentajePiedra = 0.30, materiales = [], manoObra = [], equipos = [] } = body;
+    const { porcentajePiedra = 0.30, dosificacion = null, materiales = [], manoObra = [], equipos = [] } = body;
 
     const apuCompleto = await db.$transaction(async (tx) => {
       // Lock explícito — ver comentario de la función. Se ignora el
@@ -109,10 +109,10 @@ export async function PUT(
       const apu = apuExistente
         ? await tx.aPU.update({
             where: { rubroId },
-            data: { gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra },
+            data: { gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra, dosificacion },
           })
         : await tx.aPU.create({
-            data: { rubroId, gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra },
+            data: { rubroId, gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra, dosificacion },
           });
 
       const apuId = apu.id;
@@ -128,7 +128,6 @@ export async function PUT(
             unidad:       m.unidad       ?? "",
             rendimiento:  m.rendimiento  ?? 0,
             precioUnit:   m.precioUnit   ?? 0,
-            dosificacion: m.dosificacion ?? null,
             orden:        i,
             // Se recrea todo el APU en cada autosave — sin esto, el motivo
             // clonado de la biblioteca se perdía apenas el usuario tocaba

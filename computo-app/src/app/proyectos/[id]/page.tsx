@@ -235,7 +235,6 @@ interface InsumoAPU {
   unidad: string;
   rendimiento: number;
   precioUnit: number;
-  dosificacion?: string;
   componentes?: ComponenteInsumo[];
   codigoMTOP?: string;       // código de la lista oficial si fue seleccionado
   precioMTOPOrig?: number;   // precio original MTOP para detectar modificaciones
@@ -328,6 +327,11 @@ interface APU {
   // % de piedra bruta sobre 1 m3 en hormigón ciclópeo — solo relevante si
   // hay un material "Piedra bruta" en la lista (ver tieneMaterialPiedra).
   porcentajePiedra?: number;
+  // Dosificación de la mezcla del rubro (ej. "1:2:3" cemento:arena:piedra)
+  // — propiedad de la mezcla completa, no de cada material por separado.
+  // Antes vivía como columna por-material (InsumoAPU.dosificacion), quitada
+  // porque 0 de 100 materiales reales la tenían cargada nunca.
+  dosificacion?: string | null;
 }
 
 /* ─── Datos de prueba ─────────────────────────────────────── */
@@ -417,14 +421,17 @@ const APU_INICIALES: Record<string, APU> = {
     aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
   },
   r005: {
+    // Dosificación es del APU/mezcla completa, no de cada material — ver
+    // InsumoAPU/APU.dosificacion.
+    dosificacion: "1:2:3",
     materiales: [
-      { id: "m1", descripcion: "Hormigón H-21 elaborado", unidad: "m³", rendimiento: 1.05, precioUnit: 180, dosificacion: "1:2:3", componentes: [
+      { id: "m1", descripcion: "Hormigón H-21 elaborado", unidad: "m³", rendimiento: 1.05, precioUnit: 180, componentes: [
         { id: "c1", descripcion: "Cemento Portland", unidad: "kg",  rendimientoPorUnidad: 350,  precioUnit: 45   },
         { id: "c2", descripcion: "Arena gruesa",     unidad: "m³",  rendimientoPorUnidad: 0.55, precioUnit: 1800 },
         { id: "c3", descripcion: "Pedregullo 20mm",  unidad: "m³",  rendimientoPorUnidad: 0.85, precioUnit: 2200 },
         { id: "c4", descripcion: "Agua",             unidad: "lt",  rendimientoPorUnidad: 180,  precioUnit: 8    },
       ]},
-      { id: "m2", descripcion: "Hierro Ø12 mm",           unidad: "kg", rendimiento: 85,   precioUnit: 2.8, dosificacion: "85 kg/m³" },
+      { id: "m2", descripcion: "Hierro Ø12 mm",           unidad: "kg", rendimiento: 85,   precioUnit: 2.8 },
       { id: "m3", descripcion: "Encofrado de madera",     unidad: "m²", rendimiento: 3.2,  precioUnit: 18, componentes: [
         { id: "e1", descripcion: "Tabla de encofrado 1\"x6\"", unidad: "m²", rendimientoPorUnidad: 1.1,  precioUnit: 320 },
         { id: "e2", descripcion: "Puntal metálico",            unidad: "u",  rendimientoPorUnidad: 0.8,  precioUnit: 180 },
@@ -1581,7 +1588,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const updateMat = (id: string, field: keyof InsumoAPU, val: string) =>
     setMat(apu.materiales.map((m) => m.id !== id ? m : {
       ...m,
-      [field]: field === "descripcion" || field === "unidad" || field === "dosificacion" || field === "codigoMTOP"
+      [field]: field === "descripcion" || field === "unidad" || field === "codigoMTOP"
         ? val
         : (val === "" ? 0 : parseFloat(val)),
       // Editar la descripción invalida cualquier vínculo con el catálogo
@@ -1926,6 +1933,24 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
             )}
           </div>
 
+          {/* Dosificación de la mezcla — propiedad del APU/rubro completo,
+              no de cada material (ver InsumoAPU/APU.dosificacion). Antes
+              vivía como columna por-material, quitada porque 0 de 100
+              materiales reales la tenían cargada nunca. */}
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">
+              Dosificación de la mezcla (opcional)
+            </label>
+            <input
+              type="text"
+              value={apu.dosificacion ?? ""}
+              onChange={(e) => onApuChange({ ...apu, dosificacion: e.target.value })}
+              onBlur={() => guardarApuActual()}
+              placeholder="ej: 1:2:3 — cemento:arena:piedra"
+              className="w-full max-w-xs px-2.5 py-1.5 text-sm border border-slate-200 rounded-[8px] bg-white focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 text-slate-700 placeholder:text-slate-400"
+            />
+          </div>
+
           {/* 1 — MATERIALES */}
           <SeccionAPU titulo="Materiales">
             <div className="pb-2">
@@ -1978,7 +2003,6 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
               <table className="w-full text-xs border-collapse min-w-[480px]">
                 <colgroup>
                   <col style={{ width: "auto" }} />
-                  <col style={{ width: "60px" }} />
                   <col style={{ width: "56px" }} />
                   <col style={{ width: "80px" }} />
                   <col style={{ width: "72px" }} />
@@ -1989,7 +2013,6 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                 <thead>
                   <tr style={{ background: "#F8FAFC", height: 28 }} className="border-b border-slate-100">
                     <th className="text-left pl-4 font-semibold text-slate-400 uppercase tracking-wider">Insumo</th>
-                    <th className="text-center font-semibold text-slate-400 uppercase tracking-wider">Dosif.</th>
                     <th className="text-center font-semibold text-slate-400 uppercase tracking-wider">Unidad</th>
                     <th className="text-right pr-2 font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap" title="Cantidad por unidad de rubro">Cant/U</th>
                     <th className="text-right pr-3 font-semibold text-slate-400 uppercase tracking-wider">P. unit.</th>
@@ -2050,9 +2073,6 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                 </button>
                               )}
                             </div>
-                          </td>
-                          <td className="text-center">
-                            <input type="text" value={m.dosificacion ?? ""} onChange={(e) => updateMat(m.id, "dosificacion", e.target.value)} onBlur={() => guardarApuActual()} placeholder="—" className={cn(inputCls, "text-center text-slate-500")} />
                           </td>
                           <td className="text-center">
                             <input type="text" value={m.unidad} onChange={(e) => updateMat(m.id, "unidad", e.target.value)} onBlur={() => guardarApuActual()} placeholder="u" className={cn(inputCls, "text-center")} />
@@ -3027,6 +3047,7 @@ export default function ProyectoPage() {
               utilidadPct:        rubro.apu.utilidadPct        ?? 10,
               aportesPatronalesPct: rubro.apu.aportesPatronalesPct ?? APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra:   rubro.apu.porcentajePiedra   ?? 0.30,
+              dosificacion:       rubro.apu.dosificacion       ?? null,
             };
           }
         }
@@ -3749,13 +3770,16 @@ export default function ProyectoPage() {
               utilidadPct: apuClonado.utilidadPct,
               aportesPatronalesPct: apuClonado.aportesPatronalesPct ?? APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra: apuClonado.porcentajePiedra ?? 0.30,
+              // Dosificación es del APU, no del subrubro estándar (que
+              // nunca la tuvo) — se preserva la que ya tuviera este rubro
+              // si clonar-apu no la toca (ver comentario en esa ruta).
+              dosificacion: apuClonado.dosificacion ?? null,
               materiales: apuClonado.materiales.map((m: InsumoAPU) => ({
                 id: m.id,
                 descripcion: m.descripcion,
                 unidad: m.unidad,
                 rendimiento: m.rendimiento,
                 precioUnit: m.precioUnit,
-                dosificacion: m.dosificacion,
                 motivoVerificacion: m.motivoVerificacion,
                 proveedor: m.proveedor,
                 fechaUltimaVerificacion: m.fechaUltimaVerificacion,

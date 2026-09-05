@@ -53,10 +53,11 @@ export async function POST(
         const rubrosTexto = cap.rubros.length
           ? cap.rubros
               .map((r) => {
-                const base = `  - ${r.descripcion || "(sin descripción)"} | unidad: ${r.unidad || "—"} | cantidad: ${r.cantidad}`;
+                const base = `  - ${r.descripcion || "(sin descripción)"} | unidad: ${r.unidad || "—"} | cantidad: ${r.cantidad}` +
+                  (r.apu?.dosificacion ? ` | dosificación: ${r.apu.dosificacion}` : "");
                 const materiales = r.apu?.materiales.length
                   ? "\n    Materiales: " +
-                    r.apu.materiales.map((m) => `${m.descripcion} (${m.dosificacion || `${m.rendimiento} ${m.unidad}`})`).join(", ")
+                    r.apu.materiales.map((m) => `${m.descripcion} (${m.rendimiento} ${m.unidad})`).join(", ")
                   : "";
                 const manoObra = r.apu?.manoObra.length
                   ? "\n    Mano de obra: " + r.apu.manoObra.map((mo) => mo.categoria).join(", ")
