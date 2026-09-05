@@ -2102,13 +2102,13 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                 )}
                               </div>
                             ) : (
-                              <div className="relative group">
+                              <div className="flex items-center justify-end gap-1 group">
                                 <span className="tabular-nums text-slate-700">{fmtMon(m.precioUnit)}</span>
                                 <button
                                   type="button"
                                   onClick={() => setPrecioEditId(m.id)}
                                   title="Editar precio"
-                                  className="absolute right-0 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 text-slate-400 hover:text-[#2563EB] transition-opacity"
+                                  className="flex-shrink-0 opacity-40 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 text-slate-400 hover:text-[#2563EB] transition-opacity"
                                 >
                                   <Pencil className="w-3 h-3" />
                                 </button>
