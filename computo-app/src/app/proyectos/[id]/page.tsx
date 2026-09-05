@@ -856,6 +856,20 @@ function fmtMon(v: number): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Parsea el texto tipeado a mano en un campo de DINERO (Precio Unitario
+// del rubro, jornalRef, costoUnit/costoUnitPropio) — a propósito DISTINTO
+// del criterio de Cantidad, donde "." sigue siendo decimal (m³/m²,
+// valores chicos que casi nunca llegan a los miles). Estos campos sí
+// llegan habitualmente a los miles ($35.781,42, $2.910,91) y la propia UI
+// los muestra así (fmtMon) al perder el foco — si "." se leyera como
+// decimal mientras se edita, "35.781" tipeado pensando "treinta y cinco
+// mil setecientos ochenta y uno" se guardaría como 35,781. Mismo criterio
+// ya usado en materiales/page.tsx (parsearPrecioTipeado, commit 44265d9):
+// "." se descarta siempre (separador de miles), solo "," es decimal.
+function parsearDineroTipeado(texto: string): number {
+  return parseFloat(texto.replace(/\./g, "").replace(",", "."));
+}
+
 /** Igual que fmtMoneda pero conservando hasta 2 decimales (para precios de catálogo) */
 function fmtMonedaDecimal(v: number, moneda: string): string {
   if (v === 0) return "—";
@@ -1614,10 +1628,18 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const updateMO = (id: string, field: keyof ManoObraAPU, val: string) =>
     setMO(apu.manoObra.map((mo) => mo.id !== id ? mo : {
       ...mo,
-      // .replace(",", ".") — mismo bug que Cantidad/Precio Unitario de la
-      // tabla de rubros: parseFloat("2,5") === 2, pierde el decimal en
-      // silencio si el usuario escribe con coma (jornalRef, sobre todo).
-      [field]: field === "categoria" ? val : (val === "" ? 0 : parseFloat(val.replace(",", "."))),
+      [field]: field === "categoria"
+        ? val
+        : val === ""
+        ? 0
+        // jornalRef es dinero (puede llegar a los miles, ej. $2.910,91) —
+        // acá "." se descarta como separador de miles (ver
+        // parsearDineroTipeado). jornadaHs/rendimiento NO son dinero,
+        // siguen con el criterio anterior: "," se trata como decimal,
+        // "." también (parseFloat nativo ya lo hace).
+        : field === "jornalRef"
+        ? parsearDineroTipeado(val)
+        : parseFloat(val.replace(",", ".")),
     }));
 
   // Quita una línea de mano de obra y persiste de inmediato. Si estaba
@@ -1632,11 +1654,17 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const updateEq = (id: string, field: keyof EquipoAPU, val: string) =>
     setEq(apu.equipos.map((e) => e.id !== id ? e : {
       ...e,
-      // .replace(",", ".") — mismo bug que Cantidad/Precio Unitario de la
-      // tabla de rubros: parseFloat("2,5") === 2, pierde el decimal en
-      // silencio si el usuario escribe con coma (costoUnit/costoUnitPropio,
-      // sobre todo).
-      [field]: field === "descripcion" || field === "unidad" ? val : (val === "" ? 0 : parseFloat(val.replace(",", "."))),
+      [field]: field === "descripcion" || field === "unidad"
+        ? val
+        : val === ""
+        ? 0
+        // costoUnit/costoUnitPropio son dinero (pueden llegar a los miles)
+        // — acá "." se descarta como separador de miles (ver
+        // parsearDineroTipeado). rendimiento NO es dinero, sigue con el
+        // criterio anterior.
+        : field === "costoUnit" || field === "costoUnitPropio"
+        ? parsearDineroTipeado(val)
+        : parseFloat(val.replace(",", ".")),
     }));
 
   // Quita un equipo y persiste de inmediato. Cualquier mano de obra
@@ -3771,13 +3799,18 @@ export default function ProyectoPage() {
           rubros: c.rubros.map((r) =>
             r.id !== rubroId ? r : {
               ...r,
-              // .replace(",", ".") — el usuario escribe decimales con coma
-              // (convención uruguaya, "2,5"); parseFloat no la entiende y
-              // corta ahí (parseFloat("2,5") === 2, perdiendo el decimal en
-              // silencio). Sin redondeo ni tope de decimales para ninguno
-              // de los dos campos — lo que se tipea es lo que se guarda.
-              [field]: field === "cantidad" || field === "precioUnit"
+              // Cantidad: valores chicos (m³/m²), "." sigue siendo decimal
+              // (parseFloat nativo + reemplazo de "," a "."). Precio
+              // Unitario: puede llegar a los miles (ej. $35.781,42) — acá
+              // "." se descarta como separador de miles, solo "," es
+              // decimal (ver parsearDineroTipeado, mismo criterio que
+              // materiales/page.tsx). Sin redondeo ni tope de decimales
+              // para ninguno de los dos campos — lo que se tipea es lo
+              // que se guarda.
+              [field]: field === "cantidad"
                 ? value === "" ? null : parseFloat(value.replace(",", "."))
+                : field === "precioUnit"
+                ? value === "" ? null : parsearDineroTipeado(value)
                 : value,
             }
           ),
@@ -3792,9 +3825,12 @@ export default function ProyectoPage() {
     debounceTimers.current[key] = setTimeout(async () => {
       try {
         // Mismo criterio que la actualización optimista de arriba —
-        // .replace(",", ".") antes de parsear, sin redondear.
-        const parsedValue = field === "cantidad" || field === "precioUnit"
+        // Cantidad sigue tratando "." como decimal, Precio Unitario lo
+        // descarta como separador de miles (parsearDineroTipeado).
+        const parsedValue = field === "cantidad"
           ? value === "" ? 0 : parseFloat(value.replace(",", "."))
+          : field === "precioUnit"
+          ? value === "" ? 0 : parsearDineroTipeado(value)
           : value;
         await fetch(`/api/rubros/${rubroId}`, {
           method: "PATCH",
