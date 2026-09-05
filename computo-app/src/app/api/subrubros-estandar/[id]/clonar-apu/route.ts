@@ -121,6 +121,13 @@ export async function POST(
           proveedor: precioMTOP?.proveedor ?? null,
           notaProcedencia: precioMTOP?.notaProcedencia ?? null,
           fechaUltimaVerificacion: precioMTOP?.fechaUltimaVerificacion ?? null,
+          // Vínculo real con la fila de catálogo (ver MaterialAPU.precioMTOPId)
+          // — antes de esto, un rubro clonado desde la biblioteca quedaba
+          // dependiendo del matching por texto para siempre (a diferencia de
+          // agregarDesdeMTOP, que ya lo capturaba desde el Paso A). No
+          // resuelve retroactivamente los rubros ya clonados antes de este
+          // cambio — eso sería un backfill aparte.
+          precioMTOPId: precioMTOP?.id ?? null,
         },
       });
     }

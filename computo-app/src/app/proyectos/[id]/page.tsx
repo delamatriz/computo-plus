@@ -932,18 +932,39 @@ function precioAPUDesincronizado(precioGuardado: number | null | undefined, prec
   return diff > 1 && diffPct > 0.5;
 }
 
-type ItemCatalogoMTOP = { id: string; descripcion: string; precioUnitario: number };
+// Fila de catálogo completa — antes solo se tipaban id/descripcion/
+// precioUnitario, aunque el servidor (GET /api/precios-mtop sin params,
+// SELECT_CATALOGO_COMPLETO) ya manda estos 5 campos de verificación en
+// cada fila. Se descartaban en el cliente sin usarlos — ver Parte 2 del
+// fix (propagar la bandera de verificación al sincronizar un material).
+type ItemCatalogoMTOP = {
+  id: string;
+  descripcion: string;
+  precioUnitario: number;
+  motivoVerificacion: string | null;
+  proveedor: string | null;
+  notaProcedencia: string | null;
+  fechaUltimaVerificacion: string | null;
+};
 
-// Busca el precio vigente de un material en el catálogo completo de
-// PrecioMTOP — MISMO criterio que resolverPreciosVigentes() en el servidor
-// (lib/recalcularPrecioRubro.ts): la descripción del catálogo CONTIENE la
-// del material (no al revés), sin distinguir mayúsculas/tildes, y ante más
-// de un candidato se toma el de id más chico (mismo desempate que el
-// findFirst + orderBy: id asc del servidor). Un solo lugar de verdad para
-// este matching en el cliente — lo usa detectarPreciosDesactualizados, para
-// que el ícono nunca señale un material distinto al que el click termina
-// actualizando.
-function buscarPrecioVigenteCatalogo(descripcionMaterial: string, catalogo: ItemCatalogoMTOP[]): number | null {
+// Busca la fila vigente de un material en el catálogo completo de
+// PrecioMTOP. Con precioMTOPId (vínculo real, ver MaterialAPU.precioMTOPId
+// — Paso A/B/C): resuelve por id, sin ambigüedad posible — si el id no
+// aparece en el catálogo actual (fila borrada), se trata como "sin match",
+// NO se cae al matching por texto como alternativa silenciosa (mismo
+// criterio que resolverPreciosVigentes() en el servidor, para no
+// reintroducir la ambigüedad que el vínculo vino a resolver). Sin
+// precioMTOPId, sigue el matching por texto de siempre: la descripción
+// del catálogo CONTIENE la del material, sin distinguir mayúsculas/
+// tildes, desempate por id más chico (mismo criterio que el servidor).
+function buscarPrecioVigenteCatalogo(
+  descripcionMaterial: string,
+  catalogo: ItemCatalogoMTOP[],
+  precioMTOPId?: string | null
+): ItemCatalogoMTOP | null {
+  if (precioMTOPId) {
+    return catalogo.find((p) => p.id === precioMTOPId) ?? null;
+  }
   if (!descripcionMaterial) return null;
   const descLower = descripcionMaterial.toLowerCase();
   let match: ItemCatalogoMTOP | null = null;
@@ -951,18 +972,20 @@ function buscarPrecioVigenteCatalogo(descripcionMaterial: string, catalogo: Item
     if (!p.descripcion.toLowerCase().includes(descLower)) continue;
     if (!match || p.id < match.id) match = p;
   }
-  return match ? match.precioUnitario : null;
+  return match;
 }
 
 interface PreciosDesactualizados {
   // rubroId -> descripciones de los materiales desactualizados (tooltip
   // agregado del ícono en la tabla de rubros).
   porRubro: Record<string, string[]>;
-  // materialId -> precio vigente en catálogo — SOLO para materiales cuyo
-  // precioUnit guardado quedó atrás (alimenta el indicador puntual dentro
-  // del DrawerAPU y el propio click de sincronizar, ver
-  // aplicarPreciosVigentesAMateriales).
-  porMaterial: Record<string, number>;
+  // materialId -> fila de catálogo vigente completa — SOLO para materiales
+  // cuyo precioUnit guardado quedó atrás (alimenta el indicador puntual
+  // dentro del DrawerAPU y el propio click de sincronizar, ver
+  // aplicarPreciosVigentesAMateriales). Antes solo el precio — ahora la
+  // fila completa, para poder propagar también motivoVerificacion/
+  // proveedor/notaProcedencia/fechaUltimaVerificacion al sincronizar.
+  porMaterial: Record<string, ItemCatalogoMTOP>;
 }
 
 // Cruza los materiales de TODOS los rubros ya cargados (apuData, ya vino
@@ -973,13 +996,13 @@ interface PreciosDesactualizados {
 // catálogo completo en cada tecla que se tipea en cualquier input.
 function detectarPreciosDesactualizados(apus: Record<string, APU>, catalogo: ItemCatalogoMTOP[]): PreciosDesactualizados {
   const porRubro: Record<string, string[]> = {};
-  const porMaterial: Record<string, number> = {};
+  const porMaterial: Record<string, ItemCatalogoMTOP> = {};
 
   for (const [rubroId, apu] of Object.entries(apus)) {
     const desactualizados: string[] = [];
     for (const m of apu.materiales) {
-      const vigente = buscarPrecioVigenteCatalogo(m.descripcion, catalogo);
-      if (vigente != null && vigente !== m.precioUnit) {
+      const vigente = buscarPrecioVigenteCatalogo(m.descripcion, catalogo, m.precioMTOPId);
+      if (vigente != null && vigente.precioUnitario !== m.precioUnit) {
         desactualizados.push(m.descripcion);
         porMaterial[m.id] = vigente;
       }
@@ -991,18 +1014,31 @@ function detectarPreciosDesactualizados(apus: Record<string, APU>, catalogo: Ite
 }
 
 // Devuelve una copia del APU con las líneas de material ya actualizadas al
-// precio vigente — si se pasa soloMaterialId, actualiza ÚNICAMENTE esa
-// línea (click puntual dentro del DrawerAPU); si no, todas las que
-// aparezcan en preciosVigentes (click a nivel rubro, en la tabla). Nada más
-// se toca (ni mano de obra, ni equipos, ni precioCongelado) — mismo
-// criterio que "corregir un material a mano", nunca "Entregar" de nuevo.
-function aplicarPreciosVigentesAMateriales(apu: APU, preciosVigentes: Record<string, number>, soloMaterialId?: string): APU {
+// precio vigente (y a la bandera de verificación vigente — motivoVerificacion/
+// proveedor/notaProcedencia/fechaUltimaVerificacion, tomados de la MISMA
+// fila de catálogo resuelta, nunca se habían refrescado antes de este fix)
+// — si se pasa soloMaterialId, actualiza ÚNICAMENTE esa línea (click
+// puntual dentro del DrawerAPU); si no, todas las que aparezcan en
+// preciosVigentes (click a nivel rubro, en la tabla). precioMTOPId no se
+// toca acá — ya viene resuelto en el material, sincronizar no cambia de
+// qué fila del catálogo depende. Nada más se toca (ni mano de obra, ni
+// equipos, ni precioCongelado) — mismo criterio que "corregir un material
+// a mano", nunca "Entregar" de nuevo.
+function aplicarPreciosVigentesAMateriales(apu: APU, preciosVigentes: Record<string, ItemCatalogoMTOP>, soloMaterialId?: string): APU {
   return {
     ...apu,
     materiales: apu.materiales.map((m) => {
       if (soloMaterialId && m.id !== soloMaterialId) return m;
       const vigente = preciosVigentes[m.id];
-      return vigente != null ? { ...m, precioUnit: vigente } : m;
+      if (vigente == null) return m;
+      return {
+        ...m,
+        precioUnit: vigente.precioUnitario,
+        motivoVerificacion: vigente.motivoVerificacion,
+        proveedor: vigente.proveedor,
+        notaProcedencia: vigente.notaProcedencia,
+        fechaUltimaVerificacion: vigente.fechaUltimaVerificacion,
+      };
     }),
   };
 }
@@ -1311,10 +1347,10 @@ interface DrawerAPUProps {
   onApuChange: (apu: APU) => void;
   onAplicar: (precioUnit: number, apu: APU) => void;
   onToggleTrabajoEnAltura: (actual: boolean) => void;
-  // Precio vigente de catálogo por materialId — solo trae entradas para
+  // Fila de catálogo vigente por materialId — solo trae entradas para
   // materiales de ESTE rubro cuyo precio guardado quedó atrás del de
   // PrecioMTOP (ver detectarPreciosDesactualizados en el componente padre).
-  preciosVigentesPorMaterial: Record<string, number>;
+  preciosVigentesPorMaterial: Record<string, ItemCatalogoMTOP>;
   // Sincroniza SOLO este material contra el catálogo (sin tocar los demás
   // ni precioCongelado) — ver sincronizarPrecioAPU en el componente padre.
   onSincronizarMaterial: (materialId: string) => void;
@@ -2007,7 +2043,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                 <button
                                   type="button"
                                   onClick={() => { cancelarGuardadoPendiente(); onSincronizarMaterial(m.id); }}
-                                  title={`Precio en catálogo: ${fmtMon(preciosVigentesPorMaterial[m.id])} — este material tiene ${fmtMon(m.precioUnit)} cargado. Click para actualizar.`}
+                                  title={`Precio en catálogo: ${fmtMon(preciosVigentesPorMaterial[m.id].precioUnitario)} — este material tiene ${fmtMon(m.precioUnit)} cargado. Click para actualizar.`}
                                   className="flex-shrink-0 hover:opacity-70 transition-opacity"
                                 >
                                   <RefreshCw className="w-3 h-3 text-amber-500" />
@@ -2851,7 +2887,7 @@ export default function ProyectoPage() {
   // materiales cuyo precio guardado quedó atrás (mismo cruce de arriba, ver
   // detectarPreciosDesactualizados). Alimenta el indicador puntual dentro
   // del DrawerAPU y el click de sincronizar (a nivel rubro o material).
-  const [preciosVigentesPorMaterial, setPreciosVigentesPorMaterial] = useState<Record<string, number>>({});
+  const [preciosVigentesPorMaterial, setPreciosVigentesPorMaterial] = useState<Record<string, ItemCatalogoMTOP>>({});
   // Jornal SUNCA vigente de "Medio Oficial" (Cat. V) — para clasificar la
   // Cuantía de la obra (ver computarCuantiaObra). DrawerAPU carga su propia
   // copia de categoriasLaborales por su cuenta (componente separado); esta
