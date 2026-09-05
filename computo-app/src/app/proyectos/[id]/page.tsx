@@ -1467,18 +1467,58 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
 
   // Auto-save del APU completo a la DB, debounced — se dispara al salir de
   // cualquier campo editable de Materiales, Mano de obra o Equipos.
-  const guardarApuTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  //
+  // Guarda además la función "ejecutar" (no solo el timerId) — necesario
+  // para poder DISPARAR el guardado pendiente de inmediato (sin esperar
+  // los 600ms) al cerrar el drawer o cambiar de rubro (ver el useEffect de
+  // cleanup más abajo), en vez de simplemente perderlo.
+  const guardarApuTimer = useRef<{ timerId: ReturnType<typeof setTimeout>; ejecutar: () => void } | null>(null);
   const guardarApuActual = useCallback((apuAGuardar?: APU) => {
     const payload = apuAGuardar ?? apu;
-    if (guardarApuTimer.current) clearTimeout(guardarApuTimer.current);
-    guardarApuTimer.current = setTimeout(() => {
+    if (guardarApuTimer.current) clearTimeout(guardarApuTimer.current.timerId);
+    const ejecutar = () => {
+      guardarApuTimer.current = null;
       fetch(`/api/rubros/${rubro.id}/apu`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       }).catch((err) => console.error("[auto-save APU]", err));
-    }, 600);
+    };
+    const timerId = setTimeout(ejecutar, 600);
+    guardarApuTimer.current = { timerId, ejecutar };
   }, [apu, rubro.id]);
+
+  // Cancela un guardado debounced pendiente SIN ejecutarlo — usado justo
+  // antes de aplicarPrecioAPU/sincronizar (botón "Aplicar al rubro",
+  // etiqueta "APU modificado", sincronizar material), que van a mandar su
+  // propio PUT ya mismo con el mismo `apu` vigente. Sin esto, el guardado
+  // debounced que quedó armado por el último onBlur también dispara a los
+  // 600ms, y dos requests PUT viajan en paralelo para el mismo apuId — la
+  // condición de carrera que duplicó materiales/mano de obra/equipos en
+  // HOGAR DE ANCIANOS → Vigas y carreras (ver diagnóstico previo).
+  const cancelarGuardadoPendiente = useCallback(() => {
+    if (guardarApuTimer.current) {
+      clearTimeout(guardarApuTimer.current.timerId);
+      guardarApuTimer.current = null;
+    }
+  }, []);
+
+  // Si el drawer se cierra o cambia de rubro con un guardado debounced
+  // todavía pendiente, ese setTimeout no se cancela solo — no está atado
+  // al ciclo de vida de React, así que sin este cleanup seguiría
+  // disparando en background contra un rubro que ya no se está editando
+  // (mismo tipo de escritura descoordinada que causó la duplicación, solo
+  // que acá el riesgo es escribir sobre el rubro equivocado en vez de
+  // duplicar). Se EJECUTA de inmediato el guardado pendiente en vez de
+  // descartarlo, para no perder la última edición del usuario.
+  useEffect(() => {
+    return () => {
+      if (guardarApuTimer.current) {
+        clearTimeout(guardarApuTimer.current.timerId);
+        guardarApuTimer.current.ejecutar();
+      }
+    };
+  }, [rubro.id]);
 
   // Cargar categorías laborales SUNCA y fecha de vigencia del convenio al montar
   useEffect(() => {
@@ -1799,7 +1839,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
               {precioAPUDesincronizado(rubro.precioUnit, precioFinal) && (
                 <button
                   type="button"
-                  onClick={() => onAplicar(precioFinal, apu)}
+                  onClick={() => { cancelarGuardadoPendiente(); onAplicar(precioFinal, apu); }}
                   title={`APU modificado — precio desactualizado (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(precioFinal)}). Click para aplicar y sincronizar.`}
                   className="flex-shrink-0 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap hover:bg-amber-100 transition-colors"
                 >
@@ -1966,7 +2006,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                               {preciosVigentesPorMaterial[m.id] != null && (
                                 <button
                                   type="button"
-                                  onClick={() => onSincronizarMaterial(m.id)}
+                                  onClick={() => { cancelarGuardadoPendiente(); onSincronizarMaterial(m.id); }}
                                   title={`Precio en catálogo: ${fmtMon(preciosVigentesPorMaterial[m.id])} — este material tiene ${fmtMon(m.precioUnit)} cargado. Click para actualizar.`}
                                   className="flex-shrink-0 hover:opacity-70 transition-opacity"
                                 >
@@ -2566,7 +2606,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
           </SeccionAPU>
 
           <button
-            onClick={() => onAplicar(precioFinal, apu)}
+            onClick={() => { cancelarGuardadoPendiente(); onAplicar(precioFinal, apu); }}
             className="w-full mt-1 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors"
           >
             Aplicar al rubro
