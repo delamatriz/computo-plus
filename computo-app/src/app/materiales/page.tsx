@@ -40,7 +40,11 @@ interface MaterialCatalogo {
 
 function fmtMon(v: number): string {
   if (!v) return "—";
-  return `$ ${Math.round(v).toLocaleString("es-UY")}`;
+  // Sin Math.round — los precios de materiales SÍ pueden tener centavos
+  // (decisión de producto confirmada), el redondeo visual ocultaba el
+  // valor real ya guardado correctamente en la base. Mismo criterio de
+  // 2 decimales fijos que fmtMon() del proyecto (rubros).
+  return `$ ${v.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 // Parsea el precio tipeado a mano en el lápiz de edición — a propósito
