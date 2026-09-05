@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
 import { mejorCoincidencia, type CandidatoImportacion } from "@/lib/similitudDescripcion";
+import { buscarCoincidenciasPorTexto } from "@/lib/recalcularPrecioRubro";
+
+interface AmbiguoDetectado {
+  materialAPUId: string;
+  proyectoId: string;
+  proyectoNombre: string;
+  rubroNombre: string;
+  descripcion: string;
+  candidatos: { id: string; descripcion: string; precio: number }[];
+}
 
 interface FilaImportacion {
   codigo?: string;
@@ -147,10 +157,52 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Chequeo de ambigüedad post-importación — el catálogo recién cambió
+    // (altas + correcciones de arriba), así que un material sin vínculo
+    // real (precioMTOPId null, ver Paso A/B/C de la migración fuera del
+    // matching por texto) que hoy resuelve sano por contains() podría
+    // volverse ambiguo con las filas nuevas, en silencio, igual que pasó
+    // con "Cemento Portland" antes de tener el vínculo. Universo barato de
+    // recorrer (4 materiales sin vínculo en toda la base al momento de
+    // escribir esto) — se corre siempre, sincrónico, en esta misma
+    // request.
+    const materialesSinVinculo = await db.materialAPU.findMany({
+      where: { precioMTOPId: null },
+      select: {
+        id: true,
+        descripcion: true,
+        apu: {
+          select: {
+            rubro: {
+              select: {
+                descripcion: true,
+                capitulo: { select: { proyecto: { select: { id: true, nombre: true } } } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const ambiguosDetectados: AmbiguoDetectado[] = [];
+    for (const m of materialesSinVinculo) {
+      const candidatos = await buscarCoincidenciasPorTexto(m.descripcion);
+      if (candidatos.length < 2) continue;
+      ambiguosDetectados.push({
+        materialAPUId: m.id,
+        proyectoId: m.apu.rubro.capitulo.proyecto.id,
+        proyectoNombre: m.apu.rubro.capitulo.proyecto.nombre,
+        rubroNombre: m.apu.rubro.descripcion,
+        descripcion: m.descripcion,
+        candidatos: candidatos.map((c) => ({ id: c.id, descripcion: c.descripcion, precio: c.precioUnitario })),
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       resumen: { actualizados, nuevos, total: filas.length, omitidas: filasCrudas.length - filas.length },
       detalle,
+      ambiguosDetectados,
     });
   } catch (err) {
     console.error("[POST /api/precios-mtop/importar]", err);

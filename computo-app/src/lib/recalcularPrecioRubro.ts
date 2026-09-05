@@ -16,7 +16,21 @@
 
 import { db } from "@/lib/db";
 import { sumEquipos, sumManoObra, calcularPrecioUnitario, montoAportesPatronales } from "@/lib/apu-calc";
-import type { MaterialAPU, ManoObraAPU, EquipoAPU, APU } from "@/generated/prisma/client";
+import type { MaterialAPU, ManoObraAPU, EquipoAPU, APU, PrecioMTOP } from "@/generated/prisma/client";
+
+// Matching por texto simple (sin filtrar proveedor) contra PrecioMTOP —
+// respaldo para MaterialAPU sin precioMTOPId (ver Paso C de la migración
+// fuera del matching por texto). Devuelve TODAS las coincidencias, no solo
+// la primera, para que tanto resolverPreciosVigentes() (que hoy sigue
+// tomando la primera, mismo criterio de siempre) como el chequeo de
+// ambigüedad post-importación (api/precios-mtop/importar/route.ts, que
+// necesita saber si hay 2+) puedan usar la misma consulta sin duplicarla.
+export async function buscarCoincidenciasPorTexto(descripcion: string): Promise<PrecioMTOP[]> {
+  return db.precioMTOP.findMany({
+    where: { descripcion: { contains: descripcion, mode: "insensitive" } },
+    orderBy: { id: "asc" },
+  });
+}
 
 type RubroConAPU = {
   id: string;
@@ -88,10 +102,7 @@ async function resolverPreciosVigentes(rubro: RubroConAPU): Promise<ResolucionRu
       // match del backfill) sigue matcheando por texto como respaldo.
       const precioMTOP = m.precioMTOPId
         ? await db.precioMTOP.findUnique({ where: { id: m.precioMTOPId } })
-        : await db.precioMTOP.findFirst({
-            where: { descripcion: { contains: m.descripcion, mode: "insensitive" } },
-            orderBy: { id: "asc" },
-          });
+        : (await buscarCoincidenciasPorTexto(m.descripcion))[0] ?? null;
       if (!precioMTOP || precioMTOP.precioUnitario === m.precioUnit) {
         return { rendimiento: m.rendimiento, precioUnit: m.precioUnit };
       }

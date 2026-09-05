@@ -89,6 +89,17 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resumen, setResumen] = useState<{ actualizados: number; nuevos: number; total: number } | null>(null);
+  // Materiales de rubros reales SIN precioMTOPId cuyo matching por texto
+  // (sin filtrar proveedor, ver resolverPreciosVigentes/
+  // buscarCoincidenciasPorTexto) se volvió ambiguo con las filas que esta
+  // importación acaba de agregar/actualizar al catálogo — mismo tipo de
+  // problema silencioso que pasó con "Cemento Portland" antes de tener el
+  // vínculo real. Vacío en la enorme mayoría de las importaciones (hoy
+  // solo hay 4 materiales sin vínculo en toda la base), por eso solo se
+  // muestra la sección si hay algo que avisar.
+  const [ambiguosDetectados, setAmbiguosDetectados] = useState<
+    { materialAPUId: string; proyectoId: string; proyectoNombre: string; rubroNombre: string; descripcion: string; candidatos: { id: string; descripcion: string; precio: number }[] }[]
+  >([]);
 
   const mapeoCompleto = mapeo.descripcion != null && mapeo.unidad != null && mapeo.precio != null;
 
@@ -182,6 +193,7 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
       }
       const data = await res.json();
       setResumen(data.resumen);
+      setAmbiguosDetectados(data.ambiguosDetectados ?? []);
       onImportado();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo confirmar la importación.");
@@ -217,14 +229,47 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
 
         <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
           {resumen ? (
-            <div className="text-center py-8">
-              <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-              <p className="text-sm font-semibold text-[#1A3A5C] mb-1">Importación aplicada</p>
-              <p className="text-sm text-slate-500">
-                {resumen.actualizados} material{resumen.actualizados !== 1 ? "es" : ""} actualizado
-                {resumen.actualizados !== 1 ? "s" : ""}, {resumen.nuevos} nuevo{resumen.nuevos !== 1 ? "s" : ""} — de{" "}
-                {resumen.total} fila{resumen.total !== 1 ? "s" : ""} válida{resumen.total !== 1 ? "s" : ""}.
-              </p>
+            <div className="py-8">
+              <div className="text-center">
+                <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-[#1A3A5C] mb-1">Importación aplicada</p>
+                <p className="text-sm text-slate-500">
+                  {resumen.actualizados} material{resumen.actualizados !== 1 ? "es" : ""} actualizado
+                  {resumen.actualizados !== 1 ? "s" : ""}, {resumen.nuevos} nuevo{resumen.nuevos !== 1 ? "s" : ""} — de{" "}
+                  {resumen.total} fila{resumen.total !== 1 ? "s" : ""} válida{resumen.total !== 1 ? "s" : ""}.
+                </p>
+              </div>
+
+              {ambiguosDetectados.length > 0 && (
+                <div className="mt-6 rounded-[10px] border border-amber-200 bg-amber-50 p-4">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-700 mb-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    {ambiguosDetectados.length} material{ambiguosDetectados.length !== 1 ? "es" : ""} podría
+                    {ambiguosDetectados.length !== 1 ? "n" : ""} necesitar revisión
+                  </p>
+                  <p className="text-xs text-amber-600 mb-3">
+                    Estos materiales todavía no tienen un vínculo real con el catálogo, y ahora coinciden por texto
+                    con más de una fila — el próximo "actualizar al precio vigente" podría tomar la variante
+                    equivocada.
+                  </p>
+                  <ul className="space-y-2">
+                    {ambiguosDetectados.map((a) => (
+                      <li key={a.materialAPUId} className="text-xs bg-white rounded-[8px] border border-amber-100 px-3 py-2">
+                        <a
+                          href={`/materiales?q=${encodeURIComponent(a.descripcion)}&from=${a.proyectoId}`}
+                          className="font-semibold text-[#2563EB] hover:underline"
+                        >
+                          {a.descripcion}
+                        </a>
+                        <span className="text-slate-500"> — {a.proyectoNombre} / {a.rubroNombre}</span>
+                        <span className="block text-slate-400 mt-0.5">
+                          {a.candidatos.length} coincidencias: {a.candidatos.map((c) => c.descripcion).join(", ")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ) : (
             <>
