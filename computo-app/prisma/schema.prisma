@@ -38,7 +38,7 @@ model Proyecto {
   moneda      String     @default("UYU")
   tipo        String     @default("VIVIENDA")
   tipoContratacion String @default("PRIVADA") // "PRIVADA" | "PUBLICA"
-  estado      String     @default("BORRADOR")
+  estado      String     @default("ANTEPROYECTO")
   descripcion String?
   trabajos    String?
   fechaInicio DateTime?

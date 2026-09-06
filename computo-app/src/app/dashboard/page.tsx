@@ -7,27 +7,31 @@ export const dynamic = "force-dynamic";
 const ESTADO_LABELS: Record<string, string> = {
   EN_CURSO: "En curso",
   FINALIZADO: "Finalizado",
-  BORRADOR: "Borrador",
+  ANTEPROYECTO: "Anteproyecto",
   PAUSADO: "Pausado",
 };
 
 const ESTADO_CLASSES: Record<string, string> = {
   EN_CURSO: "bg-green-100 text-green-700",
   FINALIZADO: "bg-slate-100 text-slate-600",
-  BORRADOR: "bg-yellow-100 text-yellow-700",
+  ANTEPROYECTO: "bg-violet-100 text-violet-700",
   PAUSADO: "bg-amber-100 text-amber-700",
 };
 
-// Orden fijo de las 4 tarjetas de estado — no el orden en que aparecen en
-// la base, sino el orden de flujo natural de un presupuesto.
-const ESTADOS_ORDEN = ["BORRADOR", "EN_CURSO", "PAUSADO", "FINALIZADO"] as const;
+// Orden fijo de las tarjetas de estado — no el orden en que aparecen en la
+// base, sino el orden de flujo natural de un presupuesto. PAUSADO quedó
+// afuera: estado inalcanzable desde ninguna acción de la UI (confirmado en
+// diagnóstico previo), la tarjeta solo generaba una pregunta sin respuesta.
+const ESTADOS_ORDEN = ["ANTEPROYECTO", "EN_CURSO", "FINALIZADO"] as const;
 
 // Subtítulo de la tarjeta KPI de cada estado — el de FINALIZADO refleja el
 // significado real de hoy (precio congelado al entregar, ver "Entregar"
 // en proyectos/[id]/page.tsx), no "cerrado": un finalizado se puede volver
 // a editar con "Habilitar edición" sin dejar de ser un presupuesto real.
+// El de ANTEPROYECTO también es literal: hoy es el único camino que lleva
+// a ese estado (ver "Guardar como anteproyecto" en /calcular).
 const ESTADO_SUBTITULO: Record<string, string> = {
-  BORRADOR: "aún sin confirmar",
+  ANTEPROYECTO: "creado con Cálculo Rápido",
   EN_CURSO: "obras en marcha",
   PAUSADO: "obras en pausa",
   FINALIZADO: "presupuesto entregado",
@@ -110,6 +114,9 @@ export default async function DashboardPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-[#1A3A5C]">Panel de control</h1>
         <p className="text-slate-500 text-sm mt-1">
+          Resumen general de todos tus proyectos y del estado del catálogo de materiales.
+        </p>
+        <p className="text-slate-400 text-xs mt-1">
           {new Date().toLocaleDateString("es-UY", {
             weekday: "long",
             year: "numeric",
@@ -119,8 +126,8 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Tarjetas KPI — 4 estados + total por moneda + cola de revisión */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      {/* Tarjetas KPI — 3 estados (PAUSADO afuera, inalcanzable) + total por moneda + cola de revisión */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         {ESTADOS_ORDEN.map((estado) => (
           <div key={estado} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
             <p className="text-3xl font-bold text-[#1A3A5C]">{contadorPorEstado[estado]}</p>
@@ -129,7 +136,10 @@ export default async function DashboardPage() {
           </div>
         ))}
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+        <div
+          className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm"
+          title="Costo Directo + Utilidad, sin Gastos Generales ni IVA — no es el precio final de cliente"
+        >
           <div className="space-y-0.5">
             {MONEDAS_ORDEN.filter((m) => m in totalPorMoneda).map((m) => (
               <p
@@ -143,7 +153,10 @@ export default async function DashboardPage() {
             ))}
           </div>
           <p className="text-sm text-slate-500 mt-1">Total presupuestado</p>
-          <p className="text-xs text-slate-400">en {proyectos.length} proyectos</p>
+          <p className="text-xs text-slate-400">en todos tus proyectos</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            Costo Directo + Utilidad — sin Gastos Generales ni IVA
+          </p>
         </div>
 
         <Link

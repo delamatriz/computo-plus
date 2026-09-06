@@ -359,10 +359,10 @@ const PROYECTO = {
 };
 
 const ESTADOS = {
-  EN_CURSO:   { label: "En curso",   color: "#2563EB", bg: "#EFF6FF" },
-  BORRADOR:   { label: "Borrador",   color: "#64748B", bg: "#F1F5F9" },
-  FINALIZADO: { label: "Finalizado", color: "#16A34A", bg: "#F0FDF4" },
-  PAUSADO:    { label: "Pausado",    color: "#D97706", bg: "#FFFBEB" },
+  EN_CURSO:     { label: "En curso",     color: "#2563EB", bg: "#EFF6FF" },
+  ANTEPROYECTO: { label: "Anteproyecto", color: "#7C3AED", bg: "#F5F3FF" },
+  FINALIZADO:   { label: "Finalizado",   color: "#16A34A", bg: "#F0FDF4" },
+  PAUSADO:      { label: "Pausado",      color: "#D97706", bg: "#FFFBEB" },
 };
 
 const CAPITULOS_INICIALES: Capitulo[] = [
@@ -2863,6 +2863,7 @@ export default function ProyectoPage() {
   const [mostrarConfirmEntregar, setMostrarConfirmEntregar] = useState(false);
   const [entregando, setEntregando] = useState(false);
   const [habilitandoEdicion, setHabilitandoEdicion] = useState(false);
+  const [convirtiendoAnteproyecto, setConvirtiendoAnteproyecto] = useState(false);
   // Modal "Agregar capítulo" — antes era un window.prompt() nativo, ver
   // ModalAgregarCapitulo más abajo (mismo patrón que ModalCalibrarEscala
   // en Visor.tsx: título, un input, Cancelar/Guardar).
@@ -2958,7 +2959,7 @@ export default function ProyectoPage() {
         tipoContratacion: data.tipoContratacion ?? "PRIVADA",
         estado:    (data.estado as keyof typeof ESTADOS) in ESTADOS
                      ? (data.estado as keyof typeof ESTADOS)
-                     : "BORRADOR",
+                     : "ANTEPROYECTO",
         moneda:    data.moneda     ?? "UYU",
         area:      data.area       ?? 0,
         direccion: data.direccion  ?? "",
@@ -3232,7 +3233,8 @@ export default function ProyectoPage() {
 
   const proyectoActivo = proyecto ?? PROYECTO;
   const moneda = proyectoActivo.moneda;
-  const estado = ESTADOS[proyectoActivo.estado] ?? ESTADOS.BORRADOR;
+  const estado = ESTADOS[proyectoActivo.estado] ?? ESTADOS.ANTEPROYECTO;
+  const esAnteproyecto = proyectoActivo.estado === "ANTEPROYECTO";
   // Presupuesto entregado — solo lectura hasta "Habilitar edición" (ver
   // guards reales en las rutas PATCH/DELETE/POST de rubros y capítulos).
   const soloLectura = proyectoActivo.estado === "FINALIZADO";
@@ -3379,6 +3381,26 @@ export default function ProyectoPage() {
       console.error("[habilitarEdicion]", err);
     } finally {
       setHabilitandoEdicion(false);
+    }
+  };
+
+  // "Convertir en proyecto completo" — mismo patrón que habilitarEdicion:
+  // un anteproyecto (creado desde Cálculo Rápido, sin capítulos todavía)
+  // pasa a EN_CURSO para señalar que ya se está desarrollando en serio.
+  const convertirEnProyectoCompleto = async () => {
+    setConvirtiendoAnteproyecto(true);
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "EN_CURSO" }),
+      });
+      if (!res.ok) throw new Error("No se pudo convertir el anteproyecto");
+      setProyecto((prev) => (prev ? { ...prev, estado: "EN_CURSO" } : prev));
+    } catch (err) {
+      console.error("[convertirEnProyectoCompleto]", err);
+    } finally {
+      setConvirtiendoAnteproyecto(false);
     }
   };
 
@@ -5044,6 +5066,28 @@ export default function ProyectoPage() {
       {tabActiva === "presupuesto" && (
       <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
 
+        {/* Anteproyecto — creado desde Cálculo Rápido, sin capítulos todavía.
+            Banner de conversión explícita: mismo patrón que "Habilitar
+            edición" (PATCH a EN_CURSO), pero con su propio texto porque acá
+            el usuario nunca vino de un "Entregar" previo. */}
+        {esAnteproyecto && (
+          <div className="mb-6 rounded-[14px] border border-violet-200 bg-violet-50 px-4 md:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 justify-between">
+            <div className="flex items-start gap-2.5">
+              <HardHat className="w-4 h-4 text-violet-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-violet-800 leading-relaxed">
+                <span className="font-semibold">Este es un anteproyecto</span> — una estimación rápida, todavía sin capítulos ni rubros cargados.
+              </p>
+            </div>
+            <button
+              onClick={convertirEnProyectoCompleto}
+              disabled={convirtiendoAnteproyecto}
+              className="flex-shrink-0 px-3.5 py-2 rounded-[8px] bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              {convirtiendoAnteproyecto ? "Convirtiendo…" : "Convertir en proyecto completo"}
+            </button>
+          </div>
+        )}
+
         {/* ── Documentación para metrar + Planilla de cómputo + Calculadora + Visor
             (ver UI_UX_REDESIGN.md sección 2quater — antes vivía en /proyectos/[id]/metrajes) ── */}
         <SeccionMetrajesPresupuesto
@@ -5236,7 +5280,15 @@ export default function ProyectoPage() {
                   explícito) no deja ningún rastro visual acá — se ve y
                   funciona exactamente como un proyecto simple de toda la
                   vida. */}
-              {!modoMultiTitulo && capitulos.map((cap, i) => renderFilaCapitulo(cap, String(i + 1).padStart(2, "0")))}
+              {!modoMultiTitulo && (
+                capitulos.length === 0 ? (
+                  <p className="px-5 py-3 text-xs text-slate-400">
+                    Sin capítulos todavía — agregá el primero con &quot;Agregar capítulo&quot; arriba.
+                  </p>
+                ) : (
+                  capitulos.map((cap, i) => renderFilaCapitulo(cap, String(i + 1).padStart(2, "0")))
+                )
+              )}
             </div>
           </div>
         </div>

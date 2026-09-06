@@ -15,6 +15,7 @@ import {
   Sparkles,
   AlertTriangle,
   Library,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -192,6 +193,8 @@ export default function CalcularPage() {
   const fotosInputRef = useRef<HTMLInputElement>(null);
   const [iniciandoProyecto, setIniciandoProyecto] = useState(false);
   const [avisoFotos, setAvisoFotos] = useState<string | null>(null);
+  const [guardandoAnteproyecto, setGuardandoAnteproyecto] = useState(false);
+  const [errorAnteproyecto, setErrorAnteproyecto] = useState<string | null>(null);
   // Solo se pide cuando proporcionBiblioteca < UMBRAL_PROPORCION_BIBLIOTECA_BAJA
   // (ver botón "Iniciar proyecto completo") — se resetea con cada
   // estimación nueva, nunca se arrastra el ok de una anterior.
@@ -312,6 +315,70 @@ export default function CalcularPage() {
       setErrorIA("No pudimos calcular la estimación. Probá de nuevo.");
     } finally {
       setCalculandoIA(false);
+    }
+  };
+
+  // "Guardar como anteproyecto" — a diferencia de "Iniciar proyecto
+  // completo" (que solo traspasa datos por sessionStorage a /proyectos/nuevo
+  // y deja que el wizard cree el proyecto en EN_CURSO), esto crea el
+  // Proyecto directo, saltándose el wizard, con estado ANTEPROYECTO — el
+  // único camino que hoy lleva a ese estado. El desglose numérico de la IA
+  // no tiene columna propia: se vuelca como resumen legible en
+  // notasPresupuesto (campo de texto libre, sin otro consumidor automático
+  // — a diferencia de descripcion/trabajos, que sí alimenta rubrosAutomaticos.ts).
+  const guardarComoAnteproyecto = async () => {
+    if (guardandoAnteproyecto || !resultadoIA) return;
+    setGuardandoAnteproyecto(true);
+    setErrorAnteproyecto(null);
+    try {
+      const tipoLabel = TIPOS_OBRA.find((t) => t.id === tipo)?.label ?? tipo;
+      const zonaLabel = ZONAS.find((z) => z.id === zona)?.label ?? zona;
+      const calidadLabel = CALIDADES.find((c) => c.id === calidad)?.label ?? calidad;
+      const nombre = `Anteproyecto — ${tipoLabel} en ${zonaLabel}`;
+
+      const notasPresupuesto = [
+        `Estimación de Cálculo Rápido — ${new Date().toLocaleDateString("es-UY")}`,
+        `Zona: ${zonaLabel} · Calidad: ${calidadLabel}`,
+        "",
+        `Total estimado: ${fmt(resultadoIA.totalGeneral)}`,
+        `  Materiales: ${fmt(resultadoIA.totalMateriales)}`,
+        `  Mano de obra: ${fmt(resultadoIA.totalManoObra)}`,
+        typeof resultadoIA.proporcionBiblioteca === "number"
+          ? `${Math.round(resultadoIA.proporcionBiblioteca * 100)}% del presupuesto basado en precios reales de la biblioteca`
+          : null,
+        "",
+        "Desglose por capítulo:",
+        ...resultadoIA.capitulos.map((c) => `  · ${c.nombre}: ${fmt(c.monto)}`),
+        "",
+        resultadoIA.advertencia,
+      ]
+        .filter((l): l is string => l !== null)
+        .join("\n");
+
+      const res = await fetch("/api/proyectos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre,
+          tipo: tipo.toUpperCase(),
+          moneda,
+          area: areaTotal > 0 ? areaTotal : null,
+          descripcion: descripcion.trim() || undefined,
+          estado: "ANTEPROYECTO",
+          notasPresupuesto,
+          capitulos: [],
+        }),
+      });
+      if (!res.ok) {
+        const detalle = await res.json().catch(() => null);
+        throw new Error(detalle?.error ?? `HTTP ${res.status}`);
+      }
+      const proyecto = await res.json();
+      router.push(`/proyectos/${proyecto.id}`);
+    } catch (err) {
+      console.error("[guardarComoAnteproyecto]", err);
+      setErrorAnteproyecto("No se pudo guardar el anteproyecto. Probá de nuevo.");
+      setGuardandoAnteproyecto(false);
     }
   };
 
@@ -1037,6 +1104,26 @@ export default function CalcularPage() {
 
                 {avisoFotos && (
                   <p className="text-xs text-amber-600 text-center -mt-1">{avisoFotos}</p>
+                )}
+
+                {resultadoIA && (
+                  <button
+                    type="button"
+                    disabled={guardandoAnteproyecto}
+                    onClick={guardarComoAnteproyecto}
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-[#2563EB] text-[#2563EB] hover:bg-blue-50 disabled:opacity-60 font-semibold text-sm transition-colors"
+                  >
+                    {guardandoAnteproyecto ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    Guardar como anteproyecto
+                  </button>
+                )}
+
+                {errorAnteproyecto && (
+                  <p className="text-xs text-red-600 text-center -mt-1">{errorAnteproyecto}</p>
                 )}
 
                 <button className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-border text-text-secondary hover:text-text-primary hover:border-slate-300 font-medium text-sm transition-colors bg-bg-card">

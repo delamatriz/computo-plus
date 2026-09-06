@@ -8,14 +8,14 @@ export const dynamic = "force-dynamic";
 const ESTADO_LABELS: Record<string, string> = {
   EN_CURSO: "En curso",
   FINALIZADO: "Finalizado",
-  BORRADOR: "Borrador",
+  ANTEPROYECTO: "Anteproyecto",
   PAUSADO: "Pausado",
 };
 
 const ESTADO_CLASSES: Record<string, string> = {
   EN_CURSO: "bg-green-100 text-green-700",
   FINALIZADO: "bg-slate-100 text-slate-600",
-  BORRADOR: "bg-yellow-100 text-yellow-700",
+  ANTEPROYECTO: "bg-violet-100 text-violet-700",
   PAUSADO: "bg-amber-100 text-amber-700",
 };
 
@@ -65,6 +65,9 @@ export default async function ProyectosPage() {
                 </span>
               </div>
               <h2 className="font-semibold text-[#1E293B] mb-1 line-clamp-2">{p.nombre}</h2>
+              {p.estado === "ANTEPROYECTO" && (
+                <p className="text-xs text-violet-500 mb-1">Realizado con Cálculo Rápido</p>
+              )}
               {p.cliente && (
                 <p className="text-sm text-slate-500 mb-3">{p.cliente}</p>
               )}

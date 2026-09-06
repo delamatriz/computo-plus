@@ -38,6 +38,8 @@ export async function POST(req: NextRequest) {
       diasLaborales,
       capitulos,
       titulos,
+      estado,
+      notasPresupuesto,
     } = body;
 
     if (!nombre || !String(nombre).trim()) {
@@ -143,7 +145,12 @@ export async function POST(req: NextRequest) {
           fechaPresupuesto: fechaPresupuesto ? new Date(fechaPresupuesto) : null,
           plazoObra: plazoObra ? parseInt(plazoObra) : null,
           diasLaborales: diasLaborales ? parseInt(diasLaborales) : null,
-          estado: "EN_CURSO",
+          // Única excepción al default "EN_CURSO": "Guardar como anteproyecto"
+          // desde Cálculo Rápido (ver calcular/page.tsx), el único camino que
+          // hoy lleva a ANTEPROYECTO. Cualquier otro valor (o ausencia) cae
+          // al comportamiento de siempre — el wizard nunca manda este campo.
+          estado: estado === "ANTEPROYECTO" ? "ANTEPROYECTO" : "EN_CURSO",
+          notasPresupuesto: notasPresupuesto || null,
           empresaId: empresa.id,
         },
       });
