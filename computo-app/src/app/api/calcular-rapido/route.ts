@@ -139,15 +139,55 @@ Reglas:
 
     const resultado = JSON.parse(match[0]);
 
-    // proporcionBiblioteca se calcula acá, no se confía en un número que
-    // devuelva la IA — la IA solo tiene que clasificar cada capítulo como
-    // "biblioteca"/"estimado" (un juicio categórico simple), la proporción
-    // sale de sumar los montos reales de los capítulos marcados así.
-    if (Array.isArray(resultado.capitulos) && typeof resultado.totalGeneral === "number" && resultado.totalGeneral > 0) {
-      const totalBiblioteca = resultado.capitulos
-        .filter((c: { origen?: string }) => c.origen === "biblioteca")
-        .reduce((s: number, c: { monto?: number }) => s + (typeof c.monto === "number" ? c.monto : 0), 0);
-      resultado.proporcionBiblioteca = totalBiblioteca / resultado.totalGeneral;
+    // totalGeneral/totalMateriales/totalManoObra que devuelve la IA son un
+    // número "de conjunto" que arma ANTES de haber detallado el desglose
+    // (el schema del JSON pide esos campos antes que "capitulos") — cuando
+    // hay buena cobertura de biblioteca, el detalle bottom-up (capítulo por
+    // capítulo, con precios reales) suele reflejar más ítems de los que ese
+    // número de conjunto contempló, y como la generación es secuencial la
+    // IA nunca vuelve a corregirlo. Confirmado con repros reales: la brecha
+    // varía de corrida en corrida (1.61x, 2.01x, 2.03x con la misma
+    // descripción) — no es un valor contado dos veces, es que las dos
+    // cifras nunca se cruzan. Fix: la suma real de "capitulos" pasa a ser
+    // la única fuente de verdad — nunca se muestra al usuario un total que
+    // no coincida con su propio desglose. totalMateriales/totalManoObra se
+    // recalculan igual (sumando cada capítulo), no proporcionalmente: en
+    // los repros, materiales+manoObra de cada capítulo ya coincide exacto
+    // con su propio monto, así que sumarlos da, por construcción, el mismo
+    // total recalculado — sin necesidad de prorratear nada.
+    if (Array.isArray(resultado.capitulos) && resultado.capitulos.length > 0) {
+      const capitulos = resultado.capitulos as { monto?: number; materiales?: number; manoObra?: number; origen?: string }[];
+      const num = (v: number | undefined) => (typeof v === "number" ? v : 0);
+
+      const totalRecalculado = capitulos.reduce((s, c) => s + num(c.monto), 0);
+      const totalMaterialesRecalculado = capitulos.reduce((s, c) => s + num(c.materiales), 0);
+      const totalManoObraRecalculado = capitulos.reduce((s, c) => s + num(c.manoObra), 0);
+      const totalBiblioteca = capitulos
+        .filter((c) => c.origen === "biblioteca")
+        .reduce((s, c) => s + num(c.monto), 0);
+
+      // El totalGeneral crudo de la IA no se descarta silenciosamente — se
+      // loguea junto al recalculado para poder monitorear en el futuro qué
+      // tan seguido y cuánto difieren, sin tener que reproducir el bug a
+      // mano cada vez.
+      if (typeof resultado.totalGeneral === "number") {
+        const diffPct = resultado.totalGeneral > 0
+          ? ((totalRecalculado - resultado.totalGeneral) / resultado.totalGeneral) * 100
+          : null;
+        console.log(
+          "[calcular-rapido] totalGeneral IA vs. recalculado:",
+          JSON.stringify({
+            totalGeneralIA: resultado.totalGeneral,
+            totalRecalculado: Math.round(totalRecalculado * 100) / 100,
+            diffPct: diffPct != null ? Math.round(diffPct * 10) / 10 : null,
+          })
+        );
+      }
+
+      resultado.totalGeneral = totalRecalculado;
+      resultado.totalMateriales = totalMaterialesRecalculado;
+      resultado.totalManoObra = totalManoObraRecalculado;
+      resultado.proporcionBiblioteca = totalRecalculado > 0 ? totalBiblioteca / totalRecalculado : 0;
     } else {
       resultado.proporcionBiblioteca = 0;
     }
