@@ -81,7 +81,7 @@ Devolvé un JSON con esta estructura exacta:
       "origen": "biblioteca" | "estimado"
     }
   ],
-  "advertencia": "Valores estimativos sin IVA, sin gastos generales ni beneficio del contratista. Para mayor exactitud desarrollá un proyecto completo."
+  "advertencia": "Materiales y mano de obra: estimación de la IA según tu descripción. Gastos Generales, Beneficio e IVA se calculan de forma simple sobre esa estimación, no son una cotización. Para mayor exactitud desarrollá un proyecto completo."
 }
 
 ${
@@ -94,6 +94,7 @@ Reglas:
 - Solo incluí los capítulos relevantes para la tarea descripta
 - Los montos en ${monedaLabel}
 - totalMateriales + totalManoObra debe ser igual a totalGeneral
+- Los capítulos son SOLO rubros constructivos reales (materiales + mano de obra de la obra en sí, ej. "Pintura interior", "Reparación de cañería"). NUNCA generes un capítulo llamado "Gastos Generales", "Beneficio", "Utilidad", "IVA" o similar — esos conceptos no van en este JSON, se calculan aparte en la aplicación
 - Para cada capítulo: si usaste (aunque sea parcialmente, ajustando cantidades) alguno de los SUBRUBROS REALES DE BIBLIOTECA de arriba, marcá "origen": "biblioteca". Si no había ninguno aplicable para ese capítulo y estimaste con tu criterio usando MTOP/jornales, marcá "origen": "estimado"
 - Respondé SOLO con JSON válido, sin texto adicional ni markdown`;
 

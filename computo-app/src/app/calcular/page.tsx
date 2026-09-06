@@ -56,7 +56,18 @@ const ZONA_MULT: Record<string, number> = {
   costa:      1.18,
 };
 
-const CAPITULOS = [
+// "Imprevistos y gastos generales" (era 5% acá) se sacó de la lista —
+// Gastos Generales ahora es un campo editable propio (ver pctGG más
+// abajo), igual que en el presupuesto completo
+// (Proyecto.gastosGeneralesPctDefault). Los 13 capítulos restantes se
+// renormalizan (dividir cada pct por FACTOR_SIN_GG, la suma de sus pct
+// crudos) para volver a sumar 100% del nuevo Costo Directo — el monto en $
+// de cada uno no cambia, porque el total también se multiplica por ese
+// mismo FACTOR_SIN_GG (ver precioBase más abajo): pct_i/F × (total×F) =
+// pct_i × total, igual que antes de sacar la categoría. "Honorarios
+// profesionales" no se toca: es un concepto distinto (arquitecto/
+// proyectista, no Beneficio del contratista).
+const CAPITULOS_RAW = [
   { nombre: "Trabajos preliminares",         pct: 0.03, matPct: 0.40, moPct: 0.60, color: "#E0E7FF" },
   { nombre: "Movimiento de tierra",          pct: 0.04, matPct: 0.30, moPct: 0.70, color: "#C7D2FE" },
   { nombre: "Estructura",                    pct: 0.18, matPct: 0.65, moPct: 0.35, color: "#1A3A5C" },
@@ -69,9 +80,10 @@ const CAPITULOS = [
   { nombre: "Carpintería",                   pct: 0.07, matPct: 0.75, moPct: 0.25, color: "#DBEAFE" },
   { nombre: "Pintura",                       pct: 0.04, matPct: 0.40, moPct: 0.60, color: "#EFF6FF" },
   { nombre: "Instalaciones especiales",      pct: 0.03, matPct: 0.60, moPct: 0.40, color: "#A5B4FC" },
-  { nombre: "Imprevistos y gastos generales",pct: 0.05, matPct: 0.50, moPct: 0.50, color: "#CBD5E1" },
   { nombre: "Honorarios profesionales",      pct: 0.08, matPct: 0.00, moPct: 1.00, color: "#94A3B8" },
 ];
+const FACTOR_SIN_GG = CAPITULOS_RAW.reduce((acc, c) => acc + c.pct, 0);
+const CAPITULOS = CAPITULOS_RAW.map((c) => ({ ...c, pct: c.pct / FACTOR_SIN_GG }));
 
 const MAT_FACTOR = CAPITULOS.reduce((acc, c) => acc + c.pct * c.matPct, 0);
 const MO_FACTOR  = CAPITULOS.reduce((acc, c) => acc + c.pct * c.moPct, 0);
@@ -80,6 +92,12 @@ const PALETA_COLORES = CAPITULOS.map((c) => c.color);
 
 const TCU = 42.5;
 const MAX_FOTOS = 5;
+
+// Defaults idénticos a gastosGeneralesPctDefault/utilidadPctDefault del
+// presupuesto completo (ver costoAgregado.ts) — mismo criterio, para que
+// el número de Cálculo Rápido no desentone con uno real.
+const PCT_GG_DEFAULT = "15";
+const PCT_BENEFICIO_DEFAULT = "10";
 
 // Debajo de esto, la estimación de la IA es mayormente libre (sin
 // verificar contra la biblioteca real de subrubros) — dispara la
@@ -183,6 +201,11 @@ export default function CalcularPage() {
   const [descripcion, setDescripcion] = useState<string>("");
   const [moneda, setMoneda]   = useState<"USD" | "UYU">("USD");
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
+  // Edición libre (no slider) — mismos defaults que gastosGeneralesPctDefault/
+  // utilidadPctDefault del presupuesto completo. Compartidos entre las 2
+  // rutas (resultado/resultadoIA) vía desglose.total como base común.
+  const [pctGG, setPctGG] = useState(PCT_GG_DEFAULT);
+  const [pctBeneficio, setPctBeneficio] = useState(PCT_BENEFICIO_DEFAULT);
 
   const [calculandoIA, setCalculandoIA] = useState(false);
   const [resultadoIA, setResultadoIA]   = useState<ResultadoIA | null>(null);
@@ -222,8 +245,14 @@ export default function CalcularPage() {
   const resultado = useMemo(() => {
     if (esDescriptivo) return null;
     if (areaTotal <= 0) return null;
-    const precioBase = PRECIOS_BASE[tipo]?.[calidad] ?? 600;
+    const precioBaseMercado = PRECIOS_BASE[tipo]?.[calidad] ?? 600;
     const mult       = ZONA_MULT[zona] ?? 1;
+    // × FACTOR_SIN_GG: el precio de mercado por m² traía "Imprevistos y
+    // gastos generales" mezclado adentro — se saca acá para que este total
+    // sea Costo Directo puro, coherente con los 13 capítulos ya
+    // renormalizados arriba (ver CAPITULOS). Gastos Generales pasa a ser
+    // el campo editable de más abajo.
+    const precioBase = precioBaseMercado * FACTOR_SIN_GG;
     const totalUSD   = areaTotal * precioBase * mult;
     const totalUYU   = totalUSD * TCU;
     const total      = moneda === "USD" ? totalUSD : totalUYU;
@@ -271,6 +300,16 @@ export default function CalcularPage() {
     }
     return null;
   }, [resultado, resultadoIA]);
+
+  // Gastos Generales + Beneficio + IVA — misma fórmula que el presupuesto
+  // completo (costoAgregado.ts): suma directa sobre Costo Directo, no
+  // cascada multiplicativa. costoTotal = CD × (1 + %GG/100 + %Beneficio/100);
+  // precioFinal = costoTotal × 1.22 (IVA 22%, fijo, no editable — igual
+  // que en el presupuesto completo).
+  const pctGGNum = parseFloat(pctGG) || 0;
+  const pctBeneficioNum = parseFloat(pctBeneficio) || 0;
+  const costoTotal = desglose ? desglose.total * (1 + pctGGNum / 100 + pctBeneficioNum / 100) : 0;
+  const precioFinalConIVA = costoTotal * 1.22;
 
   const agregarFotos = (files: FileList | null) => {
     if (!files) return;
@@ -340,7 +379,7 @@ export default function CalcularPage() {
         `Estimación de Cálculo Rápido — ${new Date().toLocaleDateString("es-UY")}`,
         `Zona: ${zonaLabel} · Calidad: ${calidadLabel}`,
         "",
-        `Total estimado: ${fmt(resultadoIA.totalGeneral)}`,
+        `Costo Directo: ${fmt(resultadoIA.totalGeneral)}`,
         `  Materiales: ${fmt(resultadoIA.totalMateriales)}`,
         `  Mano de obra: ${fmt(resultadoIA.totalManoObra)}`,
         typeof resultadoIA.proporcionBiblioteca === "number"
@@ -349,6 +388,14 @@ export default function CalcularPage() {
         "",
         "Desglose por capítulo:",
         ...resultadoIA.capitulos.map((c) => `  · ${c.nombre}: ${fmt(c.monto)}`),
+        "",
+        // %GG/%Beneficio son los que el usuario dejó cargados al guardar —
+        // mismos campos editables que ve en pantalla, misma fórmula que el
+        // presupuesto completo (costoAgregado.ts): suma directa sobre CD.
+        `Gastos Generales (${pctGGNum}%): ${fmt(resultadoIA.totalGeneral * (pctGGNum / 100))}`,
+        `Beneficio (${pctBeneficioNum}%): ${fmt(resultadoIA.totalGeneral * (pctBeneficioNum / 100))}`,
+        `Costo Total: ${fmt(costoTotal)}`,
+        `Precio Final (con IVA 22%): ${fmt(precioFinalConIVA)}`,
         "",
         resultadoIA.advertencia,
       ]
@@ -763,9 +810,9 @@ export default function CalcularPage() {
                         </p>
                       )}
                       <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
-                        * Sin IVA incluido
+                        * Costo Directo — sin IVA, sin aportes BPS / Leyes Sociales
                         <br />
-                        * Sin aportes BPS / Leyes Sociales
+                        * Gastos Generales, Beneficio e IVA se agregan más abajo
                       </p>
                     </motion.div>
                   ) : resultadoIA ? (
@@ -989,6 +1036,76 @@ export default function CalcularPage() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </motion.div>
+            )}
+
+            {/* Gastos Generales y Beneficio — edición libre (no slider),
+                mismos defaults que gastosGeneralesPctDefault/utilidadPctDefault
+                del presupuesto completo (15%/10%, ver costoAgregado.ts).
+                Misma fórmula ahí: costoTotal = CD × (1 + %GG/100 + %Benef/100),
+                suma directa, no cascada — precioFinal = costoTotal × 1.22. */}
+            {desglose && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-bg-card rounded-[14px] border border-border p-5"
+                style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.06)" }}
+              >
+                <span className="text-sm font-semibold text-text-primary block mb-3">
+                  Gastos Generales y Beneficio
+                </span>
+
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">Gastos Generales</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={pctGG}
+                        onChange={(e) => setPctGG(e.target.value)}
+                        min={0}
+                        step={0.5}
+                        max={100}
+                        className="w-full px-3 py-2 rounded-[8px] border border-slate-300 bg-bg-base text-sm font-semibold text-text-primary focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all text-right pr-7"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted font-medium">%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">Beneficio</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={pctBeneficio}
+                        onChange={(e) => setPctBeneficio(e.target.value)}
+                        min={0}
+                        step={0.5}
+                        max={100}
+                        className="w-full px-3 py-2 rounded-[8px] border border-slate-300 bg-bg-base text-sm font-semibold text-text-primary focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all text-right pr-7"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted font-medium">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-3 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-text-secondary">Costo Directo</span>
+                    <span className="text-sm font-semibold text-text-primary tabular-nums">{fmt(desglose.total)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-text-secondary">Costo Total</span>
+                    <span className="text-sm font-semibold text-text-primary tabular-nums">{fmt(costoTotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <span className="text-sm font-bold text-text-primary">Precio Final (con IVA 22%)</span>
+                    <span className="text-base font-bold text-[#2563EB] tabular-nums">{fmt(precioFinalConIVA)}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-text-muted leading-relaxed pt-3">
+                  * Cálculo simple sobre el Costo Directo — no reemplaza un presupuesto real con Gastos Generales y Beneficio propios de la empresa.
+                </p>
               </motion.div>
             )}
 
