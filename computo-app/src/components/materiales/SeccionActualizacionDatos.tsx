@@ -1,5 +1,15 @@
 "use client";
 
+// NOTA(multi-tenant): esta pantalla edita el catálogo/jornales
+// compartido, pero en el futuro multi-tenant cada empresa va a tener su
+// PROPIA copia editable aquí mismo (nace de una semilla de MTOP/SUNCA
+// oficial) — esta UI no necesita restricción de rol, es edición normal
+// por empresa. Lo que sí falta construir por separado es una pantalla
+// de admin para mantener la plantilla maestra y propagarla a empresas
+// existentes sin pisar sus cambios (ver Fase 3 del plan multi-tenant).
+// Antes vivía en /configuracion, movida a /materiales porque es
+// contenido específico de ese dominio.
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Search, Square, Loader2, CheckCircle2, AlertTriangle, XCircle, Ban, RefreshCw } from "lucide-react";

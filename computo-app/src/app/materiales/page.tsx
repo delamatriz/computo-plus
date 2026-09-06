@@ -7,7 +7,34 @@ import { ArrowLeft, Package, Search, Upload, Loader2, Pencil } from "lucide-reac
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
+import SeccionActualizacionDatos from "@/components/materiales/SeccionActualizacionDatos";
 import { cn } from "@/lib/utils";
+
+// NOTA(multi-tenant): esta pantalla edita el catálogo/jornales
+// compartido, pero en el futuro multi-tenant cada empresa va a tener su
+// PROPIA copia editable aquí mismo (nace de una semilla de MTOP/SUNCA
+// oficial) — esta UI no necesita restricción de rol, es edición normal
+// por empresa. Lo que sí falta construir por separado es una pantalla
+// de admin para mantener la plantilla maestra y propagarla a empresas
+// existentes sin pisar sus cambios (ver Fase 3 del plan multi-tenant).
+// Antes vivía como sección aparte en /configuracion — acá es solo un
+// filtro sobre el mismo catálogo y el mismo editor inline de siempre
+// (por id), no un segundo mecanismo de edición por código en batch
+// como el que reemplaza.
+const CODIGOS_MATERIALES_REFERENCIA = new Set([
+  "TICH-0800",
+  "TICH-1200",
+  "TICH-1700",
+  "LAD-COMUN",
+  "LAD-PRIMERA",
+  "LAD-CHORIZO",
+  "BLOQUE-1219",
+  "BLOQUE-1919",
+  "CAL-HID",
+  "PIEDRA-BRUTA",
+  "MAD-ENCOFRADO",
+  "TEJA-COLONIAL",
+]);
 
 const referencias: ReferenciaLink[] = [
   {
@@ -112,6 +139,7 @@ function MaterialesPageInner() {
   const [busqueda, setBusqueda] = useState(qInicial ?? "");
   const [filtroSinPrecio, setFiltroSinPrecio] = useState(false);
   const [filtroPendiente, setFiltroPendiente] = useState(false);
+  const [filtroReferencia, setFiltroReferencia] = useState(false);
   // Se aplica una sola vez, apenas cargan los materiales — ver el efecto
   // más abajo que decide si corresponde prender filtroPendiente.
   const filtroAutoAplicado = useRef(false);
@@ -213,11 +241,19 @@ function MaterialesPageInner() {
       if (q && !m.descripcion.toLowerCase().includes(q)) return false;
       if (filtroSinPrecio && m.precioUnitario > 0) return false;
       if (filtroPendiente && !esPendiente(m)) return false;
+      if (filtroReferencia && !CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return false;
       return true;
     });
-  }, [materiales, busqueda, filtroSinPrecio, filtroPendiente]);
+  }, [materiales, busqueda, filtroSinPrecio, filtroPendiente, filtroReferencia]);
 
   const fechaMaxima = useMemo(() => calcularFechaMaxima(materiales), [materiales]);
+
+  // Última actualización SOLO de los 12 de referencia — mismo dato que
+  // mostraba la sección vieja de Configuración, ahora acotado al filtro.
+  const fechaMaximaReferencia = useMemo(
+    () => calcularFechaMaxima(materiales.filter((m) => CODIGOS_MATERIALES_REFERENCIA.has(m.codigo))),
+    [materiales]
+  );
 
   return (
     <div className="p-8 max-w-5xl">
@@ -295,7 +331,28 @@ function MaterialesPageInner() {
         >
           Pendiente de verificar
         </button>
+        <button
+          onClick={() => setFiltroReferencia((p) => !p)}
+          title="Materiales de mampostería que no están en la Lista Oficial MTOP N°599 — precio de referencia editable a mano"
+          className={cn(
+            "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
+            filtroReferencia
+              ? "bg-blue-50 text-[#2563EB] border-blue-200"
+              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+          )}
+        >
+          Materiales de referencia ({CODIGOS_MATERIALES_REFERENCIA.size})
+        </button>
       </div>
+
+      {filtroReferencia && (
+        <p className="text-xs text-slate-400 -mt-2 mb-4">
+          Materiales de mampostería que no están en la Lista Oficial MTOP N°599 — el resto del
+          catálogo se actualiza por separado, con &quot;Buscar precios actualizados&quot; más abajo.
+          {" "}Última actualización de estos 12:{" "}
+          {fechaMaximaReferencia ? fmtFecha(fechaMaximaReferencia) : "nunca actualizado"}.
+        </p>
+      )}
 
       {/* Tabla */}
       <div className="rounded-[16px] border border-slate-200 bg-white overflow-hidden">
@@ -425,6 +482,13 @@ function MaterialesPageInner() {
           Mostrando {filtrados.length} de {materiales.length}.
         </p>
       )}
+
+      {/* Antes vivía en /configuracion — movida acá porque es contenido
+          específico de este catálogo, sin cambios funcionales (ver
+          NOTA(multi-tenant) en el propio componente). */}
+      <div className="mt-8">
+        <SeccionActualizacionDatos />
+      </div>
 
       {modalImportarAbierto && (
         <ModalImportarPrecios

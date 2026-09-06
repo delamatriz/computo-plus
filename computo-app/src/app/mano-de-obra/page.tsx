@@ -2,6 +2,7 @@ import { Hammer } from "lucide-react";
 import { db } from "@/lib/db";
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
 import { mensajeAvisoConvenio } from "@/lib/convenioSunca";
+import SeccionCategoriasLaborales from "@/components/mano-de-obra/SeccionCategoriasLaborales";
 
 // Jornales sourced en vivo desde CategoriaLaboral (misma tabla que ya
 // actualiza Configuración) — nunca cachear como contenido estático, si no
@@ -127,6 +128,16 @@ export default async function ManoDeObraPage() {
       </p>
 
       <ListaReferencias items={referencias} />
+
+      {/* Editor real de CategoriaLaboral — antes vivía en /configuracion,
+          movida acá porque es contenido específico de mano de obra, no de
+          la empresa en general (ver NOTA(multi-tenant) en el componente).
+          Client component embebido dentro de esta página server — el
+          resto de la página (las 2 tablas de consulta de abajo) sigue
+          siendo un server component sin cambios. */}
+      <div className="mt-8">
+        <SeccionCategoriasLaborales />
+      </div>
 
       <div className="mt-8">
         <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide mb-1">
