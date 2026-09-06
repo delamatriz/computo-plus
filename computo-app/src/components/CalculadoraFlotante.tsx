@@ -14,16 +14,44 @@ const MODOS = [
 
 type Modo = (typeof MODOS)[number]["id"];
 
-const DOSIFICACIONES = [
-  { id: "1:2:3", label: "1:2:3 (estructural)", cemento: 1, arena: 2, piedra: 3 },
-  { id: "1:2:4", label: "1:2:4 (uso general)",  cemento: 1, arena: 2, piedra: 4 },
-  { id: "1:3:3", label: "1:3:3 (tabiques)",     cemento: 1, arena: 3, piedra: 3 },
-  { id: "1:3:6", label: "1:3:6 (contrapisos)",  cemento: 1, arena: 3, piedra: 6 },
-];
+// Mortero — SOLO cemento:arena (sin pedregullo). "1:3:3 (tabiques)" y
+// "1:3:6 (contrapisos)" de la versión anterior en realidad no llevaban
+// piedra en la práctica — eran morteros, no hormigón; de ahí este
+// rediseño (ver Toggle Mortero/Hormigón más abajo). "Premezcla" no entra
+// acá — es un modelo distinto (bolsas de producto terminado, no
+// proporción de componentes crudos), manejado aparte en el cálculo.
+const MORTEROS = [
+  { id: "asiento",        label: "Asiento de mampostería (1:4)", cemento: 1, arena: 4 },
+  { id: "revoque-grueso", label: "Revoque grueso (1:3)",         cemento: 1, arena: 3 },
+  { id: "revoque-fino",   label: "Revoque fino / enlucido (1:5)", cemento: 1, arena: 5 },
+  { id: "premezcla",      label: "Mortero común (premezcla)" },
+] as const;
+
+// Hormigón — cemento:arena:pedregullo. "Ciclópeo" no tiene proporción
+// propia acá: se resuelve como 1:2:4 sobre el 60% del volumen + piedra
+// partida aparte (ver cálculo en el componente).
+const HORMIGONES = [
+  { id: "estructural",  label: "Estructural (1:2:3)",  cemento: 1, arena: 2, pedregullo: 3 },
+  { id: "uso-general",  label: "Uso general (1:2:4)",  cemento: 1, arena: 2, pedregullo: 4 },
+  { id: "ciclopeo",     label: "Hormigón Ciclópeo" },
+] as const;
 
 const DENSIDAD_CEMENTO = 1400; // kg/m³
 const DENSIDAD_ARIDO   = 1500; // kg/m³
-const FACTOR_ESPONJAMIENTO = 1.5; // m³ de áridos sueltos por m³ de hormigón compactado
+const FACTOR_ESPONJAMIENTO = 1.5; // m³ de áridos sueltos por m³ de hormigón/mortero compactado
+
+// Mortero común premezclado (bolsa de 25kg) — modelo distinto al de
+// proporción de componentes crudos: acá no se dosifica cemento/arena por
+// separado, se calcula directo cuántas bolsas de producto terminado
+// hacen falta. Valor estimativo (rendimiento real de bolsa por m³) —
+// ajustar si difiere según marca/proveedor.
+const RENDIMIENTO_BOLSA_MEZCLA = 0.014; // m³ por bolsa de 25kg
+
+// Hormigón Ciclópeo — pedregullo grueso (15-30cm de diámetro) desplaza
+// el 40% del volumen total, el 60% restante se llena con hormigón 1:2:4
+// normal (fuente: CYPE Uruguay, referencia de hormigón ciclópeo).
+const PROPORCION_HORMIGON_CICLOPEO = 0.6;
+const PROPORCION_PIEDRA_PARTIDA_CICLOPEO = 0.4;
 
 function fmtNum(v: number, decimals = 2) {
   if (!isFinite(v)) return "-";
@@ -348,72 +376,281 @@ function CalculadoraVolumen() {
 }
 
 /* ─── Mezclas ─────────────────────────────────────────────── */
+// Fila de resultado (cantidad de un componente) — mismo estilo visual
+// para mortero y hormigón, reusado en todos los casos.
+function FilaComponente({ nombre, kg, m3, bolsas }: { nombre: string; kg: number; m3?: number; bolsas?: number }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-[#1A3A5C]">{nombre}</span>
+      <span className="text-sm font-bold text-[#2563EB] tabular-nums">
+        {fmtNum(kg, 0)} kg{bolsas != null ? ` (${fmtNum(bolsas, 1)} bolsas de 25kg)` : ""}
+        {m3 != null ? ` (~${fmtNum(m3)} m³)` : ""}
+      </span>
+    </div>
+  );
+}
+
+// Dosificación cemento:árido(s) → kg/m³ de cada componente, a partir de
+// un volumen ya compactado (multiplica por FACTOR_ESPONJAMIENTO acá
+// adentro) — mismo cálculo que usaban mortero y hormigón antes de
+// separarse, ahora compartido por ambos lados.
+function calcularDosificacion(volumenCompactado: number, partes: number[]) {
+  const totalPartes = partes.reduce((s, p) => s + p, 0);
+  const volumenAridos = volumenCompactado * FACTOR_ESPONJAMIENTO;
+  return partes.map((p) => {
+    const vol = (volumenAridos * p) / totalPartes;
+    return vol;
+  });
+}
+
+function SelectorTipo<T extends string>({
+  opciones,
+  valor,
+  onChange,
+}: {
+  opciones: readonly { id: T; label: string }[];
+  valor: T;
+  onChange: (id: T) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {opciones.map((o) => (
+        <button
+          key={o.id}
+          onClick={() => onChange(o.id)}
+          className={cn(
+            "py-2 px-2 rounded-[8px] border text-xs font-medium transition-all text-center leading-tight",
+            valor === o.id
+              ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+              : "border-slate-200 text-slate-500 hover:border-slate-300"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type Categoria = "mortero" | "hormigon";
+type TipoMortero = (typeof MORTEROS)[number]["id"];
+type TipoHormigon = (typeof HORMIGONES)[number]["id"];
+
 function CalculadoraMezclas() {
+  const [categoria, setCategoria] = useState<Categoria>("hormigon");
+  const [tipoMortero, setTipoMortero] = useState<TipoMortero>(MORTEROS[0].id);
+  const [tipoHormigon, setTipoHormigon] = useState<TipoHormigon>(HORMIGONES[1].id);
   const [volumen, setVolumen] = useState("");
-  const [dosificacion, setDosificacion] = useState(DOSIFICACIONES[1].id);
+  const [notasCemento, setNotasCemento] = useState("");
 
   const volumenNum = parseFloat(volumen) || 0;
-  const dosi = DOSIFICACIONES.find((d) => d.id === dosificacion) ?? DOSIFICACIONES[1];
-  const totalPartes = dosi.cemento + dosi.arena + dosi.piedra;
-
-  const volumenAridos = volumenNum * FACTOR_ESPONJAMIENTO;
-  const volCemento = (volumenAridos * dosi.cemento) / totalPartes;
-  const volArena   = (volumenAridos * dosi.arena) / totalPartes;
-  const volPiedra  = (volumenAridos * dosi.piedra) / totalPartes;
-
-  const kgCemento = volCemento * DENSIDAD_CEMENTO;
-  const kgArena   = volArena * DENSIDAD_ARIDO;
-  const kgPiedra  = volPiedra * DENSIDAD_ARIDO;
-  const bolsasCemento = kgCemento / 25;
 
   return (
     <div className="space-y-3">
-      <CampoNumerico label="Volumen de hormigón (m³)" value={volumen} onChange={setVolumen} />
-
-      <div>
-        <label className="block text-xs font-semibold text-text-primary mb-2">Dosificación</label>
-        <div className="grid grid-cols-2 gap-2">
-          {DOSIFICACIONES.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => setDosificacion(d.id)}
-              className={cn(
-                "py-2 rounded-[8px] border text-xs font-medium transition-all text-center",
-                dosificacion === d.id
-                  ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
-                  : "border-slate-200 text-slate-500 hover:border-slate-300"
-              )}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
+      {/* Toggle Mortero / Hormigón */}
+      <div className="grid grid-cols-2 gap-2">
+        {(["mortero", "hormigon"] as const).map((c) => (
+          <button
+            key={c}
+            onClick={() => setCategoria(c)}
+            className={cn(
+              "py-2 rounded-[8px] border text-sm font-semibold transition-all text-center",
+              categoria === c
+                ? "border-[#2563EB] bg-[#2563EB] text-white"
+                : "border-slate-200 text-slate-500 hover:border-slate-300"
+            )}
+          >
+            {c === "mortero" ? "Mortero" : "Hormigón"}
+          </button>
+        ))}
       </div>
 
+      {categoria === "mortero" ? (
+        <>
+          <div>
+            <label className="block text-xs font-semibold text-text-primary mb-2">Tipo de mortero</label>
+            <SelectorTipo opciones={MORTEROS} valor={tipoMortero} onChange={setTipoMortero} />
+          </div>
+
+          {tipoMortero === "premezcla" ? (
+            <MorteroPremezcla
+              volumen={volumen}
+              setVolumen={setVolumen}
+              notasCemento={notasCemento}
+              setNotasCemento={setNotasCemento}
+            />
+          ) : (
+            <MorteroProporcion
+              volumen={volumen}
+              setVolumen={setVolumen}
+              volumenNum={volumenNum}
+              tipo={MORTEROS.find((m): m is typeof MORTEROS[number] & { cemento: number; arena: number } => m.id === tipoMortero && "cemento" in m)!}
+            />
+          )}
+        </>
+      ) : (
+        <>
+          <div>
+            <label className="block text-xs font-semibold text-text-primary mb-2">Tipo de hormigón</label>
+            <SelectorTipo opciones={HORMIGONES} valor={tipoHormigon} onChange={setTipoHormigon} />
+          </div>
+
+          {tipoHormigon === "ciclopeo" ? (
+            <HormigonCiclopeo volumen={volumen} setVolumen={setVolumen} volumenNum={volumenNum} />
+          ) : (
+            <HormigonProporcion
+              volumen={volumen}
+              setVolumen={setVolumen}
+              volumenNum={volumenNum}
+              tipo={HORMIGONES.find((h) => h.id === tipoHormigon) as { cemento: number; arena: number; pedregullo: number }}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Mortero de proporción (asiento, revoque grueso, revoque fino) — solo
+// cemento:arena, sin pedregullo. Mismo cálculo que hormigón pero con 2
+// componentes en vez de 3.
+function MorteroProporcion({
+  volumen, setVolumen, volumenNum, tipo,
+}: {
+  volumen: string; setVolumen: (v: string) => void; volumenNum: number;
+  tipo: { cemento: number; arena: number };
+}) {
+  const [volCemento, volArena] = calcularDosificacion(volumenNum, [tipo.cemento, tipo.arena]);
+  const kgCemento = volCemento * DENSIDAD_CEMENTO;
+  const kgArena = volArena * DENSIDAD_ARIDO;
+  const bolsasCemento = kgCemento / 25;
+
+  return (
+    <>
+      <CampoNumerico label="Volumen de mortero (m³)" value={volumen} onChange={setVolumen} />
       <div className="bg-blue-50 rounded-[10px] px-4 py-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-[#1A3A5C]">Cemento</span>
-          <span className="text-sm font-bold text-[#2563EB] tabular-nums">
-            {fmtNum(kgCemento, 0)} kg ({fmtNum(bolsasCemento, 1)} bolsas de 25kg)
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-[#1A3A5C]">Arena</span>
-          <span className="text-sm font-bold text-[#2563EB] tabular-nums">
-            {fmtNum(kgArena, 0)} kg (~{fmtNum(volArena)} m³)
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-[#1A3A5C]">Piedra</span>
-          <span className="text-sm font-bold text-[#2563EB] tabular-nums">
-            {fmtNum(kgPiedra, 0)} kg (~{fmtNum(volPiedra)} m³)
-          </span>
-        </div>
+        <FilaComponente nombre="Cemento" kg={kgCemento} bolsas={bolsasCemento} />
+        <FilaComponente nombre="Arena" kg={kgArena} m3={volArena} />
       </div>
       <p className="text-[11px] text-text-muted leading-relaxed">
         * Valores estimativos según dosificación volumétrica con un coeficiente de esponjamiento de áridos de {FACTOR_ESPONJAMIENTO}.
       </p>
-    </div>
+    </>
+  );
+}
+
+// Mortero común premezclado — no dosifica componentes crudos, calcula
+// directo cuántas bolsas de producto terminado hacen falta según
+// RENDIMIENTO_BOLSA_MEZCLA (ver comentario en la constante).
+function MorteroPremezcla({
+  volumen, setVolumen, notasCemento, setNotasCemento,
+}: {
+  volumen: string; setVolumen: (v: string) => void;
+  notasCemento: string; setNotasCemento: (v: string) => void;
+}) {
+  const volumenNum = parseFloat(volumen) || 0;
+  const bolsas = Math.ceil(volumenNum / RENDIMIENTO_BOLSA_MEZCLA);
+
+  return (
+    <>
+      <CampoNumerico label="Volumen a cubrir (m³)" value={volumen} onChange={setVolumen} />
+      <div className="bg-blue-50 rounded-[10px] px-4 py-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-[#1A3A5C]">Bolsas de Mezcla</span>
+          <span className="text-sm font-bold text-[#2563EB] tabular-nums">
+            {volumenNum > 0 ? bolsas : 0} bolsas de 25kg
+          </span>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-semibold text-text-primary mb-1.5">
+          Notas — cemento de refuerzo (opcional)
+        </label>
+        <textarea
+          value={notasCemento}
+          onChange={(e) => setNotasCemento(e.target.value)}
+          placeholder="Ej: agregar 1 bolsa de cemento cada 10 bolsas de mezcla"
+          rows={2}
+          className="w-full px-3 py-2 rounded-[8px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-y"
+        />
+      </div>
+      <p className="text-[11px] text-text-muted leading-relaxed">
+        * Rendimiento estimativo de {RENDIMIENTO_BOLSA_MEZCLA} m³ por bolsa de 25kg — ajustá el resultado si el
+        rendimiento real difiere según marca o proveedor.
+      </p>
+    </>
+  );
+}
+
+// Hormigón de proporción (estructural, uso general) — cemento:arena:
+// pedregullo, mismo cálculo de siempre.
+function HormigonProporcion({
+  volumen, setVolumen, volumenNum, tipo,
+}: {
+  volumen: string; setVolumen: (v: string) => void; volumenNum: number;
+  tipo: { cemento: number; arena: number; pedregullo: number };
+}) {
+  const [volCemento, volArena, volPedregullo] = calcularDosificacion(volumenNum, [tipo.cemento, tipo.arena, tipo.pedregullo]);
+  const kgCemento = volCemento * DENSIDAD_CEMENTO;
+  const kgArena = volArena * DENSIDAD_ARIDO;
+  const kgPedregullo = volPedregullo * DENSIDAD_ARIDO;
+  const bolsasCemento = kgCemento / 25;
+
+  return (
+    <>
+      <CampoNumerico label="Volumen de hormigón (m³)" value={volumen} onChange={setVolumen} />
+      <div className="bg-blue-50 rounded-[10px] px-4 py-3 space-y-2">
+        <FilaComponente nombre="Cemento" kg={kgCemento} bolsas={bolsasCemento} />
+        <FilaComponente nombre="Arena" kg={kgArena} m3={volArena} />
+        <FilaComponente nombre="Pedregullo" kg={kgPedregullo} m3={volPedregullo} />
+      </div>
+      <p className="text-[11px] text-text-muted leading-relaxed">
+        * Valores estimativos según dosificación volumétrica con un coeficiente de esponjamiento de áridos de {FACTOR_ESPONJAMIENTO}.
+      </p>
+    </>
+  );
+}
+
+// Hormigón Ciclópeo — 2 etapas: hormigón 1:2:4 normal sobre el 60% del
+// volumen total + piedra partida (15-30cm) desplazando el 40% restante,
+// agregada en volumen directo (no se dosifica por peso como el resto).
+function HormigonCiclopeo({
+  volumen, setVolumen, volumenNum,
+}: {
+  volumen: string; setVolumen: (v: string) => void; volumenNum: number;
+}) {
+  const volumenHormigon = volumenNum * PROPORCION_HORMIGON_CICLOPEO;
+  const volumenPiedraPartida = volumenNum * PROPORCION_PIEDRA_PARTIDA_CICLOPEO;
+
+  const usoGeneral = HORMIGONES.find((h) => h.id === "uso-general") as { cemento: number; arena: number; pedregullo: number };
+  const [volCemento, volArena, volPedregullo] = calcularDosificacion(volumenHormigon, [usoGeneral.cemento, usoGeneral.arena, usoGeneral.pedregullo]);
+  const kgCemento = volCemento * DENSIDAD_CEMENTO;
+  const kgArena = volArena * DENSIDAD_ARIDO;
+  const kgPedregullo = volPedregullo * DENSIDAD_ARIDO;
+  const bolsasCemento = kgCemento / 25;
+
+  return (
+    <>
+      <CampoNumerico label="Volumen total (m³)" value={volumen} onChange={setVolumen} />
+      <div className="bg-blue-50 rounded-[10px] px-4 py-3 space-y-2">
+        <FilaComponente nombre="Cemento" kg={kgCemento} bolsas={bolsasCemento} />
+        <FilaComponente nombre="Arena" kg={kgArena} m3={volArena} />
+        <FilaComponente nombre="Pedregullo" kg={kgPedregullo} m3={volPedregullo} />
+      </div>
+      <div className="bg-amber-50 rounded-[10px] px-4 py-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-[#1A3A5C]">Piedra partida</span>
+          <span className="text-sm font-bold text-amber-700 tabular-nums">
+            {fmtNum(volumenPiedraPartida)} m³
+          </span>
+        </div>
+      </div>
+      <p className="text-[11px] text-text-muted leading-relaxed">
+        * Hormigón 1:2:4 sobre el {fmtNum(PROPORCION_HORMIGON_CICLOPEO * 100, 0)}% del volumen total + piedra
+        partida (15-30cm) sobre el {fmtNum(PROPORCION_PIEDRA_PARTIDA_CICLOPEO * 100, 0)}% restante
+        (referencia CYPE Uruguay). Coeficiente de esponjamiento de áridos: {FACTOR_ESPONJAMIENTO}.
+      </p>
+    </>
   );
 }
 
