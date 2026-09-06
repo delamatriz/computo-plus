@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
 import { mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionCategoriasLaborales from "@/components/mano-de-obra/SeccionCategoriasLaborales";
+import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 
 // Jornales sourced en vivo desde CategoriaLaboral (misma tabla que ya
 // actualiza Configuración) — nunca cachear como contenido estático, si no
@@ -120,6 +121,7 @@ export default async function ManoDeObraPage() {
 
   return (
     <div className="p-8 max-w-3xl">
+      <BotonVolverAlProyecto />
       <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">
         Mano de Obra
       </h1>

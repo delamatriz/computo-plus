@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import SeccionAplicarPreciosVigentes from "@/components/configuracion/SeccionAplicarPreciosVigentes";
+import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 
 interface EmpresaPerfil {
   id: string;
@@ -75,6 +76,7 @@ export default function ConfiguracionPage() {
   if (cargando) {
     return (
       <div className="p-8">
+        <BotonVolverAlProyecto />
         <p className="text-slate-500">Cargando configuración...</p>
       </div>
     );
@@ -82,6 +84,7 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="p-8 max-w-3xl">
+      <BotonVolverAlProyecto />
       <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Configuración</h1>
       <p className="text-slate-500 mb-8">
         Datos de la empresa y mantenimiento de presupuestos existentes.

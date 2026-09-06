@@ -1,6 +1,7 @@
 "use client";
 
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
+import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 
 // Info general de BPS (no el texto de una ley puntual) — base de esta
 // sección práctica.
@@ -97,6 +98,7 @@ function Tabla({
 export default function LeyesSocialesPage() {
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto">
+      <BotonVolverAlProyecto />
       <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">
         Leyes Sociales
       </h1>

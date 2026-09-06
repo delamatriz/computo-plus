@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
+import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 
 // ── Tipos ──────────────────────────────────────────────────────────────
 
@@ -464,6 +465,7 @@ export default function BibliotecaPage() {
   return (
     <div className="p-6 md:p-8">
       <div className="mb-6">
+        <BotonVolverAlProyecto />
         <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-1">Biblioteca</h1>
         <p className="text-slate-500 text-sm">
           Catálogo maestro de rubros y sus descompuestos (APU) — consulta de solo lectura.

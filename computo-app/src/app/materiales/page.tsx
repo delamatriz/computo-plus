@@ -2,12 +2,12 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Package, Search, Upload, Loader2, Pencil } from "lucide-react";
+import { Package, Search, Upload, Loader2, Pencil } from "lucide-react";
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
 import SeccionActualizacionDatos from "@/components/materiales/SeccionActualizacionDatos";
+import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { cn } from "@/lib/utils";
 
 // NOTA(multi-tenant): esta pantalla edita el catálogo/jornales
@@ -132,7 +132,6 @@ function MaterialesPageInner() {
   // leen una sola vez al montar: si el usuario despeja el buscador a mano
   // después, no queremos que un re-render los vuelva a imponer.
   const qInicial = useRef(searchParams.get("q")).current;
-  const proyectoOrigenId = searchParams.get("from");
 
   const [materiales, setMateriales] = useState<MaterialCatalogo[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -257,15 +256,7 @@ function MaterialesPageInner() {
 
   return (
     <div className="p-8 max-w-5xl">
-      {proyectoOrigenId && (
-        <Link
-          href={`/proyectos/${proyectoOrigenId}`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#2563EB] transition-colors mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver al proyecto
-        </Link>
-      )}
+      <BotonVolverAlProyecto />
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
           <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Materiales</h1>

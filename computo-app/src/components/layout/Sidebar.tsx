@@ -46,6 +46,20 @@ const navItems = [
   },
 ];
 
+// Ítems que saben volver al proyecto de origen (ver
+// BotonVolverAlProyecto) — Metrajes queda afuera a propósito: ya tiene su
+// propio redirect a /proyectos/[id]/metrajes cuando hay un proyecto
+// activo, no necesita este mecanismo. Mis Proyectos/Panel de
+// control/Cálculo rápido/Nuevo proyecto tampoco: no son pantallas de
+// referencia a las que tenga sentido "volver".
+const ITEMS_CON_VOLVER_AL_PROYECTO = new Set([
+  "/materiales",
+  "/mano-de-obra",
+  "/rubros",
+  "/leyes-sociales",
+  "/configuracion",
+]);
+
 // Sin ícono, el Sidebar colapsado (rail angosto, solo desktop — ver
 // sidebarCollapsed en AppShell.tsx) se quedaba sin nada que mostrar por
 // ítem. Mismo criterio que ya usa el avatar de Header.tsx (iniciales
@@ -78,6 +92,11 @@ export function Sidebar({
   dockedOnDesktop = true,
 }: SidebarProps) {
   const pathname = usePathname();
+  // /proyectos/nuevo no es un id real — sin esta exclusión, "Volver al
+  // proyecto" desde ahí apuntaría a /proyectos/nuevo (nada que volver).
+  const matchProyecto = pathname.match(/^\/proyectos\/([^/]+)/);
+  const proyectoIdActual =
+    matchProyecto && matchProyecto[1] !== "nuevo" ? matchProyecto[1] : null;
 
   return (
     <>
@@ -176,6 +195,10 @@ export function Sidebar({
             <ul className="space-y-0.5">
               {section.items.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(item.href);
+                const href =
+                  proyectoIdActual && ITEMS_CON_VOLVER_AL_PROYECTO.has(item.href)
+                    ? `${item.href}?from=${proyectoIdActual}`
+                    : item.href;
                 return (
                   <Fragment key={item.href}>
                     {item.dividerBefore && (
@@ -185,7 +208,7 @@ export function Sidebar({
                     )}
                     <li key={item.href}>
                       <Link
-                        href={item.href}
+                        href={href}
                         title={collapsed ? item.label : undefined}
                         className={cn(
                           "flex items-center rounded-[8px] transition-colors text-sm font-medium",
