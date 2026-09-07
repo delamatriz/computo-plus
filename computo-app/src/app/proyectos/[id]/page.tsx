@@ -4824,24 +4824,6 @@ export default function ProyectoPage() {
               )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {soloLectura ? (
-                <button
-                  onClick={habilitarEdicion}
-                  disabled={habilitandoEdicion}
-                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
-                >
-                  <LockOpen className="w-3.5 h-3.5" /> <span className="hidden md:inline">{habilitandoEdicion ? "Habilitando…" : "Habilitar edición"}</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => setMostrarConfirmEntregar(true)}
-                  disabled={capitulos.every((c) => c.rubros.length === 0)}
-                  title={capitulos.every((c) => c.rubros.length === 0) ? "No hay rubros para entregar" : undefined}
-                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <Lock className="w-3.5 h-3.5" /> <span className="hidden md:inline">Entregar</span>
-                </button>
-              )}
               <button
                 onClick={() => router.push(`/proyectos/${proyectoId}/editar`)}
                 className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
@@ -4859,7 +4841,7 @@ export default function ProyectoPage() {
               <div className="relative">
                 <button
                   onClick={() => setMenuPDFAbierto((p) => !p)}
-                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" /> <span className="hidden md:inline">PDF</span>
                   <ChevronDown className="w-3 h-3" />
@@ -4902,6 +4884,31 @@ export default function ProyectoPage() {
                   </>
                 )}
               </div>
+              {/* Candado — refleja el estado real del proyecto, no la
+                  acción del click (antes era al revés: acá vivía el ícono
+                  de "qué va a pasar si tocás", ahora es "en qué estado
+                  está"). EN_CURSO: outline + candado abierto ("tocá para
+                  entregar"). FINALIZADO: azul sólido + candado cerrado
+                  ("está bloqueado"). Mismo onClick/disabled de siempre —
+                  esto es solo estilo/ícono, la lógica no cambió. */}
+              {soloLectura ? (
+                <button
+                  onClick={habilitarEdicion}
+                  disabled={habilitandoEdicion}
+                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-50"
+                >
+                  <Lock className="w-3.5 h-3.5" /> <span className="hidden md:inline">{habilitandoEdicion ? "Habilitando…" : "Habilitar edición"}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setMostrarConfirmEntregar(true)}
+                  disabled={capitulos.every((c) => c.rubros.length === 0)}
+                  title={capitulos.every((c) => c.rubros.length === 0) ? "No hay rubros para entregar" : undefined}
+                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <LockOpen className="w-3.5 h-3.5" /> <span className="hidden md:inline">Entregar</span>
+                </button>
+              )}
               <button
                 onClick={() => setMostrarConfirmEliminar(true)}
                 className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
