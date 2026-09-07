@@ -517,6 +517,11 @@ model Configuracion {
   // sirve en /mano-de-obra vía el proxy .../convenio-imagen (no directo,
   // mismo motivo que urlProxyDocumentoMetraje en lib/blob.ts).
   convenioImagenUrl   String?
+  // URL de Vercel Blob del PDF del convenio SUNCA firmado (Acta de Acuerdo
+  // completa) — subido para consulta/descarga en /mano-de-obra, sin
+  // relación con convenioImagenUrl (esa es solo la foto usada para
+  // extraer jornales con IA). Se sirve vía el proxy .../convenio-pdf.
+  convenioPdfUrl      String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 }

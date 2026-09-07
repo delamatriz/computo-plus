@@ -9,8 +9,9 @@
 // existentes sin pisar sus cambios (ver Fase 3 del plan multi-tenant).
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ImageUp, Sparkles } from "lucide-react";
+import { AlertTriangle, ChevronDown, ImageUp, Sparkles } from "lucide-react";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
+import { cn } from "@/lib/utils";
 
 interface CategoriaLaboral {
   id: string;
@@ -86,6 +87,7 @@ export default function SeccionCategoriasLaborales() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
+  const [expandido, setExpandido] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
@@ -121,6 +123,15 @@ export default function SeccionCategoriasLaborales() {
   }, []);
 
   async function guardarCambios() {
+    // Capa de seguridad 2/2 — mismo patrón window.confirm() ya usado en
+    // el resto de la app (ver eliminarRubro y afines en
+    // proyectos/[id]/page.tsx) para confirmaciones simples, sin
+    // necesidad de armar un modal propio para esto.
+    const confirmado = window.confirm(
+      "¿Confirmás? Esto va a afectar todos los proyectos nuevos que se creen de acá en adelante."
+    );
+    if (!confirmado) return;
+
     setGuardando(true);
     setGuardado(false);
 
@@ -334,16 +345,40 @@ export default function SeccionCategoriasLaborales() {
 
   return (
     <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-      <h2 className="text-lg font-semibold text-[#1E293B] mb-1">
-        Categorías Laborales — Convenio SUNCA
-      </h2>
-      <p className="text-sm text-slate-500 mb-1">
-        Jornales por categoría, según el convenio colectivo vigente.
-      </p>
-      <p className="text-xs text-slate-400 mb-4">
-        Edita el catálogo completo de jornales — afecta a los presupuestos nuevos desde ahora
-        (biblioteca de APUs, cálculo de leyes sociales y cuantía de obra), no modifica los rubros
-        ya guardados en proyectos existentes.
+      <button
+        onClick={() => setExpandido((v) => !v)}
+        className="flex items-center justify-between w-full text-left"
+      >
+        <h2 className="text-lg font-semibold text-[#1E293B]">
+          Editar catálogo maestro de jornales
+        </h2>
+        <ChevronDown
+          className={cn(
+            "w-4 h-4 text-slate-400 flex-shrink-0 transition-transform",
+            expandido && "rotate-180"
+          )}
+        />
+      </button>
+
+      {expandido && (
+      <div className="mt-4 pt-4 border-t border-slate-100">
+      {/* Capa de seguridad 1/2 — banner bien visible apenas se expande,
+          antes que nada más (ver también la confirmación en
+          guardarCambios, capa 2/2). Mismo estilo ámbar que el resto de
+          los banners de advertencia de la app. */}
+      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3.5 py-3 mb-4 text-sm">
+        <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+        <p>
+          <strong>Esta tabla alimenta TODOS los cálculos nuevos de la aplicación</strong> (subrubros
+          de biblioteca, Leyes Sociales, cuantía de obra) en TODOS los proyectos. No afecta lo ya
+          guardado, pero sí todo lo que se cree de ahora en más.
+        </p>
+      </div>
+
+      <p className="text-xs text-slate-400 mb-4 max-w-2xl">
+        Esto actualiza la fuente de la que nacen los jornales al clonar un subrubro nuevo de la
+        biblioteca o calcular Leyes Sociales en un proyecto nuevo — no modifica los rubros ya
+        guardados en proyectos existentes. Usalo una vez al año, cuando cambia el convenio SUNCA.
       </p>
 
       <input
@@ -513,6 +548,8 @@ export default function SeccionCategoriasLaborales() {
           <span className="text-sm text-emerald-600">Cambios guardados</span>
         )}
       </div>
+      </div>
+      )}
     </section>
   );
 }
