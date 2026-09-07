@@ -5470,6 +5470,15 @@ export default function ProyectoPage() {
           placeholders "Próximamente" — sin diseñar todavía. ── */}
       {tabActiva === "gestion-obra" && (
         <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
+          {/* Banner de "en construcción" — bloque aislado a propósito,
+              sin lógica ni condición más allá de estar en esta pestaña,
+              para poder sacarlo de un solo lugar cuando la sección esté
+              terminada. */}
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2.5 mb-4 text-sm">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <p>Esta sección está en construcción — algunas partes todavía no están disponibles.</p>
+          </div>
+
           {/* Fecha de inicio (se carga desde /editar, acá es de solo
               lectura) + placeholder de Plazo de obra — a futuro se calcula
               solo a partir de los jornales de mano de obra del presupuesto,
