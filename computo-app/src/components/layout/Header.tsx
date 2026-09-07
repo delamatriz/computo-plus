@@ -18,6 +18,59 @@ interface EventoSistema {
   fecha: string;
 }
 
+// Preguntas frecuentes del dropdown de ayuda ("?") — contenido extraído
+// (no inventado) de /referencias/page.tsx, aprobado por Luis. "link"
+// navega directo a la sección real de Referencias (anchors ya existen
+// ahí: #tutorial-flujo-principal, #glosario, #estructura-del-sistema,
+// #guia-obra-publica); "respuesta" expande in-place (acordeón), sin
+// navegar — algunas respuesta además ofrecen un link opcional a la
+// sección con más detalle (ej. el glosario completo).
+interface PreguntaFrecuente {
+  pregunta: string;
+  tipo: "link" | "respuesta";
+  href?: string;
+  hrefLabel?: string;
+  respuesta?: string;
+}
+
+const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
+  {
+    pregunta: "¿Cómo mido un plano y lo paso al presupuesto?",
+    tipo: "link",
+    href: "/referencias#tutorial-flujo-principal",
+  },
+  {
+    pregunta: "¿Qué son Rubro, Partida y APU?",
+    tipo: "respuesta",
+    respuesta:
+      "Rubro es la agrupación mayor de trabajo (ej. Estructura, Mampostería). Partida es un ítem puntual dentro de un rubro, con cantidad y precio. APU es el desglose de ese precio: materiales, mano de obra, equipos, gastos generales y beneficio.",
+    href: "/referencias#glosario",
+    hrefLabel: "Ver glosario completo",
+  },
+  {
+    pregunta: "¿Qué encuentro en cada pantalla del menú?",
+    tipo: "link",
+    href: "/referencias#estructura-del-sistema",
+  },
+  {
+    pregunta: "¿Diferencia entre la guía de Leyes Sociales del menú y la calculadora de mi presupuesto?",
+    tipo: "respuesta",
+    respuesta:
+      "La del menú es una guía general con ejemplos de cálculo (AUC, BPS, fondos). La de tu presupuesto calcula el aporte real sobre la mano de obra de ESA obra puntual, con los números concretos.",
+  },
+  {
+    pregunta: "¿Dónde consigo precios oficiales de materiales y jornales actualizados?",
+    tipo: "respuesta",
+    respuesta:
+      "Materiales tiene los links a la Lista Oficial MTOP y al Índice ICCV del INE. Mano de Obra tiene el link al Convenio SUNCA vigente.",
+  },
+  {
+    pregunta: "¿Qué cambia si presupuesto para el Estado (Obra Pública)?",
+    tipo: "link",
+    href: "/referencias#guia-obra-publica",
+  },
+];
+
 interface Notificaciones {
   eventos: EventoSistema[];
   pendientes: { requierenVerificacion: number; aCotizar: number };
@@ -40,6 +93,8 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const router = useRouter();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [ayudaOpen, setAyudaOpen] = useState(false);
+  const [preguntaAbierta, setPreguntaAbierta] = useState<number | null>(null);
   const [empresa, setEmpresa] = useState<EmpresaHeader | null>(null);
   const [notificaciones, setNotificaciones] = useState<Notificaciones | null>(null);
 
@@ -174,7 +229,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                   CalculadoraFlotante.tsx). */}
               <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
               <div
-                className="absolute right-0 top-full mt-2 w-80 bg-bg-card border border-border rounded-[12px] shadow-modal z-50 overflow-hidden"
+                className="fixed left-3 right-3 top-[72px] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-80 bg-bg-card border border-border rounded-[12px] shadow-modal z-50 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Eventos — cargados a mano en la base, sin formulario de
@@ -234,12 +289,91 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
           )}
         </div>
 
-        <Link
-          href="/referencias"
-          className="w-9 h-9 flex items-center justify-center rounded-[8px] text-text-muted hover:text-text-primary hover:bg-bg-base transition-colors"
-        >
-          <HelpCircle className="w-4.5 h-4.5" />
-        </Link>
+        <div className="relative">
+          <button
+            onClick={() => setAyudaOpen(!ayudaOpen)}
+            className="w-9 h-9 flex items-center justify-center rounded-[8px] text-text-muted hover:text-text-primary hover:bg-bg-base transition-colors"
+          >
+            <HelpCircle className="w-4.5 h-4.5" />
+          </button>
+
+          {ayudaOpen && (
+            <>
+              {/* Mismo patrón que el dropdown de notificaciones de arriba:
+                  overlay + stopPropagation para cerrar al clickear afuera. */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => {
+                  setAyudaOpen(false);
+                  setPreguntaAbierta(null);
+                }}
+              />
+              <div
+                className="fixed left-3 right-3 top-[72px] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-80 bg-bg-card border border-border rounded-[12px] shadow-modal z-50 overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-4 py-3 border-b border-border">
+                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+                    Preguntas frecuentes
+                  </p>
+                </div>
+                <ul className="max-h-96 overflow-y-auto divide-y divide-border">
+                  {PREGUNTAS_FRECUENTES.map((item, i) =>
+                    item.tipo === "link" ? (
+                      <li key={item.pregunta}>
+                        <Link
+                          href={item.href!}
+                          onClick={() => setAyudaOpen(false)}
+                          className="block px-4 py-3 text-sm text-text-primary hover:bg-bg-base hover:text-brand-accent transition-colors"
+                        >
+                          {item.pregunta}
+                        </Link>
+                      </li>
+                    ) : (
+                      <li key={item.pregunta}>
+                        <button
+                          onClick={() => setPreguntaAbierta(preguntaAbierta === i ? null : i)}
+                          className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left text-sm text-text-primary hover:bg-bg-base transition-colors"
+                        >
+                          {item.pregunta}
+                          <ChevronDown
+                            className={cn(
+                              "w-3.5 h-3.5 text-text-muted flex-shrink-0 transition-transform",
+                              preguntaAbierta === i && "rotate-180"
+                            )}
+                          />
+                        </button>
+                        {preguntaAbierta === i && (
+                          <div className="px-4 pb-3 -mt-1">
+                            <p className="text-sm text-text-secondary leading-relaxed">
+                              {item.respuesta}
+                            </p>
+                            {item.href && (
+                              <Link
+                                href={item.href}
+                                onClick={() => setAyudaOpen(false)}
+                                className="inline-block mt-1.5 text-sm font-medium text-brand-accent hover:underline"
+                              >
+                                {item.hrefLabel ?? "Ver más"} →
+                              </Link>
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    )
+                  )}
+                </ul>
+                <Link
+                  href="/referencias"
+                  onClick={() => setAyudaOpen(false)}
+                  className="block px-4 py-3 text-sm font-medium text-brand-accent hover:bg-bg-base transition-colors border-t border-border"
+                >
+                  Ver todas las referencias →
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
 
         <div className="w-px h-5 bg-border mx-1" />
 
