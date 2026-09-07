@@ -432,6 +432,18 @@ model EventoSistema {
   createdAt   DateTime @default(now())
 }
 
+// Buzón de Sugerencias (/sugerencias) — texto libre, sin categorías, sin
+// mail. Mono-tenant y volumen bajo (una sola empresa) — sin capturar
+// pantalla/URL de origen ni ningún otro contexto automático: sería
+// over-engineering para lo que hoy hace falta, y quien escribe puede
+// mencionar el contexto en el mismo mensaje si hace falta.
+model Sugerencia {
+  id        String   @id @default(cuid())
+  mensaje   String   @db.Text
+  resuelta  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
 // Fase 2 — catálogo canónico de capítulo/subcapítulo (unificación de las
 // taxonomías paralelas: CapituloEstandar, SubrubroEstandar.capitulo/
 // subcapitulo como strings sueltos, y CAPITULOS_SAU hardcodeado en
