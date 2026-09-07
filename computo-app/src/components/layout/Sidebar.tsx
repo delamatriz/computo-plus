@@ -47,17 +47,20 @@ const navItems = [
 ];
 
 // Ítems que saben volver al proyecto de origen (ver
-// BotonVolverAlProyecto) — Metrajes queda afuera a propósito: ya tiene su
-// propio redirect a /proyectos/[id]/metrajes cuando hay un proyecto
-// activo, no necesita este mecanismo. Mis Proyectos/Panel de
-// control/Cálculo rápido/Nuevo proyecto tampoco: no son pantallas de
-// referencia a las que tenga sentido "volver".
+// BotonVolverAlProyecto) — Metrajes SÍ entra acá: su redirect propio
+// (/metrajes → /proyectos/[id]/metrajes) resultó no saber en qué proyecto
+// estaba el usuario, mandando siempre al más viejo de la base (ver
+// /app/metrajes/page.tsx) — ahora usa este mismo ?from= para saber a dónde
+// volver, en vez de asumirlo. Mis Proyectos/Panel de control/Cálculo
+// rápido/Nuevo proyecto quedan afuera: no son pantallas de referencia a
+// las que tenga sentido "volver".
 const ITEMS_CON_VOLVER_AL_PROYECTO = new Set([
   "/materiales",
   "/mano-de-obra",
   "/rubros",
   "/leyes-sociales",
   "/configuracion",
+  "/metrajes",
 ]);
 
 // Sin ícono, el Sidebar colapsado (rail angosto, solo desktop — ver

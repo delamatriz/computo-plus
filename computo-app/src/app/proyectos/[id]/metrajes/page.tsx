@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Ruler } from "lucide-react";
+import { ArrowRight, Ruler } from "lucide-react";
+import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 
 // Esta página dejó de ser la página de TRABAJO de metrajes — ese contenido
 // (Documentación para metrar, Planilla de cómputo, Calculadora, Visor) vive
@@ -112,51 +112,23 @@ const PASOS_METRAR: PasoMetrar[] = [
 export default function MetrajesPage() {
   const params = useParams();
   const proyectoId = (params?.id as string) ?? "";
-  const [proyectoNombre, setProyectoNombre] = useState("");
-
-  useEffect(() => {
-    if (!proyectoId) return;
-    let cancelado = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/proyectos/${proyectoId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelado) setProyectoNombre(data.nombre ?? "");
-      } catch {
-        // silencioso — el nombre es solo decorativo acá
-      }
-    })();
-    return () => {
-      cancelado = true;
-    };
-  }, [proyectoId]);
 
   return (
     <div className="min-h-full flex flex-col" style={{ background: "#F8FAFC" }}>
       <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-4">
         <div className="max-w-6xl mx-auto">
-          <Link
-            href={`/proyectos/${proyectoId}`}
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors mb-3"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            {proyectoNombre || "Proyecto"}
-          </Link>
-          <h1 className="text-lg md:text-xl font-bold text-[#1A3A5C]">Metrajes</h1>
+          <BotonVolverAlProyecto className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors mb-3" />
+          <h1 className="text-lg md:text-xl font-bold text-[#1A3A5C]">
+            Cómo metrar un proyecto
+          </h1>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
         <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
-          <div>
-            <h2 className="text-base font-semibold text-[#1E293B] mb-1">
-              Cómo medir este proyecto
-            </h2>
-            <p className="text-sm text-slate-500 max-w-xl">
-              El camino corto entre un plano y un rubro con su cantidad cargada.
-            </p>
-          </div>
+          <p className="text-sm text-slate-500 max-w-xl">
+            El camino corto entre un plano y un rubro con su cantidad cargada.
+          </p>
           <Link
             href={`/proyectos/${proyectoId}`}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors flex-shrink-0"

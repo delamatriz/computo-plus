@@ -5,7 +5,32 @@ import { Ruler } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function MetrajesPage() {
+export default async function MetrajesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  // El Sidebar ahora manda ?from=<proyectoId> cuando el usuario ya estaba
+  // dentro de un proyecto (ver Sidebar.tsx) — se prioriza sobre el
+  // fallback de abajo, que antes era el ÚNICO comportamiento y por eso
+  // mandaba siempre al proyecto más viejo de la base sin importar de
+  // dónde vino el usuario. Se valida que el id realmente exista (no
+  // confiar ciegamente en un query param) antes de redirigir.
+  const { from } = await searchParams;
+  if (from) {
+    const proyectoOrigen = await db.proyecto.findUnique({
+      where: { id: from },
+      select: { id: true },
+    });
+    if (proyectoOrigen) {
+      redirect(`/proyectos/${proyectoOrigen.id}/metrajes?from=${proyectoOrigen.id}`);
+    }
+  }
+
+  // Fallback — sin ?from= (ej. acceso directo a /metrajes sin venir de
+  // ningún proyecto puntual): el proyecto más viejo de la base, como
+  // último recurso para no dejar la pantalla vacía. Ya no es el
+  // comportamiento principal.
   const proyectoActivo = await db.proyecto.findFirst({
     orderBy: { createdAt: "asc" },
   });
