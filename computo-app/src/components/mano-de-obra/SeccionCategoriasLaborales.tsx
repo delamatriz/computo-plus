@@ -350,7 +350,7 @@ export default function SeccionCategoriasLaborales() {
         className="flex items-center justify-between w-full text-left"
       >
         <h2 className="text-lg font-semibold text-[#1E293B]">
-          Editar catálogo maestro de jornales
+          Catálogo maestro de jornales
         </h2>
         <ChevronDown
           className={cn(
