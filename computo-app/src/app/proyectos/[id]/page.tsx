@@ -25,6 +25,14 @@ import {
   Lock,
   LockOpen,
   Clock,
+  NotebookPen,
+  Users,
+  Handshake,
+  PackageCheck,
+  Scale,
+  Wallet,
+  FileCheck2,
+  BookMarked,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -576,6 +584,37 @@ function TarjetaProximamente({
         </div>
         <p className="text-sm text-slate-400">{descripcion}</p>
       </div>
+    </div>
+  );
+}
+
+// Encabezado de cada uno de los 5 bloques de "Gestión de Obra" — agrupa los
+// módulos (funcionales y "Próximamente") siguiendo el ciclo de vida real de
+// la obra. Numeración + título en el mismo tono de marca que el resto de
+// encabezados de sección; el contenido del bloque conserva su propio mt-6
+// (mismo criterio que cualquier <Seccion.../TarjetaProximamente suelta), así
+// que este wrapper no le agrega padding propio, solo el título arriba.
+function BloqueGestionObra({
+  numero,
+  titulo,
+  subtitulo,
+  children,
+}: {
+  numero: number;
+  titulo: string;
+  subtitulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mt-10 first:mt-6">
+      <div className="flex items-center gap-2.5">
+        <span className="w-6 h-6 rounded-full bg-[#1A3A5C] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+          {numero}
+        </span>
+        <h2 className="text-base font-bold text-[#1A3A5C]">{titulo}</h2>
+      </div>
+      <p className="text-xs text-slate-400 pl-[34px]">{subtitulo}</p>
+      {children}
     </div>
   );
 }
@@ -5400,19 +5439,6 @@ export default function ProyectoPage() {
           rubrosSinDatos={diasObra.rubrosSinDatos}
         />
 
-        {/* ── Garantías ──────────────────────────────────────── */}
-        <SeccionGarantias
-          fielCumplimiento={proyectoActivo.garantiaFielCumplimiento ?? ""}
-          viciosOcultos={proyectoActivo.garantiaViciosOcultos ?? ""}
-          responsabilidad={proyectoActivo.garantiaResponsabilidad ?? ""}
-          onChangeFielCumplimiento={actualizarGarantiaFielCumplimiento}
-          onChangeViciosOcultos={actualizarGarantiaViciosOcultos}
-          onChangeResponsabilidad={actualizarGarantiaResponsabilidad}
-          tipoContratacion={proyectoActivo.tipoContratacion ?? "PRIVADA"}
-          totalGeneral={totalGeneral}
-          moneda={moneda}
-        />
-
         {/* ── Notas ──────────────────────────────────────────── */}
         <SeccionNotas
           proyectoId={proyectoActivo.id}
@@ -5470,11 +5496,15 @@ export default function ProyectoPage() {
       </div>
       )}
 
-      {/* ── Pestaña: Gestión de Obra — Contrato → Inscripción de obra →
-          Cómputo global de materiales → Cronograma → Certificaciones →
-          Cierre de Obra. Las 3 del medio son funcionales (migradas desde
-          Presupuesto, sin cambios de lógica); las 3 restantes son
-          placeholders "Próximamente" — sin diseñar todavía. ── */}
+      {/* ── Pestaña: Gestión de Obra — organizada en 5 bloques que siguen
+          el ciclo de vida real de la obra (ver BloqueGestionObra arriba):
+          1. Fase Preliminar y Contractual, 2. Planificación y Técnica,
+          3. Ejecución y Control en Terreno, 4. Control Económico y
+          Administrativo, 5. Cierre y Post-Obra. Los módulos funcionales
+          (Cómputo Global de Materiales, Cronograma, Certificaciones,
+          Garantías) están migrados desde Presupuesto sin cambios de
+          lógica; el resto son placeholders "Próximamente" — sin diseñar
+          todavía. ── */}
       {tabActiva === "gestion-obra" && (
         <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
           {/* Banner de "en construcción" — bloque aislado a propósito,
@@ -5550,49 +5580,131 @@ export default function ProyectoPage() {
             </div>
           </div>
 
-          <TarjetaProximamente
-            icono={FileSignature}
-            titulo="Contrato"
-            descripcion="Acá vas a poder generar y gestionar el contrato de obra con el cliente."
-          />
-          <TarjetaProximamente
-            icono={HardHat}
-            titulo="Inscripción de obra"
-            descripcion="Acá vas a poder gestionar la inscripción y documentación ante BPS y demás organismos."
-          />
+          <BloqueGestionObra
+            numero={1}
+            titulo="Fase Preliminar y Contractual"
+            subtitulo="Contrato de obra e inscripción ante los organismos correspondientes, antes de arrancar la obra."
+          >
+            <TarjetaProximamente
+              icono={FileSignature}
+              titulo="Contrato"
+              descripcion="Acá vas a poder generar y gestionar el contrato de obra con el cliente."
+            />
+            <TarjetaProximamente
+              icono={HardHat}
+              titulo="Inscripción de obra"
+              descripcion="Acá vas a poder gestionar la inscripción y documentación ante BPS y demás organismos."
+            />
+          </BloqueGestionObra>
 
-          <SeccionComputoGlobalMateriales
-            proyectoId={proyectoActivo.id}
-            proyectoNombre={proyectoActivo.nombre}
-            filas={filasMateriales}
-            total={totalMateriales}
-          />
+          <BloqueGestionObra
+            numero={2}
+            titulo="Planificación y Técnica"
+            subtitulo="Cómputo de materiales y cronograma de obra — la base técnica para ejecutar."
+          >
+            <SeccionComputoGlobalMateriales
+              proyectoId={proyectoActivo.id}
+              proyectoNombre={proyectoActivo.nombre}
+              filas={filasMateriales}
+              total={totalMateriales}
+            />
 
-          <SeccionCronograma
-            proyectoId={proyectoActivo.id}
-            capitulos={capitulos.map((c) => ({
-              id: c.id,
-              nombre: c.nombre,
-              codigo: c.codigo,
-              color: c.color,
-              fechaInicio: c.fechaInicio,
-              fechaFin: c.fechaFin,
-              rubros: c.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
-            }))}
-          />
+            <SeccionCronograma
+              proyectoId={proyectoActivo.id}
+              capitulos={capitulos.map((c) => ({
+                id: c.id,
+                nombre: c.nombre,
+                codigo: c.codigo,
+                color: c.color,
+                fechaInicio: c.fechaInicio,
+                fechaFin: c.fechaFin,
+                rubros: c.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
+              }))}
+            />
+          </BloqueGestionObra>
 
-          <SeccionCertificaciones
-            proyectoId={proyectoActivo.id}
-            moneda={moneda}
-            totalGeneral={totalGeneral}
-            capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre }))}
-          />
+          <BloqueGestionObra
+            numero={3}
+            titulo="Ejecución y Control en Terreno"
+            subtitulo="Registro diario, personal, subcontratos y compras mientras la obra está en marcha."
+          >
+            <TarjetaProximamente
+              icono={NotebookPen}
+              titulo="Bitácora / Diario de Obra"
+              descripcion="Acá vas a poder llevar el registro diario de obra: clima, personal presente e incidentes."
+            />
+            <TarjetaProximamente
+              icono={Users}
+              titulo="Gestión de Personal y Cuadrillas"
+              descripcion="Acá vas a poder controlar asistencia, jornales, horas extra y EPI del personal en obra."
+            />
+            <TarjetaProximamente
+              icono={Handshake}
+              titulo="Subcontratistas y Gremios"
+              descripcion="Acá vas a poder llevar el directorio de subcontratistas, sus contratos parciales, el avance por gremio y los pagos."
+            />
+            <TarjetaProximamente
+              icono={PackageCheck}
+              titulo="Órdenes de Compra y Recepción"
+              descripcion="Acá vas a poder generar órdenes de compra a proveedores y registrar la recepción de materiales en obra."
+            />
+          </BloqueGestionObra>
 
-          <TarjetaProximamente
-            icono={ClipboardCheck}
-            titulo="Cierre de Obra"
-            descripcion="Acá vas a poder cerrar la obra: liquidación final, actas de recepción y documentación de cierre."
-          />
+          <BloqueGestionObra
+            numero={4}
+            titulo="Control Económico y Administrativo"
+            subtitulo="Avance certificado, costos reales y caja — el seguimiento económico de la obra en marcha."
+          >
+            <SeccionCertificaciones
+              proyectoId={proyectoActivo.id}
+              moneda={moneda}
+              totalGeneral={totalGeneral}
+              capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre }))}
+            />
+            <TarjetaProximamente
+              icono={Scale}
+              titulo="Control de Costos"
+              descripcion="Acá vas a poder comparar lo presupuestado contra los gastos reales cargados en obra."
+            />
+            <TarjetaProximamente
+              icono={Wallet}
+              titulo="Flujo de Caja"
+              descripcion="Acá vas a poder proyectar los ingresos y egresos de la obra."
+            />
+          </BloqueGestionObra>
+
+          <BloqueGestionObra
+            numero={5}
+            titulo="Cierre y Post-Obra"
+            subtitulo="Recepción, liquidación final y documentación de cierre, una vez terminada la obra."
+          >
+            <TarjetaProximamente
+              icono={ClipboardCheck}
+              titulo="Cierre de Obra"
+              descripcion="Acá vas a poder cerrar la obra: liquidación final, actas de recepción y documentación de cierre."
+            />
+            <TarjetaProximamente
+              icono={FileCheck2}
+              titulo="Liquidación Final"
+              descripcion="Acá vas a poder armar la liquidación final de la obra."
+            />
+            <SeccionGarantias
+              fielCumplimiento={proyectoActivo.garantiaFielCumplimiento ?? ""}
+              viciosOcultos={proyectoActivo.garantiaViciosOcultos ?? ""}
+              responsabilidad={proyectoActivo.garantiaResponsabilidad ?? ""}
+              onChangeFielCumplimiento={actualizarGarantiaFielCumplimiento}
+              onChangeViciosOcultos={actualizarGarantiaViciosOcultos}
+              onChangeResponsabilidad={actualizarGarantiaResponsabilidad}
+              tipoContratacion={proyectoActivo.tipoContratacion ?? "PRIVADA"}
+              totalGeneral={totalGeneral}
+              moneda={moneda}
+            />
+            <TarjetaProximamente
+              icono={BookMarked}
+              titulo="Manuales y Planos As-Built"
+              descripcion="Acá vas a poder archivar los manuales de uso y los planos As-Built de la obra terminada."
+            />
+          </BloqueGestionObra>
         </div>
       )}
 
