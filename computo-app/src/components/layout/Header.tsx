@@ -69,6 +69,12 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     tipo: "link",
     href: "/referencias#guia-obra-publica",
   },
+  {
+    pregunta: "¿Cómo creo un rubro nuevo que no está en la biblioteca?",
+    tipo: "respuesta",
+    respuesta:
+      "No hay un botón para \"agregar a la biblioteca\" — simplemente cargá el rubro dentro de un proyecto, generá su APU con el asistente de IA, y aplicá el precio. Ese subrubro queda guardado automáticamente en la biblioteca para tus próximos proyectos.",
+  },
 ];
 
 interface Notificaciones {
