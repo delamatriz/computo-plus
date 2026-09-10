@@ -16,14 +16,14 @@ export async function GET() {
           include: {
             subrubros: {
               where: { activo: true },
-              orderBy: { codigo: "asc" },
+              orderBy: { orden: { sort: "asc", nulls: "last" } },
               include: { apuEstandar: { select: { id: true } } },
             },
           },
         },
         subrubros: {
           where: { activo: true, subcapituloId: null },
-          orderBy: { codigo: "asc" },
+          orderBy: { orden: { sort: "asc", nulls: "last" } },
           include: { apuEstandar: { select: { id: true } } },
         },
       },

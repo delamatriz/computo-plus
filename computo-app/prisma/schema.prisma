@@ -746,6 +746,15 @@ model SubrubroEstandar {
   createdAt       DateTime     @default(now())
   apuEstandar     APUEstandar?
 
+  // Posición explícita y editable dentro de su Capítulo/Subcapítulo —
+  // antes el orden en /rubros se derivaba de `codigo` ascendente, sin
+  // ningún campo propio de posición (a diferencia de CapituloCatalogo/
+  // SubcapituloCatalogo, que ya tenían `orden`). Opcional a propósito:
+  // se completa en la migración de backfill, no en la creación del
+  // campo — un subrubro sin `orden` todavía cae al final por el
+  // criterio de orderBy (ver jerarquia/route.ts).
+  orden           Int?
+
   // Fase 2, Etapa 6b — capitulo/subcapitulo (String) eliminados. El
   // catálogo canónico vía FK es ahora la única fuente de verdad. Ver
   // FASE2-DISENO-UNIFICACION-TAXONOMIAS.md.

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
         // el cliente ya no dependa de SubrubroEstandar.subcapitulo (string).
         subcapituloCatalogo: { select: { nombre: true } },
       },
-      orderBy: { codigo: "asc" },
+      orderBy: { orden: { sort: "asc", nulls: "last" } },
     });
 
     const resultado = subrubros.map(({ apuEstandar, subcapituloCatalogo, ...sub }) => ({
@@ -77,6 +77,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(existente);
     }
 
+    // Placeholder de posición — cae al final de su capítulo (siempre
+    // subcapituloId: null acá, este mecanismo nunca resuelve subcapítulo),
+    // en vez de en una posición aleatoria por comparación de texto contra
+    // "manual-<uuid>" (lo que pasaba antes de que `orden` existiera). No
+    // intenta adivinar dónde "debería" ir por similitud — eso es la
+    // curación de contenido de otra sesión.
+    const maxOrden = await db.subrubroEstandar.aggregate({
+      where: { activo: true, capituloId: capituloId ?? null, subcapituloId: null },
+      _max: { orden: true },
+    });
+    const ordenNuevo = (maxOrden._max.orden ?? -1) + 1;
+
     const nuevo = await db.subrubroEstandar.create({
       data: {
         codigo: `manual-${randomUUID()}`,
@@ -86,6 +98,7 @@ export async function POST(req: NextRequest) {
         fechaBase: new Date().toISOString().slice(0, 7),
         origen: "manual",
         capituloId,
+        orden: ordenNuevo,
       },
     });
     return NextResponse.json(nuevo);
