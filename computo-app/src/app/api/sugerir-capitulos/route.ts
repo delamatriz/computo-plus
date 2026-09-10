@@ -60,8 +60,8 @@ export async function POST(request: NextRequest) {
       // colapsaron variantes que apuntaban al mismo capítulo real
       // ("Mampostería y muros"/"Revoques y enlucidos"/"Revestimientos y
       // pisos" → "Albañilería"; "Carpintería"/"Herrería y metálica" →
-      // "Subcontratos - Carpinterías") para que la IA no sugiera el mismo
-      // capítulo repetido. "Movimiento de tierra y fundaciones" (ambiguo,
+      // "Carpinterías") para que la IA no sugiera el mismo capítulo
+      // repetido. "Movimiento de tierra y fundaciones" (ambiguo,
       // apuntaba a 2 capítulos) se separó en sus 2 capítulos reales.
       // Instalación de gas / Instalaciones embutidas / Calefacción /
       // Honorarios profesionales / Imprevistos no tienen biblioteca de
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       // capituloCatalogoId: null (correcto, son categorías administrativas
       // o sin biblioteca clasificable).
       system: `Sos un experto en construcción uruguaya. El usuario te da el tipo de obra y una descripción de los trabajos a realizar. Devolvés SOLO un JSON con la lista de capítulos recomendados en orden lógico de ejecución, seleccionados de esta lista disponible:
-Implantación y Replanteo, Excavaciones y Movimientos de Tierra, Cimentaciones, Estructura, Albañilería, Cubierta / Techos, Subcontratos - Carpinterías, Instalación Sanitaria, Instalación Eléctrica, Instalación de gas, Instalaciones embutidas, Calefacción, Subcontratos - Pinturas, Subcontratos - Vidrios, Subcontratos - Acondicionamientos, Honorarios profesionales, Imprevistos.
+Implantación y Replanteo, Excavaciones y Movimientos de Tierra, Cimentaciones, Estructura, Albañilería, Cubierta / Techos, Carpinterías, Instalación Sanitaria, Instalación Eléctrica, Instalación de gas, Instalaciones embutidas, Calefacción, Pinturas, Vidrios, Equipamiento, Obra Exterior / Jardín, Honorarios profesionales, Imprevistos.
 Responde SOLO con JSON válido, sin texto adicional: { "capitulos": ["nombre1", "nombre2", ...] }`,
       messages: [
         {

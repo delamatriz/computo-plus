@@ -55,18 +55,19 @@ export const CAPITULOS_SAU: MapeoSAU[] = [
   { alias: ["Revoques y enlucidos"], capitulos: ["Albañilería"], subcapitulos: REVOQUES_SUBCAPS },
   { alias: ["Pisos, Zócalos y Revestimientos", "Revestimientos y pisos"], capitulos: ["Albañilería"], subcapitulos: PISOS_SUBCAPS },
   { alias: ["Impermeabilizaciones y Aislaciones"], capitulos: ["Impermeabilizaciones y Aislaciones"] },
-  { alias: ["Pinturas", "Pintura"], capitulos: ["Subcontratos - Pinturas"] },
-  { alias: ["Carpintería"], capitulos: ["Subcontratos - Carpinterías"] },
-  { alias: ["Herrería y metálica", "Herrería y metalica"], capitulos: ["Subcontratos - Carpinterías"], subcapitulos: ["Hierro"] },
-  { alias: ["Vidrios y Espejos", "Vidriería"], capitulos: ["Subcontratos - Vidrios"] },
-  { alias: ["Yeso y Cielorrasos"], capitulos: ["Subcontratos - Yeso"] },
-  { alias: ["Sistemas Constructivos No Tradicionales"], capitulos: ["Sistemas No Tradicionales"] },
-  // "Subcontratos - Acondicionamientos" se reparte por subcapítulo entre
-  // dos capítulos de proyecto distintos — antes mostraban el balde
-  // completo mezclado (equipamiento de baño/cocina junto con césped/
-  // piscina/deck), ver auditoría 15/07/2026.
-  { alias: ["Equipamiento"], capitulos: ["Subcontratos - Acondicionamientos"], subcapitulos: ["Equipamiento"] },
-  { alias: ["Obras exteriores y paisajismo", "Obra Exterior / Jardín", "Obra Exterior y Jardín"], capitulos: ["Subcontratos - Acondicionamientos"], subcapitulos: ["Obra Exterior / Jardín"] },
+  { alias: ["Pinturas", "Pintura"], capitulos: ["Pinturas"] },
+  { alias: ["Carpintería"], capitulos: ["Carpinterías"] },
+  { alias: ["Herrería y metálica", "Herrería y metalica"], capitulos: ["Carpinterías"], subcapitulos: ["Hierro"] },
+  { alias: ["Vidrios y Espejos", "Vidriería"], capitulos: ["Vidrios"] },
+  { alias: ["Yeso y Cielorrasos"], capitulos: ["Yeso"] },
+  { alias: ["Sistemas Constructivos No Tradicionales"], capitulos: ["Construcción en Seco / Steel Framing"] },
+  // Reorganización 10/09/2026 — "Subcontratos - Acondicionamientos" se
+  // dividió en 2 capítulos de biblioteca propios (Equipamiento, Obra
+  // Exterior / Jardín); ya no hace falta reparto por subcapítulo/
+  // ParticionSubcapitulo, cada uno resuelve directo como cualquier otro
+  // capítulo (ver Cimentaciones, Ascensor, etc. más arriba).
+  { alias: ["Equipamiento"], capitulos: ["Equipamiento"] },
+  { alias: ["Obras exteriores y paisajismo", "Obra Exterior / Jardín", "Obra Exterior y Jardín"], capitulos: ["Obra Exterior / Jardín"] },
   { alias: ["Cubierta / Techos", "Cubierta"], capitulos: ["Cubierta / Techos"] },
   { alias: ["Instalación Sanitaria"], capitulos: ["Instalación Sanitaria"] },
   { alias: ["Instalación Eléctrica"], capitulos: ["Instalación Eléctrica"] },
