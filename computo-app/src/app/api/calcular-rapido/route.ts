@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
-import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt } from "@/lib/bibliotecaApus";
+import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, resolverProporcionDesglose } from "@/lib/bibliotecaApus";
 
 const client = new Anthropic();
 
@@ -78,7 +78,8 @@ Devolvé un JSON con esta estructura exacta:
       "monto": number,
       "materiales": number,
       "manoObra": number,
-      "origen": "biblioteca" | "estimado"
+      "origen": "biblioteca" | "estimado",
+      "codigoSubrubro": string | null
     }
   ],
   "advertencia": "Materiales y mano de obra: estimación de la IA según tu descripción. Gastos Generales, Beneficio e IVA se calculan de forma simple sobre esa estimación, no son una cotización. Para mayor exactitud desarrollá un proyecto completo."
@@ -95,7 +96,8 @@ Reglas:
 - Los montos en ${monedaLabel}
 - totalMateriales + totalManoObra debe ser igual a totalGeneral
 - Los capítulos son SOLO rubros constructivos reales (materiales + mano de obra de la obra en sí, ej. "Pintura interior", "Reparación de cañería"). NUNCA generes un capítulo llamado "Gastos Generales", "Beneficio", "Utilidad", "IVA" o similar — esos conceptos no van en este JSON, se calculan aparte en la aplicación
-- Para cada capítulo: si usaste (aunque sea parcialmente, ajustando cantidades) alguno de los SUBRUBROS REALES DE BIBLIOTECA de arriba, marcá "origen": "biblioteca". Si no había ninguno aplicable para ese capítulo y estimaste con tu criterio usando MTOP/jornales, marcá "origen": "estimado"
+- Para cada capítulo: si usaste (aunque sea parcialmente, ajustando cantidades) alguno de los SUBRUBROS REALES DE BIBLIOTECA de arriba, marcá "origen": "biblioteca" y "codigoSubrubro" con el código EXACTO entre corchetes de ese subrubro (ej. "6.6.8", nunca su descripción). Si no había ninguno aplicable para ese capítulo y estimaste con tu criterio usando MTOP/jornales, marcá "origen": "estimado" y "codigoSubrubro": null
+- No inventes tu propia apertura de materiales/mano de obra para un capítulo con origen "biblioteca" — usá el "monto" que corresponde a cantidad × precio real de ese subrubro, y para materiales/manoObra hacé tu mejor estimación proporcional (la aplicación va a recalcular esa apertura con el desglose real del subrubro si el código es válido, así que no es crítico que sea exacta, pero mantené materiales + manoObra = monto)
 - Respondé SOLO con JSON válido, sin texto adicional ni markdown`;
 
     const content: Anthropic.Messages.ContentBlockParam[] = [
@@ -138,6 +140,42 @@ Reglas:
     if (!match) throw new Error("Respuesta inválida del modelo");
 
     const resultado = JSON.parse(match[0]);
+
+    // El monto de un capítulo "biblioteca" ya viene anclado a un precio real
+    // (cantidad inferida × precioUY del subrubro), pero la apertura interna
+    // materiales/manoObra que la IA devuelve para ESE mismo capítulo la
+    // vuelve a inventar en cada corrida — es la causa del segundo nivel de
+    // variación detectado en el diagnóstico de precio (sep-2026): el total
+    // era estable, la apertura no. Acá se reemplaza esa apertura inventada
+    // por la proporción real materiales/mano de obra del subrubro que la IA
+    // dijo haber usado (codigoSubrubro), resuelta en vivo contra PrecioMTOP/
+    // CategoriaLaboral — el monto del capítulo no se toca, solo cómo se
+    // reparte entre materiales y mano de obra. Si el código no vino o no
+    // matchea ningún subrubro real (alucinado), se deja la apertura de la
+    // IA sin tocar — degradación silenciosa, no rompe la respuesta.
+    if (Array.isArray(resultado.capitulos)) {
+      const subrubrosPorCodigo = new Map(subrubrosBiblioteca.map((s) => [s.codigo, s]));
+      for (const cap of resultado.capitulos as {
+        monto?: number;
+        materiales?: number;
+        manoObra?: number;
+        origen?: string;
+        codigoSubrubro?: string | null;
+      }[]) {
+        if (cap.origen !== "biblioteca" || !cap.codigoSubrubro || typeof cap.monto !== "number") continue;
+        const subrubro = subrubrosPorCodigo.get(cap.codigoSubrubro);
+        if (!subrubro) continue;
+
+        const desglose = await resolverProporcionDesglose(subrubro);
+        if (!desglose) continue;
+        const base = desglose.materialesTotal + desglose.manoObraTotal + desglose.equiposTotal;
+        if (base <= 0) continue;
+
+        const proporcionMateriales = desglose.materialesTotal / base;
+        cap.materiales = Math.round(cap.monto * proporcionMateriales * 100) / 100;
+        cap.manoObra = Math.round((cap.monto - cap.materiales) * 100) / 100;
+      }
+    }
 
     // totalGeneral/totalMateriales/totalManoObra que devuelve la IA son un
     // número "de conjunto" que arma ANTES de haber detallado el desglose

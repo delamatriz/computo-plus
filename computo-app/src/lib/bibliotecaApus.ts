@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
+import { sumManoObra } from "@/lib/apu-calc";
 
 const client = new Anthropic();
 
@@ -110,6 +111,52 @@ export async function buscarSubrubrosPorCapitulos(capituloIds: string[]): Promis
  * devolver para trazar qué subrubro real usó como base — nunca su
  * descripción libre, que no es un identificador confiable.
  */
+/**
+ * Resuelve la proporción real materiales/mano de obra/equipos de un
+ * subrubro de biblioteca — mismo mecanismo de resolución en vivo que usa
+ * /api/subrubros-estandar/[id]/descompuesto (materiales contra PrecioMTOP,
+ * mano de obra contra CategoriaLaboral, equipos contra PrecioEquipo por
+ * descripción), pero devolviendo solo los 3 totales, no el detalle línea
+ * por línea — para poder aplicar esta MISMA proporción real al monto que
+ * ya calculó /api/calcular-rapido (cantidad inferida × precioUY real), en
+ * vez de dejar que la IA reinvente su propio desglose materiales/mano de
+ * obra en cada corrida (ver diagnóstico de variación de precio, sep-2026).
+ */
+export async function resolverProporcionDesglose(
+  subrubro: SubrubroConApu
+): Promise<{ materialesTotal: number; manoObraTotal: number; equiposTotal: number } | null> {
+  if (subrubro.materiales.length === 0 && subrubro.manoObra.length === 0 && subrubro.equipos.length === 0) {
+    return null;
+  }
+
+  let materialesTotal = 0;
+  for (const m of subrubro.materiales) {
+    const precioMTOP = await db.precioMTOP.findFirst({
+      where: { descripcion: { contains: m.descripcion, mode: "insensitive" } },
+      orderBy: { id: "asc" },
+    });
+    materialesTotal += m.rendimiento * (precioMTOP?.precioUnitario ?? 0);
+  }
+
+  const categoriasLaborales = await db.categoriaLaboral.findMany();
+  const jornalPorNombre = (nombre: string) =>
+    categoriasLaborales.find((c) => c.nombre.trim().toLowerCase() === nombre.trim().toLowerCase())?.jornal ?? 0;
+  const manoObraTotal = sumManoObra(
+    subrubro.manoObra.map((mo) => ({ rendimiento: mo.rendimiento, jornalRef: jornalPorNombre(mo.categoria) })),
+    []
+  );
+
+  let equiposTotal = 0;
+  for (const eq of subrubro.equipos) {
+    const precioEquipo = await db.precioEquipo.findFirst({
+      where: { descripcion: { contains: eq.descripcion, mode: "insensitive" } },
+    });
+    equiposTotal += eq.rendimiento * (precioEquipo?.precioHora ?? 0);
+  }
+
+  return { materialesTotal, manoObraTotal, equiposTotal };
+}
+
 export function formatearSubrubrosParaPrompt(subrubros: SubrubroConApu[]): string {
   if (subrubros.length === 0) return "";
   return subrubros
