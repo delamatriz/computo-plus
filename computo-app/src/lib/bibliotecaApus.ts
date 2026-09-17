@@ -45,6 +45,12 @@ export async function clasificarCapitulosBiblioteca(
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 512,
+      // temperature 0 — este paso es clasificación pura (¿cuáles de esta
+      // lista fija de nombres aplican?), no generación libre: no hay
+      // ningún motivo para que la misma descripción matchee distinto
+      // capítulos entre corridas. Ver diagnóstico de variación de precio
+      // en Cálculo Rápido (sep-2026).
+      temperature: 0,
       system: `Sos un experto en construcción uruguaya. Dada una descripción de trabajos, elegís TODOS los capítulos relevantes (ninguno, uno o varios) de esta lista — son los únicos que tienen biblioteca de precios real disponible:
 ${capitulos.map((c) => c.nombre).join(", ")}
 Respondé SOLO con JSON: { "capitulos": ["nombre1", "nombre2", ...] }. Si la descripción no matchea bien con ninguno, devolvé un array vacío — no fuerces un capítulo que no aplica.`,

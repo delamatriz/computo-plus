@@ -96,6 +96,8 @@ Reglas:
 - Los montos en ${monedaLabel}
 - totalMateriales + totalManoObra debe ser igual a totalGeneral
 - Los capítulos son SOLO rubros constructivos reales (materiales + mano de obra de la obra en sí, ej. "Pintura interior", "Reparación de cañería"). NUNCA generes un capítulo llamado "Gastos Generales", "Beneficio", "Utilidad", "IVA" o similar — esos conceptos no van en este JSON, se calculan aparte en la aplicación
+- Retiro y disposición de residuos: incluí esta línea SOLO si la tarea descripta implica demolición, retiro de material/revestimiento existente, remoción o picado — proporcional al volumen de lo retirado. Si la tarea es una instalación, colocación o aplicación nueva sin demolición/retiro previo, NO incluyas esta línea salvo que el texto del usuario la mencione explícitamente
+- Limpieza final de obra: incluí esta línea ÚNICAMENTE si el usuario la menciona explícitamente en su descripción. NUNCA la agregues por tu cuenta como línea de cierre automática, aunque la tarea genere escombro o residuo — eso ya se cubre, si corresponde, con "Retiro y disposición de residuos"
 - Para cada capítulo: si usaste (aunque sea parcialmente, ajustando cantidades) alguno de los SUBRUBROS REALES DE BIBLIOTECA de arriba, marcá "origen": "biblioteca" y "codigoSubrubro" con el código EXACTO entre corchetes de ese subrubro (ej. "6.6.8", nunca su descripción). Si no había ninguno aplicable para ese capítulo y estimaste con tu criterio usando MTOP/jornales, marcá "origen": "estimado" y "codigoSubrubro": null
 - No inventes tu propia apertura de materiales/mano de obra para un capítulo con origen "biblioteca" — usá el "monto" que corresponde a cantidad × precio real de ese subrubro, y para materiales/manoObra hacé tu mejor estimación proporcional (la aplicación va a recalcular esa apertura con el desglose real del subrubro si el código es válido, así que no es crítico que sea exacta, pero mantené materiales + manoObra = monto)
 - Respondé SOLO con JSON válido, sin texto adicional ni markdown`;
@@ -130,6 +132,13 @@ Reglas:
       // quedaban cortos y cortaban el JSON a mitad de un capítulo,
       // rompiendo el parseo.
       max_tokens: 4096,
+      // 0.15 — margen mínimo para el razonamiento libre que sí requiere
+      // esta llamada (interpretar descripción de obra en texto natural),
+      // muy por debajo del default de la API (1.0) que era la causa de
+      // fondo del segundo nivel de variación diagnosticado (inclusión/
+      // exclusión no determinística de ítems de alcance como "Retiro y
+      // disposición de residuos"). Ver diagnóstico sep-2026.
+      temperature: 0.15,
       messages: [{ role: "user", content }],
     });
 
