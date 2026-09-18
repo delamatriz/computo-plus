@@ -1241,9 +1241,15 @@ function PanelSubrubrosEstandar({
   onSeleccionar: (s: SubrubroEstandar) => void;
   onCerrar: () => void;
 }) {
+  // Antes se distinguía por prefijo de código ("impl-eq-") — dejó de ser
+  // seguro con la renumeración a "{capítulo}.{item}" (el código ya no
+  // codifica semántica). Ahora los equipos tienen su propio subcapítulo
+  // real ("Equipos y Maquinaria de Obra"), mismo patrón que el resto del
+  // sistema usa para agrupar.
+  const NOMBRE_SUBCAP_EQUIPOS = "Equipos y Maquinaria de Obra";
   const esImplantacion = !!capituloIdImplantacion && subrubros.some((s) => s.capituloId === capituloIdImplantacion);
-  const normales = esImplantacion ? subrubros.filter((s) => !s.codigo.startsWith("impl-eq-")) : subrubros;
-  const equipos = esImplantacion ? subrubros.filter((s) => s.codigo.startsWith("impl-eq-")) : [];
+  const normales = esImplantacion ? subrubros.filter((s) => s.subcapituloNombre !== NOMBRE_SUBCAP_EQUIPOS) : subrubros;
+  const equipos = esImplantacion ? subrubros.filter((s) => s.subcapituloNombre === NOMBRE_SUBCAP_EQUIPOS) : [];
 
   // Categoría del desplegable = subcapítulo, pero cuando el subcapítulo
   // sigue el patrón "Categoría — Subgrupo" (hoy solo Albañilería:
@@ -1303,7 +1309,7 @@ function PanelSubrubrosEstandar({
       >
         <div className="flex items-start justify-between gap-2">
           <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
-            {toTitleCase(s.descripcion)}
+            <span className="text-slate-400 font-normal tabular-nums">{s.codigo}</span> — {toTitleCase(s.descripcion)}
           </span>
           <span className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
             {s.tieneApuEstandar && (
