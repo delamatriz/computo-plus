@@ -1245,8 +1245,54 @@ function PanelSubrubrosEstandar({
   const normales = esImplantacion ? subrubros.filter((s) => !s.codigo.startsWith("impl-eq-")) : subrubros;
   const equipos = esImplantacion ? subrubros.filter((s) => s.codigo.startsWith("impl-eq-")) : [];
 
+  // Categoría del desplegable = subcapítulo, pero cuando el subcapítulo
+  // sigue el patrón "Categoría — Subgrupo" (hoy solo Albañilería:
+  // "Elevación de Muros — Ladrillo de Campo", "Revoques — Cielorraso",
+  // etc.) se agrupa por la mitad de ANTES del guion — el subgrupo pasa a
+  // ser un caption chico por fila en vez de su propio encabezado, mismo
+  // criterio que ya usa el rubrado real de SAU (categoría amplia primero,
+  // subgrupo como detalle). Los subrubros sin subcapítulo (la mayoría de
+  // los 27 capítulos son planos) caen todos en categoría "" — un único
+  // grupo sin encabezado, orden tal cual viene de la API.
+  const categoriaDe = (s: SubrubroEstandar): string => {
+    const nombre = s.subcapituloNombre;
+    if (!nombre) return "";
+    const i = nombre.indexOf(" — ");
+    return i === -1 ? nombre : nombre.slice(0, i);
+  };
+  const subgrupoDe = (s: SubrubroEstandar): string | null => {
+    const nombre = s.subcapituloNombre;
+    if (!nombre) return null;
+    const i = nombre.indexOf(" — ");
+    return i === -1 ? null : nombre.slice(i + 3);
+  };
+
+  // Grupos (encabezados) Y los ítems dentro de cada grupo van alfabéticos
+  // por descripción — mismo criterio en los 27 capítulos, tengan o no
+  // subcapítulos. Antes solo se reordenaban los GRUPOS; los ítems quedaban
+  // en el orden `orden` curado (de más simple a más combinado), lo cual en
+  // los capítulos planos (sin subcapítulo, ej. "Implantación y Replanteo")
+  // se notaba directo porque ahí no hay agrupamiento que lo disimule.
+  const porDescripcion = (a: SubrubroEstandar, b: SubrubroEstandar) =>
+    toTitleCase(a.descripcion).localeCompare(toTitleCase(b.descripcion), "es");
+  equipos.sort(porDescripcion);
+
+  const gruposMap = new Map<string, SubrubroEstandar[]>();
+  for (const s of normales) {
+    const cat = categoriaDe(s);
+    if (!gruposMap.has(cat)) gruposMap.set(cat, []);
+    gruposMap.get(cat)!.push(s);
+  }
+  for (const items of gruposMap.values()) items.sort(porDescripcion);
+
+  const gruposConNombre = [...gruposMap.entries()]
+    .filter(([cat]) => cat !== "")
+    .sort(([a], [b]) => a.localeCompare(b, "es"));
+  const grupoSinNombre = gruposMap.get("") ?? [];
+
   const renderFila = (s: SubrubroEstandar) => {
     const precio = precioDesdeSubrubro(s, moneda);
+    const subgrupo = subgrupoDe(s);
     return (
       <button
         key={s.id}
@@ -1257,7 +1303,7 @@ function PanelSubrubrosEstandar({
       >
         <div className="flex items-start justify-between gap-2">
           <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
-            {s.codigo} — {toTitleCase(s.descripcion)}
+            {toTitleCase(s.descripcion)}
           </span>
           <span className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
             {s.tieneApuEstandar && (
@@ -1272,8 +1318,8 @@ function PanelSubrubrosEstandar({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {s.subcapituloNombre && (
-            <span className="text-[10px] text-slate-400">{s.subcapituloNombre}</span>
+          {subgrupo && (
+            <span className="text-[10px] text-slate-400">{subgrupo}</span>
           )}
           <span className="text-[9px] font-medium text-slate-300">
             precio base {s.fechaBase} — actualizar con ICCV
@@ -1282,6 +1328,13 @@ function PanelSubrubrosEstandar({
       </button>
     );
   };
+
+  const renderEncabezado = (categoria: string) => (
+    <div key={`h-${categoria}`} className="flex items-center gap-2 px-3" style={{ margin: "8px 0 2px" }}>
+      <span className="text-xs font-semibold uppercase text-slate-500 whitespace-nowrap">{categoria}</span>
+      <div className="flex-1 h-px" style={{ backgroundColor: "#E2E8F0" }} />
+    </div>
+  );
 
   return (
     <div className="mx-4 my-2 rounded-lg border border-blue-100 bg-[#F0F7FF] p-2 space-y-1.5">
@@ -1297,7 +1350,13 @@ function PanelSubrubrosEstandar({
         {!cargando && subrubros.length === 0 && (
           <div className="px-3 py-2 text-xs text-slate-400 italic">No hay subrubros típicos para este capítulo</div>
         )}
-        {!cargando && normales.map(renderFila)}
+        {!cargando && gruposConNombre.map(([categoria, items]) => (
+          <div key={categoria}>
+            {renderEncabezado(categoria)}
+            {items.map(renderFila)}
+          </div>
+        ))}
+        {!cargando && grupoSinNombre.map(renderFila)}
         {!cargando && equipos.length > 0 && (
           <div className="flex items-center gap-2 px-3" style={{ margin: "8px 0" }}>
             <div className="flex-1 h-px" style={{ backgroundColor: "#CBD5E1" }} />
