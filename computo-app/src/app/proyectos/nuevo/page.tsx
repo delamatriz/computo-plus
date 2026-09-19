@@ -166,6 +166,18 @@ function NuevoProyectoContent() {
   // acá no le saca nada al resto del flujo, el valor ya queda en form.area.
   const areaPrellenada = !!searchParams.get("area");
 
+  // Mismo criterio que areaPrellenada arriba: si viene de Cálculo Rápido
+  // (query param `tipo` presente), el tipo de obra ya se eligió ahí — se
+  // muestra como resumen fijo en el paso 2, no como selector duplicado.
+  // "+ Nuevo proyecto" desde cero NO manda `tipo` en la URL, pero
+  // form.tipo igual arranca con el default "VIVIENDA" (ver useState de
+  // form más abajo) — si el resumen fijo se aplicara siempre, ese caso
+  // quedaría con "Vivienda unifamiliar" sin ninguna forma de cambiarlo en
+  // todo el wizard (este es el único lugar donde se define el campo). Se
+  // mantiene el selector de tarjetas ahí, tal como sugería el pedido como
+  // alternativa cuando no hay nada real que resumir.
+  const tipoPrellenado = !!searchParams.get("tipo");
+
   const fotosInputRef = useRef<HTMLInputElement>(null);
   const docsInputRef = useRef<HTMLInputElement>(null);
 
@@ -750,24 +762,30 @@ function NuevoProyectoContent() {
               {/* Clasificación */}
               <div className="bg-white rounded-[16px] border border-slate-300 p-6 space-y-4 shadow-sm">
 
-                <Field label="Tipo de obra">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {TIPOS_OBRA.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => handleTipoChange(t.id)}
-                        className={cn(
-                          "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
-                          form.tipo === t.id
-                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
-                            : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
-                        )}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
+                {tipoPrellenado ? (
+                  <p className="text-sm font-semibold text-[#1A3A5C]">
+                    Tipo de obra: <span className="font-normal text-slate-600">{TIPOS_OBRA.find((t) => t.id === form.tipo)?.label ?? form.tipo}</span>
+                  </p>
+                ) : (
+                  <Field label="Tipo de obra">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {TIPOS_OBRA.map((t) => (
+                        <button
+                          key={t.id}
+                          onClick={() => handleTipoChange(t.id)}
+                          className={cn(
+                            "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
+                            form.tipo === t.id
+                              ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                              : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                          )}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                )}
 
                 <Field label="Tipo de contratación">
                   <div className="grid grid-cols-2 gap-2">
@@ -838,7 +856,7 @@ function NuevoProyectoContent() {
                 <div>
                   <h3 className="text-sm font-bold text-[#1A3A5C]">Títulos</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Agrupá el presupuesto en títulos si la obra tiene varios frentes de trabajo independientes. Opcional.
+                    Un Título divide el presupuesto en secciones o frentes de obra independientes, cada uno con sus propios capítulos y totales — por ejemplo, &quot;Casa principal&quot; y &quot;Garaje&quot;, Azotea, Fachada, Contrafrente. Si tu obra es un solo frente de trabajo, podés seguir sin agregar ninguno: el presupuesto queda organizado directamente por capítulos.
                   </p>
                 </div>
 
