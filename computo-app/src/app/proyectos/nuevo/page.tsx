@@ -787,24 +787,25 @@ function NuevoProyectoContent() {
                   </Field>
                 )}
 
-                <Field label="Tipo de contratación">
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-sm font-semibold text-[#1A3A5C]">Tipo de contratación</label>
+                  <div className="flex items-center gap-1 p-1 rounded-full bg-slate-100 flex-shrink-0">
                     {TIPOS_CONTRATACION.map((t) => (
                       <button
                         key={t.id}
                         onClick={() => handleTipoContratacionChange(t.id)}
                         className={cn(
-                          "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
+                          "px-3 py-1 rounded-full text-xs font-medium transition-all",
                           form.tipoContratacion === t.id
-                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
-                            : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                            ? "bg-white text-[#2563EB] shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
                         )}
                       >
                         {t.label}
                       </button>
                     ))}
                   </div>
-                </Field>
+                </div>
               </div>
 
               {/* Económico */}
@@ -898,7 +899,7 @@ function NuevoProyectoContent() {
 
                 <button
                   onClick={agregarTituloWizard}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 rounded-[10px] border border-dashed border-slate-300 text-sm text-slate-400 hover:text-slate-600 hover:border-slate-400 transition-all"
+                  className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-[10px] bg-brand-accent hover:bg-brand-light text-white font-medium text-sm transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Agregar título
