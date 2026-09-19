@@ -1309,7 +1309,7 @@ function PanelSubrubrosEstandar({
       >
         <div className="flex items-start justify-between gap-2">
           <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
-            <span className="text-slate-400 font-normal tabular-nums">{s.codigo}</span> — {toTitleCase(s.descripcion)}
+            {toTitleCase(s.descripcion)}
           </span>
           <span className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
             {s.tieneApuEstandar && (

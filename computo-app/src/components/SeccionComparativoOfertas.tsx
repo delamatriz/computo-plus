@@ -28,6 +28,11 @@ interface CapituloInfo {
   id: string;
   nombre: string;
   codigo?: string;
+  tituloId: string | null;
+}
+
+interface TituloInfo {
+  id: string;
 }
 
 interface Cotizacion {
@@ -64,6 +69,7 @@ export default function SeccionComparativoOfertas({ proyectoId, moneda }: Props)
   const [expandido, setExpandido] = useState(false);
   const [cargado, setCargado] = useState(false);
   const [capitulos, setCapitulos] = useState<CapituloInfo[]>([]);
+  const [titulos, setTitulos] = useState<TituloInfo[]>([]);
   const [rubros, setRubros] = useState<RubroComp[]>([]);
   const [pctLeyesEmpresa, setPctLeyesEmpresa] = useState(0);
   const [rubroActivoId, setRubroActivoId] = useState<string | null>(null);
@@ -93,8 +99,10 @@ export default function SeccionComparativoOfertas({ proyectoId, moneda }: Props)
       const caps: CapituloInfo[] = [];
       const rubs: RubroComp[] = [];
 
+      setTitulos((proyecto.titulos ?? []).map((t: { id: string }) => ({ id: t.id })));
+
       for (const cap of proyecto.capitulos ?? []) {
-        caps.push({ id: cap.id, nombre: cap.nombre, codigo: cap.codigo });
+        caps.push({ id: cap.id, nombre: cap.nombre, codigo: cap.codigo, tituloId: cap.tituloId ?? null });
         for (const r of cap.rubros ?? []) {
           const manoObra: ManoObraAPU[] = r.apu?.manoObra ?? [];
           // jornalRef ya es el costo de la jornada completa — jornadaHs no participa.
@@ -203,6 +211,32 @@ export default function SeccionComparativoOfertas({ proyectoId, moneda }: Props)
   };
 
   /* ── Agrupar rubros por capítulo ────────────────────────── */
+  // numeroCapitulo = mismo label que muestra la tabla principal del
+  // presupuesto en page.tsx para ese capítulo — con 2+ títulos con
+  // contenido es "T.C" (título N, capítulo M dentro de ese título); con
+  // ≤1 título (caso simple de siempre) es solo el índice plano del
+  // capítulo entre todos los del proyecto. Calculado ANTES de filtrar
+  // los capítulos sin rubros, para que uno vacío en el medio no corra
+  // el número de los que le siguen — mismo criterio que page.tsx.
+  const titulosConContenido = useMemo(
+    () => titulos.filter((t) => capitulos.some((c) => c.tituloId === t.id)),
+    [titulos, capitulos]
+  );
+  const modoMultiTitulo = titulosConContenido.length >= 2;
+
+  const numeroCapituloPorId = useMemo(() => {
+    const m = new Map<string, string>();
+    if (modoMultiTitulo) {
+      titulos.forEach((titulo, tituloIdx) => {
+        const capsDelTitulo = capitulos.filter((c) => c.tituloId === titulo.id);
+        capsDelTitulo.forEach((c, i) => m.set(c.id, `${tituloIdx + 1}.${i + 1}`));
+      });
+    } else {
+      capitulos.forEach((c, i) => m.set(c.id, `${i + 1}`));
+    }
+    return m;
+  }, [capitulos, titulos, modoMultiTitulo]);
+
   const gruposPorCapitulo = useMemo(() => {
     const grupos = new Map<string, RubroComp[]>();
     rubros.forEach((r) => {
@@ -210,11 +244,24 @@ export default function SeccionComparativoOfertas({ proyectoId, moneda }: Props)
       grupos.get(r.capituloId)!.push(r);
     });
     return capitulos
-      .filter((c) => grupos.has(c.id))
-      .map((c) => ({ capitulo: c, rubros: grupos.get(c.id)! }));
-  }, [capitulos, rubros]);
+      .map((c) => ({ capitulo: c, numeroCapitulo: numeroCapituloPorId.get(c.id) ?? "", rubros: grupos.get(c.id) ?? [] }))
+      .filter((g) => g.rubros.length > 0);
+  }, [capitulos, rubros, numeroCapituloPorId]);
 
   const rubroActivo = rubros.find((r) => r.id === rubroActivoId) ?? null;
+
+  // Mismo label "N.M" (capítulo.posición dentro del capítulo) usado en el
+  // selector de la izquierda, reutilizado acá para el header del panel
+  // derecho — antes mostraba rubroActivo.codigo (Rubro.codigo, "R001"),
+  // quedaba inconsistente con lo que el usuario acababa de elegir a la
+  // izquierda.
+  const labelPosicionPorRubro = useMemo(() => {
+    const m = new Map<string, string>();
+    gruposPorCapitulo.forEach(({ numeroCapitulo, rubros: rc }) => {
+      rc.forEach((r, i) => m.set(r.id, `${numeroCapitulo}.${i + 1}`));
+    });
+    return m;
+  }, [gruposPorCapitulo]);
 
   /* ── "Tu presupuesto" para el rubro activo ─────────────── */
   const tuPresupuesto = useMemo(() => {
@@ -263,7 +310,7 @@ export default function SeccionComparativoOfertas({ proyectoId, moneda }: Props)
                       Todavía no hay rubros cargados en este proyecto.
                     </p>
                   ) : (
-                    gruposPorCapitulo.map(({ capitulo, rubros: rubrosCap }) => (
+                    gruposPorCapitulo.map(({ capitulo, numeroCapitulo, rubros: rubrosCap }) => (
                       <div key={capitulo.id}>
                         <div className="px-1 py-1">
                           <span className="text-[11px] font-bold text-[#1A3A5C] uppercase tracking-wider">
@@ -271,7 +318,7 @@ export default function SeccionComparativoOfertas({ proyectoId, moneda }: Props)
                           </span>
                         </div>
                         <div className="space-y-1.5">
-                          {rubrosCap.map((r) => (
+                          {rubrosCap.map((r, i) => (
                             <button
                               key={r.id}
                               onClick={() => setRubroActivoId(r.id)}
@@ -281,7 +328,7 @@ export default function SeccionComparativoOfertas({ proyectoId, moneda }: Props)
                               )}
                             >
                               <span className="text-xs text-slate-700 truncate">
-                                {r.codigo ? `${r.codigo} · ` : ""}{r.descripcion}
+                                {numeroCapitulo}.{i + 1} · {r.descripcion}
                               </span>
                               {r.cantCotizaciones > 0 && (
                                 <span className="flex-shrink-0 text-[10px] font-bold text-white bg-[#2563EB] rounded-full px-1.5 py-0.5 min-w-[18px] text-center tabular-nums">
@@ -307,7 +354,7 @@ export default function SeccionComparativoOfertas({ proyectoId, moneda }: Props)
                       {/* Header del panel */}
                       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
                         <span className="text-sm font-bold text-[#1A3A5C] truncate">
-                          {rubroActivo.codigo ? `${rubroActivo.codigo} · ` : ""}{rubroActivo.descripcion}
+                          {labelPosicionPorRubro.get(rubroActivo.id)} · {rubroActivo.descripcion}
                         </span>
                         <button
                           onClick={agregarCotizacion}
