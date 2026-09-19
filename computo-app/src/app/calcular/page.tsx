@@ -191,7 +191,7 @@ function comprimirImagen(file: File): Promise<string> {
 
 export default function CalcularPage() {
   const router = useRouter();
-  const [tipo, setTipo]       = useState("vivienda");
+  const [tipo, setTipo]       = useState("reparaciones");
   const [calidad, setCalidad] = useState("estandar");
   const areaRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
@@ -199,7 +199,7 @@ export default function CalcularPage() {
   const [area, setArea]       = useState<string>("");
   const [unidades, setUnidades] = useState<string>("1");
   const [descripcion, setDescripcion] = useState<string>("");
-  const [moneda, setMoneda]   = useState<"USD" | "UYU">("USD");
+  const [moneda, setMoneda]   = useState<"USD" | "UYU">("UYU");
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
   // Edición libre (no slider) — mismos defaults que gastosGeneralesPctDefault/
   // utilidadPctDefault del presupuesto completo. Compartidos entre las 2
@@ -1250,13 +1250,13 @@ export default function CalcularPage() {
 
                 <button
                   onClick={() => {
-                    setTipo("vivienda");
+                    setTipo("reparaciones");
                     setCalidad("estandar");
                     setZona("montevideo");
                     setArea("");
                     setUnidades("1");
                     setDescripcion("");
-                    setMoneda("USD");
+                    setMoneda("UYU");
                     setResultadoIA(null);
                     setErrorIA(null);
                     fotos.forEach((f) => URL.revokeObjectURL(f.preview));
