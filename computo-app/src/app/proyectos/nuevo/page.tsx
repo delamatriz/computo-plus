@@ -156,6 +156,16 @@ function NuevoProyectoContent() {
     documentos: [],
   });
 
+  // Viene prellenada desde Cálculo Rápido (Vivienda unifamiliar, Propiedad
+  // Horizontal, Local comercial, Industrial — ver calcular/page.tsx, esos
+  // tipos ya piden área en la primera pantalla). Reparaciones/Reforma no
+  // mandan este parámetro (piden descripción libre, no área), y "+ Nuevo
+  // proyecto" desde cero tampoco — en ambos casos se sigue preguntando
+  // acá. El campo nunca es obligatorio y nunca alimenta ningún cálculo
+  // real (solo Memoria Descriptiva y el header del proyecto) — ocultarlo
+  // acá no le saca nada al resto del flujo, el valor ya queda en form.area.
+  const areaPrellenada = !!searchParams.get("area");
+
   const fotosInputRef = useRef<HTMLInputElement>(null);
   const docsInputRef = useRef<HTMLInputElement>(null);
 
@@ -590,21 +600,26 @@ function NuevoProyectoContent() {
                   />
                 </Field>
 
-                <Field label="Área total (m²)">
-                  <div className="relative max-w-[200px]">
-                    <input
-                      type="number"
-                      value={form.area}
-                      onChange={(e) => set("area", e.target.value)}
-                      placeholder="120"
-                      min={1}
-                      className={inputCls}
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">
-                      m²
-                    </span>
-                  </div>
-                </Field>
+                {!areaPrellenada && (
+                  <Field label="Área total (m²)">
+                    <div className="relative max-w-[200px]">
+                      <input
+                        type="number"
+                        value={form.area}
+                        onChange={(e) => set("area", e.target.value)}
+                        placeholder="120"
+                        min={1}
+                        className={inputCls}
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">
+                        m²
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1.5">
+                      Opcional — área total de la propiedad, si es relevante para la obra.
+                    </p>
+                  </Field>
+                )}
 
                 <Field label="Fotos de relevamiento">
                   <input
