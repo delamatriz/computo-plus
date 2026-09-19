@@ -16,6 +16,8 @@ import {
   AlertTriangle,
   Library,
   Save,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -199,6 +201,12 @@ export default function CalcularPage() {
   const [area, setArea]       = useState<string>("");
   const [unidades, setUnidades] = useState<string>("1");
   const [descripcion, setDescripcion] = useState<string>("");
+  // Fallback táctil del resize-y del textarea de descripción — en mobile
+  // el tirador de arrastre nativo no responde al touch (limitación de los
+  // navegadores móviles, no del CSS). Se controla imperativamente sobre
+  // el ref (no con `style` ligado a este estado en el JSX) para no pisar
+  // un resize manual por arrastre que el usuario ya haya hecho en desktop.
+  const [descripcionExpandida, setDescripcionExpandida] = useState(false);
   const [moneda, setMoneda]   = useState<"USD" | "UYU">("UYU");
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
   // Edición libre (no slider) — mismos defaults que gastosGeneralesPctDefault/
@@ -491,9 +499,32 @@ export default function CalcularPage() {
             {/* Área / Descripción */}
             {esDescriptivo ? (
               <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
-                <label className="block text-sm font-semibold text-text-primary mb-3">
-                  Descripción de los trabajos
-                </label>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-semibold text-text-primary">
+                    Descripción de los trabajos
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nuevoEstado = !descripcionExpandida;
+                      setDescripcionExpandida(nuevoEstado);
+                      if (descRef.current) descRef.current.style.height = nuevoEstado ? "340px" : "106px";
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-[#2563EB] transition-colors"
+                  >
+                    {descripcionExpandida ? (
+                      <>
+                        <Minimize2 className="w-3.5 h-3.5" />
+                        Contraer
+                      </>
+                    ) : (
+                      <>
+                        <Maximize2 className="w-3.5 h-3.5" />
+                        Expandir
+                      </>
+                    )}
+                  </button>
+                </div>
                 <textarea
                   ref={descRef}
                   value={descripcion}
