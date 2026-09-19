@@ -1255,19 +1255,24 @@ export default function CalcularPage() {
                 )}
 
                 {resultadoIA && (
-                  <button
-                    type="button"
-                    disabled={guardandoAnteproyecto}
-                    onClick={guardarComoAnteproyecto}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-[#2563EB] text-[#2563EB] hover:bg-blue-50 disabled:opacity-60 font-semibold text-sm transition-colors"
-                  >
-                    {guardandoAnteproyecto ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Save className="w-4 h-4" />
-                    )}
-                    Guardar como anteproyecto
-                  </button>
+                  <>
+                    <p className="text-[11px] text-text-muted leading-relaxed text-center">
+                      &quot;Iniciar proyecto completo&quot; crea el proyecto con capítulos y rubros ya estimados por IA, listo para ajustar. &quot;Guardar como anteproyecto&quot; guarda esta estimación como referencia rápida (sin capítulos ni rubros) — podés convertirlo en proyecto completo más adelante, cargando los rubros a mano.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={guardandoAnteproyecto}
+                      onClick={guardarComoAnteproyecto}
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-[#2563EB] text-[#2563EB] hover:bg-blue-50 disabled:opacity-60 font-semibold text-sm transition-colors"
+                    >
+                      {guardandoAnteproyecto ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4" />
+                      )}
+                      Guardar como anteproyecto
+                    </button>
+                  </>
                 )}
 
                 {errorAnteproyecto && (
