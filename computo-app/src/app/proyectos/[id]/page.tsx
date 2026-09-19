@@ -1323,14 +1323,11 @@ function PanelSubrubrosEstandar({
             </span>
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          {subgrupo && (
+        {subgrupo && (
+          <div className="flex items-center gap-2">
             <span className="text-[10px] text-slate-400">{subgrupo}</span>
-          )}
-          <span className="text-[9px] font-medium text-slate-300">
-            precio base {s.fechaBase} — actualizar con ICCV
-          </span>
-        </div>
+          </div>
+        )}
       </button>
     );
   };
@@ -1374,6 +1371,11 @@ function PanelSubrubrosEstandar({
         )}
         {!cargando && equipos.map(renderFila)}
       </div>
+      {!cargando && subrubros.length > 0 && (
+        <p className="px-1 text-[10px] text-slate-400">
+          Precios de referencia — actualizar según ICCV.
+        </p>
+      )}
     </div>
   );
 }
