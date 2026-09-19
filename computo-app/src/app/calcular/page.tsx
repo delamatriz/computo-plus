@@ -500,7 +500,7 @@ export default function CalcularPage() {
                   onChange={(e) => setDescripcion(e.target.value)}
                   rows={4}
                   placeholder="ej: sustitución de 3 aberturas de aluminio, pintura interior de 2 ambientes, reparación de cañería sanitaria..."
-                  className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-none"
+                  className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-y min-h-[106px] max-h-[420px]"
                 />
                 <p className="text-xs text-slate-400 mt-2">
                   Describí los trabajos con el mayor detalle posible. Cuanto más precisa sea la descripción, más exacta será la estimación.
