@@ -916,19 +916,24 @@ export default function CalcularPage() {
                 )}
 
                 {resultadoIA && (
-                  <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-white/40">Materiales</p>
-                      <p className="text-sm font-semibold text-white/70">
-                        {fmt(resultadoIA.totalMateriales)}
-                      </p>
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-white/40">Materiales</p>
+                        <p className="text-sm font-semibold text-white/70">
+                          {fmt(resultadoIA.totalMateriales)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-white/40">Mano de obra</p>
+                        <p className="text-sm font-semibold text-white/70">
+                          {fmt(resultadoIA.totalManoObra)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-white/40">Mano de obra</p>
-                      <p className="text-sm font-semibold text-white/70">
-                        {fmt(resultadoIA.totalManoObra)}
-                      </p>
-                    </div>
+                    <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
+                      Este precio incluye materiales y mano de obra — no considera leyes sociales (BPS).
+                    </p>
                   </div>
                 )}
               </div>
