@@ -25,7 +25,6 @@ import {
   Lock,
   LockOpen,
   Clock,
-  Handshake,
   PackageCheck,
   Scale,
   Wallet,
@@ -54,6 +53,7 @@ import SeccionDiasDeObra from "@/components/SeccionDiasDeObra";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionBitacora from "@/components/SeccionBitacora";
 import SeccionPersonalObra from "@/components/SeccionPersonalObra";
+import SeccionSubcontratistas from "@/components/SeccionSubcontratistas";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
@@ -5697,11 +5697,7 @@ export default function ProyectoPage() {
           >
             <SeccionBitacora proyectoId={proyectoActivo.id} />
             <SeccionPersonalObra proyectoId={proyectoActivo.id} />
-            <TarjetaProximamente
-              icono={Handshake}
-              titulo="Subcontratistas y Gremios"
-              descripcion="Acá vas a poder llevar el directorio de subcontratistas, sus contratos parciales, el avance por gremio y los pagos."
-            />
+            <SeccionSubcontratistas proyectoId={proyectoActivo.id} />
             <TarjetaProximamente
               icono={PackageCheck}
               titulo="Órdenes de Compra y Recepción"

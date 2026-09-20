@@ -59,6 +59,7 @@ model Proyecto {
   certificaciones Certificacion[]
   entradasBitacora EntradaBitacora[]
   personal          PersonalObra[]
+  subcontratistas   Subcontratista[]
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
@@ -160,6 +161,8 @@ model Capitulo {
   // regresión. Ver FASE2-DISENO-UNIFICACION-TAXONOMIAS.md.
   capituloCatalogoId String?
   capituloCatalogo   CapituloCatalogo? @relation(fields: [capituloCatalogoId], references: [id])
+
+  subcontratistas CapituloSubcontratista[]
 
   // Título — todo capítulo pertenece siempre a exactamente un título (ver
   // model Titulo). Capitulo.proyectoId arriba se mantiene intacto a
@@ -435,6 +438,42 @@ model PersonalObra {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Subcontratistas/gremios de la obra (Gestión de Obra, "Ejecución y
+// Control en Terreno"). Sin borrado completo — el estado "Cancelado"
+// cumple ese rol, mismo criterio que Bitácora/PersonalObra.
+model Subcontratista {
+  id         String   @id @default(cuid())
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  empresa           String
+  rut               String?
+  rubro             String
+  personaContacto   String?
+  telefono          String?
+  email             String?
+  montoContratado   Float?
+  moneda            String  @default("UYU") // "UYU" | "USD"
+  fechaInicio       DateTime?
+  fechaFin          DateTime?
+  estado            String  @default("En negociación") // "En negociación" | "Contratado" | "En obra" | "Finalizado" | "Cancelado"
+
+  capitulos CapituloSubcontratista[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CapituloSubcontratista {
+  id               String         @id @default(cuid())
+  subcontratistaId String
+  subcontratista   Subcontratista @relation(fields: [subcontratistaId], references: [id], onDelete: Cascade)
+  capituloId       String
+  capitulo         Capitulo       @relation(fields: [capituloId], references: [id], onDelete: Cascade)
+
+  @@unique([subcontratistaId, capituloId])
 }
 
 model CapituloEstandar {
