@@ -58,6 +58,7 @@ model Proyecto {
   leyesSociales LeyesSociales?
   certificaciones Certificacion[]
   entradasBitacora EntradaBitacora[]
+  personal          PersonalObra[]
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
@@ -406,6 +407,32 @@ model CategoriaLaboral {
   nombre    String
   categoria String
   jornal    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  personal  PersonalObra[]
+}
+
+// Registro simple de personas trabajando en la obra (Gestión de Obra,
+// "Ejecución y Control en Terreno"). Sin asistencia diaria, sin
+// jornales ni horas extra en esta versión — eso es Mano de Obra
+// (presupuesto), esto es "quién está en esta obra". FK a
+// CategoriaLaboral (no snapshot de texto): esa tabla no tiene borrado
+// (solo PATCH de jornal) así que no hay riesgo de referencia
+// huérfana, y de este modo si se corrige un nombre en la biblioteca
+// se refleja acá también, sin quedar textos desincronizados.
+model PersonalObra {
+  id         String   @id @default(cuid())
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  nombre              String
+  categoriaLaboralId  String
+  categoriaLaboral    CategoriaLaboral @relation(fields: [categoriaLaboralId], references: [id])
+  cuadrilla           String  @default("")
+  empresaSubcontratista String?
+  telefono            String?
+  activo              Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

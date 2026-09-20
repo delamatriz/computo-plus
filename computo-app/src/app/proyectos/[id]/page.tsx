@@ -25,7 +25,6 @@ import {
   Lock,
   LockOpen,
   Clock,
-  Users,
   Handshake,
   PackageCheck,
   Scale,
@@ -54,6 +53,7 @@ import SeccionNotas from "@/components/SeccionNotas";
 import SeccionDiasDeObra from "@/components/SeccionDiasDeObra";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionBitacora from "@/components/SeccionBitacora";
+import SeccionPersonalObra from "@/components/SeccionPersonalObra";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
@@ -5696,11 +5696,7 @@ export default function ProyectoPage() {
             subtitulo="Registro diario, personal, subcontratos y compras mientras la obra está en marcha."
           >
             <SeccionBitacora proyectoId={proyectoActivo.id} />
-            <TarjetaProximamente
-              icono={Users}
-              titulo="Gestión de Personal y Cuadrillas"
-              descripcion="Acá vas a poder controlar asistencia, jornales, horas extra y EPI del personal en obra."
-            />
+            <SeccionPersonalObra proyectoId={proyectoActivo.id} />
             <TarjetaProximamente
               icono={Handshake}
               titulo="Subcontratistas y Gremios"
