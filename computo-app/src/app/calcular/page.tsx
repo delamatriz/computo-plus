@@ -243,6 +243,17 @@ export default function CalcularPage() {
     typeof resultadoIA.proporcionBiblioteca === "number" &&
     resultadoIA.proporcionBiblioteca < UMBRAL_PROPORCION_BIBLIOTECA_BAJA;
 
+  // Cada capítulo con mano de obra propia se costea de forma
+  // independiente (su propio rendimiento, sin compartir el setup/
+  // desplazamiento con los demás) — con 3 o más, la eficiencia real de
+  // una cuadrilla haciendo tareas seguidas empieza a pesar y el número
+  // total tiende a quedar sobreestimado. No hay forma de agrupar por
+  // "mismo contexto/ubicación" (los capítulos no traen ese dato), así
+  // que se usa la cantidad de ítems con mano de obra propia como proxy.
+  const capitulosConManoObra =
+    resultadoIA?.capitulos.filter((c) => c.manoObra > 0).length ?? 0;
+  const mostrarLeyendaEficienciaCuadrilla = capitulosConManoObra >= 3;
+
   // Limpiar la estimación detallada si cambian los datos de entrada
   useEffect(() => {
     setResultadoIA(null);
@@ -934,6 +945,11 @@ export default function CalcularPage() {
                     <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
                       Este precio incluye materiales y mano de obra — no considera leyes sociales (BPS).
                     </p>
+                    {mostrarLeyendaEficienciaCuadrilla && (
+                      <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
+                        Esta estimación costea cada tarea por separado. Una cuadrilla real suele ganar eficiencia haciendo tareas relacionadas seguidas — para un número más ajustado, desarrollá un proyecto completo.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
