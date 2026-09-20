@@ -57,6 +57,7 @@ model Proyecto {
   titulos     Titulo[]
   leyesSociales LeyesSociales?
   certificaciones Certificacion[]
+  entradasBitacora EntradaBitacora[]
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
@@ -227,6 +228,7 @@ model Rubro {
   cotizaciones CotizacionProveedor[]
   mediciones  MedicionDocumento[]
   filasMetraje FilaMetraje[]
+  entradasBitacora RubroEntradaBitacora[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -557,6 +559,74 @@ model FotoCertificacionItem {
   certificacionItem   CertificacionItem @relation(fields: [certificacionItemId], references: [id], onDelete: Cascade)
   url                 String            // base64 o ruta del archivo
   createdAt           DateTime          @default(now())
+}
+
+// Bitácora / Diario de Obra — registro diario del director de obra
+// (clima, personal presente, trabajos, materiales recibidos,
+// incidentes, instrucciones, visitas), vinculable a uno o más rubros
+// del presupuesto. Mismo patrón de fotos que Certificacion
+// (FotoEntradaBitacora, base64 en @db.Text, sin Vercel Blob).
+//
+// Editable pero no borrable (sin DELETE de entrada completa, solo de
+// fotos individuales) — editadoEn queda null hasta la primera edición
+// posterior a la creación, y de ahí en más registra la última.
+//
+// Sin restricción de unicidad por fecha — pueden convivir varias
+// entradas el mismo día, distinguidas por numero (correlativo por
+// proyecto, mismo criterio que Certificacion.numero/Rubro.codigo).
+model EntradaBitacora {
+  id          String   @id @default(cuid())
+  proyectoId  String
+  proyecto    Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  numero      Int
+  fecha       DateTime @default(now())
+
+  clima        String  // "Soleado" | "Nublado" | "Lluvia" | "Tormenta" | "Viento fuerte" | "Otro"
+  climaDetalle String?
+
+  personalPresente    String @default("") @db.Text
+  trabajosRealizados  String @default("") @db.Text
+  materialesRecibidos String @default("") @db.Text
+  incidentes          String @default("") @db.Text
+  instruccionesDadas  String @default("") @db.Text
+  visitas             String @default("") @db.Text
+
+  // null = nunca editada desde que se creó. La setea el server (nunca
+  // el cliente) en cada PATCH posterior a la creación — ver
+  // PATCH /api/proyectos/[id]/bitacora/[entradaId].
+  editadoEn DateTime?
+
+  fotos  FotoEntradaBitacora[]
+  rubros RubroEntradaBitacora[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([proyectoId, numero])
+}
+
+model FotoEntradaBitacora {
+  id                String          @id @default(cuid())
+  entradaBitacoraId String
+  entradaBitacora   EntradaBitacora @relation(fields: [entradaBitacoraId], references: [id], onDelete: Cascade)
+  url               String          @db.Text // base64 — mismo patrón que FotoCertificacionItem
+  createdAt         DateTime        @default(now())
+}
+
+// Many-to-many explícita (no implícita de Prisma) — mismo criterio que
+// el resto del schema: todo cruce entre dos entidades reales es un
+// modelo propio con id/timestamps, no una relación implícita. Sin
+// metadata propia hoy (solo la referencia), pero deja la puerta
+// abierta a agregar algo como "% de avance reportado ese día para este
+// rubro" más adelante sin migrar de implícita a explícita.
+model RubroEntradaBitacora {
+  id                String          @id @default(cuid())
+  entradaBitacoraId String
+  entradaBitacora   EntradaBitacora @relation(fields: [entradaBitacoraId], references: [id], onDelete: Cascade)
+  rubroId           String
+  rubro             Rubro           @relation(fields: [rubroId], references: [id], onDelete: Cascade)
+
+  @@unique([entradaBitacoraId, rubroId])
 }
 
 // Documentación del llamado — repositorio de entrada (Pliego, Memoria del

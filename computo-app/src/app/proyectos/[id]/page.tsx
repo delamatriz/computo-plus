@@ -25,7 +25,6 @@ import {
   Lock,
   LockOpen,
   Clock,
-  NotebookPen,
   Users,
   Handshake,
   PackageCheck,
@@ -54,6 +53,7 @@ import SeccionGarantias from "@/components/SeccionGarantias";
 import SeccionNotas from "@/components/SeccionNotas";
 import SeccionDiasDeObra from "@/components/SeccionDiasDeObra";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
+import SeccionBitacora from "@/components/SeccionBitacora";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
@@ -5695,11 +5695,7 @@ export default function ProyectoPage() {
             titulo="Ejecución y Control en Terreno"
             subtitulo="Registro diario, personal, subcontratos y compras mientras la obra está en marcha."
           >
-            <TarjetaProximamente
-              icono={NotebookPen}
-              titulo="Bitácora / Diario de Obra"
-              descripcion="Acá vas a poder llevar el registro diario de obra: clima, personal presente e incidentes."
-            />
+            <SeccionBitacora proyectoId={proyectoActivo.id} />
             <TarjetaProximamente
               icono={Users}
               titulo="Gestión de Personal y Cuadrillas"
