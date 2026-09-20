@@ -60,6 +60,7 @@ model Proyecto {
   entradasBitacora EntradaBitacora[]
   personal          PersonalObra[]
   subcontratistas   Subcontratista[]
+  ordenesCompra     OrdenCompra[]
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
@@ -163,6 +164,7 @@ model Capitulo {
   capituloCatalogo   CapituloCatalogo? @relation(fields: [capituloCatalogoId], references: [id])
 
   subcontratistas CapituloSubcontratista[]
+  ordenesCompra   CapituloOrdenCompra[]
 
   // Título — todo capítulo pertenece siempre a exactamente un título (ver
   // model Titulo). Capitulo.proyectoId arriba se mantiene intacto a
@@ -474,6 +476,42 @@ model CapituloSubcontratista {
   capitulo         Capitulo       @relation(fields: [capituloId], references: [id], onDelete: Cascade)
 
   @@unique([subcontratistaId, capituloId])
+}
+
+// Órdenes de compra a proveedores (Gestión de Obra, "Ejecución y
+// Control en Terreno"). Sin borrado completo — "Cancelado" cumple ese
+// rol, mismo criterio que Bitácora/PersonalObra/Subcontratista.
+model OrdenCompra {
+  id         String   @id @default(cuid())
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  proveedor          String
+  descripcion        String  @db.Text
+  monto              Float?
+  moneda             String  @default("UYU") // "UYU" | "USD"
+  fechaPedido        DateTime?
+  fechaEntregaPrevista DateTime?
+  estado             String  @default("Pedido") // "Pedido" | "En camino" | "Recibido" | "Cancelado"
+
+  fechaRecepcion       DateTime?
+  completo             Boolean?
+  observacionesRecepcion String? @db.Text
+
+  capitulos CapituloOrdenCompra[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CapituloOrdenCompra {
+  id            String      @id @default(cuid())
+  ordenCompraId String
+  ordenCompra   OrdenCompra @relation(fields: [ordenCompraId], references: [id], onDelete: Cascade)
+  capituloId    String
+  capitulo      Capitulo    @relation(fields: [capituloId], references: [id], onDelete: Cascade)
+
+  @@unique([ordenCompraId, capituloId])
 }
 
 model CapituloEstandar {

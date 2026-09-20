@@ -25,7 +25,6 @@ import {
   Lock,
   LockOpen,
   Clock,
-  PackageCheck,
   Scale,
   Wallet,
   FileCheck2,
@@ -54,6 +53,7 @@ import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionBitacora from "@/components/SeccionBitacora";
 import SeccionPersonalObra from "@/components/SeccionPersonalObra";
 import SeccionSubcontratistas from "@/components/SeccionSubcontratistas";
+import SeccionOrdenesCompra from "@/components/SeccionOrdenesCompra";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
@@ -5698,11 +5698,7 @@ export default function ProyectoPage() {
             <SeccionBitacora proyectoId={proyectoActivo.id} />
             <SeccionPersonalObra proyectoId={proyectoActivo.id} />
             <SeccionSubcontratistas proyectoId={proyectoActivo.id} />
-            <TarjetaProximamente
-              icono={PackageCheck}
-              titulo="Órdenes de Compra y Recepción"
-              descripcion="Acá vas a poder generar órdenes de compra a proveedores y registrar la recepción de materiales en obra."
-            />
+            <SeccionOrdenesCompra proyectoId={proyectoActivo.id} />
           </BloqueGestionObra>
 
           <BloqueGestionObra
