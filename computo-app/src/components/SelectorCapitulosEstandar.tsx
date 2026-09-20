@@ -114,6 +114,11 @@ interface Props {
   // proyecto) que no deberían ofrecerse de nuevo en "Lista estándar",
   // además de los que ya están en `capitulos`.
   nombresExcluidos?: string[];
+  // El proyecto viene de Cálculo Rápido: los capítulos ya se resolvieron
+  // ahí (ver proyectos/nuevo/page.tsx) a partir de los subrubros reales
+  // matcheados, así que "Sugerir con IA" sería una segunda IA redundante
+  // pisando ese resultado — se oculta solo en este caso.
+  ocultarSugerirIA?: boolean;
 }
 
 export function SelectorCapitulosEstandar({
@@ -123,6 +128,7 @@ export function SelectorCapitulosEstandar({
   descripcionTrabajos,
   fotos = [],
   nombresExcluidos = [],
+  ocultarSugerirIA = false,
 }: Props) {
   const [cargandoIA, setCargandoIA] = useState(false);
   const [errorIA, setErrorIA] = useState<string | null>(null);
@@ -254,37 +260,44 @@ export function SelectorCapitulosEstandar({
           control real (no dos links de texto al mismo nivel) para que se
           lea como una elección clara entre dos modos, no como metadata. */}
       <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-1 p-1 rounded-[10px] bg-slate-100 flex-1 max-w-sm">
-          <button
-            onClick={() => setMostrarBiblioteca(true)}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-all",
-              mostrarBiblioteca
-                ? "bg-white text-[#2563EB] shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            )}
-          >
+        {ocultarSugerirIA ? (
+          <div className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-semibold text-[#1A3A5C]">
             <List className="w-3.5 h-3.5" />
             Lista estándar
-          </button>
-          <button
-            onClick={cargarSugeridosIA}
-            disabled={cargandoIA}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-all disabled:cursor-wait",
-              !mostrarBiblioteca
-                ? "bg-white text-[#2563EB] shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            {cargandoIA ? (
-              <span className="w-3.5 h-3.5 border-2 border-[#2563EB]/30 border-t-[#2563EB] rounded-full animate-spin" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5" />
-            )}
-            {cargandoIA ? "Analizando..." : "Sugerir con IA"}
-          </button>
-        </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 p-1 rounded-[10px] bg-slate-100 flex-1 max-w-sm">
+            <button
+              onClick={() => setMostrarBiblioteca(true)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-all",
+                mostrarBiblioteca
+                  ? "bg-white text-[#2563EB] shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              <List className="w-3.5 h-3.5" />
+              Lista estándar
+            </button>
+            <button
+              onClick={cargarSugeridosIA}
+              disabled={cargandoIA}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-all disabled:cursor-wait",
+                !mostrarBiblioteca
+                  ? "bg-white text-[#2563EB] shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              {cargandoIA ? (
+                <span className="w-3.5 h-3.5 border-2 border-[#2563EB]/30 border-t-[#2563EB] rounded-full animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              {cargandoIA ? "Analizando..." : "Sugerir con IA"}
+            </button>
+          </div>
+        )}
         {capitulos.length > 0 && (
           <p className="text-xs text-slate-400 whitespace-nowrap">
             {capitularActivos.length} activo{capitularActivos.length !== 1 ? "s" : ""}

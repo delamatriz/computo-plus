@@ -19,6 +19,7 @@ import {
   COLORES_CAPITULOS,
   COLORS,
 } from "@/components/SelectorCapitulosEstandar";
+import { obtenerMapeoSAU } from "@/lib/capitulosSau";
 
 /* ─── Tipos ─────────────────────────────────────────────── */
 interface FormData {
@@ -111,6 +112,18 @@ interface CapituloEstandarItem {
   vecesUsado: number;
 }
 
+// Ítem del desglose de Cálculo Rápido (calcular/page.tsx), tal cual viaja
+// por sessionStorage — ver lib/rubrosAutomaticos.ts para el mismo shape
+// del lado del servidor.
+interface CapituloConMontoIA {
+  nombre: string;
+  monto: number;
+  materiales?: number;
+  manoObra?: number;
+  origen?: "biblioteca" | "estimado";
+  codigoSubrubro?: string | null;
+}
+
 const STEPS = [
   { id: 1, label: "1. Datos" },
   { id: 2, label: "2. Detalles" },
@@ -132,6 +145,18 @@ function NuevoProyectoContent() {
   // lista completa al pasar de paso 1 a paso 2, antes de que el paso 3 (y
   // por lo tanto el selector) exista en pantalla.
   const [capitulosEstandar, setCapitulosEstandar] = useState<CapituloEstandarItem[]>([]);
+
+  // Desglose de Cálculo Rápido (si el proyecto viene de ahí) — se lee UNA
+  // sola vez de sessionStorage en el mount (ver useEffect de traspaso más
+  // abajo) y se guarda acá para que tanto la precarga del paso 3 como el
+  // POST final a generar-rubros lo usen sin tener que releer sessionStorage
+  // (que ya quedó vacío después de la primera lectura).
+  const [calculoRapidoItems, setCalculoRapidoItems] = useState<CapituloConMontoIA[] | undefined>(undefined);
+  // Nombres (en minúscula) de los capítulos reales resueltos a partir de
+  // los codigoSubrubro de calculoRapidoItems — ver useEffect de resolución
+  // más abajo. Vacío mientras no haya nada que resolver o todavía no
+  // resolvió.
+  const [capitulosRealesResueltos, setCapitulosRealesResueltos] = useState<Set<string>>(new Set());
 
   const [form, setForm] = useState<FormData>({
     nombre: "",
@@ -193,6 +218,16 @@ function NuevoProyectoContent() {
       sessionStorage.removeItem("calculoRapido_descripcion");
     }
 
+    const resultadoRaw = sessionStorage.getItem("calculoRapido_resultado");
+    if (resultadoRaw) {
+      try {
+        setCalculoRapidoItems(JSON.parse(resultadoRaw));
+      } catch (err) {
+        console.error("[proyectos/nuevo] parseo de calculoRapido_resultado", err);
+      }
+      sessionStorage.removeItem("calculoRapido_resultado");
+    }
+
     const fotosRaw = sessionStorage.getItem("calculoRapido_fotos");
     if (fotosRaw) {
       try {
@@ -221,6 +256,31 @@ function NuevoProyectoContent() {
       })
       .catch(() => {});
   }, []);
+
+  /* Resolución de capítulos reales a partir de los codigoSubrubro de
+     Cálculo Rápido — para precargar el paso 3 con esos capítulos ya
+     activados (ver transición paso 2 → 3 más abajo). Los ítems "estimado"
+     (sin codigoSubrubro) no aportan acá, no hay capítulo real que inferir
+     para ellos. */
+  useEffect(() => {
+    const codigos = Array.from(new Set(
+      (calculoRapidoItems ?? [])
+        .map((item) => item.codigoSubrubro?.trim())
+        .filter((c): c is string => !!c)
+    ));
+    if (codigos.length === 0) return;
+
+    fetch(`/api/subrubros-estandar?codigos=${encodeURIComponent(codigos.join(","))}`)
+      .then((r) => r.json())
+      .then((data: { capituloNombre?: string | null }[]) => {
+        if (!Array.isArray(data)) return;
+        const nombres = data
+          .map((s) => s.capituloNombre?.trim().toLowerCase())
+          .filter((n): n is string => !!n);
+        if (nombres.length > 0) setCapitulosRealesResueltos(new Set(nombres));
+      })
+      .catch((err) => console.error("[proyectos/nuevo] resolución de capítulos reales", err));
+  }, [calculoRapidoItems]);
 
   /* Fotos de relevamiento */
   const agregarFotos = (files: FileList | null) => {
@@ -351,17 +411,10 @@ function NuevoProyectoContent() {
       const proyecto = await res.json();
 
       // Si viene del flujo de Cálculo Rápido, usar el desglose de montos
-      // por capítulo como contexto para los rubros automáticos por IA.
-      const resultadoRaw = sessionStorage.getItem("calculoRapido_resultado");
-      let capitulosConMontos: { nombre: string; monto: number }[] | undefined;
-      if (resultadoRaw) {
-        try {
-          capitulosConMontos = JSON.parse(resultadoRaw);
-        } catch (err) {
-          console.error("[proyectos/nuevo] parseo de calculoRapido_resultado", err);
-        }
-        sessionStorage.removeItem("calculoRapido_resultado");
-      }
+      // por capítulo para clonar los subrubros reales ya matcheados (ver
+      // lib/rubrosAutomaticos.ts) — leído una sola vez de sessionStorage en
+      // el mount, ver useEffect de traspaso más arriba.
+      const capitulosConMontos = calculoRapidoItems;
 
       if (capitulosConMontos) {
         await fetch(`/api/proyectos/${proyecto.id}`, {
@@ -964,6 +1017,7 @@ function NuevoProyectoContent() {
                   tipoObra={form.tipo}
                   descripcionTrabajos={form.trabajos}
                   fotos={form.fotos}
+                  ocultarSugerirIA={!!calculoRapidoItems?.length}
                 />
               )}
             </div>
@@ -1131,7 +1185,27 @@ function NuevoProyectoContent() {
                 if (hayTitulos) {
                   if (form.sinTituloEsAutomatico) set("capitulos", []);
                 } else if (form.capitulos.length === 0) {
-                  set("capitulos", listaCatalogo(true));
+                  // Si viene de Cálculo Rápido y ya se resolvieron capítulos
+                  // reales a partir de los codigoSubrubro, precargar solo
+                  // esos activados (no todo el catálogo) — el usuario
+                  // completa el resto a mano si le hace falta. La lista
+                  // estándar de este paso (CapituloEstandar) y la biblioteca
+                  // de subrubros (CapituloCatalogo) son taxonomías separadas
+                  // con nombres que a veces difieren para el mismo capítulo
+                  // real (ej. "Demoliciones y Picados" vs "Demoliciones") —
+                  // se resuelve con el mismo alias que ya usa el servidor
+                  // para asignar capituloCatalogoId (ver
+                  // capituloCatalogoResolver.ts), no comparando strings.
+                  const lista = capitulosRealesResueltos.size > 0
+                    ? listaCatalogo(false).map((c) => {
+                        const candidatos = obtenerMapeoSAU(c.nombre)?.capitulos ?? [c.nombre];
+                        const activo = candidatos.some((cand) =>
+                          capitulosRealesResueltos.has(cand.trim().toLowerCase())
+                        );
+                        return { ...c, activo };
+                      })
+                    : listaCatalogo(true);
+                  set("capitulos", lista);
                   set("sinTituloEsAutomatico", true);
                 }
                 // Títulos que todavía no tienen selección propia arrancan

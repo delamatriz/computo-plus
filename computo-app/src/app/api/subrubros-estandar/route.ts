@@ -6,26 +6,33 @@ import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 export async function GET(req: NextRequest) {
   const capituloId = req.nextUrl.searchParams.get("capituloId")?.trim();
   const subcapituloId = req.nextUrl.searchParams.get("subcapituloId")?.trim();
+  // Resolución puntual por código — usada por proyectos/nuevo/page.tsx para
+  // saber a qué capítulo real pertenecen los codigoSubrubro que devolvió
+  // Cálculo Rápido, y así precargar el paso 3 con esos capítulos activados.
+  const codigos = req.nextUrl.searchParams.get("codigos")?.trim();
 
   try {
     const subrubros = await db.subrubroEstandar.findMany({
       where: {
         activo: true,
         ...(capituloId ? { capituloId, ...(subcapituloId ? { subcapituloId } : {}) } : {}),
+        ...(codigos ? { codigo: { in: codigos.split(",").map((c) => c.trim()).filter(Boolean) } } : {}),
       },
       include: {
         apuEstandar: { select: { id: true } },
         // Fase 2, Etapa 6a — nombre del subcapítulo vía relación, para que
         // el cliente ya no dependa de SubrubroEstandar.subcapitulo (string).
         subcapituloCatalogo: { select: { nombre: true } },
+        capituloCatalogo: { select: { nombre: true } },
       },
       orderBy: { orden: { sort: "asc", nulls: "last" } },
     });
 
-    const resultado = subrubros.map(({ apuEstandar, subcapituloCatalogo, ...sub }) => ({
+    const resultado = subrubros.map(({ apuEstandar, subcapituloCatalogo, capituloCatalogo, ...sub }) => ({
       ...sub,
       tieneApuEstandar: apuEstandar != null,
       subcapituloNombre: subcapituloCatalogo?.nombre ?? null,
+      capituloNombre: capituloCatalogo?.nombre ?? null,
     }));
 
     return NextResponse.json(resultado);
