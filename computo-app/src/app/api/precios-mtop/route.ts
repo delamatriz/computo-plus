@@ -167,12 +167,12 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
 
     if (typeof body?.descripcion === "string" && Number.isFinite(body?.precioUnitario)) {
-      let match: { id: string; codigo: string } | null = null;
+      let match: { id: string; codigo: string; precioUnitario: number } | null = null;
 
       if (typeof body?.precioMTOPId === "string") {
         match = await db.precioMTOP.findUnique({
           where: { id: body.precioMTOPId },
-          select: { id: true, codigo: true },
+          select: { id: true, codigo: true, precioUnitario: true },
         });
         if (!match) {
           return NextResponse.json({ ok: true, actualizado: false });
@@ -185,6 +185,7 @@ export async function PATCH(req: NextRequest) {
           where: { descripcion: { contains: body.descripcion, mode: "insensitive" } },
           orderBy: { id: "asc" },
           take: 2,
+          select: { id: true, codigo: true, descripcion: true, precioUnitario: true, proveedor: true },
         });
         if (matches.length === 0) {
           return NextResponse.json({ ok: true, actualizado: false });
@@ -208,7 +209,7 @@ export async function PATCH(req: NextRequest) {
       // lib/resolverPrecioMTOP.ts.
       const actualizado = await db.precioMTOP.update({
         where: { id: match.id },
-        data: datosCorreccionPrecio(body.precioUnitario),
+        data: datosCorreccionPrecio(body.precioUnitario, match.precioUnitario),
       });
       return NextResponse.json({
         ok: true,
@@ -246,14 +247,14 @@ export async function PATCH(req: NextRequest) {
         .map(async (m: { codigo: string; precioUnitario: number }) => {
           const fila = await db.precioMTOP.findFirst({
             where: { codigo: m.codigo, proveedor: null },
-            select: { id: true },
+            select: { id: true, precioUnitario: true },
           });
           if (!fila) return;
           // datosCorreccionPrecio: mismo criterio de limpieza de estado
           // pendiente que el resto del sistema (ver lib/resolverPrecioMTOP.ts).
           await db.precioMTOP.update({
             where: { id: fila.id },
-            data: datosCorreccionPrecio(m.precioUnitario),
+            data: datosCorreccionPrecio(m.precioUnitario, fila.precioUnitario),
           });
         })
     );

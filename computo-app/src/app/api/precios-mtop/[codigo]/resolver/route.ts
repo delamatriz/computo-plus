@@ -54,11 +54,17 @@ export async function POST(
       );
     }
 
+    // origenVerificacion: "manual" en las 3 acciones — las tres son un
+    // humano decidiendo qué precio queda activo (aceptar la sugerencia de
+    // la IA, mantener el actual, o cargar uno propio), nunca el buscador
+    // automático. Saca la fila de la elegibilidad del botón "Buscar
+    // precios actualizados" hasta que un humano la vuelva a tocar.
     const base = {
       requiereVerificacion: false,
       motivoVerificacion: null,
       precioSugeridoPendiente: null,
       fechaUltimaVerificacion: new Date(),
+      origenVerificacion: "manual",
     };
 
     if (accion === "aceptar") {
@@ -71,7 +77,7 @@ export async function POST(
       const precio = item.precioSugeridoPendiente;
       const actualizado = await db.precioMTOP.update({
         where: whereUnico,
-        data: { ...base, precioUnitario: precio, precioConIva: precio },
+        data: { ...base, precioUnitario: precio, precioConIva: precio, precioAnterior: item.precioUnitario },
       });
       return NextResponse.json(actualizado);
     }
@@ -103,7 +109,14 @@ export async function POST(
     }
     const actualizado = await db.precioMTOP.update({
       where: whereUnico,
-      data: { ...base, precioUnitario: precioManual, precioConIva: precioManual, detalleVerificacion: null, urlReferencia: null },
+      data: {
+        ...base,
+        precioUnitario: precioManual,
+        precioConIva: precioManual,
+        precioAnterior: item.precioUnitario,
+        detalleVerificacion: null,
+        urlReferencia: null,
+      },
     });
     return NextResponse.json(actualizado);
   } catch (err) {

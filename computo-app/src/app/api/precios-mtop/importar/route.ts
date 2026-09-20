@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
 
         const actualizado = await db.precioMTOP.update({
           where: { id: coincidencia.candidato.id },
-          data: datosCorreccionPrecio(fila.precioUnitario),
+          data: datosCorreccionPrecio(fila.precioUnitario, coincidencia.candidato.precioUnitario),
         });
         actualizados++;
         detalle.push({
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
         proveedor,
         numeroLista: 0,
         fechaLista,
-        ...datosCorreccionPrecio(fila.precioUnitario),
+        ...datosCorreccionPrecio(fila.precioUnitario, null),
       };
 
       let nota: string | undefined;

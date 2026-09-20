@@ -34,9 +34,13 @@ export async function PATCH(
 
     let actualizado;
     try {
+      const actual = await db.precioMTOP.findUnique({ where: { id }, select: { precioUnitario: true } });
+      if (!actual) {
+        return NextResponse.json({ error: "Material no encontrado" }, { status: 404 });
+      }
       actualizado = await db.precioMTOP.update({
         where: { id },
-        data: datosCorreccionPrecio(body.precioUnitario),
+        data: datosCorreccionPrecio(body.precioUnitario, actual.precioUnitario),
       });
     } catch (err) {
       if (err && typeof err === "object" && "code" in err && err.code === "P2025") {

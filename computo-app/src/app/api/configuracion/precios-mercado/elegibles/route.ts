@@ -23,6 +23,11 @@ export async function GET() {
         proveedor: { not: null },
         motivoVerificacion: null,
         requiereVerificacion: false,
+        // Protección contra el pisado silencioso (bug real de 9.3.2,
+        // sep-2026) — un precio que un humano puso/confirmó a mano queda
+        // afuera del botón automático hasta que alguien lo vuelva a tocar
+        // explícitamente. Ver lib/resolverPrecioMTOP.ts.
+        origenVerificacion: { not: "manual" },
         OR: [{ fechaUltimaVerificacion: null }, { fechaUltimaVerificacion: { lt: haceUnDia } }],
       },
       select: { codigo: true, descripcion: true, proveedor: true, precioUnitario: true, unidad: true },

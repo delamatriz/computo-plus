@@ -861,6 +861,24 @@ model PrecioMTOP {
   // cerraba la pestaña de la corrida.
   detalleVerificacion     String?   @db.Text
 
+  // Protección contra el pisado silencioso de FEAT-AI-006 (confirmado con
+  // el bug real de 9.3.2/MAT-MEMBRANA-ALUMINIZADA, sep-2026) — el botón
+  // "Buscar precios actualizados" comparaba solo contra precioUnitario
+  // actual, nunca contra si un humano ya había verificado el precio con
+  // fuente real. "manual" = lo puso/confirmó un humano (PATCH directo,
+  // corrección inline desde un APU, importación, o Cola de Revisión) y
+  // queda EXCLUIDO de la elegibilidad automática — solo re-verificable a
+  // mano. "automatico" = default para todo lo existente (sin forma
+  // confiable de reconstruir cuáles de los 1.005 registros previos habían
+  // sido realmente verificados a mano) y para lo que escribe
+  // verificarPrecioMTOP() al auto-aplicar.
+  origenVerificacion String @default("automatico")
+  // Snapshot del precioUnitario inmediatamente anterior a la última
+  // escritura — auditoría mínima sin tabla de historial aparte, para
+  // poder detectar un salto brusco después de los hechos. Null en la fila
+  // recién creada (nunca hubo un valor previo).
+  precioAnterior     Float?
+
   // Lado opuesto de MaterialAPU.precioMTOP — sin uso directo hoy, Prisma
   // exige declarar ambos lados de una relación explícita.
   materialesAPU MaterialAPU[]

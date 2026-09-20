@@ -123,6 +123,78 @@ export interface ResultadoVerificacionPrecio {
   precioNuevo: number | null;
   variacionPct: number | null;
   detalle: string;
+  // Solo poblados cuando accion === "no_encontrado" / "variacion_alta" —
+  // se guardan acá (además de aplicarse ya mismo si escribir=true) para
+  // que un caller pueda cachear el resultado completo y aplicarlo después
+  // sin tener que volver a consultar la IA (ver aplicarResultadoVerificacion,
+  // usado por el mecanismo de resume de scripts/verificar-precios-mercado.ts).
+  motivoNoEncontrado?: "producto_no_encontrado" | "fuente_no_disponible" | null;
+  urlReferencia?: string | null;
+}
+
+// Único punto que escribe en PrecioMTOP a partir de un resultado ya
+// decidido — lo usa verificarPrecioMTOP (cuando escribir=true, con un
+// resultado recién consultado) y aplicarResultadoVerificacion (con un
+// resultado cacheado de una corrida anterior del mismo ciclo, sin volver
+// a consultar la IA). Mismas 4 ramas de siempre, solo movidas a un solo
+// lugar para no duplicarlas entre los dos casos de uso.
+async function escribirResultado(codigo: string, resultado: ResultadoVerificacionPrecio): Promise<void> {
+  if (resultado.accion === "ya_no_elegible") return; // no aplica escritura — lo agrega el caller de procesar-tanda, ver arriba
+
+  // codigo dejó de ser único por sí solo (PrecioMTOP.codigo pasó a
+  // @@unique([codigo, proveedor]), para poder alojar listas de precios de
+  // más de un origen) — hay que resolver el id real de esta fila antes de
+  // poder actualizarla. Se usa id (no el compuesto codigo_proveedor):
+  // Prisma no acepta null en el shorthand de un compound unique, y la
+  // inmensa mayoría de las filas hoy tiene proveedor=null.
+  const fila = await db.precioMTOP.findFirst({ where: { codigo }, select: { id: true } });
+  if (!fila) return;
+  const where = { id: fila.id };
+
+  switch (resultado.accion) {
+    case "error":
+      await db.precioMTOP.update({
+        where,
+        data: { requiereVerificacion: true, motivoVerificacion: "fuente_no_disponible" },
+      });
+      return;
+    case "no_encontrado":
+      await db.precioMTOP.update({
+        where,
+        data: {
+          requiereVerificacion: true,
+          motivoVerificacion: resultado.motivoNoEncontrado ?? "producto_no_encontrado",
+        },
+      });
+      return;
+    case "actualizado":
+      await db.precioMTOP.update({
+        where,
+        data: {
+          precioUnitario: resultado.precioNuevo!,
+          precioConIva: resultado.precioNuevo!,
+          precioAnterior: resultado.precioAnterior,
+          fechaUltimaVerificacion: new Date(),
+          requiereVerificacion: false,
+          precioSugeridoPendiente: null,
+          origenVerificacion: "automatico",
+        },
+      });
+      return;
+    case "variacion_alta":
+      await db.precioMTOP.update({
+        where,
+        data: {
+          requiereVerificacion: true,
+          motivoVerificacion: "variacion_alta",
+          precioSugeridoPendiente: resultado.precioNuevo,
+          fechaUltimaVerificacion: new Date(),
+          detalleVerificacion: resultado.detalle,
+          urlReferencia: resultado.urlReferencia,
+        },
+      });
+      return;
+  }
 }
 
 // escribir=false (solo lo usa el script de terminal, para probar con
@@ -132,7 +204,7 @@ export interface ResultadoVerificacionPrecio {
 // aplica sola, ver SeccionActualizacionDatos.tsx).
 export async function verificarPrecioMTOP(codigo: string, escribir = true): Promise<ResultadoVerificacionPrecio> {
   // findFirst en vez de findUnique — codigo dejó de ser único por sí solo
-  // (PrecioMTOP.codigo pasó a @@unique([codigo, proveedor])).
+  // (ver escribirResultado más abajo).
   const item = await db.precioMTOP.findFirst({ where: { codigo } });
   if (!item) {
     throw new Error(`Código no encontrado en PrecioMTOP: ${codigo}`);
@@ -144,38 +216,28 @@ export async function verificarPrecioMTOP(codigo: string, escribir = true): Prom
   try {
     resultado = await consultarPrecio(item.proveedor!, item.nombreProducto ?? item.descripcion, item.unidad, item.precioUnitario);
   } catch (err) {
-    if (escribir) {
-      await db.precioMTOP.update({
-        where: { id: item.id },
-        data: { requiereVerificacion: true, motivoVerificacion: "fuente_no_disponible" },
-      });
-    }
-    return {
+    const salida: ResultadoVerificacionPrecio = {
       ...base,
       accion: "error",
       precioNuevo: null,
       variacionPct: null,
       detalle: `Error en la consulta: ${(err as Error).message}`,
     };
+    if (escribir) await escribirResultado(codigo, salida);
+    return salida;
   }
 
   if (!resultado.encontrado || resultado.precio_encontrado == null) {
-    if (escribir) {
-      await db.precioMTOP.update({
-        where: { id: item.id },
-        data: {
-          requiereVerificacion: true,
-          motivoVerificacion: resultado.motivo_no_encontrado ?? "producto_no_encontrado",
-        },
-      });
-    }
-    return {
+    const salida: ResultadoVerificacionPrecio = {
       ...base,
       accion: "no_encontrado",
       precioNuevo: null,
       variacionPct: null,
       detalle: resultado.fuente_detalle,
+      motivoNoEncontrado: resultado.motivo_no_encontrado,
     };
+    if (escribir) await escribirResultado(codigo, salida);
+    return salida;
   }
 
   const precioNuevoUYU =
@@ -184,33 +246,34 @@ export async function verificarPrecioMTOP(codigo: string, escribir = true): Prom
   const umbral = item.umbralAlertaPorcentaje;
 
   if (variacionPct < umbral) {
-    if (escribir) {
-      await db.precioMTOP.update({
-        where: { id: item.id },
-        data: {
-          precioUnitario: precioNuevoUYU,
-          precioConIva: precioNuevoUYU,
-          fechaUltimaVerificacion: new Date(),
-          requiereVerificacion: false,
-          precioSugeridoPendiente: null,
-        },
-      });
-    }
-    return { ...base, accion: "actualizado", precioNuevo: precioNuevoUYU, variacionPct, detalle: resultado.fuente_detalle };
+    const salida: ResultadoVerificacionPrecio = {
+      ...base,
+      accion: "actualizado",
+      precioNuevo: precioNuevoUYU,
+      variacionPct,
+      detalle: resultado.fuente_detalle,
+    };
+    if (escribir) await escribirResultado(codigo, salida);
+    return salida;
   }
 
-  if (escribir) {
-    await db.precioMTOP.update({
-      where: { id: item.id },
-      data: {
-        requiereVerificacion: true,
-        motivoVerificacion: "variacion_alta",
-        precioSugeridoPendiente: precioNuevoUYU,
-        fechaUltimaVerificacion: new Date(),
-        detalleVerificacion: resultado.fuente_detalle,
-        urlReferencia: resultado.url_referencia,
-      },
-    });
-  }
-  return { ...base, accion: "variacion_alta", precioNuevo: precioNuevoUYU, variacionPct, detalle: resultado.fuente_detalle };
+  const salida: ResultadoVerificacionPrecio = {
+    ...base,
+    accion: "variacion_alta",
+    precioNuevo: precioNuevoUYU,
+    variacionPct,
+    detalle: resultado.fuente_detalle,
+    urlReferencia: resultado.url_referencia,
+  };
+  if (escribir) await escribirResultado(codigo, salida);
+  return salida;
+}
+
+// Aplica un resultado YA DECIDIDO en una corrida anterior (mismo ciclo,
+// cacheado en scripts/.estado-verificacion-precios.json) — sin volver a
+// consultar la IA. Pensado para el modo --apply del script de terminal
+// cuando retoma un ciclo que ya tiene dry-runs previos: el precio/decisión
+// que se muestra en el reporte es exactamente el que se escribe acá.
+export async function aplicarResultadoVerificacion(codigo: string, resultado: ResultadoVerificacionPrecio): Promise<void> {
+  await escribirResultado(codigo, resultado);
 }

@@ -49,7 +49,10 @@ async function main() {
   console.log(`Modo: ${aplicar ? "APLICAR A PRODUCCIÓN" : "DRY RUN (nada se escribe)"}`);
 
   const elegibles = await db.precioMTOP.findMany({
-    where: { proveedor: { not: null }, motivoVerificacion: null, requiereVerificacion: false },
+    // origenVerificacion !== "manual" — protección contra pisar precios
+    // que un humano ya puso/confirmó a mano (bug real de 9.3.2, sep-2026),
+    // mismo criterio que GET /api/configuracion/precios-mercado/elegibles.
+    where: { proveedor: { not: null }, motivoVerificacion: null, requiereVerificacion: false, origenVerificacion: { not: "manual" } },
     orderBy: { codigo: "asc" },
     select: { codigo: true, descripcion: true, proveedor: true, precioUnitario: true, unidad: true },
   });

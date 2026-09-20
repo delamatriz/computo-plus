@@ -33,10 +33,10 @@ export async function POST(req: NextRequest) {
       // solo (PrecioMTOP.codigo pasó a @@unique([codigo, proveedor])).
       const item = await db.precioMTOP.findFirst({
         where: { codigo },
-        select: { codigo: true, descripcion: true, precioUnitario: true, proveedor: true, motivoVerificacion: true, requiereVerificacion: true },
+        select: { codigo: true, descripcion: true, precioUnitario: true, proveedor: true, motivoVerificacion: true, requiereVerificacion: true, origenVerificacion: true },
       });
 
-      if (!item || !item.proveedor || item.motivoVerificacion !== null || item.requiereVerificacion) {
+      if (!item || !item.proveedor || item.motivoVerificacion !== null || item.requiereVerificacion || item.origenVerificacion === "manual") {
         resultados.push({
           codigo,
           descripcion: item?.descripcion ?? codigo,
