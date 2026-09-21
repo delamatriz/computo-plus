@@ -64,6 +64,7 @@ model Proyecto {
   contrato          ContratoObra?
   tramitesLegales   TramiteLegal[]
   movimientosCaja   MovimientoCaja[]
+  actaCierre        ActaCierre?
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
@@ -238,6 +239,7 @@ model Rubro {
   mediciones  MedicionDocumento[]
   filasMetraje FilaMetraje[]
   entradasBitacora RubroEntradaBitacora[]
+  observacionesCierre ObservacionCierreRubro[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -551,6 +553,69 @@ model DocumentoContrato {
   nombreArchivoOriginal String
   tipoArchivo           String // extraído del contentType, ej. "application/pdf"
   tamano                Int? // bytes, opcional
+
+  createdAt DateTime @default(now())
+}
+
+// Acta de cierre / recepción de obra (Gestión de Obra, "Cierre y
+// Post-Obra"). 1:1 con Proyecto, mismo criterio que ContratoObra: el
+// sistema no genera ni captura firmas reales, solo organiza el
+// registro y los documentos ya firmados externamente. Sin borrado del
+// registro principal — las listas hijas (observaciones, firmantes,
+// documentos) sí se pueden editar/borrar una por una.
+model ActaCierre {
+  id         String   @id @default(cuid())
+  proyectoId String   @unique
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  fechaCierre           DateTime?
+  observacionesGenerales String?  @db.Text
+
+  observaciones ObservacionCierreRubro[]
+  firmantes     Firmante[]
+  documentos    DocumentoActaCierre[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ObservacionCierreRubro {
+  id           String     @id @default(cuid())
+  actaCierreId String
+  actaCierre   ActaCierre @relation(fields: [actaCierreId], references: [id], onDelete: Cascade)
+  rubroId      String
+  rubro        Rubro      @relation(fields: [rubroId], references: [id], onDelete: Cascade)
+
+  observacion String @db.Text
+  estado      String @default("Aprobado sin observaciones") // "Aprobado sin observaciones" | "Con observaciones pendientes"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Firmante {
+  id           String     @id @default(cuid())
+  actaCierreId String
+  actaCierre   ActaCierre @relation(fields: [actaCierreId], references: [id], onDelete: Cascade)
+
+  nombre  String
+  rol     String // "Director de obra" | "Comitente" | "Contratista" | "Otro"
+  firmado Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DocumentoActaCierre {
+  id           String     @id @default(cuid())
+  actaCierreId String
+  actaCierre   ActaCierre @relation(fields: [actaCierreId], references: [id], onDelete: Cascade)
+
+  nombre                String // "nombre/tipo" libre, ej. "Acta de recepción firmada"
+  urlBlob               String @db.Text // URL de Vercel Blob (privado) — mismo patrón que DocumentoContrato
+  nombreArchivoOriginal String
+  tipoArchivo           String
+  tamano                Int?
 
   createdAt DateTime @default(now())
 }

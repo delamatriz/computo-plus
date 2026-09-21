@@ -20,7 +20,6 @@ import {
   Info,
   RefreshCw,
   HardHat,
-  ClipboardCheck,
   Lock,
   LockOpen,
   Clock,
@@ -57,6 +56,7 @@ import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionControlCostos from "@/components/SeccionControlCostos";
 import SeccionFlujoCaja from "@/components/SeccionFlujoCaja";
+import SeccionCierreObra from "@/components/SeccionCierreObra";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
 import SeccionComputoGlobalMateriales from "@/components/SeccionComputoGlobalMateriales";
 import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
@@ -5723,11 +5723,7 @@ export default function ProyectoPage() {
             titulo="Cierre y Post-Obra"
             subtitulo="Recepción, liquidación final y documentación de cierre, una vez terminada la obra."
           >
-            <TarjetaProximamente
-              icono={ClipboardCheck}
-              titulo="Cierre de Obra"
-              descripcion="Acá vas a poder cerrar la obra: liquidación final, actas de recepción y documentación de cierre."
-            />
+            <SeccionCierreObra proyectoId={proyectoActivo.id} />
             <TarjetaProximamente
               icono={FileCheck2}
               titulo="Liquidación Final"
