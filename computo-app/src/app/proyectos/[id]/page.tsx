@@ -24,7 +24,6 @@ import {
   Lock,
   LockOpen,
   Clock,
-  Scale,
   Wallet,
   FileCheck2,
   BookMarked,
@@ -57,6 +56,7 @@ import SeccionContratoObra from "@/components/SeccionContratoObra";
 import SeccionTramitesLegales from "@/components/SeccionTramitesLegales";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
+import SeccionControlCostos from "@/components/SeccionControlCostos";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
 import SeccionComputoGlobalMateriales from "@/components/SeccionComputoGlobalMateriales";
 import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
@@ -5705,10 +5705,15 @@ export default function ProyectoPage() {
               totalGeneral={totalGeneral}
               capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre }))}
             />
-            <TarjetaProximamente
-              icono={Scale}
-              titulo="Control de Costos"
-              descripcion="Acá vas a poder comparar lo presupuestado contra los gastos reales cargados en obra."
+            <SeccionControlCostos
+              proyectoId={proyectoActivo.id}
+              moneda={moneda}
+              capitulos={capitulos.map((c) => ({
+                id: c.id,
+                nombre: c.nombre,
+                codigo: c.codigo,
+                rubros: c.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
+              }))}
             />
             <TarjetaProximamente
               icono={Wallet}
