@@ -18,8 +18,12 @@ import { cn } from "@/lib/utils";
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface RubroCronograma {
   id: string;
+  codigo?: string;
+  descripcion?: string;
   cantidad: number | null;
   precioUnit: number | null;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
 }
 
 interface CapituloCronograma {
@@ -50,6 +54,7 @@ interface Props {
 }
 
 type Vista = "tabla" | "gantt" | "curva";
+type FechaPar = { inicio: string; fin: string };
 
 /* ─── Helpers de fecha ────────────────────────────────────── */
 function toInputDate(v?: string | null): string {
@@ -102,6 +107,21 @@ function totalCapituloC(cap: CapituloCronograma): number {
   return (cap.rubros ?? []).reduce((s, r) => s + totalRubroC(r), 0);
 }
 
+/* ─── Fecha efectiva de un rubro — propia si está cargada,
+    si no, heredada del capítulo. Se resuelve por campo (inicio/fin
+    pueden heredar independientemente uno del otro). ────────── */
+function fechaEfectivaRubro(
+  fechaRubro: FechaPar,
+  fechaCapitulo: FechaPar
+): { inicio: string; fin: string; inicioHeredada: boolean; finHeredada: boolean } {
+  return {
+    inicio: fechaRubro.inicio || fechaCapitulo.inicio,
+    fin: fechaRubro.fin || fechaCapitulo.fin,
+    inicioHeredada: !fechaRubro.inicio,
+    finHeredada: !fechaRubro.fin,
+  };
+}
+
 /* ─── Generación de la escala de meses para el Gantt ─────────── */
 function generarMeses(inicio: string, fin: string): { label: string; dias: number }[] {
   const meses: { label: string; dias: number }[] = [];
@@ -133,28 +153,63 @@ function pastelizar(hex: string, mezcla = 0.45): string {
 function VistaGantt({
   capitulos,
   fechas,
+  fechasRubro,
+  expandidos,
+  toggleExpandido,
 }: {
   capitulos: CapituloCronograma[];
-  fechas: Record<string, { inicio: string; fin: string }>;
+  fechas: Record<string, FechaPar>;
+  fechasRubro: Record<string, FechaPar>;
+  expandidos: Record<string, boolean>;
+  toggleExpandido: (capId: string) => void;
 }) {
-  const conFechas = capitulos
+  // Rango de la escala de tiempo — considera capítulos con fecha propia
+  // Y rubros con fecha efectiva (propia o heredada), para no recortar
+  // un rubro cuya fecha propia caiga fuera del rango del capítulo.
+  const capsConFechas = capitulos
     .map((cap) => ({ cap, f: fechas[cap.id] ?? { inicio: "", fin: "" } }))
     .filter(({ f }) => f.inicio && f.fin && f.fin >= f.inicio);
 
-  if (conFechas.length === 0) {
+  const rubrosConFechas: { capId: string; r: RubroCronograma; f: FechaPar; heredada: boolean }[] = [];
+  for (const cap of capitulos) {
+    const capF = fechas[cap.id] ?? { inicio: "", fin: "" };
+    for (const r of cap.rubros ?? []) {
+      const rubF = fechasRubro[r.id] ?? { inicio: "", fin: "" };
+      const ef = fechaEfectivaRubro(rubF, capF);
+      if (ef.inicio && ef.fin && ef.fin >= ef.inicio) {
+        rubrosConFechas.push({ capId: cap.id, r, f: { inicio: ef.inicio, fin: ef.fin }, heredada: ef.inicioHeredada && ef.finHeredada });
+      }
+    }
+  }
+
+  if (capsConFechas.length === 0 && rubrosConFechas.length === 0) {
     return (
       <p className="text-xs text-slate-400 italic px-5 py-5">
-        Todavía no hay capítulos con fechas definidas para mostrar el Gantt.
+        Todavía no hay capítulos ni rubros con fechas definidas para mostrar el Gantt.
       </p>
     );
   }
 
-  const rangeInicio = conFechas.reduce((min, { f }) => (f.inicio < min ? f.inicio : min), conFechas[0].f.inicio);
-  const rangeFin = conFechas.reduce((max, { f }) => (f.fin > max ? f.fin : max), conFechas[0].f.fin);
+  const todasLasFechas = [
+    ...capsConFechas.map(({ f }) => f),
+    ...rubrosConFechas.map(({ f }) => f),
+  ];
+  const rangeInicio = todasLasFechas.reduce((min, f) => (f.inicio < min ? f.inicio : min), todasLasFechas[0].inicio);
+  const rangeFin = todasLasFechas.reduce((max, f) => (f.fin > max ? f.fin : max), todasLasFechas[0].fin);
   const totalDias = diffDias(rangeInicio, rangeFin) + 1;
   const meses = generarMeses(rangeInicio, rangeFin);
 
-  const anchoNombre = 200;
+  const anchoNombre = 220;
+
+  const barra = (f: FechaPar) => {
+    const offsetDias = diffDias(rangeInicio, f.inicio);
+    const duracion = diffDias(f.inicio, f.fin) + 1;
+    return {
+      leftPct: (offsetDias / totalDias) * 100,
+      widthPct: Math.max((duracion / totalDias) * 100, 1.5),
+      duracion,
+    };
+  };
 
   return (
     <div className="px-5 py-4 overflow-x-auto">
@@ -175,57 +230,105 @@ function VistaGantt({
           </div>
         </div>
 
-        {/* Filas */}
+        {/* Filas — capítulo (grupo) + rubros hijos si está expandido */}
         {capitulos.map((cap, idx) => {
           const f = fechas[cap.id] ?? { inicio: "", fin: "" };
           const tieneFechas = f.inicio && f.fin && f.fin >= f.inicio;
           const color = cap.color || "#2563EB";
-
-          let leftPct = 0;
-          let widthPct = 0;
-          let duracion = 0;
-          if (tieneFechas) {
-            const offsetDias = diffDias(rangeInicio, f.inicio);
-            duracion = diffDias(f.inicio, f.fin) + 1;
-            leftPct = (offsetDias / totalDias) * 100;
-            widthPct = Math.max((duracion / totalDias) * 100, 1.5);
-          }
+          const rubros = cap.rubros ?? [];
+          const expandido = !!expandidos[cap.id];
 
           return (
-            <div
-              key={cap.id}
-              className={cn("flex items-center", idx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white")}
-              style={{ minHeight: 40 }}
-            >
-              <div style={{ width: anchoNombre, flexShrink: 0 }} className="pr-2 text-sm text-slate-700 font-medium truncate">
-                {cap.codigo ? `${cap.codigo} · ` : ""}{cap.nombre}
-              </div>
-              <div className="flex-1 relative flex items-center" style={{ height: 24 }}>
-                {tieneFechas ? (
-                  <div
-                    className="group absolute cursor-default"
-                    style={{ left: `${leftPct}%`, width: `${widthPct}%`, height: 10, backgroundColor: pastelizar(color) }}
-                  >
-                    {/* Tooltip */}
-                    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-10 whitespace-nowrap">
-                      <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs px-3 py-2 shadow-lg">
-                        <div className="font-bold">{cap.codigo ? `${cap.codigo} · ` : ""}{cap.nombre}</div>
-                        <div className="text-slate-200">{fmtFecha(f.inicio)} — {fmtFecha(f.fin)}</div>
-                        <div className="text-slate-200">{duracion} día{duracion === 1 ? "" : "s"}</div>
-                      </div>
-                      <div className="w-2 h-2 -mt-1 rotate-45 bg-[#1A3A5C]" />
-                    </div>
-                  </div>
-                ) : (
-                  <span className="absolute inset-y-0 left-0 flex items-center text-xs text-slate-400 italic">
-                    Sin fechas definidas
+            <div key={cap.id} className={cn(idx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white")}>
+              {/* Fila del capítulo */}
+              <div className="flex items-center" style={{ minHeight: 40 }}>
+                <div style={{ width: anchoNombre, flexShrink: 0 }} className="pr-2 flex items-center gap-1">
+                  {rubros.length > 0 ? (
+                    <button
+                      onClick={() => toggleExpandido(cap.id)}
+                      className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
+                    >
+                      {expandido ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    </button>
+                  ) : (
+                    <span className="w-3.5 h-3.5 flex-shrink-0" />
+                  )}
+                  <span className="text-sm text-slate-700 font-semibold truncate">
+                    {cap.codigo ? `${cap.codigo} · ` : ""}{cap.nombre}
                   </span>
-                )}
+                </div>
+                <div className="flex-1 relative flex items-center" style={{ height: 24 }}>
+                  {tieneFechas ? (
+                    <div
+                      className="group absolute cursor-default"
+                      style={{ ...barraStyle(barra(f)), height: 12, backgroundColor: color }}
+                    >
+                      <TooltipBarra nombre={`${cap.codigo ? cap.codigo + " · " : ""}${cap.nombre}`} f={f} duracion={barra(f).duracion} />
+                    </div>
+                  ) : (
+                    <span className="absolute inset-y-0 left-0 flex items-center text-xs text-slate-400 italic">
+                      Sin fechas definidas
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {/* Filas de rubro — hijas, indentadas */}
+              {expandido &&
+                rubros.map((r) => {
+                  const rubF = fechasRubro[r.id] ?? { inicio: "", fin: "" };
+                  const ef = fechaEfectivaRubro(rubF, f);
+                  const tieneEfectiva = ef.inicio && ef.fin && ef.fin >= ef.inicio;
+                  const esHeredada = ef.inicioHeredada && ef.finHeredada;
+                  return (
+                    <div key={r.id} className="flex items-center" style={{ minHeight: 32 }}>
+                      <div style={{ width: anchoNombre, flexShrink: 0 }} className="pr-2 pl-6 flex items-center">
+                        <span className="text-[11px] text-slate-500 truncate">
+                          {r.codigo ? `${r.codigo} — ` : ""}{r.descripcion ?? ""}
+                        </span>
+                      </div>
+                      <div className="flex-1 relative flex items-center" style={{ height: 20 }}>
+                        {tieneEfectiva ? (
+                          <div
+                            className="group absolute cursor-default"
+                            style={{ ...barraStyle(barra({ inicio: ef.inicio, fin: ef.fin })), height: 8, backgroundColor: pastelizar(color, esHeredada ? 0.65 : 0.35) }}
+                          >
+                            <TooltipBarra
+                              nombre={`${r.codigo ? r.codigo + " — " : ""}${r.descripcion ?? ""}${esHeredada ? " (hereda del capítulo)" : ""}`}
+                              f={{ inicio: ef.inicio, fin: ef.fin }}
+                              duracion={barra({ inicio: ef.inicio, fin: ef.fin }).duracion}
+                            />
+                          </div>
+                        ) : (
+                          <span className="absolute inset-y-0 left-0 flex items-center text-[11px] text-slate-300 italic">
+                            Sin fechas definidas
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+
+  function barraStyle(b: { leftPct: number; widthPct: number }) {
+    return { left: `${b.leftPct}%`, width: `${b.widthPct}%` };
+  }
+}
+
+function TooltipBarra({ nombre, f, duracion }: { nombre: string; f: FechaPar; duracion: number }) {
+  return (
+    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-10 whitespace-nowrap">
+      <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs px-3 py-2 shadow-lg">
+        <div className="font-bold">{nombre}</div>
+        <div className="text-slate-200">{fmtFecha(f.inicio)} — {fmtFecha(f.fin)}</div>
+        <div className="text-slate-200">{duracion} día{duracion === 1 ? "" : "s"}</div>
+      </div>
+      <div className="w-2 h-2 -mt-1 rotate-45 bg-[#1A3A5C]" />
     </div>
   );
 }
@@ -234,27 +337,40 @@ function VistaGantt({
 function VistaCurvaS({
   capitulos,
   fechas,
+  fechasRubro,
   certificaciones,
 }: {
   capitulos: CapituloCronograma[];
-  fechas: Record<string, { inicio: string; fin: string }>;
+  fechas: Record<string, FechaPar>;
+  fechasRubro: Record<string, FechaPar>;
   certificaciones: CertificacionCronograma[];
 }) {
-  const capsConFechas = capitulos
-    .map((cap) => ({ cap, f: fechas[cap.id] ?? { inicio: "", fin: "" }, total: totalCapituloC(cap) }))
-    .filter(({ f }) => f.inicio && f.fin && f.fin >= f.inicio);
+  // Planificado — a nivel RUBRO (fecha efectiva: propia o heredada del
+  // capítulo). La curva Real (certificado) sigue exactamente igual que
+  // antes: ya operaba a nivel rubro vía CertificacionItem, sin cambios acá.
+  const rubrosConFechas: { r: RubroCronograma; f: FechaPar; total: number }[] = [];
+  for (const cap of capitulos) {
+    const capF = fechas[cap.id] ?? { inicio: "", fin: "" };
+    for (const r of cap.rubros ?? []) {
+      const rubF = fechasRubro[r.id] ?? { inicio: "", fin: "" };
+      const ef = fechaEfectivaRubro(rubF, capF);
+      if (ef.inicio && ef.fin && ef.fin >= ef.inicio) {
+        rubrosConFechas.push({ r, f: { inicio: ef.inicio, fin: ef.fin }, total: totalRubroC(r) });
+      }
+    }
+  }
 
   const totalGeneral = capitulos.reduce((s, c) => s + totalCapituloC(c), 0);
 
-  if (capsConFechas.length === 0 || certificaciones.length === 0 || totalGeneral <= 0) {
+  if (rubrosConFechas.length === 0 || certificaciones.length === 0 || totalGeneral <= 0) {
     return (
       <p className="text-xs text-slate-400 italic px-5 py-5">
-        Cargá fechas en el cronograma y certificaciones para ver la curva de avance.
+        Cargá fechas en el cronograma (de capítulo o de rubro) y certificaciones para ver la curva de avance.
       </p>
     );
   }
 
-  // Mapa de rubros (para calcular el monto certificado de cada certificación)
+  // Mapa de rubros (para calcular el monto certificado de cada certificación) — sin cambios.
   const rubrosPorId = new Map<string, RubroCronograma>();
   capitulos.forEach((cap) => (cap.rubros ?? []).forEach((r) => rubrosPorId.set(r.id, r)));
 
@@ -265,7 +381,7 @@ function VistaCurvaS({
       return s + (it.porcentajeAvance / 100) * totalRubroC(r);
     }, 0);
 
-  // Curva real — acumulado de certificaciones ordenadas por fecha
+  // Curva real — acumulado de certificaciones ordenadas por fecha (sin cambios).
   const certsOrdenadas = [...certificaciones].sort((a, b) => a.fecha.localeCompare(b.fecha));
   let acumReal = 0;
   const puntosReales = certsOrdenadas.map((c) => {
@@ -273,18 +389,18 @@ function VistaCurvaS({
     return { fecha: toInputDate(c.fecha), pct: (acumReal / totalGeneral) * 100 };
   });
 
-  // Rango de fechas — capítulos planificados + fechas de certificaciones
-  let rangeInicio = capsConFechas.reduce((min, { f }) => (f.inicio < min ? f.inicio : min), capsConFechas[0].f.inicio);
-  let rangeFin = capsConFechas.reduce((max, { f }) => (f.fin > max ? f.fin : max), capsConFechas[0].f.fin);
+  // Rango de fechas — rubros planificados + fechas de certificaciones
+  let rangeInicio = rubrosConFechas.reduce((min, { f }) => (f.inicio < min ? f.inicio : min), rubrosConFechas[0].f.inicio);
+  let rangeFin = rubrosConFechas.reduce((max, { f }) => (f.fin > max ? f.fin : max), rubrosConFechas[0].f.fin);
   for (const p of puntosReales) {
     if (p.fecha < rangeInicio) rangeInicio = p.fecha;
     if (p.fecha > rangeFin) rangeFin = p.fecha;
   }
 
-  // Curva planificada — avance acumulado lineal por capítulo
+  // Curva planificada — avance acumulado lineal, ahora por RUBRO en vez de por capítulo.
   const planificadoEn = (fecha: string): number => {
     let acum = 0;
-    for (const { f, total } of capsConFechas) {
+    for (const { f, total } of rubrosConFechas) {
       const duracion = duracionDias(f.inicio, f.fin) ?? 1;
       if (fecha < f.inicio) continue;
       if (fecha >= f.fin) acum += total;
@@ -293,7 +409,6 @@ function VistaCurvaS({
     return totalGeneral > 0 ? (acum / totalGeneral) * 100 : 0;
   };
 
-  // Genera los puntos del eje X — diario si el rango es corto, semanal si es largo
   const totalDias = diffDias(rangeInicio, rangeFin) + 1;
   const paso = totalDias > 120 ? 7 : 1;
 
@@ -371,18 +486,30 @@ function VistaCurvaS({
 function VistaTabla({
   capitulos,
   fechas,
+  fechasRubro,
   errores,
+  erroresRubro,
+  expandidos,
+  toggleExpandido,
   actualizar,
   guardar,
+  actualizarRubro,
+  guardarRubro,
   inicioObra,
   finObra,
   duracionTotal,
 }: {
   capitulos: CapituloCronograma[];
-  fechas: Record<string, { inicio: string; fin: string }>;
+  fechas: Record<string, FechaPar>;
+  fechasRubro: Record<string, FechaPar>;
   errores: Record<string, string>;
+  erroresRubro: Record<string, string>;
+  expandidos: Record<string, boolean>;
+  toggleExpandido: (capId: string) => void;
   actualizar: (capId: string, campo: "inicio" | "fin", valor: string) => void;
   guardar: (capId: string) => void;
+  actualizarRubro: (rubroId: string, campo: "inicio" | "fin", valor: string) => void;
+  guardarRubro: (rubroId: string) => void;
   inicioObra: string;
   finObra: string;
   duracionTotal: number | null;
@@ -390,71 +517,138 @@ function VistaTabla({
   const thCls = "text-[10px] font-semibold text-slate-400 uppercase tracking-wider";
 
   return (
-    <>
-      {/* Encabezado de columnas */}
-      <div className="flex items-center px-5 py-2 bg-slate-50 border-b border-slate-200">
-        <div className={cn(thCls, "flex-1 pr-2")}>Capítulo</div>
-        <div className={cn(thCls, "text-center")} style={{ width: 150 }}>Fecha inicio</div>
-        <div className={cn(thCls, "text-center")} style={{ width: 150 }}>Fecha fin</div>
-        <div className={cn(thCls, "text-right pr-1")} style={{ width: 110 }}>Duración</div>
-      </div>
+    <div className="overflow-x-auto">
+      <div style={{ minWidth: 640 }}>
+        {/* Encabezado de columnas */}
+        <div className="flex items-center px-5 py-2 bg-slate-50 border-b border-slate-200">
+          <div className={cn(thCls, "flex-1 pr-2")}>Capítulo</div>
+          <div className={cn(thCls, "text-center")} style={{ width: 150 }}>Fecha inicio</div>
+          <div className={cn(thCls, "text-center")} style={{ width: 150 }}>Fecha fin</div>
+          <div className={cn(thCls, "text-right pr-1")} style={{ width: 110 }}>Duración</div>
+        </div>
 
-      {/* Filas */}
-      {capitulos.map((cap, idx) => {
-        const f = fechas[cap.id] ?? { inicio: "", fin: "" };
-        const duracion = duracionDias(f.inicio, f.fin);
-        const error = errores[cap.id];
-        return (
-          <div
-            key={cap.id}
-            className={cn("border-b border-slate-100 last:border-0", idx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white")}
-          >
-            <div className="flex items-center px-5" style={{ minHeight: 44 }}>
-              <div className="flex-1 pr-2 text-sm text-slate-700 font-medium truncate">
-                {cap.codigo ? `${cap.codigo} · ` : ""}{cap.nombre}
+        {/* Filas */}
+        {capitulos.map((cap, idx) => {
+          const f = fechas[cap.id] ?? { inicio: "", fin: "" };
+          const duracion = duracionDias(f.inicio, f.fin);
+          const error = errores[cap.id];
+          const rubros = cap.rubros ?? [];
+          const expandido = !!expandidos[cap.id];
+
+          return (
+            <div
+              key={cap.id}
+              className={cn("border-b border-slate-100 last:border-0", idx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white")}
+            >
+              <div className="flex items-center px-5" style={{ minHeight: 44 }}>
+                <div className="flex-1 pr-2 flex items-center gap-1 min-w-0">
+                  {rubros.length > 0 ? (
+                    <button
+                      onClick={() => toggleExpandido(cap.id)}
+                      className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
+                    >
+                      {expandido ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    </button>
+                  ) : (
+                    <span className="w-3.5 h-3.5 flex-shrink-0" />
+                  )}
+                  <span className="text-sm text-slate-700 font-medium truncate">
+                    {cap.codigo ? `${cap.codigo} · ` : ""}{cap.nombre}
+                  </span>
+                </div>
+                <div style={{ width: 150 }} className="px-1">
+                  <input
+                    type="date"
+                    value={f.inicio}
+                    onChange={(e) => actualizar(cap.id, "inicio", e.target.value)}
+                    onBlur={() => guardar(cap.id)}
+                    className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+                  />
+                </div>
+                <div style={{ width: 150 }} className="px-1">
+                  <input
+                    type="date"
+                    value={f.fin}
+                    onChange={(e) => actualizar(cap.id, "fin", e.target.value)}
+                    onBlur={() => guardar(cap.id)}
+                    className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+                  />
+                </div>
+                <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-600 text-right pr-1">
+                  {duracion != null ? `${duracion} día${duracion === 1 ? "" : "s"}` : "—"}
+                </div>
               </div>
-              <div style={{ width: 150 }} className="px-1">
-                <input
-                  type="date"
-                  value={f.inicio}
-                  onChange={(e) => actualizar(cap.id, "inicio", e.target.value)}
-                  onBlur={() => guardar(cap.id)}
-                  className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
-                />
-              </div>
-              <div style={{ width: 150 }} className="px-1">
-                <input
-                  type="date"
-                  value={f.fin}
-                  onChange={(e) => actualizar(cap.id, "fin", e.target.value)}
-                  onBlur={() => guardar(cap.id)}
-                  className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
-                />
-              </div>
-              <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-600 text-right pr-1">
-                {duracion != null ? `${duracion} día${duracion === 1 ? "" : "s"}` : "—"}
-              </div>
+              {error && (
+                <div className="px-5 pb-2 -mt-1 text-xs text-red-500">{error}</div>
+              )}
+
+              {/* Filas de rubro — hijas, indentadas */}
+              {expandido &&
+                rubros.map((r) => {
+                  const rubF = fechasRubro[r.id] ?? { inicio: "", fin: "" };
+                  const ef = fechaEfectivaRubro(rubF, f);
+                  const duracionRubro = duracionDias(ef.inicio, ef.fin);
+                  const errorRubro = erroresRubro[r.id];
+                  return (
+                    <div key={r.id}>
+                      <div className="flex items-center px-5 bg-slate-50/60" style={{ minHeight: 44 }}>
+                        <div className="flex-1 pr-2 pl-6 min-w-0">
+                          <span className="text-xs text-slate-600 truncate block">
+                            {r.codigo ? `${r.codigo} — ` : ""}{r.descripcion ?? ""}
+                          </span>
+                        </div>
+                        <div style={{ width: 150 }} className="px-1">
+                          <input
+                            type="date"
+                            value={rubF.inicio}
+                            onChange={(e) => actualizarRubro(r.id, "inicio", e.target.value)}
+                            onBlur={() => guardarRubro(r.id)}
+                            className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+                          />
+                          {ef.inicioHeredada && ef.inicio && (
+                            <p className="text-[10px] text-slate-400 italic mt-0.5 truncate">hereda: {fmtFecha(ef.inicio)}</p>
+                          )}
+                        </div>
+                        <div style={{ width: 150 }} className="px-1">
+                          <input
+                            type="date"
+                            value={rubF.fin}
+                            onChange={(e) => actualizarRubro(r.id, "fin", e.target.value)}
+                            onBlur={() => guardarRubro(r.id)}
+                            className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+                          />
+                          {ef.finHeredada && ef.fin && (
+                            <p className="text-[10px] text-slate-400 italic mt-0.5 truncate">hereda: {fmtFecha(ef.fin)}</p>
+                          )}
+                        </div>
+                        <div style={{ width: 110 }} className="text-xs tabular-nums text-slate-500 text-right pr-1">
+                          {duracionRubro != null ? `${duracionRubro} día${duracionRubro === 1 ? "" : "s"}` : "—"}
+                        </div>
+                      </div>
+                      {errorRubro && (
+                        <div className="px-5 pl-11 pb-2 -mt-1 text-xs text-red-500">{errorRubro}</div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
-            {error && (
-              <div className="px-5 pb-2 -mt-1 text-xs text-red-500">{error}</div>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
 
-      {/* Footer — resumen general */}
-      <div className="flex items-center px-5 py-3 border-t-2 border-slate-300 bg-white gap-4">
-        <div className="flex-1 text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
-          Duración total estimada de la obra
-        </div>
-        <div className="text-sm text-slate-500">
-          {inicioObra ? fmtFecha(inicioObra) : "—"} — {finObra ? fmtFecha(finObra) : "—"}
-        </div>
-        <div className="text-base font-bold tabular-nums text-[#1A3A5C] text-right" style={{ minWidth: 110 }}>
-          {duracionTotal != null ? `${duracionTotal} días` : "—"}
+        {/* Footer — resumen general */}
+        <div className="flex items-center px-5 py-3 border-t-2 border-slate-300 bg-white gap-4">
+          <div className="flex-1 text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
+            Duración total estimada de la obra
+          </div>
+          <div className="text-sm text-slate-500">
+            {inicioObra ? fmtFecha(inicioObra) : "—"} — {finObra ? fmtFecha(finObra) : "—"}
+          </div>
+          <div className="text-base font-bold tabular-nums text-[#1A3A5C] text-right" style={{ minWidth: 110 }}>
+            {duracionTotal != null ? `${duracionTotal} días` : "—"}
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -463,8 +657,11 @@ export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
   const [expandido, setExpandido] = useState(false);
   const [vista, setVista] = useState<Vista>("tabla");
   const [panelAbierto, setPanelAbierto] = useState(false);
-  const [fechas, setFechas] = useState<Record<string, { inicio: string; fin: string }>>({});
+  const [fechas, setFechas] = useState<Record<string, FechaPar>>({});
   const [errores, setErrores] = useState<Record<string, string>>({});
+  const [fechasRubro, setFechasRubro] = useState<Record<string, FechaPar>>({});
+  const [erroresRubro, setErroresRubro] = useState<Record<string, string>>({});
+  const [expandidos, setExpandidos] = useState<Record<string, boolean>>({});
   const [certificaciones, setCertificaciones] = useState<CertificacionCronograma[]>([]);
   const [certsCargadas, setCertsCargadas] = useState(false);
 
@@ -485,7 +682,7 @@ export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
     if (expandido && vista === "curva" && !certsCargadas) cargarCertificaciones();
   }, [expandido, vista, certsCargadas, cargarCertificaciones]);
 
-  // Incorpora capítulos nuevos (o recién cargados) sin pisar ediciones en curso
+  // Incorpora capítulos y rubros nuevos (o recién cargados) sin pisar ediciones en curso
   useEffect(() => {
     setFechas((prev) => {
       const next = { ...prev };
@@ -496,7 +693,22 @@ export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
       }
       return next;
     });
+    setFechasRubro((prev) => {
+      const next = { ...prev };
+      for (const cap of capitulos) {
+        for (const r of cap.rubros ?? []) {
+          if (!(r.id in next)) {
+            next[r.id] = { inicio: toInputDate(r.fechaInicio), fin: toInputDate(r.fechaFin) };
+          }
+        }
+      }
+      return next;
+    });
   }, [capitulos]);
+
+  const toggleExpandido = (capId: string) => {
+    setExpandidos((prev) => ({ ...prev, [capId]: !prev[capId] }));
+  };
 
   const actualizar = (capId: string, campo: "inicio" | "fin", valor: string) => {
     setFechas((prev) => ({ ...prev, [capId]: { ...prev[capId], [campo]: valor } }));
@@ -525,7 +737,38 @@ export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
         }),
       });
     } catch (err) {
-      console.error("[cronograma] error guardando fechas", err);
+      console.error("[cronograma] error guardando fechas de capítulo", err);
+    }
+  };
+
+  const actualizarRubro = (rubroId: string, campo: "inicio" | "fin", valor: string) => {
+    setFechasRubro((prev) => ({ ...prev, [rubroId]: { ...prev[rubroId], [campo]: valor } }));
+  };
+
+  const guardarRubro = async (rubroId: string) => {
+    const { inicio, fin } = fechasRubro[rubroId] ?? { inicio: "", fin: "" };
+
+    if (inicio && fin && fin < inicio) {
+      setErroresRubro((prev) => ({ ...prev, [rubroId]: "La fecha de fin no puede ser anterior a la de inicio" }));
+      return;
+    }
+    setErroresRubro((prev) => {
+      const next = { ...prev };
+      delete next[rubroId];
+      return next;
+    });
+
+    try {
+      await fetch(`/api/rubros/${rubroId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fechaInicio: inicio || null,
+          fechaFin: fin || null,
+        }),
+      });
+    } catch (err) {
+      console.error("[cronograma] error guardando fechas de rubro", err);
     }
   };
 
@@ -598,17 +841,29 @@ export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
                   <VistaTabla
                     capitulos={capitulos}
                     fechas={fechas}
+                    fechasRubro={fechasRubro}
                     errores={errores}
+                    erroresRubro={erroresRubro}
+                    expandidos={expandidos}
+                    toggleExpandido={toggleExpandido}
                     actualizar={actualizar}
                     guardar={guardar}
+                    actualizarRubro={actualizarRubro}
+                    guardarRubro={guardarRubro}
                     inicioObra={inicioObra}
                     finObra={finObra}
                     duracionTotal={duracionTotal}
                   />
                 ) : vista === "gantt" ? (
-                  <VistaGantt capitulos={capitulos} fechas={fechas} />
+                  <VistaGantt
+                    capitulos={capitulos}
+                    fechas={fechas}
+                    fechasRubro={fechasRubro}
+                    expandidos={expandidos}
+                    toggleExpandido={toggleExpandido}
+                  />
                 ) : (
-                  <VistaCurvaS capitulos={capitulos} fechas={fechas} certificaciones={certificaciones} />
+                  <VistaCurvaS capitulos={capitulos} fechas={fechas} fechasRubro={fechasRubro} certificaciones={certificaciones} />
                 )}
               </>
             )}
@@ -639,7 +894,7 @@ export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
               </button>
             </div>
             <div className="flex-1 overflow-auto">
-              <VistaGantt capitulos={capitulos} fechas={fechas} />
+              <VistaGantt capitulos={capitulos} fechas={fechas} fechasRubro={fechasRubro} expandidos={expandidos} toggleExpandido={toggleExpandido} />
             </div>
           </motion.div>
         )}

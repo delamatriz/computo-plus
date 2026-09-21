@@ -145,6 +145,7 @@ type EdicionNumerica = { id: string; texto: string } | null;
 
 interface Rubro {
   id: string;
+  codigo?: string;
   descripcion: string;
   unidad: string;
   cantidad: number | null;
@@ -153,6 +154,10 @@ interface Rubro {
   // agregado después de esa entrega (ver lib/recalcularPrecioRubro.ts).
   precioCongelado?: number | null;
   trabajoEnAltura?: boolean;
+  // Cronograma a nivel rubro — ver Capitulo.fechaInicio/fechaFin arriba,
+  // mismo patrón (nullable, hereda del capítulo cuando no está cargada).
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
 }
 
 interface Capitulo {
@@ -3100,10 +3105,11 @@ export default function ProyectoPage() {
         capituloCatalogoId?: string | null;
         tituloId?: string | null;
         rubros: {
-          id: string; descripcion: string; unidad: string;
+          id: string; codigo?: string; descripcion: string; unidad: string;
           cantidad: number; precioUnit: number; apu: unknown;
           precioCongelado?: number | null;
           trabajoEnAltura?: boolean;
+          fechaInicio?: string | null; fechaFin?: string | null;
         }[];
       }) => ({
         id:          cap.id,
@@ -3116,12 +3122,15 @@ export default function ProyectoPage() {
         tituloId:    cap.tituloId ?? null,
         rubros: (cap.rubros ?? []).map((r) => ({
           id:          r.id,
+          codigo:      r.codigo,
           descripcion: r.descripcion,
           unidad:      r.unidad,
           cantidad:    r.cantidad   || null,
           precioUnit:  r.precioUnit || null,
           precioCongelado: r.precioCongelado ?? null,
           trabajoEnAltura: r.trabajoEnAltura ?? false,
+          fechaInicio: r.fechaInicio ?? null,
+          fechaFin:    r.fechaFin ?? null,
         })),
       }));
       setCapitulos(caps);
@@ -5678,7 +5687,15 @@ export default function ProyectoPage() {
                 color: c.color,
                 fechaInicio: c.fechaInicio,
                 fechaFin: c.fechaFin,
-                rubros: c.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
+                rubros: c.rubros.map((r) => ({
+                  id: r.id,
+                  codigo: r.codigo,
+                  descripcion: r.descripcion,
+                  cantidad: r.cantidad,
+                  precioUnit: r.precioUnit,
+                  fechaInicio: r.fechaInicio,
+                  fechaFin: r.fechaFin,
+                })),
               }))}
             />
           </BloqueGestionObra>

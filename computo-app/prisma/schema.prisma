@@ -233,6 +233,13 @@ model Rubro {
   precioCongelado Float?
   tipo        String   @default("GLOBAL")
   trabajoEnAltura Boolean @default(false)
+  // Cronograma a nivel rubro — mismo patrón que Capitulo.fechaInicio/
+  // fechaFin (nullable, sin default). Cuando no están cargadas, la
+  // fecha "efectiva" del rubro se hereda de su capítulo — ver
+  // fechaEfectiva() en SeccionCronograma.tsx, no hay nada acá que
+  // resuelva la herencia a nivel de base.
+  fechaInicio DateTime?
+  fechaFin    DateTime?
   capituloId  String
   capitulo    Capitulo @relation(fields: [capituloId], references: [id], onDelete: Cascade)
   apu         APU?

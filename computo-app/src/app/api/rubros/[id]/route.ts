@@ -40,6 +40,11 @@ export async function PATCH(
         ...(body.cantidad    !== undefined && { cantidad: body.cantidad ?? 0, cantidadOrigen: "MANUAL" }),
         ...(body.precioUnit  !== undefined && { precioUnit:  body.precioUnit ?? 0 }),
         ...(body.trabajoEnAltura !== undefined && { trabajoEnAltura: !!body.trabajoEnAltura }),
+        // Cronograma a nivel rubro — mismo patrón que PATCH
+        // /api/capitulos/[id] (vacío/null limpia la fecha propia,
+        // volviendo a heredar la del capítulo en el cliente).
+        ...("fechaInicio" in body && { fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null }),
+        ...("fechaFin" in body && { fechaFin: body.fechaFin ? new Date(body.fechaFin) : null }),
       },
     });
 
