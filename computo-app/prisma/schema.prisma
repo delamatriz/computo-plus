@@ -62,6 +62,7 @@ model Proyecto {
   subcontratistas   Subcontratista[]
   ordenesCompra     OrdenCompra[]
   contrato          ContratoObra?
+  tramitesLegales   TramiteLegal[]
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
@@ -551,6 +552,25 @@ model DocumentoContrato {
   tamano                Int? // bytes, opcional
 
   createdAt DateTime @default(now())
+}
+
+// Trámites legales/inscripciones ante organismos (Gestión de Obra,
+// "Fase Preliminar y Contractual"). Lista simple con estado — sin
+// borrado, mismo criterio que los módulos anteriores de Gestión de
+// Obra (Bitácora/PersonalObra/Subcontratista/OrdenCompra/ContratoObra).
+model TramiteLegal {
+  id         String   @id @default(cuid())
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  nombre        String
+  organismo     String?
+  estado        String  @default("Pendiente") // "Pendiente" | "En trámite" | "Aprobado" | "Rechazado"
+  fecha         DateTime?
+  observaciones String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CapituloEstandar {

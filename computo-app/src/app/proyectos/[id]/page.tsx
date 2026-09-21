@@ -54,6 +54,7 @@ import SeccionPersonalObra from "@/components/SeccionPersonalObra";
 import SeccionSubcontratistas from "@/components/SeccionSubcontratistas";
 import SeccionOrdenesCompra from "@/components/SeccionOrdenesCompra";
 import SeccionContratoObra from "@/components/SeccionContratoObra";
+import SeccionTramitesLegales from "@/components/SeccionTramitesLegales";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
@@ -5653,11 +5654,7 @@ export default function ProyectoPage() {
             subtitulo="Contrato de obra e inscripción ante los organismos correspondientes, antes de arrancar la obra."
           >
             <SeccionContratoObra proyectoId={proyectoActivo.id} />
-            <TarjetaProximamente
-              icono={HardHat}
-              titulo="Inscripción de obra"
-              descripcion="Acá vas a poder gestionar la inscripción y documentación ante BPS y demás organismos."
-            />
+            <SeccionTramitesLegales proyectoId={proyectoActivo.id} />
           </BloqueGestionObra>
 
           <BloqueGestionObra
