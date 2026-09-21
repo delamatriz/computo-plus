@@ -11,7 +11,6 @@ import {
   Plus,
   Download,
   FileSpreadsheet,
-  FileSignature,
   Pencil,
   X,
   LayoutList,
@@ -54,6 +53,7 @@ import SeccionBitacora from "@/components/SeccionBitacora";
 import SeccionPersonalObra from "@/components/SeccionPersonalObra";
 import SeccionSubcontratistas from "@/components/SeccionSubcontratistas";
 import SeccionOrdenesCompra from "@/components/SeccionOrdenesCompra";
+import SeccionContratoObra from "@/components/SeccionContratoObra";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
@@ -5652,11 +5652,7 @@ export default function ProyectoPage() {
             titulo="Fase Preliminar y Contractual"
             subtitulo="Contrato de obra e inscripción ante los organismos correspondientes, antes de arrancar la obra."
           >
-            <TarjetaProximamente
-              icono={FileSignature}
-              titulo="Contrato"
-              descripcion="Acá vas a poder generar y gestionar el contrato de obra con el cliente."
-            />
+            <SeccionContratoObra proyectoId={proyectoActivo.id} />
             <TarjetaProximamente
               icono={HardHat}
               titulo="Inscripción de obra"

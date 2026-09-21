@@ -61,6 +61,7 @@ model Proyecto {
   personal          PersonalObra[]
   subcontratistas   Subcontratista[]
   ordenesCompra     OrdenCompra[]
+  contrato          ContratoObra?
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
@@ -512,6 +513,44 @@ model CapituloOrdenCompra {
   capitulo      Capitulo    @relation(fields: [capituloId], references: [id], onDelete: Cascade)
 
   @@unique([ordenCompraId, capituloId])
+}
+
+// Contrato de obra (Gestión de Obra, "Fase Preliminar y Contractual").
+// 1:1 con Proyecto — un proyecto tiene un único contrato principal
+// (no una lista de contratos). CÓMPUTO+ no genera el contrato: este
+// registro solo organiza sus metadatos (partes ya viven en
+// Proyecto/Empresa, no se duplican acá) y los documentos/anexos que
+// el usuario sube ya firmados. Sin borrado del registro — mismo
+// criterio que Bitácora/PersonalObra/Subcontratista/OrdenCompra —
+// pero los documentos hijos sí se pueden borrar uno por uno.
+model ContratoObra {
+  id         String   @id @default(cuid())
+  proyectoId String   @unique
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  domicilioComitente String?
+  fechaFirma         DateTime?
+  monto              Float?
+  moneda             String    @default("UYU") // "UYU" | "USD"
+
+  documentos DocumentoContrato[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DocumentoContrato {
+  id             String       @id @default(cuid())
+  contratoObraId String
+  contratoObra   ContratoObra @relation(fields: [contratoObraId], references: [id], onDelete: Cascade)
+
+  nombre                String // "nombre/tipo" libre, ej. "Contrato firmado", "Presupuesto — Anexo económico"
+  urlBlob               String @db.Text // URL de Vercel Blob (privado) — mismo patrón que DocumentoMetraje.archivo
+  nombreArchivoOriginal String
+  tipoArchivo           String // extraído del contentType, ej. "application/pdf"
+  tamano                Int? // bytes, opcional
+
+  createdAt DateTime @default(now())
 }
 
 model CapituloEstandar {
