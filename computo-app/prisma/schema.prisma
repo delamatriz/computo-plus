@@ -65,6 +65,7 @@ model Proyecto {
   tramitesLegales   TramiteLegal[]
   movimientosCaja   MovimientoCaja[]
   actaCierre        ActaCierre?
+  liquidacionFinal  LiquidacionFinal?
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
@@ -618,6 +619,40 @@ model DocumentoActaCierre {
   tamano                Int?
 
   createdAt DateTime @default(now())
+}
+
+// Liquidación final de obra (Gestión de Obra, "Cierre y Post-Obra").
+// 1:1 con Proyecto, mismo criterio que ContratoObra/ActaCierre. El
+// Presupuesto Original NO se guarda acá — se calcula en vivo con
+// costoAgregado.ts (mismo Costo Total que ya muestra la tabla
+// principal del presupuesto), para no quedar desincronizado si el
+// presupuesto cambia después. Sin borrado del registro principal —
+// los ajustes hijos sí se pueden editar/borrar uno por uno.
+model LiquidacionFinal {
+  id         String   @id @default(cuid())
+  proyectoId String   @unique
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  fechaLiquidacion DateTime?
+  observaciones    String?   @db.Text
+
+  ajustes AjusteLiquidacion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AjusteLiquidacion {
+  id                 String           @id @default(cuid())
+  liquidacionFinalId String
+  liquidacionFinal   LiquidacionFinal @relation(fields: [liquidacionFinalId], references: [id], onDelete: Cascade)
+
+  concepto String
+  monto    Float
+  tipo     String // "Adicional" | "Descuento"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Trámites legales/inscripciones ante organismos (Gestión de Obra,

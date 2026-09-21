@@ -23,7 +23,6 @@ import {
   Lock,
   LockOpen,
   Clock,
-  FileCheck2,
   BookMarked,
   type LucideIcon,
 } from "lucide-react";
@@ -57,6 +56,7 @@ import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionControlCostos from "@/components/SeccionControlCostos";
 import SeccionFlujoCaja from "@/components/SeccionFlujoCaja";
 import SeccionCierreObra from "@/components/SeccionCierreObra";
+import SeccionLiquidacionFinal from "@/components/SeccionLiquidacionFinal";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
 import SeccionComputoGlobalMateriales from "@/components/SeccionComputoGlobalMateriales";
 import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
@@ -5724,11 +5724,7 @@ export default function ProyectoPage() {
             subtitulo="Recepción, liquidación final y documentación de cierre, una vez terminada la obra."
           >
             <SeccionCierreObra proyectoId={proyectoActivo.id} />
-            <TarjetaProximamente
-              icono={FileCheck2}
-              titulo="Liquidación Final"
-              descripcion="Acá vas a poder armar la liquidación final de la obra."
-            />
+            <SeccionLiquidacionFinal proyectoId={proyectoActivo.id} />
             <SeccionGarantias
               fielCumplimiento={proyectoActivo.garantiaFielCumplimiento ?? ""}
               viciosOcultos={proyectoActivo.garantiaViciosOcultos ?? ""}
