@@ -66,6 +66,7 @@ model Proyecto {
   movimientosCaja   MovimientoCaja[]
   actaCierre        ActaCierre?
   liquidacionFinal  LiquidacionFinal?
+  documentosPostObra DocumentoPostObra[]
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
@@ -653,6 +654,30 @@ model AjusteLiquidacion {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Manuales y planos as-built (Gestión de Obra, "Cierre y Post-Obra").
+// A diferencia de ContratoObra/ActaCierre, acá NO hay un registro
+// padre 1:1 — es directamente una lista de documentos del proyecto,
+// porque no hay ningún campo/dato general que agrupe la lista (a
+// diferencia de Contrato, que tiene domicilio/fecha/monto, o Cierre,
+// que tiene fecha/observaciones generales). Esto simplifica los
+// endpoints: no hace falta "crear el registro primero" — el POST
+// puede escribir directo sobre proyectoId. Mismo patrón exacto de
+// Vercel Blob + ruta proxy que DocumentoContrato/DocumentoActaCierre.
+model DocumentoPostObra {
+  id         String   @id @default(cuid())
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  nombre                String
+  categoria             String // "Manual de uso" | "Plano As-Built" | "Certificado de garantía" | "Otro"
+  urlBlob               String @db.Text
+  nombreArchivoOriginal String
+  tipoArchivo           String
+  tamano                Int?
+
+  createdAt DateTime @default(now())
 }
 
 // Trámites legales/inscripciones ante organismos (Gestión de Obra,

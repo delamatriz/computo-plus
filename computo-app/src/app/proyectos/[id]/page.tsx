@@ -23,7 +23,6 @@ import {
   Lock,
   LockOpen,
   Clock,
-  BookMarked,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,6 +56,7 @@ import SeccionControlCostos from "@/components/SeccionControlCostos";
 import SeccionFlujoCaja from "@/components/SeccionFlujoCaja";
 import SeccionCierreObra from "@/components/SeccionCierreObra";
 import SeccionLiquidacionFinal from "@/components/SeccionLiquidacionFinal";
+import SeccionDocumentosPostObra from "@/components/SeccionDocumentosPostObra";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
 import SeccionComputoGlobalMateriales from "@/components/SeccionComputoGlobalMateriales";
 import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
@@ -5736,11 +5736,7 @@ export default function ProyectoPage() {
               totalGeneral={totalGeneral}
               moneda={moneda}
             />
-            <TarjetaProximamente
-              icono={BookMarked}
-              titulo="Manuales y Planos As-Built"
-              descripcion="Acá vas a poder archivar los manuales de uso y los planos As-Built de la obra terminada."
-            />
+            <SeccionDocumentosPostObra proyectoId={proyectoActivo.id} />
           </BloqueGestionObra>
         </div>
       )}
