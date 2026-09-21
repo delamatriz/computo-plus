@@ -63,6 +63,7 @@ model Proyecto {
   ordenesCompra     OrdenCompra[]
   contrato          ContratoObra?
   tramitesLegales   TramiteLegal[]
+  movimientosCaja   MovimientoCaja[]
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
@@ -568,6 +569,26 @@ model TramiteLegal {
   estado        String  @default("Pendiente") // "Pendiente" | "En trámite" | "Aprobado" | "Rechazado"
   fecha         DateTime?
   observaciones String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Flujo de caja de la obra (Gestión de Obra, "Control Económico y
+// Administrativo"). Saldo acumulado no se guarda — se calcula en el
+// cliente recorriendo los movimientos en orden, por separado por
+// moneda, mismo criterio de no-mezcla que Control de Costos vs. Real.
+// Sin borrado — mismo criterio que los módulos de registro anteriores.
+model MovimientoCaja {
+  id         String   @id @default(cuid())
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  tipo    String // "Ingreso" | "Egreso"
+  fecha   DateTime
+  concepto String
+  monto   Float
+  moneda  String @default("UYU") // "UYU" | "USD"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

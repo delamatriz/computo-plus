@@ -24,7 +24,6 @@ import {
   Lock,
   LockOpen,
   Clock,
-  Wallet,
   FileCheck2,
   BookMarked,
   type LucideIcon,
@@ -57,6 +56,7 @@ import SeccionTramitesLegales from "@/components/SeccionTramitesLegales";
 import SeccionComparativoOfertas from "@/components/SeccionComparativoOfertas";
 import SeccionCronograma from "@/components/SeccionCronograma";
 import SeccionControlCostos from "@/components/SeccionControlCostos";
+import SeccionFlujoCaja from "@/components/SeccionFlujoCaja";
 import SeccionPartidasFaltantes from "@/components/SeccionPartidasFaltantes";
 import SeccionComputoGlobalMateriales from "@/components/SeccionComputoGlobalMateriales";
 import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
@@ -5715,11 +5715,7 @@ export default function ProyectoPage() {
                 rubros: c.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
               }))}
             />
-            <TarjetaProximamente
-              icono={Wallet}
-              titulo="Flujo de Caja"
-              descripcion="Acá vas a poder proyectar los ingresos y egresos de la obra."
-            />
+            <SeccionFlujoCaja proyectoId={proyectoActivo.id} />
           </BloqueGestionObra>
 
           <BloqueGestionObra
