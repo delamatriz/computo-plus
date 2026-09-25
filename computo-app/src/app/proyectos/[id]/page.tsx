@@ -42,6 +42,7 @@ import SeccionGastosGeneralesUtilidades, {
 import { TarjetaCostoDirecto, TarjetaCostoTotalPrecioFinal } from "@/components/SeccionCostoPrecioFinal";
 import SeccionGarantias from "@/components/SeccionGarantias";
 import SeccionNotas from "@/components/SeccionNotas";
+import SeccionEstimacionCalculoRapido from "@/components/SeccionEstimacionCalculoRapido";
 import SeccionDiasDeObra from "@/components/SeccionDiasDeObra";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionBitacora from "@/components/SeccionBitacora";
@@ -5211,6 +5212,15 @@ export default function ProyectoPage() {
           </div>
         )}
 
+        {/* Resumen legible de la estimación de "Guardar como anteproyecto"
+            (Cálculo Rápido) — mientras sigue en ANTEPROYECTO es el
+            contenido principal de la pantalla, va destacado justo debajo
+            del banner. Una vez convertido pasa a la versión colapsable,
+            más abajo junto a Notas (ver esAnteproyecto === false). */}
+        {esAnteproyecto && proyectoActivo.notasPresupuesto && (
+          <SeccionEstimacionCalculoRapido texto={proyectoActivo.notasPresupuesto} destacada />
+        )}
+
         {/* ── Documentación para metrar + Planilla de cómputo + Calculadora + Visor
             (ver UI_UX_REDESIGN.md sección 2quater — antes vivía en /proyectos/[id]/metrajes) ── */}
         <SeccionMetrajesPresupuesto
@@ -5515,6 +5525,13 @@ export default function ProyectoPage() {
           rubrosConDatos={diasObra.rubrosConDatos}
           rubrosSinDatos={diasObra.rubrosSinDatos}
         />
+
+        {/* Una vez convertido a proyecto completo, la estimación original
+            de Cálculo Rápido pasa a esta versión colapsable — sigue
+            accesible, sin competir con la tabla de capítulos/rubros. */}
+        {!esAnteproyecto && proyectoActivo.notasPresupuesto && (
+          <SeccionEstimacionCalculoRapido texto={proyectoActivo.notasPresupuesto} />
+        )}
 
         {/* ── Notas ──────────────────────────────────────────── */}
         <SeccionNotas
