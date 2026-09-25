@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { PackageCheck, ChevronDown, ChevronRight, Plus, Pencil, X, Search, Trash2, Check } from "lucide-react";
+import { PackageCheck, ChevronDown, ChevronRight, Plus, Pencil, X, Search, Trash2, Check, Download } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { FilaMaterialGlobal } from "@/lib/materialesGlobales";
@@ -320,7 +320,7 @@ export default function SeccionOrdenesCompra({ proyectoId, materialesGlobales }:
               ) : (
                 <div className="space-y-2">
                   {ordenes.map((orden) => (
-                    <FilaOrden key={orden.id} orden={orden} onEditar={() => abrirEdicion(orden)} />
+                    <FilaOrden key={orden.id} orden={orden} proyectoId={proyectoId} onEditar={() => abrirEdicion(orden)} />
                   ))}
                 </div>
               )}
@@ -353,7 +353,18 @@ export default function SeccionOrdenesCompra({ proyectoId, materialesGlobales }:
 }
 
 /* ─── Fila de orden ────────────────────────────────────────── */
-function FilaOrden({ orden, onEditar }: { orden: OrdenCompra; onEditar: () => void }) {
+function FilaOrden({
+  orden,
+  proyectoId,
+  onEditar,
+}: {
+  orden: OrdenCompra;
+  proyectoId: string;
+  onEditar: () => void;
+}) {
+  const [menuPDFAbierto, setMenuPDFAbierto] = useState(false);
+  const basePDF = `/api/proyectos/${proyectoId}/ordenes-compra/${orden.id}/pdf`;
+
   return (
     <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
@@ -415,12 +426,49 @@ function FilaOrden({ orden, onEditar }: { orden: OrdenCompra; onEditar: () => vo
           {orden.monto != null && (
             <span className="text-sm font-bold text-[#1A3A5C]">{fmtMonto(orden.monto, orden.moneda)}</span>
           )}
-          <button
-            onClick={onEditar}
-            className="flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-          >
-            <Pencil className="w-3 h-3" /> Editar
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <button
+                onClick={() => setMenuPDFAbierto((p) => !p)}
+                className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                <Download className="w-3 h-3" /> Imprimir / PDF
+              </button>
+              {menuPDFAbierto && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuPDFAbierto(false)} />
+                  <div className="absolute right-0 top-full mt-1.5 z-50 w-56 bg-white rounded-[10px] border border-slate-200 shadow-lg overflow-hidden">
+                    <a
+                      href={`${basePDF}?membrete=empresa`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setMenuPDFAbierto(false)}
+                      className="block px-3.5 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-100"
+                    >
+                      <p className="text-xs font-semibold text-[#1E293B]">Membrete de la empresa</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Con el nombre del estudio</p>
+                    </a>
+                    <a
+                      href={`${basePDF}?membrete=proyecto`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setMenuPDFAbierto(false)}
+                      className="block px-3.5 py-2.5 hover:bg-slate-50 transition-colors"
+                    >
+                      <p className="text-xs font-semibold text-[#1E293B]">Membrete del cliente/proyecto</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Con el nombre del cliente u obra</p>
+                    </a>
+                  </div>
+                </>
+              )}
+            </div>
+            <button
+              onClick={onEditar}
+              className="flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+            >
+              <Pencil className="w-3 h-3" /> Editar
+            </button>
+          </div>
         </div>
       </div>
     </div>
