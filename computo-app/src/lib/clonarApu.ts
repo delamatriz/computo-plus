@@ -2,12 +2,35 @@ import { db } from "@/lib/db";
 import { calcularPrecioUnitario, sumarAportesPatronalesPct } from "@/lib/apu-calc";
 import { costoDirectoUnitario } from "@/lib/costoAgregado";
 
+// Mismo guard que PUT /api/rubros/[id]/apu y
+// /api/rubros/[id]/actualizar-precio-vigente — un presupuesto FINALIZADO
+// es de solo lectura hasta "Habilitar edición". Se tira acá adentro (no
+// en cada endpoint que llama a clonarApuAlRubro) para proteger ambos
+// llamadores — POST /api/subrubros-estandar/[id]/clonar-apu y
+// generarRubrosAutomaticos()/rubrosAutomaticos.ts — con un solo chequeo.
+export class ProyectoFinalizadoError extends Error {
+  constructor() {
+    super(
+      "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo."
+    );
+    this.name = "ProyectoFinalizadoError";
+  }
+}
+
 /* Clona el APUEstandar de un subrubro de biblioteca al APU real de un rubro
    ya existente — misma lógica que usaba únicamente
    /api/subrubros-estandar/[id]/clonar-apu (extraída acá para que
    rubrosAutomaticos.ts la use directo, sin un fetch interno del servidor
    a sí mismo). Requiere que `rubroId` ya exista; no crea el Rubro. */
 export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
+  const rubroConEstado = await db.rubro.findUnique({
+    where: { id: rubroId },
+    select: { capitulo: { select: { proyecto: { select: { estado: true } } } } },
+  });
+  if (rubroConEstado?.capitulo.proyecto.estado === "FINALIZADO") {
+    throw new ProyectoFinalizadoError();
+  }
+
   const apuEstandar = await db.aPUEstandar.findUnique({
     where: { subrubroId },
     include: { materiales: true, manoObra: true, equipos: true },
