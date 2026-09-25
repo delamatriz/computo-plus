@@ -2649,6 +2649,18 @@ export default function Visor({
     }
   };
 
+  // Escape sale de pantalla completa — solo mientras expandido, para no
+  // interceptar Escape en el resto de la app cuando el visor está en su
+  // tamaño normal.
+  useEffect(() => {
+    if (!expandido) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onToggleExpandir();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [expandido, onToggleExpandir]);
+
   const [analizando, setAnalizando] = useState(false);
   const [errorAnalisis, setErrorAnalisis] = useState<string | null>(null);
   const handleAnalizar = async () => {
@@ -2665,18 +2677,17 @@ export default function Visor({
   };
 
   return (
-    // Antes "fixed inset-0 z-50 ... lg:static lg:inset-auto ..." — modo
-    // pantalla completa en mobile heredado de cuando este componente
-    // vivía embebido en el layout de 3 columnas de la pestaña
-    // Presupuesto. Hoy <Visor> se usa en un solo lugar (grep confirmado
-    // — /proyectos/[id]/visor/page.tsx), una página propia que ya es
-    // "pantalla de trabajo enfocada" con su propio header — el overlay
-    // fijo quedó como código muerto que tapaba la Planilla (que vive
-    // arriba, en el flujo normal del documento) en cualquier viewport
-    // por debajo de 1024px. Ahora se comporta siempre como la variante
-    // lg: de antes — tarjeta normal en el flujo, en todos los tamaños.
+    // Visor siempre llena su contenedor (h-full) — si ese contenedor es
+    // la caja fija de 600px o un overlay fixed inset-0 a pantalla
+    // completa lo decide la página que lo monta (ver visor/page.tsx,
+    // className condicional a `expandido`), no este componente. Acá
+    // solo se le saca el borde/esquinas redondeadas/sombra cuando está
+    // expandido, para un borde a borde limpio contra el viewport.
     <div
-      className="bg-white flex flex-col h-full flex-shrink-0 border border-slate-300 rounded-[16px] shadow-sm overflow-hidden"
+      className={cn(
+        "bg-white flex flex-col h-full flex-shrink-0 overflow-hidden",
+        expandido ? "border-0 rounded-none shadow-none" : "border border-slate-300 rounded-[16px] shadow-sm"
+      )}
       style={style}
     >
       {/* Título */}

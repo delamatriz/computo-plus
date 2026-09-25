@@ -798,7 +798,12 @@ export default function VisorProyectoPage() {
             </div>
           )}
 
-          <div className="h-[600px]">
+          {/* Expandido: overlay fixed a toda la ventana del navegador —
+              z-40, por debajo del modal de "Elementos detectados" (z-60)
+              y del toast de desvinculación (z-120), así ambos se siguen
+              viendo por encima si se disparan mientras el visor está
+              expandido. */}
+          <div className={visorExpandido ? "fixed inset-0 z-40" : "h-[600px]"}>
             <Visor
               nombreProyecto={proyectoNombre}
               documentoPrincipal={documentoAbierto}
