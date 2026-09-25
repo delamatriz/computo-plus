@@ -513,9 +513,28 @@ model OrdenCompra {
   observacionesRecepcion String? @db.Text
 
   capitulos CapituloOrdenCompra[]
+  items     ItemOrdenCompra[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Ítems de línea de una orden de compra — material elegido del Cómputo
+// Global (o "ítem libre"), con su propia cantidad y precio. Si una
+// orden tiene ítems, OrdenCompra.monto se recalcula server-side como
+// suma de cantidad × precioUnit; si no tiene ítems, monto sigue
+// siendo un campo editable a mano (compatibilidad con órdenes viejas).
+model ItemOrdenCompra {
+  id            String      @id @default(cuid())
+  ordenCompraId String
+  ordenCompra   OrdenCompra @relation(fields: [ordenCompraId], references: [id], onDelete: Cascade)
+
+  descripcion String
+  unidad      String
+  cantidad    Float
+  precioUnit  Float?
+
+  createdAt DateTime @default(now())
 }
 
 model CapituloOrdenCompra {

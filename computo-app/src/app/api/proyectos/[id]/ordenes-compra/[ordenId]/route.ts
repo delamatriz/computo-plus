@@ -43,9 +43,6 @@ export async function PATCH(
     if (!proveedor?.trim()) {
       return NextResponse.json({ error: "Falta proveedor" }, { status: 400 });
     }
-    if (!descripcion?.trim()) {
-      return NextResponse.json({ error: "Falta descripción" }, { status: 400 });
-    }
     if (estado && !ESTADOS_VALIDOS.includes(estado)) {
       return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
     }
@@ -55,12 +52,17 @@ export async function PATCH(
       return NextResponse.json({ error: "Orden no encontrada" }, { status: 404 });
     }
 
+    // Si la orden tiene ítems, el monto es derivado — no lo pisamos
+    // con lo que venga en el body de esta edición general (proveedor,
+    // estado, fechas, etc.); solo los endpoints de ítems lo recalculan.
+    const cantidadItems = await db.itemOrdenCompra.count({ where: { ordenCompraId: ordenId } });
+
     const orden = await db.ordenCompra.update({
       where: { id: ordenId },
       data: {
         proveedor: proveedor.trim(),
-        descripcion: descripcion.trim(),
-        monto: monto ?? null,
+        descripcion: descripcion?.trim() || "",
+        monto: cantidadItems > 0 ? existente.monto : (monto ?? null),
         moneda: moneda === "USD" ? "USD" : "UYU",
         fechaPedido: fechaPedido ? new Date(fechaPedido) : null,
         fechaEntregaPrevista: fechaEntregaPrevista ? new Date(fechaEntregaPrevista) : null,
@@ -73,7 +75,10 @@ export async function PATCH(
           create: (capituloIds ?? []).map((capituloId) => ({ capituloId })),
         },
       },
-      include: { capitulos: { include: { capitulo: { select: { id: true, nombre: true, codigo: true } } } } },
+      include: {
+        capitulos: { include: { capitulo: { select: { id: true, nombre: true, codigo: true } } } },
+        items: { orderBy: { createdAt: "asc" } },
+      },
     });
 
     return NextResponse.json(orden);

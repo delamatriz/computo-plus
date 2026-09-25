@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { PackageCheck, ChevronDown, ChevronRight, Plus, Pencil, X } from "lucide-react";
+import { PackageCheck, ChevronDown, ChevronRight, Plus, Pencil, X, Search, Trash2, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import type { FilaMaterialGlobal } from "@/lib/materialesGlobales";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_ESTADO = ["Pedido", "En camino", "Recibido", "Cancelado"] as const;
@@ -22,6 +23,14 @@ interface CapituloVinculo {
   capitulo?: { id: string; nombre: string; codigo: string };
 }
 
+interface ItemOrdenCompraTipo {
+  id: string;
+  descripcion: string;
+  unidad: string;
+  cantidad: number;
+  precioUnit: number | null;
+}
+
 interface OrdenCompra {
   id: string;
   proveedor: string;
@@ -35,6 +44,7 @@ interface OrdenCompra {
   completo: boolean | null;
   observacionesRecepcion: string | null;
   capitulos: CapituloVinculo[];
+  items: ItemOrdenCompraTipo[];
 }
 
 interface CapituloDisponible {
@@ -43,8 +53,14 @@ interface CapituloDisponible {
   codigo: string;
 }
 
+interface MaterialConPendiente extends FilaMaterialGlobal {
+  yaPedido: number;
+  pendiente: number;
+}
+
 interface Props {
   proyectoId: string;
+  materialesGlobales: FilaMaterialGlobal[];
 }
 
 /* ─── Formato ─────────────────────────────────────────────── */
@@ -56,6 +72,14 @@ function fmtFecha(iso: string): string {
 function fmtMonto(monto: number, moneda: string): string {
   const formateado = monto.toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   return `${moneda === "USD" ? "US$" : "$"} ${formateado}`;
+}
+
+function fmtCantidad(n: number): string {
+  return n.toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 type FormState = {
@@ -105,7 +129,7 @@ function formDesdeOrden(o: OrdenCompra): FormState {
 }
 
 /* ─── Componente principal ────────────────────────────────── */
-export default function SeccionOrdenesCompra({ proyectoId }: Props) {
+export default function SeccionOrdenesCompra({ proyectoId, materialesGlobales }: Props) {
   const [expandido, setExpandido] = useState(false);
   const [cargado, setCargado] = useState(false);
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
@@ -174,7 +198,7 @@ export default function SeccionOrdenesCompra({ proyectoId }: Props) {
   };
 
   const guardar = async () => {
-    if (!form.proveedor.trim() || !form.descripcion.trim()) return;
+    if (!form.proveedor.trim()) return;
     setGuardando(true);
     try {
       const esEdicion = formularioAbierto !== "nueva" && formularioAbierto != null;
@@ -199,7 +223,14 @@ export default function SeccionOrdenesCompra({ proyectoId }: Props) {
         if (esEdicion) return prev.map((o) => (o.id === data.id ? data : o));
         return [...prev, data];
       });
-      setFormularioAbierto(null);
+      if (esEdicion) {
+        setFormularioAbierto(null);
+      } else {
+        // Recién creada: dejamos el formulario abierto en modo edición
+        // para que se pueda agregar ítems del cómputo sin reabrir.
+        setForm(formDesdeOrden(data));
+        setFormularioAbierto(data.id);
+      }
     } catch (err) {
       console.error("[ordenes-compra] error guardando", err);
     } finally {
@@ -207,10 +238,43 @@ export default function SeccionOrdenesCompra({ proyectoId }: Props) {
     }
   };
 
+  const onItemsActualizados = (actualizada: OrdenCompra) => {
+    setOrdenes((prev) => prev.map((o) => (o.id === actualizada.id ? actualizada : o)));
+    setForm((prev) => ({ ...prev, monto: actualizada.monto != null ? String(actualizada.monto) : "" }));
+  };
+
   const capitulosOrdenados = useMemo(
     () => [...capitulosDisponibles].sort((a, b) => a.codigo.localeCompare(b.codigo)),
     [capitulosDisponibles]
   );
+
+  // Pendiente de pedir = cantidad total del cómputo global menos lo ya
+  // cargado en ítems de TODAS las órdenes del proyecto, por clave
+  // descripcion+unidad. Se calcula acá mismo, sobre datos ya
+  // cargados — sin duplicar la lógica de computarMaterialesGlobales()
+  // ni pegarle a un endpoint nuevo.
+  const yaPedidoPorClave = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const orden of ordenes) {
+      for (const item of orden.items) {
+        const clave = `${item.descripcion}||${item.unidad}`;
+        mapa.set(clave, (mapa.get(clave) ?? 0) + item.cantidad);
+      }
+    }
+    return mapa;
+  }, [ordenes]);
+
+  const materialesConPendiente = useMemo<MaterialConPendiente[]>(
+    () =>
+      materialesGlobales.map((m) => {
+        const clave = `${m.descripcion}||${m.unidad}`;
+        const yaPedido = yaPedidoPorClave.get(clave) ?? 0;
+        return { ...m, yaPedido, pendiente: round2(m.cantidadTotal - yaPedido) };
+      }),
+    [materialesGlobales, yaPedidoPorClave]
+  );
+
+  const ordenActual = formularioAbierto && formularioAbierto !== "nueva" ? ordenes.find((o) => o.id === formularioAbierto) ?? null : null;
 
   return (
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
@@ -268,9 +332,13 @@ export default function SeccionOrdenesCompra({ proyectoId }: Props) {
       <AnimatePresence>
         {formularioAbierto && (
           <FormularioOrden
+            proyectoId={proyectoId}
             form={form}
             setForm={setForm}
             esEdicion={formularioAbierto !== "nueva"}
+            ordenActual={ordenActual}
+            materialesConPendiente={materialesConPendiente}
+            onItemsActualizados={onItemsActualizados}
             guardando={guardando}
             capitulos={capitulosOrdenados}
             cargandoCapitulos={cargandoCapitulos}
@@ -312,8 +380,13 @@ function FilaOrden({ orden, onEditar }: { orden: OrdenCompra; onEditar: () => vo
                 {orden.completo ? "Completo" : "Incompleto"}
               </span>
             )}
+            {orden.items.length > 0 && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#2563EB] border border-blue-100 flex-shrink-0">
+                {orden.items.length} {orden.items.length === 1 ? "ítem" : "ítems"}
+              </span>
+            )}
           </div>
-          <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{orden.descripcion}</p>
+          {orden.descripcion && <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{orden.descripcion}</p>}
 
           {orden.fechaPedido && (
             <p className="text-[11px] text-slate-400 mt-1">Pedido el {fmtFecha(orden.fechaPedido)}</p>
@@ -356,9 +429,13 @@ function FilaOrden({ orden, onEditar }: { orden: OrdenCompra; onEditar: () => vo
 
 /* ─── Modal de formulario (nueva / editar) ────────────────── */
 function FormularioOrden({
+  proyectoId,
   form,
   setForm,
   esEdicion,
+  ordenActual,
+  materialesConPendiente,
+  onItemsActualizados,
   guardando,
   capitulos,
   cargandoCapitulos,
@@ -366,9 +443,13 @@ function FormularioOrden({
   onGuardar,
   onCerrar,
 }: {
+  proyectoId: string;
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   esEdicion: boolean;
+  ordenActual: OrdenCompra | null;
+  materialesConPendiente: MaterialConPendiente[];
+  onItemsActualizados: (o: OrdenCompra) => void;
   guardando: boolean;
   capitulos: CapituloDisponible[];
   cargandoCapitulos: boolean;
@@ -382,6 +463,8 @@ function FormularioOrden({
   const inputCls =
     "w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30";
   const labelCls = "text-xs font-semibold text-slate-500 mb-1 block";
+
+  const tieneItems = (ordenActual?.items.length ?? 0) > 0;
 
   return (
     <motion.div
@@ -414,26 +497,46 @@ function FormularioOrden({
           </div>
 
           <div>
-            <label className={labelCls}>Descripción de ítems solicitados</label>
+            <label className={labelCls}>Nota / resumen general (opcional)</label>
             <textarea
               value={form.descripcion}
               onChange={(e) => set("descripcion", e.target.value)}
               rows={2}
-              placeholder="ej: 200 bolsas de portland, varillas de hierro 8mm"
+              placeholder="ej: primera entrega de portland y hierro para estructura"
               className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 resize-y"
             />
           </div>
 
+          {ordenActual && (
+            <SeccionItems
+              proyectoId={proyectoId}
+              orden={ordenActual}
+              materialesConPendiente={materialesConPendiente}
+              onActualizado={onItemsActualizados}
+            />
+          )}
+          {!ordenActual && (
+            <p className="text-[11px] text-slate-400 italic -mt-1">
+              Guardá la orden para poder agregarle ítems del cómputo de materiales.
+            </p>
+          )}
+
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <label className={labelCls}>Monto (opcional)</label>
-              <input
-                type="number"
-                value={form.monto}
-                onChange={(e) => set("monto", e.target.value)}
-                placeholder="0"
-                className={inputCls}
-              />
+              <label className={labelCls}>{tieneItems ? "Monto (calculado por los ítems)" : "Monto (opcional)"}</label>
+              {tieneItems ? (
+                <div className={cn(inputCls, "bg-slate-50 text-slate-500 font-semibold")}>
+                  {form.monto.trim() ? fmtMonto(Number(form.monto), form.moneda) : "—"}
+                </div>
+              ) : (
+                <input
+                  type="number"
+                  value={form.monto}
+                  onChange={(e) => set("monto", e.target.value)}
+                  placeholder="0"
+                  className={inputCls}
+                />
+              )}
             </div>
             <div>
               <label className={labelCls}>Moneda</label>
@@ -523,11 +626,11 @@ function FormularioOrden({
             onClick={onCerrar}
             className="flex-1 py-2.5 rounded-[10px] border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
           >
-            Cancelar
+            {esEdicion ? "Cerrar" : "Cancelar"}
           </button>
           <button
             onClick={onGuardar}
-            disabled={guardando || !form.proveedor.trim() || !form.descripcion.trim()}
+            disabled={guardando || !form.proveedor.trim()}
             className="flex-1 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-50"
           >
             {guardando ? "Guardando…" : esEdicion ? "Guardar cambios" : "Agregar orden"}
@@ -535,5 +638,374 @@ function FormularioOrden({
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+/* ─── Sección de ítems (dentro del formulario de una orden) ─── */
+function SeccionItems({
+  proyectoId,
+  orden,
+  materialesConPendiente,
+  onActualizado,
+}: {
+  proyectoId: string;
+  orden: OrdenCompra;
+  materialesConPendiente: MaterialConPendiente[];
+  onActualizado: (o: OrdenCompra) => void;
+}) {
+  const [selectorAbierto, setSelectorAbierto] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [seleccion, setSeleccion] = useState<MaterialConPendiente | "libre" | null>(null);
+  const [itemForm, setItemForm] = useState({ descripcion: "", unidad: "", cantidad: "", precioUnit: "" });
+  const [guardandoItem, setGuardandoItem] = useState(false);
+  const [editandoItemId, setEditandoItemId] = useState<string | null>(null);
+  const [edicionItem, setEdicionItem] = useState({ cantidad: "", precioUnit: "" });
+
+  const base = `/api/proyectos/${proyectoId}/ordenes-compra/${orden.id}/items`;
+
+  const abrirSelector = () => {
+    setSelectorAbierto(true);
+    setBusqueda("");
+    setSeleccion(null);
+    setItemForm({ descripcion: "", unidad: "", cantidad: "", precioUnit: "" });
+  };
+
+  const cerrarSelector = () => {
+    setSelectorAbierto(false);
+    setSeleccion(null);
+  };
+
+  const elegirMaterial = (m: MaterialConPendiente) => {
+    setSeleccion(m);
+    setItemForm({
+      descripcion: m.descripcion,
+      unidad: m.unidad,
+      cantidad: m.pendiente > 0 ? String(round2(m.pendiente)) : "",
+      precioUnit: m.precioUnit != null ? String(m.precioUnit) : "",
+    });
+  };
+
+  const elegirLibre = () => {
+    setSeleccion("libre");
+    setItemForm({ descripcion: "", unidad: "", cantidad: "", precioUnit: "" });
+  };
+
+  const confirmarAgregar = async () => {
+    if (!itemForm.descripcion.trim() || !itemForm.unidad.trim() || !itemForm.cantidad.trim()) return;
+    const cantidadNum = Number(itemForm.cantidad);
+    if (!Number.isFinite(cantidadNum) || cantidadNum <= 0) return;
+    setGuardandoItem(true);
+    try {
+      const res = await fetch(base, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          descripcion: itemForm.descripcion.trim(),
+          unidad: itemForm.unidad.trim(),
+          cantidad: cantidadNum,
+          precioUnit: itemForm.precioUnit.trim() ? Number(itemForm.precioUnit) : null,
+        }),
+      });
+      if (!res.ok) throw new Error("No se pudo agregar el ítem");
+      const data: OrdenCompra = await res.json();
+      onActualizado(data);
+      cerrarSelector();
+    } catch (err) {
+      console.error("[ordenes-compra] error agregando ítem", err);
+    } finally {
+      setGuardandoItem(false);
+    }
+  };
+
+  const empezarEdicion = (item: ItemOrdenCompraTipo) => {
+    setEditandoItemId(item.id);
+    setEdicionItem({ cantidad: String(item.cantidad), precioUnit: item.precioUnit != null ? String(item.precioUnit) : "" });
+  };
+
+  const guardarEdicion = async (item: ItemOrdenCompraTipo) => {
+    const cantidadNum = Number(edicionItem.cantidad);
+    if (!Number.isFinite(cantidadNum) || cantidadNum <= 0) return;
+    setGuardandoItem(true);
+    try {
+      const res = await fetch(`${base}/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          descripcion: item.descripcion,
+          unidad: item.unidad,
+          cantidad: cantidadNum,
+          precioUnit: edicionItem.precioUnit.trim() ? Number(edicionItem.precioUnit) : null,
+        }),
+      });
+      if (!res.ok) throw new Error("No se pudo editar el ítem");
+      const data: OrdenCompra = await res.json();
+      onActualizado(data);
+      setEditandoItemId(null);
+    } catch (err) {
+      console.error("[ordenes-compra] error editando ítem", err);
+    } finally {
+      setGuardandoItem(false);
+    }
+  };
+
+  const borrarItem = async (itemId: string) => {
+    try {
+      const res = await fetch(`${base}/${itemId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("No se pudo borrar el ítem");
+      const data: OrdenCompra = await res.json();
+      onActualizado(data);
+    } catch (err) {
+      console.error("[ordenes-compra] error borrando ítem", err);
+    }
+  };
+
+  const materialesFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    return q ? materialesConPendiente.filter((m) => m.descripcion.toLowerCase().includes(q)) : materialesConPendiente;
+  }, [materialesConPendiente, busqueda]);
+
+  const inputChicoCls =
+    "w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-[6px] px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30";
+
+  return (
+    <div className="border-t border-slate-100 pt-3 space-y-2.5">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ítems de esta orden</p>
+        <button
+          onClick={abrirSelector}
+          className="flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" /> Agregar ítem
+        </button>
+      </div>
+
+      {orden.items.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">Todavía no hay ítems cargados en esta orden.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {orden.items.map((item) => {
+            const editando = editandoItemId === item.id;
+            const subtotal = item.precioUnit != null ? item.cantidad * item.precioUnit : null;
+            return (
+              <div key={item.id} className="rounded-[8px] border border-slate-200 bg-slate-50/60 px-2.5 py-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-slate-700 truncate">{item.descripcion}</p>
+                    {!editando ? (
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {fmtCantidad(item.cantidad)} {item.unidad}
+                        {item.precioUnit != null && ` · $${item.precioUnit} c/u`}
+                        {subtotal != null && ` · subtotal $${fmtCantidad(subtotal)}`}
+                      </p>
+                    ) : (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <input
+                          type="number"
+                          value={edicionItem.cantidad}
+                          onChange={(e) => setEdicionItem((p) => ({ ...p, cantidad: e.target.value }))}
+                          placeholder="Cantidad"
+                          className={cn(inputChicoCls, "max-w-[90px]")}
+                        />
+                        <span className="text-[11px] text-slate-400">{item.unidad}</span>
+                        <input
+                          type="number"
+                          value={edicionItem.precioUnit}
+                          onChange={(e) => setEdicionItem((p) => ({ ...p, precioUnit: e.target.value }))}
+                          placeholder="P. unit."
+                          className={cn(inputChicoCls, "max-w-[90px]")}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {editando ? (
+                      <button
+                        onClick={() => guardarEdicion(item)}
+                        disabled={guardandoItem}
+                        className="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors disabled:opacity-50"
+                        title="Guardar"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => empezarEdicion(item)}
+                        className="p-1 text-slate-400 hover:text-[#2563EB] hover:bg-blue-50 rounded transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => borrarItem(item.id)}
+                      className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Borrar"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {selectorAbierto && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-3 md:p-6"
+            onClick={cerrarSelector}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[14px] w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col shadow-xl"
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 flex-shrink-0">
+                <h4 className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Agregar ítem</h4>
+                <button onClick={cerrarSelector} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {seleccion == null ? (
+                <div className="flex flex-col flex-1 min-h-0">
+                  <div className="px-4 py-3 border-b border-slate-100 flex-shrink-0 space-y-2">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                        placeholder="Buscar material del cómputo…"
+                        className="w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-[8px] pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                      />
+                    </div>
+                    <button
+                      onClick={elegirLibre}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-[8px] border border-dashed border-slate-300 text-slate-500 hover:border-[#2563EB] hover:text-[#2563EB] text-xs font-semibold transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Ítem libre (no está en el cómputo)
+                    </button>
+                  </div>
+
+                  <div className="overflow-y-auto flex-1 px-4 py-2 space-y-1">
+                    {materialesFiltrados.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic py-4 text-center">
+                        No hay materiales del cómputo que coincidan.
+                      </p>
+                    ) : (
+                      materialesFiltrados.map((m) => (
+                        <button
+                          key={`${m.descripcion}||${m.unidad}`}
+                          onClick={() => elegirMaterial(m)}
+                          className="w-full text-left px-2.5 py-2 rounded-[8px] hover:bg-blue-50 transition-colors flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-slate-700 truncate">{m.descripcion}</p>
+                            <p className="text-[11px] text-slate-400">
+                              Total cómputo: {fmtCantidad(m.cantidadTotal)} {m.unidad}
+                            </p>
+                          </div>
+                          <span
+                            className={cn(
+                              "text-[11px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0",
+                              m.pendiente > 0
+                                ? "bg-amber-50 text-amber-600 border-amber-200"
+                                : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                            )}
+                          >
+                            {m.pendiente > 0 ? `Pendiente ${fmtCantidad(m.pendiente)}` : "Ya pedido"}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="px-4 py-4 space-y-3 overflow-y-auto">
+                  {seleccion !== "libre" && (
+                    <p className="text-[11px] text-slate-500">
+                      {seleccion.pendiente > 0 ? (
+                        <>
+                          Pendiente de pedir: <span className="font-semibold text-slate-700">{fmtCantidad(seleccion.pendiente)} {seleccion.unidad}</span>
+                        </>
+                      ) : (
+                        <span className="font-semibold text-slate-700">Ya se pidió el total del cómputo (o más)</span>
+                      )}
+                      {" "}(total del cómputo: {fmtCantidad(seleccion.cantidadTotal)} {seleccion.unidad})
+                    </p>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 mb-1 block">Descripción</label>
+                    <input
+                      type="text"
+                      value={itemForm.descripcion}
+                      onChange={(e) => setItemForm((p) => ({ ...p, descripcion: e.target.value }))}
+                      disabled={seleccion !== "libre"}
+                      className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 disabled:bg-slate-50 disabled:text-slate-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 mb-1 block">Unidad</label>
+                      <input
+                        type="text"
+                        value={itemForm.unidad}
+                        onChange={(e) => setItemForm((p) => ({ ...p, unidad: e.target.value }))}
+                        disabled={seleccion !== "libre"}
+                        className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 disabled:bg-slate-50 disabled:text-slate-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 mb-1 block">Cantidad</label>
+                      <input
+                        type="number"
+                        value={itemForm.cantidad}
+                        onChange={(e) => setItemForm((p) => ({ ...p, cantidad: e.target.value }))}
+                        className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 mb-1 block">P. unit. (opc.)</label>
+                      <input
+                        type="number"
+                        value={itemForm.precioUnit}
+                        onChange={(e) => setItemForm((p) => ({ ...p, precioUnit: e.target.value }))}
+                        className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => setSeleccion(null)}
+                      className="flex-1 py-2 rounded-[8px] border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-colors"
+                    >
+                      Atrás
+                    </button>
+                    <button
+                      onClick={confirmarAgregar}
+                      disabled={guardandoItem || !itemForm.descripcion.trim() || !itemForm.unidad.trim() || !itemForm.cantidad.trim()}
+                      className="flex-1 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                    >
+                      {guardandoItem ? "Agregando…" : "Agregar ítem"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

@@ -10,7 +10,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const { id } = await context.params;
     const ordenes = await db.ordenCompra.findMany({
       where: { proyectoId: id },
-      include: { capitulos: { include: { capitulo: { select: { id: true, nombre: true, codigo: true } } } } },
+      include: {
+        capitulos: { include: { capitulo: { select: { id: true, nombre: true, codigo: true } } } },
+        items: { orderBy: { createdAt: "asc" } },
+      },
       orderBy: { createdAt: "asc" },
     });
     return NextResponse.json(ordenes);
@@ -54,9 +57,6 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (!proveedor?.trim()) {
       return NextResponse.json({ error: "Falta proveedor" }, { status: 400 });
     }
-    if (!descripcion?.trim()) {
-      return NextResponse.json({ error: "Falta descripción" }, { status: 400 });
-    }
     if (estado && !ESTADOS_VALIDOS.includes(estado)) {
       return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
     }
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       data: {
         proyectoId: id,
         proveedor: proveedor.trim(),
-        descripcion: descripcion.trim(),
+        descripcion: descripcion?.trim() || "",
         monto: monto ?? null,
         moneda: moneda === "USD" ? "USD" : "UYU",
         fechaPedido: fechaPedido ? new Date(fechaPedido) : null,
@@ -83,7 +83,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           create: (capituloIds ?? []).map((capituloId) => ({ capituloId })),
         },
       },
-      include: { capitulos: { include: { capitulo: { select: { id: true, nombre: true, codigo: true } } } } },
+      include: {
+        capitulos: { include: { capitulo: { select: { id: true, nombre: true, codigo: true } } } },
+        items: { orderBy: { createdAt: "asc" } },
+      },
     });
 
     return NextResponse.json(orden, { status: 201 });

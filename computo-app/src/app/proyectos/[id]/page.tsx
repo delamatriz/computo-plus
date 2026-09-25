@@ -5708,7 +5708,7 @@ export default function ProyectoPage() {
             <SeccionBitacora proyectoId={proyectoActivo.id} />
             <SeccionPersonalObra proyectoId={proyectoActivo.id} />
             <SeccionSubcontratistas proyectoId={proyectoActivo.id} />
-            <SeccionOrdenesCompra proyectoId={proyectoActivo.id} />
+            <SeccionOrdenesCompra proyectoId={proyectoActivo.id} materialesGlobales={filasMateriales} />
           </BloqueGestionObra>
 
           <BloqueGestionObra

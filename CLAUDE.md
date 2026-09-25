@@ -116,6 +116,31 @@ que existe un comando invocable.
   `package-lock.json` directamente — el grafo solo tiene el nombre
   del paquete como nodo, no la versión instalada.
 
+## Dev server (Turbopack) — ruta API anidada nueva que da 404
+Síntoma observado dos veces en la misma sesión (feature de ítems de
+Órdenes de Compra, 2026-09-25): un `route.ts` recién creado bajo una
+carpeta con 2+ segmentos dinámicos (ej.
+`[id]/ordenes-compra/[ordenId]/items/route.ts`) devuelve 404 — pero
+es el 404 HTML genérico de Next ("This page could not be found"),
+no un 404 JSON del propio handler. Pasó con esa ruta nueva y, en la
+misma sesión, también se reprodujo en `certificaciones/[certId]/items`
+(ruta preexistente, mismo patrón de anidamiento) sin haberla tocado.
+
+No se confirmó al 100% que sea reproducible siempre — no se reintentó
+lo suficiente como para descartar coincidencia puntual de esa sesión
+de `next dev`. Pero como se vio en dos rutas distintas con el mismo
+patrón de anidamiento, conviene probarlo primero como rutina antes de
+salir a debuggear código:
+
+1. Si un endpoint nuevo (o uno viejo con 2+ segmentos dinámicos) da
+   404 HTML de Next apenas creado/editado, probar primero:
+   `preview_stop` → `rm -rf computo-app/.next` → `preview_start`
+   (o el equivalente `next dev` manual) antes de sospechar del código
+   de la ruta.
+2. Si después de eso sigue en 404, ahí sí es un bug real de la ruta (ver
+   el archivo, params, nombre de carpeta) — no seguir reiniciando a
+   ciegas.
+
 ## Próxima tarea inmediata
 Revisar las páginas construidas (/calcular, /proyectos/nuevo,
 /dashboard) y arrancar con el módulo central — el presupuesto:
