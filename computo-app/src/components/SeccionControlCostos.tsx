@@ -271,7 +271,7 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
                   <div className="flex flex-wrap gap-x-5 gap-y-1.5">
                     <DatoResumen label="Presupuestado" valor={fmtMoneda(totalPresupuestado, moneda)} />
                     <div>
-                      <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Comprometido</p>
+                      <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Contratado/Comprado</p>
                       <CeldaComprometido comprometido={totalComprometido} />
                     </div>
                     <div>
@@ -311,7 +311,7 @@ function FilaCapitulo({
       <div className="flex flex-wrap gap-x-5 gap-y-1.5">
         <DatoResumen label="Presupuestado" valor={fmtMoneda(presupuestado, moneda)} />
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Comprometido</p>
+          <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Contratado/Comprado</p>
           <CeldaComprometido comprometido={comprometido} />
         </div>
         <div>
