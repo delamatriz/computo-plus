@@ -86,6 +86,36 @@ de construcción para el mercado uruguayo.
 8. ⏳ Exportaciones PDF y Excel
 9. ⏳ Pulido visual final
 
+## Uso de Graphify — mapa de código (graphify-out/)
+Graphify generó `graphify-out/graph.json` + `GRAPH_REPORT.md`
++ `graph.html` con un mapa de todo el código TypeScript/TSX de
+`src/` (cobertura confirmada: 100% de los .ts/.tsx reales del
+proyecto). No hay un comando `graphify` instalado ni un skill/hook
+activo en este entorno — la consulta se hace leyendo `graph.json`
+directamente (grep/jq puntual sobre el archivo), nunca asumiendo
+que existe un comando invocable.
+
+- **Para preguntas de ubicación o relación** sobre código
+  TypeScript/TSX ("¿dónde vive X?", "¿qué llama a Y?", "¿qué usa
+  Z?"): consultar `graphify-out/graph.json` ANTES de listar o leer
+  carpetas enteras de `src/`.
+- **Chequeo de frescura obligatorio antes de confiar en el grafo:**
+  comparar el campo `"built_at_commit"` de `graph.json` contra
+  `git rev-parse HEAD`. Si no coinciden, tratar los resultados del
+  grafo como pista a verificar, no como fuente confiable, y pasar a
+  Grep/lectura directa.
+- **`schema.prisma` NUNCA está cubierto por el grafo** — Graphify no
+  indexa el DSL de Prisma. Cualquier pregunta sobre el modelo de
+  datos (modelos, campos, relaciones) requiere leer
+  `computo-app/prisma/schema.prisma` directamente, siempre.
+- El grafo da ubicación y relaciones, nunca reemplaza leer el
+  contenido real de un archivo antes de editarlo — ese hábito no
+  cambia.
+- **Para versión exacta de una dependencia** (compatibilidad antes
+  de agregar código nuevo): seguir consultando `package.json` /
+  `package-lock.json` directamente — el grafo solo tiene el nombre
+  del paquete como nodo, no la versión instalada.
+
 ## Próxima tarea inmediata
 Revisar las páginas construidas (/calcular, /proyectos/nuevo,
 /dashboard) y arrancar con el módulo central — el presupuesto:
