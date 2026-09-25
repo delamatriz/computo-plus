@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { FileCheck2, ChevronDown, ChevronRight, Pencil, X, Plus, Trash2, Download } from "lucide-react";
+import { FileCheck2, ChevronDown, ChevronRight, Pencil, X, Plus, Trash2, Download, AlertTriangle, AlertCircle, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,15 @@ interface Liquidacion {
   fechaLiquidacion: string | null;
   observaciones: string | null;
   ajustes: Ajuste[];
+}
+
+type EstadoCruce = "certificado_de_mas" | "falta_certificar" | "coincide";
+
+interface CruceCertificacion {
+  totalCertificado: number;
+  diferencia: number;
+  umbral: number;
+  estado: EstadoCruce;
 }
 
 interface Props {
@@ -61,6 +70,7 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
   const [liquidacion, setLiquidacion] = useState<Liquidacion | null>(null);
   const [presupuestoOriginal, setPresupuestoOriginal] = useState<number | null>(null);
   const [totalLiquidado, setTotalLiquidado] = useState<number | null>(null);
+  const [cruceCertificacion, setCruceCertificacion] = useState<CruceCertificacion | null>(null);
   const [monedaProyecto, setMonedaProyecto] = useState("UYU");
 
   const [formularioGeneralAbierto, setFormularioGeneralAbierto] = useState(false);
@@ -78,6 +88,7 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
       setLiquidacion(data.liquidacion);
       setPresupuestoOriginal(data.presupuestoOriginal);
       setTotalLiquidado(data.totalLiquidado);
+      setCruceCertificacion(data.cruceCertificacion ?? null);
       setMonedaProyecto(data.monedaProyecto ?? "UYU");
     } catch (err) {
       console.error("[liquidacion-final] error cargando datos", err);
@@ -304,6 +315,10 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
                       <span className="text-xl font-bold tabular-nums text-[#2563EB]">{fmtMoneda(totalLiquidado, monedaProyecto)}</span>
                     </div>
                   )}
+
+                  {cruceCertificacion && (
+                    <BloqueCruceCertificacion cruce={cruceCertificacion} moneda={monedaProyecto} />
+                  )}
                 </>
               )}
             </div>
@@ -397,6 +412,40 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
           </ModalBase>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/* ─── Cruce contra Certificaciones ────────────────────────── */
+const ESTILO_CRUCE: Record<EstadoCruce, { borde: string; fondo: string; texto: string; Icono: typeof AlertTriangle }> = {
+  certificado_de_mas: { borde: "border-red-300", fondo: "bg-red-50", texto: "text-red-700", Icono: AlertTriangle },
+  falta_certificar: { borde: "border-amber-300", fondo: "bg-amber-50", texto: "text-amber-700", Icono: AlertCircle },
+  coincide: { borde: "border-emerald-300", fondo: "bg-emerald-50", texto: "text-emerald-700", Icono: CheckCircle2 },
+};
+
+function mensajeCruce(cruce: CruceCertificacion, moneda: string): string {
+  if (cruce.estado === "certificado_de_mas") {
+    return `Certificado de más: ${fmtMoneda(Math.abs(cruce.diferencia), moneda)}`;
+  }
+  if (cruce.estado === "falta_certificar") {
+    return `Falta certificar: ${fmtMoneda(Math.abs(cruce.diferencia), moneda)}`;
+  }
+  return "Liquidación y certificación coinciden";
+}
+
+function BloqueCruceCertificacion({ cruce, moneda }: { cruce: CruceCertificacion; moneda: string }) {
+  const estilo = ESTILO_CRUCE[cruce.estado];
+  const Icono = estilo.Icono;
+  return (
+    <div className={cn("rounded-[10px] border px-3.5 py-3 space-y-2", estilo.borde, estilo.fondo)}>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total certificado</span>
+        <span className="text-sm font-bold tabular-nums text-slate-700">{fmtMoneda(cruce.totalCertificado, moneda)}</span>
+      </div>
+      <div className={cn("flex items-center gap-1.5 text-xs font-semibold", estilo.texto)}>
+        <Icono className="w-3.5 h-3.5 flex-shrink-0" />
+        {mensajeCruce(cruce, moneda)}
+      </div>
     </div>
   );
 }

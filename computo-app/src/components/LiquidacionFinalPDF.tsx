@@ -7,6 +7,14 @@ export interface AjusteLiquidacionPDF {
   tipo: string; // "Adicional" | "Descuento"
 }
 
+export type EstadoCruceCertificacionPDF = "certificado_de_mas" | "falta_certificar" | "coincide";
+
+export interface CruceCertificacionPDF {
+  totalCertificado: number;
+  diferencia: number;
+  estado: EstadoCruceCertificacionPDF;
+}
+
 export interface LiquidacionFinalPDFProps {
   empresaNombreHeader: string;
   proyectoNombre: string;
@@ -14,6 +22,7 @@ export interface LiquidacionFinalPDFProps {
   presupuestoOriginal: number;
   ajustes: AjusteLiquidacionPDF[];
   totalLiquidado: number;
+  cruceCertificacion: CruceCertificacionPDF | null;
   observaciones: string | null;
   moneda: string;
 }
@@ -164,6 +173,41 @@ const styles = StyleSheet.create({
     color: "#2563EB",
   },
 
+  // Cruce contra Certificaciones
+  cruceBloque: {
+    marginBottom: 16,
+    padding: 10,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  cruceCertificadoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  cruceCertificadoLabel: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  cruceCertificadoValor: {
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    color: "#334155",
+  },
+  cruceMensaje: {
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+  },
+  cruceRojo: { borderColor: "#FCA5A5", backgroundColor: "#FEF2F2" },
+  cruceAmbar: { borderColor: "#FCD34D", backgroundColor: "#FFFBEB" },
+  cruceVerde: { borderColor: "#6EE7B7", backgroundColor: "#ECFDF5" },
+  textoRojo: { color: "#B91C1C" },
+  textoAmbar: { color: "#B45309" },
+  textoVerde: { color: "#047857" },
+
   // Observaciones
   textoBloque: {
     marginBottom: 14,
@@ -209,6 +253,29 @@ function FilaAjuste({ ajuste, index, moneda }: { ajuste: AjusteLiquidacionPDF; i
   );
 }
 
+function BloqueCruceCertificacion({ cruce, moneda }: { cruce: CruceCertificacionPDF; moneda: string }) {
+  const estiloBloque =
+    cruce.estado === "certificado_de_mas" ? styles.cruceRojo : cruce.estado === "falta_certificar" ? styles.cruceAmbar : styles.cruceVerde;
+  const estiloTexto =
+    cruce.estado === "certificado_de_mas" ? styles.textoRojo : cruce.estado === "falta_certificar" ? styles.textoAmbar : styles.textoVerde;
+  const mensaje =
+    cruce.estado === "certificado_de_mas"
+      ? `Certificado de más: ${fmtMoneda(Math.abs(cruce.diferencia), moneda)}`
+      : cruce.estado === "falta_certificar"
+      ? `Falta certificar: ${fmtMoneda(Math.abs(cruce.diferencia), moneda)}`
+      : "Liquidación y certificación coinciden";
+
+  return (
+    <View style={[styles.cruceBloque, estiloBloque]}>
+      <View style={styles.cruceCertificadoRow}>
+        <Text style={styles.cruceCertificadoLabel}>Total certificado</Text>
+        <Text style={styles.cruceCertificadoValor}>{fmtMoneda(cruce.totalCertificado, moneda)}</Text>
+      </View>
+      <Text style={[styles.cruceMensaje, estiloTexto]}>{mensaje}</Text>
+    </View>
+  );
+}
+
 function PiePagina({ proyectoNombre }: { proyectoNombre: string }) {
   return (
     <View style={styles.footer} fixed>
@@ -230,6 +297,7 @@ export function LiquidacionFinalPDF({
   presupuestoOriginal,
   ajustes,
   totalLiquidado,
+  cruceCertificacion,
   observaciones,
   moneda,
 }: LiquidacionFinalPDFProps) {
@@ -280,6 +348,9 @@ export function LiquidacionFinalPDF({
           <Text style={styles.labelTotalGeneral}>Total liquidado</Text>
           <Text style={styles.montoTotalGeneral}>{fmtMoneda(totalLiquidado, moneda)}</Text>
         </View>
+
+        {/* Cruce contra Certificaciones */}
+        {cruceCertificacion && <BloqueCruceCertificacion cruce={cruceCertificacion} moneda={moneda} />}
 
         {/* Observaciones */}
         {observaciones && (

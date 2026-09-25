@@ -6,6 +6,7 @@ import {
   calcularUtilidadAgregada,
   type ApuParaCosto,
 } from "@/lib/costoAgregado";
+import { calcularTotalCertificadoAgregado, calcularCruceCertificacion } from "@/lib/totalCertificadoAgregado";
 
 // Presupuesto Original = Costo Total del presupuesto (Costo Directo +
 // Costos Indirectos + Utilidad, SIN IVA) — mismo "Costo Total" que ya
@@ -58,6 +59,23 @@ async function calcularPresupuestoOriginal(proyectoId: string): Promise<number |
   return costoDirectoAgregado.total + costosIndirectosAgregados + utilidadAgregada;
 }
 
+// Total certificado del proyecto — se recalcula en vivo en cada GET
+// (a diferencia del Presupuesto Original, acá no hay pedido de
+// congelarlo: Certificaciones sigue siendo un módulo independiente que
+// puede seguir cargando certificaciones después de creada la
+// liquidación, y el cruce debe reflejar el estado real más reciente).
+async function calcularTotalCertificado(proyectoId: string): Promise<number> {
+  const certificaciones = await db.certificacion.findMany({
+    where: { proyectoId },
+    include: {
+      items: {
+        include: { rubro: { select: { cantidad: true, precioUnit: true } } },
+      },
+    },
+  });
+  return calcularTotalCertificadoAgregado(certificaciones);
+}
+
 function calcularTotalLiquidado(presupuestoOriginal: number, ajustes: { monto: number; tipo: string }[]): number {
   const sumaAdicionales = ajustes.filter((a) => a.tipo === "Adicional").reduce((s, a) => s + a.monto, 0);
   const sumaDescuentos = ajustes.filter((a) => a.tipo === "Descuento").reduce((s, a) => s + a.monto, 0);
@@ -95,10 +113,19 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         ? calcularTotalLiquidado(presupuestoOriginal, liquidacion?.ajustes ?? [])
         : null;
 
+    // El cruce contra Certificaciones solo tiene sentido una vez que
+    // existe una liquidación (hay un Total Liquidado contra el cual
+    // comparar) — antes de crearla no se calcula.
+    const cruceCertificacion =
+      liquidacion && totalLiquidado != null
+        ? calcularCruceCertificacion(await calcularTotalCertificado(id), totalLiquidado)
+        : null;
+
     return NextResponse.json({
       liquidacion,
       presupuestoOriginal,
       totalLiquidado,
+      cruceCertificacion,
       monedaProyecto: proyecto.moneda,
     });
   } catch (err) {

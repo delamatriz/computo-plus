@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { LiquidacionFinalPDF } from "@/components/LiquidacionFinalPDF";
+import { calcularTotalCertificadoAgregado, calcularCruceCertificacion } from "@/lib/totalCertificadoAgregado";
 import React from "react";
 
 function calcularTotalLiquidado(presupuestoOriginal: number, ajustes: { monto: number; tipo: string }[]): number {
@@ -20,7 +21,7 @@ export async function GET(
   try {
     const { id } = await context.params;
 
-    const [proyecto, liquidacion] = await Promise.all([
+    const [proyecto, liquidacion, certificaciones] = await Promise.all([
       db.proyecto.findUnique({
         where: { id },
         include: { empresa: true },
@@ -28,6 +29,10 @@ export async function GET(
       db.liquidacionFinal.findUnique({
         where: { proyectoId: id },
         include: { ajustes: { orderBy: { createdAt: "asc" } } },
+      }),
+      db.certificacion.findMany({
+        where: { proyectoId: id },
+        include: { items: { include: { rubro: { select: { cantidad: true, precioUnit: true } } } } },
       }),
     ]);
 
@@ -39,6 +44,10 @@ export async function GET(
     }
 
     const totalLiquidado = calcularTotalLiquidado(liquidacion.presupuestoOriginalSnapshot, liquidacion.ajustes);
+    const cruceCertificacion = calcularCruceCertificacion(
+      calcularTotalCertificadoAgregado(certificaciones),
+      totalLiquidado
+    );
 
     const elemento = React.createElement(LiquidacionFinalPDF, {
       empresaNombreHeader: proyecto.empresa?.nombre || "Mi Empresa",
@@ -47,6 +56,7 @@ export async function GET(
       presupuestoOriginal: liquidacion.presupuestoOriginalSnapshot,
       ajustes: liquidacion.ajustes.map((a) => ({ concepto: a.concepto, monto: a.monto, tipo: a.tipo })),
       totalLiquidado,
+      cruceCertificacion,
       observaciones: liquidacion.observaciones,
       moneda: proyecto.moneda,
     }) as Parameters<typeof renderToBuffer>[0];
