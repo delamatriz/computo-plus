@@ -62,6 +62,10 @@ export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNom
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
+            <p className="text-xs text-slate-500 px-5 pt-4 pb-1">
+              Suma de materiales de todos los rubros del proyecto, agregados por nombre y unidad — la base
+              para pedir cotizaciones o cargar órdenes de compra.
+            </p>
             <div className="flex items-center px-5 py-2 bg-slate-50 border-b border-slate-200">
               <div className="flex-1 pr-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Material</div>
               <div style={{ width: 56 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center">Unidad</div>

@@ -439,6 +439,10 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
             className="overflow-hidden border-t border-slate-200"
           >
             <div className="px-5 py-5" style={{ background: "#F8FAFC" }}>
+              <p className="text-xs text-slate-500 -mt-1 mb-4">
+                Certificá el avance de obra por rubro en cada corte — lo que se le factura al comitente, no lo
+                que se gastó (eso lo mide Control de Costos).
+              </p>
               <div className="flex flex-col lg:flex-row gap-4 items-start">
 
                 {/* ── Panel izquierdo — lista ────────────── */}

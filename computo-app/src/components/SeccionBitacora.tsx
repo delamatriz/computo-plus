@@ -342,6 +342,10 @@ export default function SeccionBitacora({ proyectoId }: Props) {
             className="overflow-hidden border-t border-slate-200"
           >
             <div className="px-5 py-5 space-y-3" style={{ background: "#F8FAFC" }}>
+              <p className="text-xs text-slate-500 -mt-1">
+                Registro diario de la obra: novedades, avances e incidentes, con fotos y rubros vinculados si
+                corresponde.
+              </p>
               <button
                 onClick={abrirNuevaEntrada}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors"

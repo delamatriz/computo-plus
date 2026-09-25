@@ -810,6 +810,10 @@ export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
             transition={{ duration: 0.2 }}
             className="overflow-hidden border-t border-slate-200"
           >
+            <p className="text-xs text-slate-500 px-5 pt-4 pb-1">
+              Planificá fechas de inicio y fin por capítulo y rubro — la Curva S cruza lo planificado con el
+              avance ya certificado.
+            </p>
             {capitulos.length === 0 ? (
               <p className="text-xs text-slate-400 italic px-5 py-5">
                 Todavía no hay capítulos cargados en este proyecto.

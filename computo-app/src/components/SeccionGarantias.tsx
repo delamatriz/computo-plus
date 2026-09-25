@@ -159,6 +159,10 @@ export default function SeccionGarantias({
             className="overflow-hidden border-t border-slate-200"
           >
             <div className="px-5 py-5 space-y-5" style={{ background: "#F8FAFC" }}>
+              <p className="text-xs text-slate-500 -mt-1">
+                Definí las condiciones de garantía de fiel cumplimiento, vicios ocultos y responsabilidad por
+                defectos — en obra pública también aplica RUPE y los umbrales de TOCAF.
+              </p>
               {tipoContratacion === "PUBLICA" && (
                 <SeccionGarantiasObraPublica totalGeneral={totalGeneral} moneda={moneda} />
               )}
