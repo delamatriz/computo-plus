@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { resolverVinculoAjuste, INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
 
 const TIPOS_VALIDOS = ["Adicional", "Descuento"];
 
@@ -8,7 +9,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   try {
     const { id } = await context.params;
     const body = await req.json().catch(() => ({}));
-    const { concepto, monto, tipo } = body as { concepto?: string; monto?: number; tipo?: string };
+    const { concepto, monto, tipo, ordenCompraId, subcontratistaId } = body as {
+      concepto?: string;
+      monto?: number;
+      tipo?: string;
+      ordenCompraId?: string | null;
+      subcontratistaId?: string | null;
+    };
 
     if (!concepto?.trim()) {
       return NextResponse.json({ error: "Falta concepto" }, { status: 400 });
@@ -25,13 +32,21 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Este proyecto todavía no tiene liquidación final" }, { status: 404 });
     }
 
+    const vinculo = await resolverVinculoAjuste(id, ordenCompraId, subcontratistaId);
+    if ("error" in vinculo) {
+      return NextResponse.json({ error: vinculo.error }, { status: 400 });
+    }
+
     const ajuste = await db.ajusteLiquidacion.create({
       data: {
         liquidacionFinalId: liquidacion.id,
         concepto: concepto.trim(),
         monto,
         tipo,
+        ordenCompraId: vinculo.ordenCompraId,
+        subcontratistaId: vinculo.subcontratistaId,
       },
+      include: INCLUDE_VINCULO_AJUSTE,
     });
 
     return NextResponse.json(ajuste, { status: 201 });

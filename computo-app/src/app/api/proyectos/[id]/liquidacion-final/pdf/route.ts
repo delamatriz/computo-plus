@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { LiquidacionFinalPDF } from "@/components/LiquidacionFinalPDF";
 import { calcularTotalCertificadoAgregado, calcularCruceCertificacion } from "@/lib/totalCertificadoAgregado";
+import { INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
 import React from "react";
 
 function calcularTotalLiquidado(presupuestoOriginal: number, ajustes: { monto: number; tipo: string }[]): number {
@@ -28,7 +29,7 @@ export async function GET(
       }),
       db.liquidacionFinal.findUnique({
         where: { proyectoId: id },
-        include: { ajustes: { orderBy: { createdAt: "asc" } } },
+        include: { ajustes: { orderBy: { createdAt: "asc" }, include: INCLUDE_VINCULO_AJUSTE } },
       }),
       db.certificacion.findMany({
         where: { proyectoId: id },
@@ -54,7 +55,16 @@ export async function GET(
       proyectoNombre: proyecto.nombre,
       fechaLiquidacion: liquidacion.fechaLiquidacion ? liquidacion.fechaLiquidacion.toISOString() : null,
       presupuestoOriginal: liquidacion.presupuestoOriginalSnapshot,
-      ajustes: liquidacion.ajustes.map((a) => ({ concepto: a.concepto, monto: a.monto, tipo: a.tipo })),
+      ajustes: liquidacion.ajustes.map((a) => ({
+        concepto: a.concepto,
+        monto: a.monto,
+        tipo: a.tipo,
+        referenciaVinculo: a.ordenCompra
+          ? `Vinculado a Orden de Compra — ${a.ordenCompra.proveedor}`
+          : a.subcontratista
+          ? `Vinculado a Subcontratista — ${a.subcontratista.empresa}`
+          : null,
+      })),
       totalLiquidado,
       cruceCertificacion,
       observaciones: liquidacion.observaciones,

@@ -14,6 +14,28 @@ interface Ajuste {
   concepto: string;
   monto: number;
   tipo: TipoAjuste;
+  ordenCompra: { id: string; proveedor: string } | null;
+  subcontratista: { id: string; empresa: string } | null;
+}
+
+type VinculoTipo = "ninguno" | "orden" | "subcontratista";
+
+interface OrdenCompraOpcion {
+  id: string;
+  proveedor: string;
+  monto: number | null;
+  moneda: string;
+  fechaPedido: string | null;
+  estado: string;
+}
+
+interface SubcontratistaOpcion {
+  id: string;
+  empresa: string;
+  rubro: string;
+  montoContratado: number | null;
+  moneda: string;
+  estado: string;
 }
 
 interface Liquidacion {
@@ -48,7 +70,7 @@ function fmtMoneda(v: number, moneda: string): string {
 }
 
 type FormGeneral = { fechaLiquidacion: string; observaciones: string };
-type FormAjuste = { concepto: string; monto: string; tipo: TipoAjuste };
+type FormAjuste = { concepto: string; monto: string; tipo: TipoAjuste; vinculoTipo: VinculoTipo; vinculoId: string | null };
 
 function formGeneralVacio(): FormGeneral {
   return { fechaLiquidacion: "", observaciones: "" };
@@ -57,10 +79,16 @@ function formGeneralDesde(l: Liquidacion): FormGeneral {
   return { fechaLiquidacion: l.fechaLiquidacion ? l.fechaLiquidacion.slice(0, 10) : "", observaciones: l.observaciones ?? "" };
 }
 function formAjusteVacio(): FormAjuste {
-  return { concepto: "", monto: "", tipo: "Adicional" };
+  return { concepto: "", monto: "", tipo: "Adicional", vinculoTipo: "ninguno", vinculoId: null };
 }
 function formAjusteDesde(a: Ajuste): FormAjuste {
-  return { concepto: a.concepto, monto: String(a.monto), tipo: a.tipo };
+  return {
+    concepto: a.concepto,
+    monto: String(a.monto),
+    tipo: a.tipo,
+    vinculoTipo: a.ordenCompra ? "orden" : a.subcontratista ? "subcontratista" : "ninguno",
+    vinculoId: a.ordenCompra?.id ?? a.subcontratista?.id ?? null,
+  };
 }
 
 /* ─── Componente principal ────────────────────────────────── */
@@ -80,6 +108,11 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
   const [ajusteAbierto, setAjusteAbierto] = useState<"nuevo" | string | null>(null);
   const [formAjuste, setFormAjuste] = useState<FormAjuste>(formAjusteVacio());
   const [guardandoAjuste, setGuardandoAjuste] = useState(false);
+
+  const [ordenesDisponibles, setOrdenesDisponibles] = useState<OrdenCompraOpcion[]>([]);
+  const [subcontratistasDisponibles, setSubcontratistasDisponibles] = useState<SubcontratistaOpcion[]>([]);
+  const [vinculosCargados, setVinculosCargados] = useState(false);
+  const [cargandoVinculos, setCargandoVinculos] = useState(false);
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -138,14 +171,53 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
   };
 
   /* ── Ajustes ────────────────────────────────────────────── */
+  const cargarOpcionesVinculo = useCallback(async () => {
+    setCargandoVinculos(true);
+    try {
+      const [resOrdenes, resSubs] = await Promise.all([
+        fetch(`/api/proyectos/${proyectoId}/ordenes-compra`),
+        fetch(`/api/proyectos/${proyectoId}/subcontratistas`),
+      ]);
+      const ordenes = await resOrdenes.json();
+      const subs = await resSubs.json();
+      setOrdenesDisponibles(Array.isArray(ordenes) ? ordenes : []);
+      setSubcontratistasDisponibles(Array.isArray(subs) ? subs : []);
+    } catch (err) {
+      console.error("[liquidacion-final] error cargando órdenes/subcontratistas", err);
+    } finally {
+      setVinculosCargados(true);
+      setCargandoVinculos(false);
+    }
+  }, [proyectoId]);
+
   const abrirNuevoAjuste = () => {
     setFormAjuste(formAjusteVacio());
     setAjusteAbierto("nuevo");
+    if (!vinculosCargados) cargarOpcionesVinculo();
   };
   const abrirEditarAjuste = (a: Ajuste) => {
     setFormAjuste(formAjusteDesde(a));
     setAjusteAbierto(a.id);
+    if (!vinculosCargados) cargarOpcionesVinculo();
   };
+
+  const elegirVinculoTipo = (tipo: VinculoTipo) => {
+    setFormAjuste((p) => ({ ...p, vinculoTipo: tipo, vinculoId: null }));
+  };
+  const elegirVinculoId = (id: string) => {
+    setFormAjuste((p) => {
+      if (p.vinculoTipo === "orden") {
+        const orden = ordenesDisponibles.find((o) => o.id === id);
+        return { ...p, vinculoId: id, monto: orden?.monto != null ? String(orden.monto) : p.monto };
+      }
+      if (p.vinculoTipo === "subcontratista") {
+        const sub = subcontratistasDisponibles.find((s) => s.id === id);
+        return { ...p, vinculoId: id, monto: sub?.montoContratado != null ? String(sub.montoContratado) : p.monto };
+      }
+      return { ...p, vinculoId: id };
+    });
+  };
+
   const guardarAjuste = async () => {
     if (!formAjuste.concepto.trim() || !formAjuste.monto.trim()) return;
     setGuardandoAjuste(true);
@@ -154,7 +226,13 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
       const url = esEdicion
         ? `/api/proyectos/${proyectoId}/liquidacion-final/ajustes/${ajusteAbierto}`
         : `/api/proyectos/${proyectoId}/liquidacion-final/ajustes`;
-      const body = { ...formAjuste, monto: Number(formAjuste.monto) };
+      const body = {
+        concepto: formAjuste.concepto,
+        tipo: formAjuste.tipo,
+        monto: Number(formAjuste.monto),
+        ordenCompraId: formAjuste.vinculoTipo === "orden" ? formAjuste.vinculoId : null,
+        subcontratistaId: formAjuste.vinculoTipo === "subcontratista" ? formAjuste.vinculoId : null,
+      };
       const res = await fetch(url, {
         method: esEdicion ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -285,6 +363,13 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
                                 </span>
                                 <span className="text-xs text-slate-700 font-medium truncate">{a.concepto}</span>
                               </div>
+                              {(a.ordenCompra || a.subcontratista) && (
+                                <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                                  {a.ordenCompra
+                                    ? `Vinculado a Orden de Compra — ${a.ordenCompra.proveedor}`
+                                    : `Vinculado a Subcontratista — ${a.subcontratista!.empresa}`}
+                                </p>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <span className={cn("text-sm font-bold tabular-nums", a.tipo === "Adicional" ? "text-emerald-600" : "text-red-600")}>
@@ -376,6 +461,69 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
                   className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
                 />
               </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-1 block">Vincular a (opcional)</label>
+                <select
+                  value={formAjuste.vinculoTipo}
+                  onChange={(e) => elegirVinculoTipo(e.target.value as VinculoTipo)}
+                  className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                >
+                  <option value="ninguno">Ninguno (texto libre)</option>
+                  <option value="orden">Orden de Compra</option>
+                  <option value="subcontratista">Subcontratista</option>
+                </select>
+              </div>
+
+              {formAjuste.vinculoTipo === "orden" && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 mb-1 block">Orden de compra</label>
+                  {cargandoVinculos ? (
+                    <p className="text-xs text-slate-400 italic">Cargando órdenes de compra…</p>
+                  ) : ordenesDisponibles.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">Este proyecto todavía no tiene órdenes de compra cargadas.</p>
+                  ) : (
+                    <select
+                      value={formAjuste.vinculoId ?? ""}
+                      onChange={(e) => elegirVinculoId(e.target.value)}
+                      className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                    >
+                      <option value="" disabled>Elegí una orden…</option>
+                      {ordenesDisponibles.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.proveedor} — {o.fechaPedido ? fmtFecha(o.fechaPedido) : "sin fecha"} —{" "}
+                          {o.monto != null ? fmtMoneda(o.monto, o.moneda) : "sin monto"} [{o.estado}]
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {formAjuste.vinculoTipo === "subcontratista" && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 mb-1 block">Subcontratista</label>
+                  {cargandoVinculos ? (
+                    <p className="text-xs text-slate-400 italic">Cargando subcontratistas…</p>
+                  ) : subcontratistasDisponibles.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">Este proyecto todavía no tiene subcontratistas cargados.</p>
+                  ) : (
+                    <select
+                      value={formAjuste.vinculoId ?? ""}
+                      onChange={(e) => elegirVinculoId(e.target.value)}
+                      className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                    >
+                      <option value="" disabled>Elegí un subcontratista…</option>
+                      {subcontratistasDisponibles.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.empresa} — {s.rubro} —{" "}
+                          {s.montoContratado != null ? fmtMoneda(s.montoContratado, s.moneda) : "sin monto"} [{s.estado}]
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-500 mb-1 block">Monto</label>

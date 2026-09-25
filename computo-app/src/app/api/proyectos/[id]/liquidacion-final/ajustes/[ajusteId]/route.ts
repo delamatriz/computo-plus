@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { resolverVinculoAjuste, INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
 
 const TIPOS_VALIDOS = ["Adicional", "Descuento"];
 
@@ -9,9 +10,15 @@ export async function PATCH(
   context: { params: Promise<{ id: string; ajusteId: string }> }
 ) {
   try {
-    const { ajusteId } = await context.params;
+    const { id, ajusteId } = await context.params;
     const body = await req.json().catch(() => ({}));
-    const { concepto, monto, tipo } = body as { concepto?: string; monto?: number; tipo?: string };
+    const { concepto, monto, tipo, ordenCompraId, subcontratistaId } = body as {
+      concepto?: string;
+      monto?: number;
+      tipo?: string;
+      ordenCompraId?: string | null;
+      subcontratistaId?: string | null;
+    };
 
     if (!concepto?.trim()) {
       return NextResponse.json({ error: "Falta concepto" }, { status: 400 });
@@ -28,9 +35,21 @@ export async function PATCH(
       return NextResponse.json({ error: "Ajuste no encontrado" }, { status: 404 });
     }
 
+    const vinculo = await resolverVinculoAjuste(id, ordenCompraId, subcontratistaId);
+    if ("error" in vinculo) {
+      return NextResponse.json({ error: vinculo.error }, { status: 400 });
+    }
+
     const ajuste = await db.ajusteLiquidacion.update({
       where: { id: ajusteId },
-      data: { concepto: concepto.trim(), monto, tipo },
+      data: {
+        concepto: concepto.trim(),
+        monto,
+        tipo,
+        ordenCompraId: vinculo.ordenCompraId,
+        subcontratistaId: vinculo.subcontratistaId,
+      },
+      include: INCLUDE_VINCULO_AJUSTE,
     });
 
     return NextResponse.json(ajuste);

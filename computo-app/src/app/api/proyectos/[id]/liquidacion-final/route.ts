@@ -7,6 +7,7 @@ import {
   type ApuParaCosto,
 } from "@/lib/costoAgregado";
 import { calcularTotalCertificadoAgregado, calcularCruceCertificacion } from "@/lib/totalCertificadoAgregado";
+import { INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
 
 // Presupuesto Original = Costo Total del presupuesto (Costo Directo +
 // Costos Indirectos + Utilidad, SIN IVA) — mismo "Costo Total" que ya
@@ -102,7 +103,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const liquidacion = await db.liquidacionFinal.findUnique({
       where: { proyectoId: id },
-      include: { ajustes: { orderBy: { createdAt: "asc" } } },
+      include: { ajustes: { orderBy: { createdAt: "asc" }, include: INCLUDE_VINCULO_AJUSTE } },
     });
 
     const presupuestoOriginal = liquidacion
@@ -194,7 +195,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         fechaLiquidacion: fechaLiquidacion ? new Date(fechaLiquidacion) : null,
         observaciones: observaciones?.trim() || null,
       },
-      include: { ajustes: { orderBy: { createdAt: "asc" } } },
+      include: { ajustes: { orderBy: { createdAt: "asc" }, include: INCLUDE_VINCULO_AJUSTE } },
     });
 
     return NextResponse.json(liquidacion);

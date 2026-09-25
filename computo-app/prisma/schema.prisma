@@ -477,6 +477,7 @@ model Subcontratista {
   estado            String  @default("En negociación") // "En negociación" | "Contratado" | "En obra" | "Finalizado" | "Cancelado"
 
   capitulos CapituloSubcontratista[]
+  ajustesLiquidacion AjusteLiquidacion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -514,6 +515,7 @@ model OrdenCompra {
 
   capitulos CapituloOrdenCompra[]
   items     ItemOrdenCompra[]
+  ajustesLiquidacion AjusteLiquidacion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -684,6 +686,16 @@ model AjusteLiquidacion {
   concepto String
   monto    Float
   tipo     String // "Adicional" | "Descuento"
+
+  // Vínculo opcional de trazabilidad — mutuamente excluyentes entre sí
+  // y con "texto libre" (ninguno de los dos). No afecta el cálculo del
+  // Total Liquidado, que sigue sumando/restando `monto` tal cual está
+  // guardado — el monto se prellena una sola vez al vincular (ver UI),
+  // sin sincronía posterior con OrdenCompra.monto / Subcontratista.montoContratado.
+  ordenCompraId    String?
+  ordenCompra      OrdenCompra?    @relation(fields: [ordenCompraId], references: [id], onDelete: SetNull)
+  subcontratistaId String?
+  subcontratista   Subcontratista? @relation(fields: [subcontratistaId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

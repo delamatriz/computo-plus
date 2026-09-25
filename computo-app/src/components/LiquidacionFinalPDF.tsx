@@ -5,6 +5,7 @@ export interface AjusteLiquidacionPDF {
   concepto: string;
   monto: number;
   tipo: string; // "Adicional" | "Descuento"
+  referenciaVinculo: string | null;
 }
 
 export type EstadoCruceCertificacionPDF = "certificado_de_mas" | "falta_certificar" | "coincide";
@@ -244,7 +245,10 @@ function FilaAjuste({ ajuste, index, moneda }: { ajuste: AjusteLiquidacionPDF; i
   const esAdicional = ajuste.tipo === "Adicional";
   return (
     <View style={[styles.filaAjuste, index % 2 === 0 ? styles.filaAjustePar : styles.filaAjusteImpar]} wrap={false}>
-      <Text style={[styles.textoCelda, styles.colConcepto]}>{ajuste.concepto || "—"}</Text>
+      <View style={styles.colConcepto}>
+        <Text style={styles.textoCelda}>{ajuste.concepto || "—"}</Text>
+        {ajuste.referenciaVinculo && <Text style={styles.textoCeldaMuted}>{ajuste.referenciaVinculo}</Text>}
+      </View>
       <Text style={[styles.textoCelda, styles.colTipo]}>{ajuste.tipo}</Text>
       <Text style={[esAdicional ? styles.montoAdicional : styles.montoDescuento, styles.colMonto]}>
         {esAdicional ? "+" : "-"}{fmtMoneda(ajuste.monto, moneda)}
