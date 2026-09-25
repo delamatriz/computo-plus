@@ -663,6 +663,13 @@ model LiquidacionFinal {
   fechaLiquidacion DateTime?
   observaciones    String?   @db.Text
 
+  // Snapshot del Costo Total del presupuesto (costoAgregado.ts),
+  // calculado UNA VEZ al crear la liquidación y nunca más — una
+  // liquidación ya cerrada es un registro fijo del momento en que se
+  // liquidó, no un valor que se mueve si el presupuesto se edita
+  // después. Ver GET/POST de /api/proyectos/[id]/liquidacion-final.
+  presupuestoOriginalSnapshot Float
+
   ajustes AjusteLiquidacion[]
 
   createdAt DateTime @default(now())

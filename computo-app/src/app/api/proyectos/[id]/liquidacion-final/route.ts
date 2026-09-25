@@ -65,8 +65,14 @@ function calcularTotalLiquidado(presupuestoOriginal: number, ajustes: { monto: n
 }
 
 // GET — obtiene la liquidación final del proyecto (o null si todavía
-// no se creó), con ajustes, el Presupuesto Original calculado en vivo
-// y el Total Liquidado ya resuelto.
+// no se creó), con ajustes y el Total Liquidado ya resuelto.
+//
+// Presupuesto Original: si la liquidación YA EXISTE, se lee el
+// snapshot congelado en creación (presupuestoOriginalSnapshot) — NO
+// se recalcula en vivo, para que una liquidación cerrada no cambie
+// sola si el presupuesto se edita después. Si todavía no existe
+// liquidación, se sigue mostrando el valor en vivo como preview de lo
+// que quedaría congelado al crearla (no hay nada que congelar todavía).
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
@@ -81,7 +87,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       include: { ajustes: { orderBy: { createdAt: "asc" } } },
     });
 
-    const presupuestoOriginal = await calcularPresupuestoOriginal(id);
+    const presupuestoOriginal = liquidacion
+      ? liquidacion.presupuestoOriginalSnapshot
+      : await calcularPresupuestoOriginal(id);
     const totalLiquidado =
       presupuestoOriginal != null
         ? calcularTotalLiquidado(presupuestoOriginal, liquidacion?.ajustes ?? [])
@@ -100,6 +108,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 }
 
 // POST — crea la liquidación final del proyecto (primera vez).
+// Congela el Presupuesto Original acá — se calcula una sola vez con
+// costoAgregado.ts y se guarda en presupuestoOriginalSnapshot; de acá
+// en más ese número no se vuelve a tocar en esta liquidación.
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
@@ -116,11 +127,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Este proyecto ya tiene una liquidación final" }, { status: 409 });
     }
 
+    const presupuestoOriginal = await calcularPresupuestoOriginal(id);
+    if (presupuestoOriginal == null) {
+      return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+    }
+
     const liquidacion = await db.liquidacionFinal.create({
       data: {
         proyectoId: id,
         fechaLiquidacion: fechaLiquidacion ? new Date(fechaLiquidacion) : null,
         observaciones: observaciones?.trim() || null,
+        presupuestoOriginalSnapshot: presupuestoOriginal,
       },
       include: { ajustes: true },
     });
