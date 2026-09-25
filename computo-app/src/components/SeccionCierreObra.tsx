@@ -13,6 +13,7 @@ import {
   Image as ImageIcon,
   File as FileIcon,
   ExternalLink,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -424,12 +425,22 @@ export default function SeccionCierreObra({ proyectoId }: Props) {
                   <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Datos generales</p>
-                      <button
-                        onClick={abrirEditarGeneral}
-                        className="flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                      >
-                        <Pencil className="w-3 h-3" /> Editar
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <a
+                          href={`/api/proyectos/${proyectoId}/cierre-obra/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                        >
+                          <Download className="w-3 h-3" /> Imprimir / PDF
+                        </a>
+                        <button
+                          onClick={abrirEditarGeneral}
+                          className="flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                        >
+                          <Pencil className="w-3 h-3" /> Editar
+                        </button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div>
