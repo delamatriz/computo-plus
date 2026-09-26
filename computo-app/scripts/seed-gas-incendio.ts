@@ -1,4 +1,29 @@
-// Expansión de biblioteca — Instalación de Gas y Contra Incendio.
+// Expansión de biblioteca — Instalación de Gas y Contra Incendio (1/2).
+//
+// ⚠ Este script quedó desactualizado en dos sentidos — no volver a
+// correrlo con --apply sin revisar antes:
+//   1. Historia posterior no reflejada acá: el 13/09/2026 se agregaron
+//      3 códigos más a Gas (17.9-17.11) y 2 más a Contra Incendio
+//      (19.10-19.11) vía un script ad hoc que nunca se comiteó — quedó
+//      invisible hasta el relevamiento del 26/09/2026. Y el 26/09/2026
+//      se agregaron otros 9 (17.12-17.15, 19.12-19.16), esta vez
+//      documentados en scripts/seed-gas-incendio-expansion-2026-09.ts
+//      (leé el header de ese archivo para la historia completa).
+//   2. `db.precioMTOP.upsert({ where: { codigo: ... } })` de acá abajo
+//      ya no compila contra el schema actual — PrecioMTOP pasó a
+//      @@unique([codigo, proveedor]) (antes codigo solo), así que este
+//      script tira PrismaClientValidationError si se lo corre tal cual.
+//      El script nuevo ya resuelve esto con findFirst + create/update
+//      manual — ver ahí el patrón correcto para reutilizar acá si hace
+//      falta volver a tocar este archivo.
+//
+// Contenido original (válido como registro histórico de los primeros 17
+// códigos, 07/2026) sin modificar debajo de esta nota — no se corrigió
+// el bug de upsert() porque re-ejecutar este script también recalcula
+// precioUY de TODOS los códigos que toca con el jornal vigente al
+// momento de la corrida (no el de cuando se sembraron originalmente),
+// lo que cambiaría precios ya guardados como efecto colateral no
+// buscado. Ver nota completa en el script nuevo.
 //
 // Agrega 2 CapituloCatalogo nuevos (orden 19 y 20), 28 PrecioMTOP nuevos
 // (materiales sin cobertura en la Lista MTOP N°599 — gas/incendio no están

@@ -61,6 +61,15 @@ equipos.
    - Verificar en la app que los datos se vean correctos antes de dar
      por terminada la restauración.
 
+## Deploy a producción (Render)
+
+Deploy Hook de Render configurado localmente, ver `computo-app/.env.local`
+(`RENDER_DEPLOY_HOOK_URL`) — Claude Code puede disparar un deploy manual
+de producción con `curl -X POST "$RENDER_DEPLOY_HOOK_URL"` apenas
+termina un push a `origin/main` que Luis necesite ver en producción, sin
+depender de que el auto-deploy de Render se dispare solo ni de entrar a
+la consola. Un build de Next.js en Render suele tardar 3-8 minutos.
+
 ## Pendientes de producto (sin definir modelo — no bloqueantes)
 
 ### Ensayos de laboratorio en obras de gran porte
@@ -627,6 +636,68 @@ para el diseño original completo.
   Contra Incendio, ambos con `capituloCatalogoId` resuelto automáticamente
   al crear el capítulo (Etapa 5). Proyecto de prueba borrado. `tsc`/build
   limpios.
+
+## Expansión de biblioteca — Instalación de Gas y Contra Incendio (2/2) (26/09/2026)
+
+**✅ COMPLETADO.** Script:
+[`computo-app/scripts/seed-gas-incendio-expansion-2026-09.ts`](computo-app/scripts/seed-gas-incendio-expansion-2026-09.ts).
+
+**Contexto — brecha de documentación encontrada primero.** El
+13/09/2026 alguien había agregado 3 códigos a Instalación de Gas
+(17.9-17.11: cañería de hierro/acero, válvula de corte de emergencia,
+detector de fuga de gas) y 2 a Contra Incendio (19.10-19.11:
+iluminación de emergencia, extintor agua/espuma AFFF) vía un script ad
+hoc que **nunca se comiteó** — no hay rastro en ningún commit ni en
+este archivo, y `seed-gas-incendio.ts` (arriba) sigue mostrando solo los
+17 códigos originales. Se descubrió recién en un relevamiento de
+26/09/2026 comparando `createdAt` en la base contra el contenido del
+script trackeado — los datos en sí estaban bien armados (mismo patrón,
+con `PrecioMTOP` de referencia para cada material), solo invisibles
+para cualquiera que revisara el repo. Con esto, "Instalación de Gas" y
+"Contra Incendio" tenían 11 subrubros cada uno antes de este cambio, no
+17 en total como decía la documentación.
+
+**Cambio de hoy** — 4 códigos más a Gas (17.12-17.15) y 5 más a Contra
+Incendio (19.12-19.16), confirmados por Luis en base a normativa real
+(Decreto 216/002/URSEA para Gas; Decreto 372/023 e IT 01/2024 DNB para
+Contra Incendio):
+
+- **Instalación de Gas** — acometida interior de gas (línea de
+  propiedad a medidor, ML), certificado de instalación (habilitación
+  formal ante DNB/distribuidora, GL), instalación para gas natural por
+  cañería (distinta de supergás, U), regulador de primera/segunda etapa
+  (específico de supergás, U).
+- **Contra Incendio** — bomba de incendio principal, bomba jockey
+  (mantiene presión del sistema), hidrante urbano/de columna, reserva
+  de agua para incendio (tanque exclusivo, GL), nicho embutido para
+  extintor (con visor, según normativa).
+- **13 `PrecioMTOP` nuevos** para los materiales sin cobertura previa
+  (códigos `GAS-*`/`INC-*`, precios de referencia de mercado uruguayo
+  2026-09) + 5 materiales reutilizados de la biblioteca existente,
+  leídos en vivo desde `PrecioMTOP` (nunca hardcodeados en el script,
+  a diferencia del original).
+- `precioUY` calculado con la misma fórmula que `seed-gas-incendio.ts`
+  (costoDirecto × 1.15 × 1.10), con el jornal **vigente** de cada
+  categoría (convenio SUNCA 2026-2027 ya actualizado, no el de
+  julio) — el script nuevo solo toca sus 9 códigos, nunca recalcula
+  los 22 preexistentes, así que no hay efecto colateral sobre precios
+  ya guardados.
+- `fechaBase="2026-09"`, `origen="manual"` en los 9 — mismo criterio
+  que el script original (no se dejó caer al default `sau_ago2022`
+  como pasó, sin querer, en la expansión de septiembre).
+- **Bug de schema encontrado al correr el script**: `PrecioMTOP.codigo`
+  dejó de ser `@unique` solo (pasó a `@@unique([codigo, proveedor])`)
+  en algún momento después de que se escribiera `seed-gas-incendio.ts`
+  — su `upsert()` por `codigo` ya no compila contra el schema actual.
+  El script nuevo lo resuelve con `findFirst` + create/update manual.
+  `seed-gas-incendio.ts` queda con una nota al inicio explicando esto
+  (no se corrigió in situ — ver esa nota para el motivo).
+- Verificado en vivo: dry-run revisado antes de aplicar (0 materiales
+  sin precio resuelto). Post-aplicación: 15 `SubrubroEstandar` en
+  Instalación de Gas, 16 en Contra Incendio (antes 11 y 11), todos con
+  `APUEstandar` asociado. Confirmado en `/rubros` que ambos capítulos
+  muestran el conteo nuevo con los códigos correlativos. `tsc --noEmit`
+  limpio.
 
 ## Expansión de biblioteca — Ascensor (18/07/2026)
 
