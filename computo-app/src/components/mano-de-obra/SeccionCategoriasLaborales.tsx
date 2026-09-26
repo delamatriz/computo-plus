@@ -9,7 +9,7 @@
 // existentes sin pisar sus cambios (ver Fase 3 del plan multi-tenant).
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ChevronDown, ImageUp, Sparkles } from "lucide-react";
+import { AlertTriangle, ChevronDown, FileText, ImageUp, Sparkles } from "lucide-react";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +91,10 @@ export default function SeccionCategoriasLaborales() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
+  // imagenPreview sigue el nombre viejo (ahora puede ser un PDF, no solo
+  // imagen) — se mantiene para no tocar más de lo necesario el resto del
+  // estado; esta bandera es la única distinción que hace falta en el JSX.
+  const esPDF = imagenPreview?.startsWith("data:application/pdf") ?? false;
   const [extrayendo, setExtrayendo] = useState(false);
   const [errorExtraccion, setErrorExtraccion] = useState<string | null>(null);
   const [resumenExtraccion, setResumenExtraccion] = useState<string | null>(null);
@@ -213,7 +217,7 @@ export default function SeccionCategoriasLaborales() {
       const res = await fetch("/api/configuracion/extraer-jornales", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imagen: imagenPreview }),
+        body: JSON.stringify({ archivo: imagenPreview }),
       });
 
       if (!res.ok) {
@@ -384,7 +388,7 @@ export default function SeccionCategoriasLaborales() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,application/pdf"
         className="hidden"
         onChange={manejarSeleccionImagen}
       />
@@ -393,17 +397,24 @@ export default function SeccionCategoriasLaborales() {
         className="inline-flex items-center gap-2 border border-slate-300 text-[#1E293B] text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-5"
       >
         <ImageUp className="w-4 h-4" />
-        Actualizar desde imagen del convenio
+        Actualizar desde imagen o PDF del convenio
       </button>
 
       {imagenPreview && (
         <div className="mb-5 border border-slate-200 rounded-lg p-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imagenPreview}
-            alt="Foto del convenio SUNCA"
-            className="max-h-64 rounded-lg mb-3"
-          />
+          {esPDF ? (
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 mb-3 text-sm text-slate-600">
+              <FileText className="w-4 h-4 flex-shrink-0 text-slate-400" />
+              PDF del convenio cargado — listo para extraer.
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imagenPreview}
+              alt="Foto del convenio SUNCA"
+              className="max-h-64 rounded-lg mb-3"
+            />
+          )}
           <div className="flex items-center gap-3">
             <button
               onClick={extraerJornalesConIA}

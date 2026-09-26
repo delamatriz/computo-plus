@@ -47,17 +47,34 @@ Reglas:
 - "recargoAlturaPct" es null si el porcentaje de compensación por altura no aparece visible en la imagen — no lo inventes ni lo asumas.
 - No devuelvas más de una fila con el mismo "categoriaRomano".`;
 
-interface ImagenBase64 {
-  data: string;
-  mediaType: string;
-}
+type MediaTypeImagen = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
-function parseDataUrl(imagen: string): ImagenBase64 {
-  const match = imagen.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
-  if (match) {
-    return { data: match[2], mediaType: match[1] };
+// El convenio SUNCA circula tanto como foto (imagen suelta o escaneada a
+// mano) como PDF oficial — mismo endpoint para los dos, el content block
+// que se le manda a Claude cambia según lo que vino en el data URL
+// (nunca en la extensión del archivo, que el cliente no manda). PDF entra
+// como bloque "document" (soporta multi-página nativo, sin necesidad de
+// separar en imágenes por página — ver relevamiento previo), todo lo
+// demás sigue como bloque "image", igual que antes de este cambio.
+type ArchivoParaClaude =
+  | { tipo: "document"; data: string; mediaType: "application/pdf" }
+  | { tipo: "image"; data: string; mediaType: MediaTypeImagen };
+
+function parseDataUrl(archivo: string): ArchivoParaClaude {
+  const match = archivo.match(/^data:([a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) {
+    return { tipo: "image", data: archivo, mediaType: "image/jpeg" };
   }
-  return { data: imagen, mediaType: "image/jpeg" };
+  const [, mediaType, data] = match;
+  if (mediaType === "application/pdf") {
+    return { tipo: "document", data, mediaType };
+  }
+  const tiposImagenValidos: MediaTypeImagen[] = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+  return {
+    tipo: "image",
+    data,
+    mediaType: (tiposImagenValidos as string[]).includes(mediaType) ? (mediaType as MediaTypeImagen) : "image/jpeg",
+  };
 }
 
 function esRomanoValido(valor: unknown): valor is Romano {
@@ -66,13 +83,35 @@ function esRomanoValido(valor: unknown): valor is Romano {
 
 export async function POST(request: NextRequest) {
   try {
-    const { imagen } = await request.json();
+    // "archivo" en vez de "imagen" (nombre viejo del campo) — ahora puede
+    // ser también un PDF, ver parseDataUrl. Único caller es
+    // SeccionCategoriasLaborales.tsx, actualizado junto con esto.
+    const { archivo } = await request.json();
 
-    if (!imagen || typeof imagen !== "string") {
+    if (!archivo || typeof archivo !== "string") {
       return NextResponse.json({ error: "sin_imagen" }, { status: 400 });
     }
 
-    const { data, mediaType } = parseDataUrl(imagen);
+    const parseado = parseDataUrl(archivo);
+
+    const bloqueArchivo =
+      parseado.tipo === "document"
+        ? {
+            type: "document" as const,
+            source: {
+              type: "base64" as const,
+              media_type: "application/pdf" as const,
+              data: parseado.data,
+            },
+          }
+        : {
+            type: "image" as const,
+            source: {
+              type: "base64" as const,
+              media_type: parseado.mediaType,
+              data: parseado.data,
+            },
+          };
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
@@ -81,21 +120,7 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "user",
-          content: [
-            {
-              type: "image" as const,
-              source: {
-                type: "base64" as const,
-                media_type: mediaType as
-                  | "image/jpeg"
-                  | "image/png"
-                  | "image/gif"
-                  | "image/webp",
-                data,
-              },
-            },
-            { type: "text" as const, text: USER_PROMPT },
-          ],
+          content: [bloqueArchivo, { type: "text" as const, text: USER_PROMPT }],
         },
       ],
     });
