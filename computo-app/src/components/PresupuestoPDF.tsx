@@ -92,6 +92,10 @@ export interface ProyectoConCapitulos {
   // costosIndirectosAgregados ahora es correcto en los 2 modos.
   costoDirectoAgregado: number;
   costosIndirectosAgregados: number;
+  // Porción de costosIndirectosAgregados con exentoIVA (Timbres CJP y
+  // similares, ver gastosGenerales.ts) — se resta de la base del 22%
+  // más abajo, sin salir de costoTotal/precioFinal.
+  costosIndirectosExento: number;
   utilidadAgregada: number;
   // "Días Estimados de Obra" — caso empresa chica (una cuadrilla de
   // referencia de dos a tres personas), ver lib/diasObra.ts. Distinto
@@ -99,10 +103,9 @@ export interface ProyectoConCapitulos {
   // cargados a mano) — este es calculado.
   diasObra: number;
   // Sin efecto en el bloque de totales por ahora (pendiente de rediseño
-  // en otra sesión) — se conservan estos 2 campos en la interfaz para no
-  // tocar route.ts, pero no se leen en ningún lado de este archivo.
+  // en otra sesión) — se conserva este campo en la interfaz para no
+  // tocar route.ts, pero no se lee en ningún lado de este archivo.
   sumaItemsExtras: number;
-  timbresCJP: number;
   incluyeIVA: boolean;
   montoImponibleMO: number | null;
   fechaInicio?: string | Date | null;
@@ -944,8 +947,9 @@ export function PresupuestoPDF({
   const costoDirecto = proyecto.costoDirectoAgregado;
   const montoGastosGeneralesYBeneficio = proyecto.costosIndirectosAgregados + proyecto.utilidadAgregada;
   const costoTotal = costoDirecto + montoGastosGeneralesYBeneficio;
-  const montoIVA = costoTotal * 0.22;
-  const precioFinal = costoTotal * 1.22;
+  const baseIVA = costoTotal - proyecto.costosIndirectosExento;
+  const montoIVA = baseIVA * 0.22;
+  const precioFinal = costoTotal + montoIVA;
   const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * 0.714 : null;
   // AUC (leyesSocialesPropietario) — aporte aparte del propietario a BPS,
   // mensual, ligado al avance real de obra, no parte de lo que la empresa

@@ -120,14 +120,21 @@ export function TarjetaCostoTotalPrecioFinal({
   moneda,
   costoDirecto,
   montoGastosGeneralesYBeneficio,
+  montoIVA,
+  precioFinal,
 }: {
   moneda: string;
   costoDirecto: number;
   montoGastosGeneralesYBeneficio: number;
+  // Calculados en page.tsx (costoAgregado.ts) y no acá — la base del IVA
+  // no es simplemente costoTotal × 22% desde que existen ítems exentos
+  // (ej. Timbres CJP) dentro de Gastos Generales Detallado; recalcularlo
+  // acá con la fórmula vieja volvería a ignorar la exención, mismo bug
+  // que ya pasó una vez con el PDF (ver gastosGenerales.ts).
+  montoIVA: number;
+  precioFinal: number;
 }) {
   const costoTotal = costoDirecto + montoGastosGeneralesYBeneficio;
-  const montoIVA = costoTotal * 0.22;
-  const precioFinal = costoTotal * 1.22;
 
   return (
     <div className="flex flex-col gap-2 mt-2">

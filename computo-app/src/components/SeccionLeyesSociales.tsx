@@ -34,9 +34,6 @@ interface Props {
   // monto imponible en cantidad de jornales. undefined si todavía no hay
   // categorías laborales cargadas.
   jornalMedioOficial?: number;
-  // Monto real de proyecto.timbresCJP — mismo campo que ya usan
-  // SeccionResumenPresupuesto y el PDF (fuente única, no se duplica acá).
-  timbresCJP: number;
   // Desglose de mano de obra por capítulo — calculado en page.tsx sobre
   // capitulos+apuData ya cargados en memoria (misma fórmula que
   // computarCostoManoObraTotal, sin consulta nueva). Puede no coincidir
@@ -159,7 +156,6 @@ export default function SeccionLeyesSociales({
   guardando,
   metodoMontoImponible,
   jornalMedioOficial,
-  timbresCJP,
   desgloseMOPorCapitulo,
 }: Props) {
   const [expandido, setExpandido] = useState(false);
@@ -182,10 +178,11 @@ export default function SeccionLeyesSociales({
   const hayDiscrepanciaDesglose =
     sumaDesglose != null && Math.abs(sumaDesglose - base) > 1;
 
-  // Propietario — AUC patronal + Timbres CJP/CJPPU (proyecto.timbresCJP,
-  // mismo campo real que ya usan SeccionResumenPresupuesto y el PDF).
+  // Propietario — AUC patronal. Timbres CJP/CJPPU se sacó de acá: ahora
+  // vive como ítem (exentoIVA) dentro de Gastos Generales Detallado, ver
+  // gastosGenerales.ts — se muestra ahí, no se duplica en esta cascada.
   const montoAUC = base * data.aucPct;
-  const totalPropietario = montoAUC + timbresCJP;
+  const totalPropietario = montoAUC;
 
   // Desglose legal del 71,4% de AUC (fuente: sau.org.uy) — 4 componentes
   // fijos que no se editan por separado, solo informativos. Se calculan
@@ -242,7 +239,7 @@ export default function SeccionLeyesSociales({
         <div className="flex items-center gap-3">
           {!!totalPropietario && (
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xs font-normal text-slate-400">(aportes propietario: AUC + Timbres)</span>
+              <span className="text-xs font-normal text-slate-400">(aportes propietario: AUC)</span>
               {/* Mismo tamaño que el monto de Precio Final (text-lg) —
                   las dos únicas tarjetas en azul de la cascada comparten
                   el mismo peso visual, incluido el tamaño del monto. */}
@@ -449,14 +446,6 @@ export default function SeccionLeyesSociales({
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </div>
-                  <div className="flex items-center px-4 py-1.5 border-b border-slate-50">
-                    <div className="flex-1 min-w-0 text-sm text-slate-700 truncate">Timbres CJP/CJPPU</div>
-                    <div className="text-[11px] text-slate-400 tabular-nums" style={{ width: 56 }}>Cód. 113</div>
-                    <div className="text-right text-xs text-slate-400" style={{ width: 80 }}>—</div>
-                    <div className="text-right tabular-nums pl-3 text-sm font-semibold text-[#2563EB]" style={{ width: 110 }}>
-                      {fmtMoneda(timbresCJP, moneda)}
-                    </div>
                   </div>
                   <FilaAporte
                     concepto="TOTAL Propietario"

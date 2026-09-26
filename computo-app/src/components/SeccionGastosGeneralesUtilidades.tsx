@@ -38,19 +38,19 @@ interface Props {
   // que usa la cascada Costo Directo → Costo Total → Precio Final.
   costosIndirectosAgregados: number;
   utilidadAgregada: number;
-  // Timbres CJP e Ítems extra — antes se editaban en "Resumen del
-  // Presupuesto" (ver git history); se mudaron acá por conveniencia de
-  // UX, no de cálculo: siguen sin formar parte de montoCombinado
-  // (Costos Indirectos + Utilidad) de abajo, van directo a "Costo" en
-  // la cascada (ver page.tsx) y a la línea "GASTOS GENERALES" del PDF,
-  // sin pasar por costoAgregado.ts.
-  timbresCJP: number;
+  // Ítems extra — antes se editaban en "Resumen del Presupuesto" (ver
+  // git history); se mudaron acá por conveniencia de UX, no de cálculo:
+  // siguen sin formar parte de montoCombinado (Costos Indirectos +
+  // Utilidad) de abajo, van directo a "Costo" en la cascada (ver
+  // page.tsx) y a la línea "GASTOS GENERALES" del PDF, sin pasar por
+  // costoAgregado.ts. Timbres CJP se sacó de acá — ahora es un ítem más
+  // dentro de una categoría del modo Detallado (ver personal_tecnico en
+  // gastosGenerales.ts), con exentoIVA en vez de un campo aparte.
   gastosGeneralesItems: ItemGastoGeneral[];
   onChangeModo: (modo: ModoGastosGenerales) => void;
   onChangeGastosGeneralesPctDefault: (v: number) => void;
   onChangeUtilidadPctDefault: (v: number) => void;
   onChangeCategorias: (categorias: CategoriaGastoGeneral[]) => void;
-  onChangeTimbresCJP: (v: number) => void;
   onChangeGastosGeneralesItems: (items: ItemGastoGeneral[]) => void;
 }
 
@@ -88,13 +88,11 @@ export default function SeccionGastosGeneralesUtilidades({
   categorias,
   costosIndirectosAgregados,
   utilidadAgregada,
-  timbresCJP,
   gastosGeneralesItems,
   onChangeModo,
   onChangeGastosGeneralesPctDefault,
   onChangeUtilidadPctDefault,
   onChangeCategorias,
-  onChangeTimbresCJP,
   onChangeGastosGeneralesItems,
 }: Props) {
   const [expandido, setExpandido] = useState(false);
@@ -116,7 +114,7 @@ export default function SeccionGastosGeneralesUtilidades({
       categoriasNormalizadas.map((cat) =>
         cat.id !== categoriaId
           ? cat
-          : { ...cat, items: [...cat.items, { id: `gg-${Date.now()}`, descripcion: "", monto: 0 }] }
+          : { ...cat, items: [...cat.items, { id: `gg-${Date.now()}`, descripcion: "", monto: 0, exentoIVA: false }] }
       )
     );
   };
@@ -136,6 +134,16 @@ export default function SeccionGastosGeneralesUtilidades({
     );
   };
 
+  const alternarExentoItem = (categoriaId: string, itemId: string) => {
+    onChangeCategorias(
+      categoriasNormalizadas.map((cat) =>
+        cat.id !== categoriaId
+          ? cat
+          : { ...cat, items: cat.items.map((it) => (it.id !== itemId ? it : { ...it, exentoIVA: !it.exentoIVA })) }
+      )
+    );
+  };
+
   const eliminarItem = (categoriaId: string, itemId: string) => {
     onChangeCategorias(
       categoriasNormalizadas.map((cat) =>
@@ -149,7 +157,10 @@ export default function SeccionGastosGeneralesUtilidades({
   const agregarItemExtra = () => {
     onChangeGastosGeneralesItems([
       ...gastosGeneralesItems,
-      { id: `gg-${Date.now()}`, descripcion: "", monto: 0 },
+      // exentoIVA sin efecto acá — Ítems extra no pasa por
+      // costoAgregado.ts (ver comentario en Props), solo aplica a los
+      // ítems dentro de una categoría del modo Detallado.
+      { id: `gg-${Date.now()}`, descripcion: "", monto: 0, exentoIVA: false },
     ]);
   };
 
@@ -277,6 +288,18 @@ export default function SeccionGastosGeneralesUtilidades({
                                 placeholder="0"
                                 className={cn(inputCls, "w-28 text-right tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
                               />
+                              <label
+                                className="flex items-center gap-1 flex-shrink-0 cursor-pointer"
+                                title="Exento de IVA — no entra en la base del 22% (ej. Timbres CJP, tasas estatales)"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={item.exentoIVA}
+                                  onChange={() => alternarExentoItem(cat.id, item.id)}
+                                  className="rounded border-slate-300"
+                                />
+                                <span className="text-[10px] text-slate-400 whitespace-nowrap">Exento IVA</span>
+                              </label>
                               <button
                                 onClick={() => eliminarItem(cat.id, item.id)}
                                 className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
@@ -323,24 +346,15 @@ export default function SeccionGastosGeneralesUtilidades({
                 </div>
               </div>
 
-              {/* Timbres CJP e Ítems extra — conceptualmente distintos de
-                  Costos Indirectos/Utilidad de arriba (no entran en
+              {/* Ítems extra — conceptualmente distintos de Costos
+                  Indirectos/Utilidad de arriba (no entran en
                   montoCombinado, van directo a "Costo" en la cascada, ver
-                  page.tsx) — viven acá solo por conveniencia de edición. */}
+                  page.tsx) — vive acá solo por conveniencia de edición.
+                  Timbres CJP se sacó de este bloque: ahora es un ítem más
+                  dentro de personal_tecnico, arriba, en modo Detallado. */}
               <div className="rounded-[10px] border border-slate-200 bg-white overflow-hidden">
                 <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
-                  <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Timbres CJP e ítems extra</span>
-                </div>
-
-                <div className="flex items-center px-4 py-1.5 border-b border-slate-50">
-                  <div className="flex-1 min-w-0 text-sm text-slate-700">Timbres CJP</div>
-                  <input
-                    type="number"
-                    value={timbresCJP === 0 ? "" : timbresCJP}
-                    onChange={(e) => onChangeTimbresCJP(parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                    className={cn(inputCls, "w-28 text-right tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
-                  />
+                  <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Ítems extra</span>
                 </div>
 
                 {gastosGeneralesItems.map((item) => (

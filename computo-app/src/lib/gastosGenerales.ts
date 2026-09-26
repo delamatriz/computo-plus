@@ -8,6 +8,12 @@ export interface ItemGastoGeneral {
   id: string;
   descripcion: string;
   monto: number;
+  // Tasas estatales fijas por trámite (Timbres CJP, timbres BPS) quedan
+  // fuera del alcance del IVA — a diferencia de compras de materiales o
+  // servicios de terceros, que sí lo llevan. Default false: la mayoría
+  // de los ítems de Gastos Generales (personal, alquileres, consumos)
+  // sí son base imponible normal.
+  exentoIVA: boolean;
 }
 
 export interface CategoriaGastoGeneral {
@@ -28,24 +34,68 @@ export const CATEGORIAS_GASTOS_GENERALES_FIJAS: { id: string; nombre: string }[]
   { id: "logistica_transporte", nombre: "Logística y Transporte" },
 ];
 
+// Id estable del ítem "Timbres CJP/CJPPU" sembrado por defecto en
+// personal_tecnico (ver más abajo) — permite detectar si ya está
+// guardado (para no duplicarlo) sin depender de matchear por texto.
+export const ITEM_TIMBRES_CJP_ID = "timbres_cjp";
+const CATEGORIA_TIMBRES_CJP = "personal_tecnico";
+
 // Siempre devuelve exactamente las 5 categorías fijas, en el mismo orden,
 // completando desde lo guardado por id — así el JSON persistido puede venir
-// vacío, incompleto o con orden distinto sin romper el render.
+// vacío, incompleto o con orden distinto sin romper el render. Cada ítem
+// completa exentoIVA: false si viene de un JSON guardado antes de que
+// existiera el campo.
 export function normalizarCategoriasGastosGenerales(raw: unknown): CategoriaGastoGeneral[] {
   const existentes = Array.isArray(raw) ? (raw as Partial<CategoriaGastoGeneral>[]) : [];
   return CATEGORIAS_GASTOS_GENERALES_FIJAS.map((fija) => {
     const encontrada = existentes.find((c) => c?.id === fija.id);
-    return {
-      id: fija.id,
-      nombre: fija.nombre,
-      items: Array.isArray(encontrada?.items) ? (encontrada!.items as ItemGastoGeneral[]) : [],
-    };
+    const itemsGuardados = Array.isArray(encontrada?.items)
+      ? (encontrada!.items as Partial<ItemGastoGeneral>[]).map((it) => ({
+          id: it.id ?? "",
+          descripcion: it.descripcion ?? "",
+          monto: it.monto ?? 0,
+          exentoIVA: it.exentoIVA ?? false,
+        }))
+      : [];
+    // Timbres CJP/CJPPU — tasa estatal fija, mismo criterio de exención
+    // que timbres BPS (ver relevamiento). Sembrado siempre en
+    // personal_tecnico (categoría semánticamente más cercana: es un
+    // costo administrativo fijo, no de equipamiento/logística) si el
+    // usuario todavía no lo tiene guardado con este id — mismo patrón
+    // que las 5 categorías fijas de arriba, que tampoco se pueden
+    // eliminar permanentemente. Monto en 0 hasta que se cargue.
+    const items =
+      fija.id === CATEGORIA_TIMBRES_CJP && !itemsGuardados.some((it) => it.id === ITEM_TIMBRES_CJP_ID)
+        ? [
+            { id: ITEM_TIMBRES_CJP_ID, descripcion: "Timbres CJP/CJPPU", monto: 0, exentoIVA: true },
+            ...itemsGuardados,
+          ]
+        : itemsGuardados;
+    return { id: fija.id, nombre: fija.nombre, items };
   });
 }
 
-export function sumarGastosGeneralesDetallado(raw: unknown): number {
+export interface SumaGastosGeneralesDetallado {
+  /** Suma de TODOS los ítems — sigue siendo lo que se suma a Costo
+   *  Total/Precio Final, exentos incluidos (la exención es solo respecto
+   *  del IVA, no dejan de ser un costo real del proyecto). */
+  total: number;
+  /** Subconjunto de `total` que corresponde a ítems con exentoIVA —
+   *  se resta de la base imponible antes de aplicar el 22%, en vez de
+   *  sacarse del total. */
+  exento: number;
+}
+
+export function sumarGastosGeneralesDetallado(raw: unknown): SumaGastosGeneralesDetallado {
   return normalizarCategoriasGastosGenerales(raw).reduce(
-    (s, cat) => s + cat.items.reduce((si, it) => si + (it.monto || 0), 0),
-    0
+    (acc, cat) => {
+      for (const it of cat.items) {
+        const monto = it.monto || 0;
+        acc.total += monto;
+        if (it.exentoIVA) acc.exento += monto;
+      }
+      return acc;
+    },
+    { total: 0, exento: 0 }
   );
 }

@@ -3,13 +3,15 @@ import { db } from "@/lib/db";
 import {
   calcularCostoDirectoAgregado,
   calcularCostosIndirectosAgregados,
+  calcularCostosIndirectosExento,
   calcularUtilidadAgregada,
   type ApuParaCosto,
 } from "@/lib/costoAgregado";
 
 // Precio Final sugerido para prellenar el monto del contrato — misma
 // fórmula que "Precio Final" en proyectos/[id]/page.tsx (Costo Directo
-// + Costos Indirectos + Utilidad, ×1.22 de IVA), reutilizando
+// + Costos Indirectos + Utilidad, +22% de IVA sobre esa base menos los
+// ítems exentoIVA de Gastos Generales Detallado), reutilizando
 // costoAgregado.ts en vez de reimplementar la cuenta (mismo criterio
 // que ya sigue /api/proyectos/[id]/pdf). Es solo una sugerencia inicial
 // — el campo monto del contrato queda editable y no se recalcula solo.
@@ -54,8 +56,13 @@ async function calcularPrecioFinalSugerido(proyectoId: string): Promise<number |
     proyecto.gastosGeneralesPctDefault,
     costoDirectoAgregado.total
   );
+  const costosIndirectosExento = calcularCostosIndirectosExento(
+    proyecto.modoGastosGenerales,
+    proyecto.gastosGeneralesDetallado
+  );
   const costoTotalAgregado = costoDirectoAgregado.total + costosIndirectosAgregados + utilidadAgregada;
-  return costoTotalAgregado * 1.22;
+  const baseIVA = costoTotalAgregado - costosIndirectosExento;
+  return costoTotalAgregado + baseIVA * 0.22;
 }
 
 // GET — devuelve el contrato del proyecto (o null si todavía no se

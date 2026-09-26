@@ -123,8 +123,21 @@ export function calcularCostosIndirectosAgregados(
   costoDirectoAgregado: number
 ): number {
   if (modoGastosGenerales === "DETALLADO") {
-    return sumarGastosGeneralesDetallado(gastosGeneralesDetallado);
+    return sumarGastosGeneralesDetallado(gastosGeneralesDetallado).total;
   }
   const pct = gastosGeneralesPctDefault ?? 15;
   return costoDirectoAgregado * (pct / 100);
+}
+
+// Porción de Costos Indirectos exenta de IVA (ítems con exentoIVA dentro
+// de gastosGeneralesDetallado, ej. Timbres CJP) — solo existe en modo
+// DETALLADO, porque el modo Porcentaje no tiene ítems individuales para
+// marcar. Se resta de la base del 22% en el llamador (sigue sumando a
+// Costo Total/Precio Final igual que el resto de Costos Indirectos).
+export function calcularCostosIndirectosExento(
+  modoGastosGenerales: string | null | undefined,
+  gastosGeneralesDetallado: unknown
+): number {
+  if (modoGastosGenerales !== "DETALLADO") return 0;
+  return sumarGastosGeneralesDetallado(gastosGeneralesDetallado).exento;
 }

@@ -114,7 +114,6 @@ export async function PATCH(
         ...(body.modalidadEjecucion !== undefined && { modalidadEjecucion: body.modalidadEjecucion }),
         ...(body.generandoRubros !== undefined && { generandoRubros: body.generandoRubros }),
         ...(body.incluyeIVA  !== undefined && { incluyeIVA: !!body.incluyeIVA }),
-        ...(body.timbresCJP  !== undefined && { timbresCJP: parseFloat(body.timbresCJP) || 0 }),
         ...(body.gastosGeneralesItems !== undefined && { gastosGeneralesItems: body.gastosGeneralesItems }),
         ...(body.gastosGeneralesPctDefault !== undefined && { gastosGeneralesPctDefault: body.gastosGeneralesPctDefault }),
         ...(body.utilidadPctDefault !== undefined && { utilidadPctDefault: body.utilidadPctDefault }),

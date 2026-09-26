@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { PresupuestoPDF, ProyectoConCapitulos, ModoPDF } from "@/components/PresupuestoPDF";
-import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularUtilidadAgregada, type ApuParaCosto } from "@/lib/costoAgregado";
+import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada, type ApuParaCosto } from "@/lib/costoAgregado";
 import { calcularDiasObra } from "@/lib/diasObra";
 import React from "react";
 
@@ -85,6 +85,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       proyecto.gastosGeneralesPctDefault,
       costoDirectoAgregado.total
     );
+    const costosIndirectosExento = calcularCostosIndirectosExento(
+      proyecto.modoGastosGenerales,
+      proyecto.gastosGeneralesDetallado
+    );
     // "Días de Obra" — misma función pura que ya usa proyectos/[id]/page.tsx
     // (lib/diasObra.ts), sobre los mismos capitulosParaCosto/apuDataParaCosto
     // ya armados arriba (ambos ya tienen "rendimiento" por línea de mano de
@@ -114,14 +118,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         : null,
       costoDirectoAgregado: costoDirectoAgregado.total,
       costosIndirectosAgregados,
+      costosIndirectosExento,
       utilidadAgregada,
       diasObra: diasObra.total,
       sumaItemsExtras,
-      // Timbres CJP no lleva IVA (confirmado) — se pasa aparte para que el
-      // PDF pueda excluirlo de la base de IVA sin perder el desglose (se
-      // sigue sumando con Ítems extra y Costos Indirectos para la línea
-      // combinada "GASTOS GENERALES", sin cambios visuales ahí).
-      timbresCJP: proyecto.timbresCJP,
       incluyeIVA: proyecto.incluyeIVA,
       montoImponibleMO: proyecto.leyesSociales?.montoImponibleMO ?? null,
       fechaInicio: proyecto.fechaInicio,

@@ -85,7 +85,11 @@ model Proyecto {
   ultimaActualizacionIndice DateTime?
   generandoRubros    Boolean    @default(false)
   incluyeIVA            Boolean   @default(false)
-  timbresCJP            Float     @default(0)
+  // Timbres CJP/CJPPU vivió acá como escalar suelto hasta que se
+  // consolidó como ítem (exentoIVA) dentro de gastosGeneralesDetallado
+  // (categoría personal_tecnico) — ver gastosGenerales.ts. Eliminado sin
+  // migración de datos: no había ningún proyecto real con este campo
+  // cargado al momento del cambio.
   gastosGeneralesItems  Json?     // [{ id: string, descripcion: string, monto: number }]
   // Default de Gastos Generales/Utilidad para rubros NUEVOS — null usa el
   // comportamiento histórico (15/10). Los rubros que ya tienen un APU

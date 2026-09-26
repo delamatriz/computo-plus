@@ -30,7 +30,7 @@ import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMate
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
 import { calcularDiasObra } from "@/lib/diasObra";
-import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularUtilidadAgregada } from "@/lib/costoAgregado";
+import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada } from "@/lib/costoAgregado";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionResumenPresupuesto from "@/components/SeccionResumenPresupuesto";
@@ -107,7 +107,6 @@ interface ProyectoData {
   ultimaActualizacionIndice?: string | null;
   generandoRubros?: boolean;
   incluyeIVA?: boolean;
-  timbresCJP?: number;
   gastosGeneralesItems?: ItemGastoGeneral[];
   // Default de GG%/Utilidad% para rubros nuevos, y desglose del modo
   // Detallado — ver SeccionGastosGeneralesUtilidades.tsx. null/undefined en
@@ -3086,7 +3085,6 @@ export default function ProyectoPage() {
         ultimaActualizacionIndice: data.ultimaActualizacionIndice ?? null,
         generandoRubros: data.generandoRubros ?? false,
         incluyeIVA: data.incluyeIVA ?? false,
-        timbresCJP: data.timbresCJP ?? 0,
         gastosGeneralesItems: Array.isArray(data.gastosGeneralesItems) ? data.gastosGeneralesItems : [],
         gastosGeneralesPctDefault: data.gastosGeneralesPctDefault ?? null,
         utilidadPctDefault: data.utilidadPctDefault ?? null,
@@ -3304,11 +3302,6 @@ export default function ProyectoPage() {
     }, 800);
   }, [proyectoId]);
 
-  const actualizarTimbresCJP = useCallback((v: number) => {
-    setProyecto((prev) => prev ? { ...prev, timbresCJP: v } : prev);
-    guardarCampoProyecto("timbresCJP", v);
-  }, [guardarCampoProyecto]);
-
   const actualizarGastosGeneralesItems = useCallback((items: ItemGastoGeneral[]) => {
     setProyecto((prev) => prev ? { ...prev, gastosGeneralesItems: items } : prev);
     guardarCampoProyecto("gastosGeneralesItems", items);
@@ -3370,19 +3363,28 @@ export default function ProyectoPage() {
     proyecto?.gastosGeneralesPctDefault,
     costoDirectoAgregado.total
   );
+  // Ítems de Gastos Generales Detallado marcados exentoIVA (ej. Timbres
+  // CJP) — siguen sumando a costoTotalAgregado, pero salen de la base del
+  // 22% más abajo (ver gastosGenerales.ts).
+  const costosIndirectosExento = calcularCostosIndirectosExento(
+    proyecto?.modoGastosGenerales,
+    proyecto?.gastosGeneralesDetallado
+  );
   const utilidadAgregada = calcularUtilidadAgregada(capitulos, apuData);
-  // Mismos 3 términos derivados que ya calcula TarjetaCostoTotalPrecioFinal
+  // Mismos términos derivados que ya calcula TarjetaCostoTotalPrecioFinal
   // internamente a partir de costoDirecto+montoGastosGeneralesYBeneficio —
   // nombrados acá (en vez de solo inline en esa tarjeta) para que
   // SeccionResumenPresupuesto pueda mostrarlos como filas de solo lectura,
   // sin reimplementar la fórmula ni duplicar la fuente de verdad.
   const montoGastosGeneralesYBeneficio = costosIndirectosAgregados + utilidadAgregada;
   const costoTotalAgregado = costoDirectoAgregado.total + montoGastosGeneralesYBeneficio;
-  const montoIVAAgregado = costoTotalAgregado * 0.22;
-  const precioFinalAgregado = costoTotalAgregado * 1.22;
-  // Mismo cálculo que el header de SeccionLeyesSociales (montoAUC + timbresCJP).
+  const baseIVAAgregada = costoTotalAgregado - costosIndirectosExento;
+  const montoIVAAgregado = baseIVAAgregada * 0.22;
+  const precioFinalAgregado = costoTotalAgregado + montoIVAAgregado;
+  // Mismo cálculo que el header de SeccionLeyesSociales (montoAUC — Timbres
+  // CJP se sacó de acá, ahora vive como ítem en Gastos Generales Detallado).
   const montoLeyesSociales = leyesSociales
-    ? leyesSociales.montoImponibleMO * leyesSociales.aucPct + (proyecto?.timbresCJP ?? 0)
+    ? leyesSociales.montoImponibleMO * leyesSociales.aucPct
     : null;
   // "Días de Obra" — caso empresa chica (una sola cuadrilla), ver
   // diasObra.ts. Sobre los mismos capitulos+apuData ya en memoria, sin
@@ -5449,13 +5451,11 @@ export default function ProyectoPage() {
           categorias={proyecto?.gastosGeneralesDetallado ?? null}
           costosIndirectosAgregados={costosIndirectosAgregados}
           utilidadAgregada={utilidadAgregada}
-          timbresCJP={proyecto?.timbresCJP ?? 0}
           gastosGeneralesItems={proyecto?.gastosGeneralesItems ?? []}
           onChangeModo={actualizarModoGastosGenerales}
           onChangeGastosGeneralesPctDefault={actualizarGastosGeneralesPctDefault}
           onChangeUtilidadPctDefault={actualizarUtilidadPctDefault}
           onChangeCategorias={actualizarGastosGeneralesDetallado}
-          onChangeTimbresCJP={actualizarTimbresCJP}
           onChangeGastosGeneralesItems={actualizarGastosGeneralesItems}
         />
 
@@ -5463,6 +5463,8 @@ export default function ProyectoPage() {
           moneda={moneda}
           costoDirecto={costoDirectoAgregado.total}
           montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
+          montoIVA={montoIVAAgregado}
+          precioFinal={precioFinalAgregado}
         />
 
         {mostrarModalCapitulo && (
@@ -5517,7 +5519,6 @@ export default function ProyectoPage() {
             guardando={guardandoLeyes}
             metodoMontoImponible={metodoMontoImponible}
             jornalMedioOficial={jornalMedioOficial}
-            timbresCJP={proyecto?.timbresCJP ?? 0}
             desgloseMOPorCapitulo={desgloseMOPorCapitulo}
           />
         )}
