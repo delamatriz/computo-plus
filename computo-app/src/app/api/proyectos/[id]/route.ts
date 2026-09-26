@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { eliminarArchivosDeBlob } from "@/lib/blob";
 
 // Incluye todas las relaciones necesarias para la página del proyecto
 const PROYECTO_INCLUDE = {
@@ -64,12 +65,40 @@ export async function GET(
   }
 }
 
+// Los 4 modelos que suben archivos a Vercel Blob para este proyecto
+// (ver lib/blob.ts) — DocumentoMetraje y DocumentoPostObra cuelgan
+// directo de proyectoId, DocumentoContrato/DocumentoActaCierre cuelgan
+// de ContratoObra/ActaCierre (1:1 con Proyecto). Todos tienen
+// onDelete: Cascade hacia Proyecto, así que db.proyecto.delete() ya
+// limpia estas filas solo — lo que NUNCA limpiaba solo es el archivo
+// físico en Blob (confirmado: 13 huérfanos reales, 84MB, en producción
+// antes de este fix). Por eso hay que leer las URLs y borrarlas de Blob
+// ACÁ, antes del delete — nunca después: si el borrado de Blob fallara
+// después de borrar la fila, ya no quedaría ningún registro desde el
+// que reintentar, volviendo exactamente al bug que esto corrige.
+async function urlsBlobDelProyecto(proyectoId: string): Promise<string[]> {
+  const [metraje, contrato, cierre, postObra] = await Promise.all([
+    db.documentoMetraje.findMany({ where: { proyectoId }, select: { archivo: true } }),
+    db.documentoContrato.findMany({ where: { contratoObra: { proyectoId } }, select: { urlBlob: true } }),
+    db.documentoActaCierre.findMany({ where: { actaCierre: { proyectoId } }, select: { urlBlob: true } }),
+    db.documentoPostObra.findMany({ where: { proyectoId }, select: { urlBlob: true } }),
+  ]);
+  return [
+    ...metraje.map((d) => d.archivo),
+    ...contrato.map((d) => d.urlBlob),
+    ...cierre.map((d) => d.urlBlob),
+    ...postObra.map((d) => d.urlBlob),
+  ];
+}
+
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const urls = await urlsBlobDelProyecto(id);
+    await eliminarArchivosDeBlob(urls);
     await db.proyecto.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
