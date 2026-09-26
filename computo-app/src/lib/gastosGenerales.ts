@@ -86,6 +86,51 @@ export interface SumaGastosGeneralesDetallado {
   exento: number;
 }
 
+export interface ItemSugeridoGastoGeneral {
+  descripcion: string;
+  // Categoría "natural" propuesta — solo sirve para PRIORIZAR el orden
+  // de las sugerencias según en qué categoría está parado el usuario al
+  // escribir (ver sugerenciasOrdenadas en SeccionGastosGeneralesUtilidades.tsx).
+  // Nunca filtra ni bloquea: cualquiera de los 24 puede sugerirse en
+  // cualquier categoría si el texto matchea.
+  categoriaId: string;
+}
+
+// Los 24 ítems que antes vivían en el capítulo "Gastos Administrativos y
+// Conexiones" de la Biblioteca de Rubros (Costo Directo) — se eliminó de
+// ahí (0 proyectos reales lo usaban, confirmado antes de borrar) y pasan
+// a vivir acá como sugerencias de autocompletado al cargar un ítem en
+// Gastos Generales Detallado, no como filas sembradas fijas (19+ filas
+// vacías en cada proyecto nuevo sería puro ruido visual). "Timbres CJP"
+// se excluye a propósito — es el mismo concepto que ya vive sembrado
+// como ITEM_TIMBRES_CJP_ID; listarlo acá también lo duplicaría.
+export const ITEMS_SUGERIDOS_GASTOS_ADMIN: ItemSugeridoGastoGeneral[] = [
+  { descripcion: "Anteproyecto", categoriaId: "personal_tecnico" },
+  { descripcion: "Proyecto arquitectónico", categoriaId: "personal_tecnico" },
+  { descripcion: "Proyecto ejecutivo", categoriaId: "personal_tecnico" },
+  { descripcion: "Dirección de obra", categoriaId: "personal_tecnico" },
+  { descripcion: "Supervisión de obra", categoriaId: "personal_tecnico" },
+  { descripcion: "Jefe de obra", categoriaId: "personal_tecnico" },
+  { descripcion: "Asesoramiento profesional", categoriaId: "personal_tecnico" },
+  { descripcion: "Relevamiento de obra", categoriaId: "personal_tecnico" },
+  { descripcion: "Metrajes / cómputo métrico", categoriaId: "personal_tecnico" },
+  { descripcion: "Presupuesto", categoriaId: "personal_tecnico" },
+  { descripcion: "Control / fiscalización de obra", categoriaId: "personal_tecnico" },
+  { descripcion: "Estudio y plan de seguridad (técnico prevencionista)", categoriaId: "personal_tecnico" },
+  { descripcion: "Permiso de construcción municipal", categoriaId: "personal_tecnico" },
+  { descripcion: "Empadronamiento / catastro", categoriaId: "personal_tecnico" },
+  { descripcion: "Final de obra / habilitación municipal", categoriaId: "personal_tecnico" },
+  { descripcion: "Estudio de suelos", categoriaId: "personal_tecnico" },
+  { descripcion: "Estudio de impacto ambiental", categoriaId: "personal_tecnico" },
+  { descripcion: "Estudio topográfico", categoriaId: "personal_tecnico" },
+  { descripcion: "Seguro de responsabilidad civil de obra", categoriaId: "personal_tecnico" },
+  { descripcion: "Conexión OSE — agua potable", categoriaId: "consumos_servicios" },
+  { descripcion: "Conexión OSE — saneamiento", categoriaId: "consumos_servicios" },
+  { descripcion: "Conexión UTE — energía eléctrica", categoriaId: "consumos_servicios" },
+  { descripcion: "Conexión Gas del Estado / ANCAP", categoriaId: "consumos_servicios" },
+  { descripcion: "Conexión de telecomunicaciones/fibra", categoriaId: "consumos_servicios" },
+];
+
 export function sumarGastosGeneralesDetallado(raw: unknown): SumaGastosGeneralesDetallado {
   return normalizarCategoriasGastosGenerales(raw).reduce(
     (acc, cat) => {

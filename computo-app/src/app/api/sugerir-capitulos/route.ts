@@ -64,12 +64,17 @@ export async function POST(request: NextRequest) {
       // repetido. "Movimiento de tierra y fundaciones" (ambiguo,
       // apuntaba a 2 capítulos) se separó en sus 2 capítulos reales.
       // Instalación de gas / Instalaciones embutidas / Calefacción /
-      // Honorarios profesionales / Imprevistos no tienen biblioteca de
-      // subrubros propia — quedan igual, siempre resuelven
-      // capituloCatalogoId: null (correcto, son categorías administrativas
-      // o sin biblioteca clasificable).
+      // Imprevistos no tienen biblioteca de subrubros propia — quedan
+      // igual, siempre resuelven capituloCatalogoId: null (correcto, son
+      // categorías administrativas o sin biblioteca clasificable).
+      // "Honorarios profesionales" se sacó de la lista — el capítulo
+      // "Gastos Administrativos y Conexiones" (que lo contenía en la
+      // Biblioteca) se eliminó del catálogo: esos conceptos ahora viven
+      // como autocompletado de ítems en Gastos Generales Detallado (ver
+      // ITEMS_SUGERIDOS_GASTOS_ADMIN en gastosGenerales.ts), no como
+      // capítulo de Costo Directo.
       system: `Sos un experto en construcción uruguaya. El usuario te da el tipo de obra y una descripción de los trabajos a realizar. Devolvés SOLO un JSON con la lista de capítulos recomendados en orden lógico de ejecución, seleccionados de esta lista disponible:
-Implantación y Replanteo, Excavaciones y Movimientos de Tierra, Cimentaciones, Estructura, Albañilería, Cubierta / Techos, Carpinterías, Instalación Sanitaria, Instalación Eléctrica, Instalación de gas, Instalaciones embutidas, Calefacción, Pinturas, Vidrios, Equipamiento, Obra Exterior / Jardín, Honorarios profesionales, Imprevistos.
+Implantación y Replanteo, Excavaciones y Movimientos de Tierra, Cimentaciones, Estructura, Albañilería, Cubierta / Techos, Carpinterías, Instalación Sanitaria, Instalación Eléctrica, Instalación de gas, Instalaciones embutidas, Calefacción, Pinturas, Vidrios, Equipamiento, Obra Exterior / Jardín, Imprevistos.
 Responde SOLO con JSON válido, sin texto adicional: { "capitulos": ["nombre1", "nombre2", ...] }`,
       messages: [
         {

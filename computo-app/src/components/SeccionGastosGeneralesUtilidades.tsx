@@ -8,6 +8,7 @@ import {
   CATEGORIAS_GASTOS_GENERALES_FIJAS,
   normalizarCategoriasGastosGenerales,
   sumarGastosGeneralesDetallado,
+  ITEMS_SUGERIDOS_GASTOS_ADMIN,
   type ItemGastoGeneral,
   type CategoriaGastoGeneral,
   type ModoGastosGenerales,
@@ -78,6 +79,24 @@ function PctInput({ value, onChange }: { value: number; onChange: (v: number) =>
       <span className="text-sm text-slate-400">%</span>
     </span>
   );
+}
+
+/** Id del <datalist> de sugerencias de un ítem según su categoría —
+ *  un datalist por categoría, no uno global, para poder PRIORIZAR
+ *  (ver sugerenciasOrdenadas) sin filtrar ni bloquear nada. */
+function idDatalistGG(categoriaId: string): string {
+  return `sugerencias-gg-${categoriaId}`;
+}
+
+/** Los 24 ítems sugeridos (ver ITEMS_SUGERIDOS_GASTOS_ADMIN), reordenados
+ *  con los de la propia categoría primero — el navegador filtra por
+ *  texto tipeado solo, así que esto es lo único que tenemos para
+ *  "priorizar" con <datalist> nativo, sin bloquear que aparezcan los de
+ *  otra categoría si el texto matchea igual. */
+function sugerenciasOrdenadas(categoriaId: string) {
+  const propios = ITEMS_SUGERIDOS_GASTOS_ADMIN.filter((it) => it.categoriaId === categoriaId);
+  const otros = ITEMS_SUGERIDOS_GASTOS_ADMIN.filter((it) => it.categoriaId !== categoriaId);
+  return [...propios, ...otros];
 }
 
 export default function SeccionGastosGeneralesUtilidades({
@@ -272,10 +291,24 @@ export default function SeccionGastosGeneralesUtilidades({
                               {fmtMoneda(subtotalCat, moneda)}
                             </span>
                           </div>
+                          {/* Sugerencias de autocompletado — los 24 ítems que
+                              antes vivían en la Biblioteca (capítulo "Gastos
+                              Administrativos y Conexiones", eliminado, ver
+                              ITEMS_SUGERIDOS_GASTOS_ADMIN). Un <datalist>
+                              nativo por categoría, mismo patrón ya usado en
+                              ModalImportarPrecios.tsx (proveedores) — no
+                              inventa un combobox nuevo. Nunca restringe texto
+                              libre, solo sugiere. */}
+                          <datalist id={idDatalistGG(cat.id)}>
+                            {sugerenciasOrdenadas(cat.id).map((s) => (
+                              <option key={s.descripcion} value={s.descripcion} />
+                            ))}
+                          </datalist>
                           {cat.items.map((item) => (
                             <div key={item.id} className="flex items-center gap-2 px-4 py-1.5">
                               <input
                                 type="text"
+                                list={idDatalistGG(cat.id)}
                                 value={item.descripcion}
                                 onChange={(e) => actualizarItem(cat.id, item.id, "descripcion", e.target.value)}
                                 placeholder="Descripción del ítem"
