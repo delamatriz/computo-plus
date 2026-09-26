@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
       estado,
       notasPresupuesto,
       resumenCalculoRapido,
+      textoOriginalCalculoRapido,
     } = body;
 
     if (!nombre || !String(nombre).trim()) {
@@ -153,6 +154,7 @@ export async function POST(req: NextRequest) {
           estado: estado === "ANTEPROYECTO" ? "ANTEPROYECTO" : "EN_CURSO",
           notasPresupuesto: notasPresupuesto || null,
           resumenCalculoRapido: resumenCalculoRapido || null,
+          textoOriginalCalculoRapido: textoOriginalCalculoRapido || null,
           empresaId: empresa.id,
         },
       });

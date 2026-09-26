@@ -384,6 +384,12 @@ export default function CalcularPage() {
   // no tiene columna propia: se vuelca como resumen legible en
   // resumenCalculoRapido (campo separado de notasPresupuesto, que es
   // exclusivamente notas libres del usuario — ver SeccionNotas.tsx).
+  // `descripcion` sigue mandándose igual que siempre (contexto de IA para
+  // ModalSelectorCapitulosTitulo, sin relación con esto) — el texto que el
+  // usuario redactó ACÁ se guarda además, tal cual, en
+  // textoOriginalCalculoRapido, para poder mostrárselo (ver
+  // SeccionEstimacionCalculoRapido.tsx). No reutiliza `descripcion` porque
+  // ese campo ya significa "Otros datos" en /proyectos/nuevo y /editar.
   const guardarComoAnteproyecto = async () => {
     if (guardandoAnteproyecto || !resultadoIA) return;
     setGuardandoAnteproyecto(true);
@@ -432,6 +438,7 @@ export default function CalcularPage() {
           descripcion: descripcion.trim() || undefined,
           estado: "ANTEPROYECTO",
           resumenCalculoRapido,
+          textoOriginalCalculoRapido: descripcion.trim() || undefined,
           capitulos: [],
         }),
       });

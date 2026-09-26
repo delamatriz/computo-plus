@@ -80,6 +80,16 @@ model Proyecto {
   // Rápido — separado de notasPresupuesto (que ahora es exclusivamente
   // notas libres del usuario) para que editar una no pise la otra.
   resumenCalculoRapido String? @db.Text
+  // Copia inmutable de lo que el usuario redactó en el campo de texto de
+  // Cálculo Rápido, tal cual, para mostrársela junto a resumenCalculoRapido
+  // (ver SeccionEstimacionCalculoRapido.tsx). Deliberadamente separado de
+  // `descripcion` de arriba: ese campo ya significa "Otros datos" (contacto
+  // administrador, observaciones) en /proyectos/nuevo y /editar, y
+  // reutilizarlo acá repetiría el mismo problema de pisado silencioso que
+  // motivó separar resumenCalculoRapido de notasPresupuesto. Se completa
+  // una sola vez en guardarComoAnteproyecto() y no tiene ningún formulario
+  // de edición — mismo criterio que resumenCalculoRapido.
+  textoOriginalCalculoRapido String? @db.Text
   fechaBaseIndice    DateTime?
   indiceBaseValor    Float?
   ultimaActualizacionIndice DateTime?

@@ -6,6 +6,12 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface Props {
   texto: string;
+  /** Redacción original del usuario en el campo de descripción de Cálculo
+   * Rápido (Proyecto.textoOriginalCalculoRapido), tal cual la escribió —
+   * distinto de `texto`, que es el resumen que generó la IA. Opcional:
+   * proyectos creados antes de este campo no lo tienen, y no debe romper
+   * nada — en ese caso simplemente no se renderiza esa sección. */
+  textoOriginal?: string;
   /** true = tarjeta siempre visible (proyecto todavía ANTEPROYECTO — es
    * el contenido principal en ese momento). false = tarjeta colapsable,
    * mismo patrón visual que SeccionNotas (una vez convertido a proyecto
@@ -18,8 +24,17 @@ interface Props {
 // — se renderiza tal cual, respetando los saltos de línea ya armados ahí,
 // sin parsear línea por línea (el formato exacto puede seguir cambiando
 // del lado de Cálculo Rápido sin que esto se rompa).
-export default function SeccionEstimacionCalculoRapido({ texto, destacada = false }: Props) {
+export default function SeccionEstimacionCalculoRapido({ texto, textoOriginal, destacada = false }: Props) {
   const [expandido, setExpandido] = useState(false);
+
+  const bloqueTareaOriginal = textoOriginal ? (
+    <div className="mb-4 pb-4 border-b border-slate-200">
+      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+        Tarea original
+      </h3>
+      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{textoOriginal}</p>
+    </div>
+  ) : null;
 
   if (destacada) {
     return (
@@ -30,6 +45,12 @@ export default function SeccionEstimacionCalculoRapido({ texto, destacada = fals
             Estimación de Cálculo Rápido
           </h2>
         </div>
+        {bloqueTareaOriginal}
+        {textoOriginal && (
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+            Estimación generada
+          </h3>
+        )}
         <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{texto}</p>
       </div>
     );
@@ -62,6 +83,12 @@ export default function SeccionEstimacionCalculoRapido({ texto, destacada = fals
             className="overflow-hidden border-t border-slate-200"
           >
             <div className="px-5 py-5" style={{ background: "#F8FAFC" }}>
+              {bloqueTareaOriginal}
+              {textoOriginal && (
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                  Estimación generada
+                </h3>
+              )}
               <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{texto}</p>
             </div>
           </motion.div>
