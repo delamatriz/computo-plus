@@ -835,6 +835,15 @@ const DPR_MAXIMO_MOBILE = 5;
 // accent que "Aplicar al presupuesto" y el resto de los CTA primarios
 // de la plataforma, no el brand-light más clavado que tenía esta barra
 // antes) — para que se identifique de un vistazo cuál está prendida.
+// Indicador chico dentro de la píldora de herramienta activa — hace
+// descubrible el atajo Escape que ya existe (cancelarHerramienta, ver
+// useEffect de Escape en VisorPrincipal) sin cambiar ningún
+// comportamiento, solo UI. Nunca se muestra en reposo (herramienta
+// apagada), solo con la píldora en azul sólido.
+function PistaEscape() {
+  return <span className="text-[10px] font-normal text-blue-100/90 ml-0.5">Esc</span>;
+}
+
 function clasePildoraHerramienta(activa: boolean, habilitada: boolean): string {
   if (!habilitada) return "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border border-transparent bg-slate-100 text-slate-400 text-xs font-semibold cursor-not-allowed";
   if (activa) return "flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] border border-[#2563EB] bg-[#2563EB] text-white text-xs font-semibold transition-colors";
@@ -2760,6 +2769,7 @@ export default function Visor({
               className={clasePildoraHerramienta(controlesMedicion?.herramienta === "LINEA", puedeActivarMedicion)}
             >
               <Ruler className="w-3.5 h-3.5" /> {controlesMedicion?.herramienta === "LINEA" ? "Midiendo…" : "Medir"}
+              {controlesMedicion?.herramienta === "LINEA" && <PistaEscape />}
             </button>
             <button
               onClick={controlesMedicion?.onToggleArea}
@@ -2783,6 +2793,7 @@ export default function Visor({
                   ? `Finalizar (${controlesMedicion.puntosAreaCount})`
                   : `Dibujando… (${controlesMedicion.puntosAreaCount})`
                 : "Área"}
+              {controlesMedicion?.herramienta === "AREA" && <PistaEscape />}
             </button>
             <button
               onClick={controlesMedicion?.onTogglePunto}
@@ -2806,6 +2817,7 @@ export default function Visor({
                   ? `Finalizar (${controlesMedicion.puntosPuntoCount})`
                   : "Contando…"
                 : "Punto"}
+              {controlesMedicion?.herramienta === "PUNTO" && <PistaEscape />}
             </button>
           </>
         )}
@@ -2829,6 +2841,7 @@ export default function Visor({
               className={clasePildoraHerramienta(!!controlesMedicion?.trazoActivo, !!controlesMedicion && !controlesMedicion?.medicionObjetivo)}
             >
               <Pencil className="w-3.5 h-3.5" /> {controlesMedicion?.trazoActivo ? "Dibujando…" : "Trazo libre"}
+              {controlesMedicion?.trazoActivo && <PistaEscape />}
             </button>
             <button
               onClick={controlesMedicion?.onToggleRecta}
@@ -2843,6 +2856,7 @@ export default function Visor({
               className={clasePildoraHerramienta(!!controlesMedicion?.rectaActiva, !!controlesMedicion && !controlesMedicion?.medicionObjetivo)}
             >
               <Slash className="w-3.5 h-3.5" /> {controlesMedicion?.rectaActiva ? "Dibujando…" : "Línea recta"}
+              {controlesMedicion?.rectaActiva && <PistaEscape />}
             </button>
             <button
               onClick={controlesMedicion?.onToggleTexto}
@@ -2857,6 +2871,7 @@ export default function Visor({
               className={clasePildoraHerramienta(!!controlesMedicion?.textoActivo, !!controlesMedicion && !controlesMedicion?.medicionObjetivo)}
             >
               <TypeIcon className="w-3.5 h-3.5" /> {controlesMedicion?.textoActivo ? "Marcando…" : "Texto"}
+              {controlesMedicion?.textoActivo && <PistaEscape />}
             </button>
           </>
         )}

@@ -327,9 +327,11 @@ const tutorialFlujoPrincipal: PasoTutorial[] = [
     titulo: "Medí algo en el plano",
     contenido: (
       <>
-        En la barra de herramientas del Visor tenés cinco opciones:{" "}
+        En la barra de herramientas del Visor tenés seis opciones:{" "}
         <strong className="text-slate-700">Medir</strong>,{" "}
         <strong className="text-slate-700">Área</strong>,{" "}
+        <strong className="text-slate-700">Punto</strong> (para contar
+        elementos repetidos, como columnas o ventanas),{" "}
         <strong className="text-slate-700">Trazo libre</strong>,{" "}
         <strong className="text-slate-700">Línea recta</strong> y{" "}
         <strong className="text-slate-700">Texto</strong> — una para cada tipo
@@ -428,26 +430,26 @@ const glosario: CategoriaGlosario[] = [
         ),
       },
       {
-        nombre: "Rubro",
+        nombre: "Capítulo",
         contenido: (
           <>
             <p>Agrupación mayor de trabajo dentro de un presupuesto. Ejemplos:</p>
             <ul className="list-disc pl-5 mt-1.5 space-y-0.5 text-slate-500">
-              <li>Rubro 1: Movimiento de tierras</li>
-              <li>Rubro 2: Estructura</li>
-              <li>Rubro 3: Mampostería</li>
-              <li>Rubro 4: Instalaciones sanitarias</li>
-              <li>Rubro 5: Terminaciones</li>
+              <li>Capítulo 1: Movimiento de tierras</li>
+              <li>Capítulo 2: Estructura</li>
+              <li>Capítulo 3: Mampostería</li>
+              <li>Capítulo 4: Instalaciones sanitarias</li>
+              <li>Capítulo 5: Terminaciones</li>
             </ul>
           </>
         ),
       },
       {
-        nombre: "Partida",
+        nombre: "Rubro",
         contenido: (
           <>
             <p>
-              Ítem de trabajo dentro de un rubro. Tiene: descripción, unidad
+              Ítem de trabajo dentro de un capítulo. Tiene: descripción, unidad
               de medida, cantidad (del cómputo métrico), precio unitario
               (del APU), y precio total.
             </p>
@@ -462,8 +464,8 @@ const glosario: CategoriaGlosario[] = [
         nombre: "Ítem",
         contenido: (
           <p>
-            Sinónimo de Partida en algunos contextos. En Cómputo+, usar
-            Partida como término principal.
+            Sinónimo de Rubro en algunos contextos. En Cómputo+, usar
+            Rubro como término principal.
           </p>
         ),
       },
@@ -479,7 +481,7 @@ const glosario: CategoriaGlosario[] = [
             <p>
               Proceso de medición y cuantificación de los trabajos a
               realizar, a partir de los planos de arquitectura e
-              ingeniería. Determina las cantidades de cada partida.
+              ingeniería. Determina las cantidades de cada rubro.
             </p>
             <p className="mt-1.5 text-slate-400">
               También llamado: cubicación, mediciones, cómputo de obra.
@@ -503,11 +505,11 @@ const glosario: CategoriaGlosario[] = [
           <>
             <p>
               Documento/tabla donde se registran las mediciones detalladas
-              por partida. Incluye: descripción del elemento medido,
+              por rubro. Incluye: descripción del elemento medido,
               dimensiones parciales, subtotales y total.
             </p>
             <p className="mt-2 text-xs font-semibold text-slate-500">
-              Formato típico — Partida: Hormigón en columnas
+              Formato típico — Rubro: Hormigón en columnas
             </p>
             <div className="overflow-x-auto rounded-xl border border-slate-200 mt-1.5">
               <table className="w-full text-sm">
@@ -577,7 +579,7 @@ const glosario: CategoriaGlosario[] = [
         contenido: (
           <>
             <p>
-              Desglose detallado del costo de una unidad de una partida.
+              Desglose detallado del costo de una unidad de un rubro.
               Compuesto por:
             </p>
             <ul className="list-disc pl-5 mt-1.5 space-y-0.5 text-slate-500">
@@ -587,7 +589,7 @@ const glosario: CategoriaGlosario[] = [
               <li>Gastos generales (porcentaje)</li>
               <li>Beneficio/utilidad (porcentaje)</li>
             </ul>
-            <p className="mt-1.5">El APU determina el precio unitario de la partida.</p>
+            <p className="mt-1.5">El APU determina el precio unitario del rubro.</p>
           </>
         ),
       },
@@ -608,7 +610,7 @@ const glosario: CategoriaGlosario[] = [
         nombre: "Rendimiento",
         contenido: (
           <p>
-            Cantidad de insumo necesaria por unidad de partida. Ej: 0.35 m³
+            Cantidad de insumo necesaria por unidad de rubro. Ej: 0.35 m³
             de hormigón por m³ de columna (considerando pérdidas).
           </p>
         ),
