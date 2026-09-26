@@ -101,6 +101,7 @@ interface ProyectoData {
   direccion: string;
   memoriaDescriptiva?: string | null;
   notasPresupuesto?: string | null;
+  resumenCalculoRapido?: string | null;
   createdAt?: string | null;
   fechaBaseIndice?: string | null;
   ultimaActualizacionIndice?: string | null;
@@ -363,6 +364,7 @@ const PROYECTO = {
   direccion: "Bulevar España 2345, Montevideo",
   memoriaDescriptiva: null as string | null,
   notasPresupuesto: null as string | null,
+  resumenCalculoRapido: null as string | null,
   createdAt: null as string | null,
   fechaInicio: null as string | null,
   fechaBaseIndice: null as string | null,
@@ -3078,6 +3080,7 @@ export default function ProyectoPage() {
         direccion: data.direccion  ?? "",
         memoriaDescriptiva: data.memoriaDescriptiva ?? null,
         notasPresupuesto: data.notasPresupuesto ?? null,
+        resumenCalculoRapido: data.resumenCalculoRapido ?? null,
         createdAt: data.createdAt ?? null,
         fechaBaseIndice: data.fechaBaseIndice ?? null,
         ultimaActualizacionIndice: data.ultimaActualizacionIndice ?? null,
@@ -5217,8 +5220,8 @@ export default function ProyectoPage() {
             contenido principal de la pantalla, va destacado justo debajo
             del banner. Una vez convertido pasa a la versión colapsable,
             más abajo junto a Notas (ver esAnteproyecto === false). */}
-        {esAnteproyecto && proyectoActivo.notasPresupuesto && (
-          <SeccionEstimacionCalculoRapido texto={proyectoActivo.notasPresupuesto} destacada />
+        {esAnteproyecto && proyectoActivo.resumenCalculoRapido && (
+          <SeccionEstimacionCalculoRapido texto={proyectoActivo.resumenCalculoRapido} destacada />
         )}
 
         {/* ── Documentación para metrar + Planilla de cómputo + Calculadora + Visor
@@ -5529,8 +5532,8 @@ export default function ProyectoPage() {
         {/* Una vez convertido a proyecto completo, la estimación original
             de Cálculo Rápido pasa a esta versión colapsable — sigue
             accesible, sin competir con la tabla de capítulos/rubros. */}
-        {!esAnteproyecto && proyectoActivo.notasPresupuesto && (
-          <SeccionEstimacionCalculoRapido texto={proyectoActivo.notasPresupuesto} />
+        {!esAnteproyecto && proyectoActivo.resumenCalculoRapido && (
+          <SeccionEstimacionCalculoRapido texto={proyectoActivo.resumenCalculoRapido} />
         )}
 
         {/* ── Notas ──────────────────────────────────────────── */}

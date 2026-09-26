@@ -13,7 +13,7 @@ interface Props {
   destacada?: boolean;
 }
 
-// Texto plano (no JSON/markdown) guardado en Proyecto.notasPresupuesto
+// Texto plano (no JSON/markdown) guardado en Proyecto.resumenCalculoRapido
 // por "Guardar como anteproyecto" en Cálculo Rápido (ver calcular/page.tsx)
 // — se renderiza tal cual, respetando los saltos de línea ya armados ahí,
 // sin parsear línea por línea (el formato exacto puede seguir cambiando

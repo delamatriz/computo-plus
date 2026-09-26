@@ -76,6 +76,10 @@ model Proyecto {
   // del Visor de Planos/Metraje (otra pantalla, otro propósito). Texto
   // plano simple, sin Markdown, mismo criterio que memoriaDescriptiva.
   notasPresupuesto   String? @db.Text
+  // Resumen de IA generado por "Guardar como anteproyecto" en Cálculo
+  // Rápido — separado de notasPresupuesto (que ahora es exclusivamente
+  // notas libres del usuario) para que editar una no pise la otra.
+  resumenCalculoRapido String? @db.Text
   fechaBaseIndice    DateTime?
   indiceBaseValor    Float?
   ultimaActualizacionIndice DateTime?

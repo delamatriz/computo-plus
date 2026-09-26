@@ -382,8 +382,8 @@ export default function CalcularPage() {
   // Proyecto directo, saltándose el wizard, con estado ANTEPROYECTO — el
   // único camino que hoy lleva a ese estado. El desglose numérico de la IA
   // no tiene columna propia: se vuelca como resumen legible en
-  // notasPresupuesto (campo de texto libre, sin otro consumidor automático
-  // — a diferencia de descripcion/trabajos, que sí alimenta rubrosAutomaticos.ts).
+  // resumenCalculoRapido (campo separado de notasPresupuesto, que es
+  // exclusivamente notas libres del usuario — ver SeccionNotas.tsx).
   const guardarComoAnteproyecto = async () => {
     if (guardandoAnteproyecto || !resultadoIA) return;
     setGuardandoAnteproyecto(true);
@@ -394,7 +394,7 @@ export default function CalcularPage() {
       const calidadLabel = CALIDADES.find((c) => c.id === calidad)?.label ?? calidad;
       const nombre = `Anteproyecto — ${tipoLabel} en ${zonaLabel}`;
 
-      const notasPresupuesto = [
+      const resumenCalculoRapido = [
         `Estimación de Cálculo Rápido — ${new Date().toLocaleDateString("es-UY")}`,
         `Zona: ${zonaLabel} · Calidad: ${calidadLabel}`,
         "",
@@ -431,7 +431,7 @@ export default function CalcularPage() {
           area: areaTotal > 0 ? areaTotal : null,
           descripcion: descripcion.trim() || undefined,
           estado: "ANTEPROYECTO",
-          notasPresupuesto,
+          resumenCalculoRapido,
           capitulos: [],
         }),
       });

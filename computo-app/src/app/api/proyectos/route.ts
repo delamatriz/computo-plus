@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       titulos,
       estado,
       notasPresupuesto,
+      resumenCalculoRapido,
     } = body;
 
     if (!nombre || !String(nombre).trim()) {
@@ -151,6 +152,7 @@ export async function POST(req: NextRequest) {
           // al comportamiento de siempre — el wizard nunca manda este campo.
           estado: estado === "ANTEPROYECTO" ? "ANTEPROYECTO" : "EN_CURSO",
           notasPresupuesto: notasPresupuesto || null,
+          resumenCalculoRapido: resumenCalculoRapido || null,
           empresaId: empresa.id,
         },
       });
