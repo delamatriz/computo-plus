@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
@@ -99,6 +100,13 @@ con una línea en blanco antes y después. Los párrafos se separan con una
 línea en blanco. Si necesitás enumerar ítems, escribilos como párrafos u
 oraciones corridas, no como listas con viñetas.`,
       messages: [{ role: "user", content: prompt }],
+    });
+
+    void registrarLogConsumoIA({
+      funcion: "memoria-descriptiva",
+      proyectoId,
+      inputTokens: message.usage.input_tokens ?? 0,
+      outputTokens: message.usage.output_tokens ?? 0,
     });
 
     const texto = message.content[0].type === "text" ? message.content[0].text : "";

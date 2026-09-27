@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, resolverProporcionDesglose } from "@/lib/bibliotecaApus";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
@@ -143,6 +144,12 @@ Reglas:
       // disposición de residuos"). Ver diagnóstico sep-2026.
       temperature: 0.15,
       messages: [{ role: "user", content }],
+    });
+
+    void registrarLogConsumoIA({
+      funcion: "calcular-rapido",
+      inputTokens: message.usage.input_tokens ?? 0,
+      outputTokens: message.usage.output_tokens ?? 0,
     });
 
     const text =

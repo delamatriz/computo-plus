@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { generarApuParaRubro } from "@/lib/apu";
 import { clonarApuAlRubro } from "@/lib/clonarApu";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
@@ -258,6 +259,12 @@ Respondé SOLO con JSON:
       max_tokens: 2000,
       messages: [{ role: "user", content: prompt }],
     });
+    void registrarLogConsumoIA({
+      funcion: "generar-rubros",
+      proyectoId,
+      inputTokens: message.usage.input_tokens ?? 0,
+      outputTokens: message.usage.output_tokens ?? 0,
+    });
     const text = message.content[0].type === "text" ? message.content[0].text : "";
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Respuesta inválida del modelo");
@@ -296,12 +303,16 @@ Respondé SOLO con JSON:
         },
       });
 
-      await generarApuParaRubro(rubro.id, {
-        descripcion: rubro.descripcion,
-        unidad: rubro.unidad,
-        capitulo: capitulo.nombre,
-        tipoObra: proyecto.tipo,
-      });
+      await generarApuParaRubro(
+        rubro.id,
+        {
+          descripcion: rubro.descripcion,
+          unidad: rubro.unidad,
+          capitulo: capitulo.nombre,
+          tipoObra: proyecto.tipo,
+        },
+        "auto"
+      );
     } catch (err) {
       console.error("[rubrosAutomaticos] error generando rubro", sugerido, err);
     }

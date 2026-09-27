@@ -21,6 +21,7 @@
 
 import { db } from "@/lib/db";
 import Anthropic from "@anthropic-ai/sdk";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
@@ -85,6 +86,12 @@ Buscá el precio actual de este producto en este proveedor. Si el proveedor lo v
     messages,
   });
 
+  // Acumulado de tokens de todos los pasos de esta tarea agéntica —
+  // mismo criterio que actualizar-precios-indice/route.ts (iccv).
+  let inputTokensAcumulado = message.usage.input_tokens ?? 0;
+  let outputTokensAcumulado = message.usage.output_tokens ?? 0;
+  let pasos = 1;
+
   let intentos = 0;
   while (message.stop_reason === "pause_turn" && intentos < 5) {
     messages.push({ role: "assistant", content: message.content });
@@ -95,8 +102,20 @@ Buscá el precio actual de este producto en este proveedor. Si el proveedor lo v
       tools: [{ type: "web_search_20250305", name: "web_search" }],
       messages,
     });
+    inputTokensAcumulado += message.usage.input_tokens ?? 0;
+    outputTokensAcumulado += message.usage.output_tokens ?? 0;
+    pasos++;
     intentos++;
   }
+
+  // Fire-and-forget, antes del parseo que puede tirar — el gasto de
+  // tokens ya ocurrió aunque la respuesta termine siendo inválida.
+  void registrarLogConsumoIA({
+    funcion: "verificar-precio-mercado",
+    inputTokens: inputTokensAcumulado,
+    outputTokens: outputTokensAcumulado,
+    pasos,
+  });
 
   const textoCompleto = message.content
     .filter((b) => b.type === "text")

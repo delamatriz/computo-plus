@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { sumManoObra } from "@/lib/apu-calc";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
@@ -55,6 +56,11 @@ export async function clasificarCapitulosBiblioteca(
 ${capitulos.map((c) => c.nombre).join(", ")}
 Respondé SOLO con JSON: { "capitulos": ["nombre1", "nombre2", ...] }. Si la descripción no matchea bien con ninguno, devolvé un array vacío — no fuerces un capítulo que no aplica.`,
       messages: [{ role: "user", content: descripcion }],
+    });
+    void registrarLogConsumoIA({
+      funcion: "calcular-rapido-clasificar",
+      inputTokens: response.usage.input_tokens ?? 0,
+      outputTokens: response.usage.output_tokens ?? 0,
     });
     const text = response.content[0].type === "text" ? response.content[0].text : "{}";
     const match = text.match(/\{[\s\S]*\}/);

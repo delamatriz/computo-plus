@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
@@ -123,6 +124,12 @@ export async function POST(request: NextRequest) {
           content: [bloqueArchivo, { type: "text" as const, text: USER_PROMPT }],
         },
       ],
+    });
+
+    void registrarLogConsumoIA({
+      funcion: "extraer-jornales",
+      inputTokens: message.usage.input_tokens ?? 0,
+      outputTokens: message.usage.output_tokens ?? 0,
     });
 
     const text =

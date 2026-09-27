@@ -1,30 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
 function totalRubro(r: { cantidad: number; precioUnit: number }): number {
   return r.cantidad * r.precioUnit;
-}
-
-// Log de consumo de la Consulta ICCV (ver LogConsultaICCV en
-// schema.prisma) — invisible para el usuario a propósito: nunca se
-// espera desde el flujo principal (ver el `.catch()` en el llamador) y
-// acá adentro también se atrapa el error en vez de dejarlo propagar,
-// como defensa extra por si alguna vez se llama con `await` desde otro
-// lado. Un fallo acá NUNCA debe romper la respuesta real al usuario.
-async function registrarLogICCV(datos: {
-  proyectoId: string;
-  inputTokens: number;
-  outputTokens: number;
-  pasos: number;
-}): Promise<void> {
-  try {
-    await db.logConsultaICCV.create({ data: datos });
-  } catch (err) {
-    console.error("[registrarLogICCV] error al guardar el log", err);
-  }
 }
 
 export async function POST(
@@ -102,17 +84,14 @@ Respondé SOLO con JSON:
       intentos++;
     }
 
-    // Fire-and-forget — nunca debe afectar la respuesta real al usuario.
-    // No se hace `await`: si la escritura del log tarda o falla, el
-    // endpoint sigue su curso normal. El .catch() evita que un rechazo
-    // no manejado tire abajo el proceso o quede como unhandled rejection.
-    registrarLogICCV({
+    // Fire-and-forget — nunca debe afectar la respuesta real al usuario
+    // (registrarLogConsumoIA ya atrapa cualquier error internamente).
+    void registrarLogConsumoIA({
+      funcion: "iccv",
       proyectoId,
       inputTokens: inputTokensAcumulado,
       outputTokens: outputTokensAcumulado,
       pasos,
-    }).catch((err) => {
-      console.error("[actualizar-precios-indice] no se pudo registrar el log de consumo ICCV", err);
     });
 
     const textoCompleto = message.content

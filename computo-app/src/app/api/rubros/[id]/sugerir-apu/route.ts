@@ -19,7 +19,7 @@ export async function POST(
       return NextResponse.json({ error: "Descripción requerida" }, { status: 400 });
     }
 
-    const apu = await generarApuParaRubro(rubroId, { descripcion, unidad, capitulo, tipoObra });
+    const apu = await generarApuParaRubro(rubroId, { descripcion, unidad, capitulo, tipoObra }, "manual");
 
     return NextResponse.json({
       materiales: apu.materiales,

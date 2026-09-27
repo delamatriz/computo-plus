@@ -1339,27 +1339,38 @@ model PrecioEquipo {
   actualizadoEn DateTime @updatedAt
 }
 
-// Log de consumo de tokens de la Consulta ICCV (POST
-// /api/proyectos/[id]/actualizar-precios-indice) — feature que existe y
-// funciona pero nunca se usó en producción, así que no había forma de
-// medir su costo real por corrida antes de fijar un límite de uso en el
-// plan de pricing. Solo esto, nada más: no se lee desde ninguna UI, se
-// consulta a mano (SQL directo) cuando haga falta revisar el consumo.
-// proyectoId es un String suelto, sin relación FK a Proyecto a
+// Log de consumo de tokens de TODAS las funciones de IA del sistema —
+// una sola tabla para poder consultar consumo total y por función desde
+// el mismo lugar (antes era LogConsultaICCV, solo para ICCV; se migró
+// acá porque nunca tuvo filas reales — 0 al momento del cambio — así
+// que no hubo nada que migrar de datos, solo renombrar el modelo).
+// `funcion` es el identificador estable de qué llamada a Claude generó
+// la fila (ej. "iccv", "calcular-rapido", "sugerir-apu:manual",
+// "sugerir-apu:auto" — ver cada route.ts/lib para el valor exacto que
+// usa). No se lee desde ninguna UI — se consulta a mano (SQL directo)
+// para dimensionar costo real por función antes de fijar límites de uso
+// en el plan de pricing.
+// proyectoId es un String suelto opcional, sin relación FK a Proyecto a
 // propósito — es un log de métricas desacoplado del ciclo de vida del
-// proyecto: no debe bloquear ni cascadear al borrar un proyecto (ni
-// perder el dato si el proyecto de prueba que generó la corrida se
-// borra después).
-model LogConsultaICCV {
+// proyecto (no debe bloquear ni cascadear al borrar un proyecto, ni
+// perder el dato si el proyecto que generó la corrida se borra
+// después). Null en las funciones que no tienen un proyecto asociado
+// todavía al momento de la llamada (ej. sugerir-capitulos, calcular-
+// rapido: corren ANTES de que exista el Proyecto) o que operan a nivel
+// de material de biblioteca, no de proyecto (ej. verificar-precio-
+// mercado).
+model LogConsumoIA {
   id           String   @id @default(cuid())
-  proyectoId   String
+  funcion      String
+  proyectoId   String?
   inputTokens  Int
   outputTokens Int
   // Cantidad de llamadas a la API de Claude que tomó esta corrida —
   // 1 si respondió directo, más si necesitó reintentos internos por
-  // stop_reason "pause_turn" (sigue buscando). inputTokens/outputTokens
-  // ya son el acumulado de todos los pasos, esto es para poder
-  // correlacionar tokens con cantidad de búsquedas.
-  pasos        Int
+  // stop_reason "pause_turn" (sigue buscando, ej. iccv/verificar-precio-
+  // mercado). inputTokens/outputTokens ya son el acumulado de todos los
+  // pasos, esto es para poder correlacionar tokens con cantidad de
+  // búsquedas.
+  pasos        Int      @default(1)
   createdAt    DateTime @default(now())
 }

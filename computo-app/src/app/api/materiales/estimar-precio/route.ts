@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
@@ -21,6 +22,12 @@ export async function POST(req: NextRequest) {
         role: "user",
         content: `Estimá el precio unitario en pesos uruguayos (julio 2026) de este material de construcción para Uruguay: ${descripcion} en unidad ${unidad || "u"}. Respondé SOLO con un número entero, sin texto adicional.`,
       }],
+    });
+
+    void registrarLogConsumoIA({
+      funcion: "estimar-precio-material",
+      inputTokens: message.usage.input_tokens ?? 0,
+      outputTokens: message.usage.output_tokens ?? 0,
     });
 
     const text = message.content[0].type === "text" ? message.content[0].text : "";

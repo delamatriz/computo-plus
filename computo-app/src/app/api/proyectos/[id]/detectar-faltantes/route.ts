@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
@@ -115,6 +116,13 @@ estimada, una breve justificación de obra, y un APU (análisis de precios unita
 estimado con materiales y mano de obra, usando los precios MTOP y jornales SUNCA
 provistos como referencia.`,
       messages: [{ role: "user", content: prompt }],
+    });
+
+    void registrarLogConsumoIA({
+      funcion: "detectar-faltantes",
+      proyectoId,
+      inputTokens: message.usage.input_tokens ?? 0,
+      outputTokens: message.usage.output_tokens ?? 0,
     });
 
     const text = message.content[0].type === "text" ? message.content[0].text : "";

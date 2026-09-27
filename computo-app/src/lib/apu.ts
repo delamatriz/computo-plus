@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 import { buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, type SubrubroConApu } from "@/lib/bibliotecaApus";
 import { sumManoObra, calcularPrecioUnitario, sumarAportesPatronalesPct, montoAportesPatronales } from "@/lib/apu-calc";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
@@ -29,7 +30,14 @@ interface ApuGenerado {
 /* ─── Genera y persiste el APU de un rubro vía IA ───────────── */
 export async function generarApuParaRubro(
   rubroId: string,
-  datos: { descripcion: string; unidad: string; capitulo: string; tipoObra: string }
+  datos: { descripcion: string; unidad: string; capitulo: string; tipoObra: string },
+  // "manual" = botón "Sugerir APU" (acción discrecional del usuario,
+  // POST /api/rubros/[id]/sugerir-apu). "auto" = loop en background
+  // disparado por generar-rubros, una vez por cada rubro que sugiere —
+  // puede correr muchas veces sin que el usuario haga nada extra más
+  // allá de crear el proyecto. Perfiles de costo distintos — separados
+  // en el log de consumo de IA (LogConsumoIA.funcion), nunca mezclados.
+  origen: "manual" | "auto" = "manual"
 ): Promise<ApuGenerado> {
   const { descripcion, unidad, capitulo, tipoObra } = datos;
 
@@ -41,11 +49,14 @@ export async function generarApuParaRubro(
         // Default de Utilidad%/Aportes Patronales del proyecto — solo se usa
         // si este rubro todavía no tiene un APU propio (ver apuExistente más
         // abajo). Gastos Generales ya no se resuelve acá — dejó de
-        // prorratearse por rubro.
+        // prorratearse por rubro. `proyecto.id` se suma acá (mismo select,
+        // sin costo extra de query) solo para poder loguear proyectoId en
+        // el log de consumo de IA de abajo.
         capitulo: {
           select: {
             proyecto: {
               select: {
+                id: true,
                 utilidadPctDefault: true,
                 leyesSociales: {
                   select: {
@@ -134,6 +145,13 @@ Generás APU (Análisis de Precios Unitarios) detallados y precisos para cada ru
 Usás terminología local: ticholo, ladrillo, viga de arriostre, pilar, hormigón, encofrado, mortero común.
 Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando precios MTOP y jornales SUNCA.`,
     messages: [{ role: "user", content: prompt }],
+  });
+
+  void registrarLogConsumoIA({
+    funcion: `sugerir-apu:${origen}`,
+    proyectoId: rubro?.capitulo.proyecto.id ?? null,
+    inputTokens: message.usage.input_tokens ?? 0,
+    outputTokens: message.usage.output_tokens ?? 0,
   });
 
   const text = message.content[0].type === "text" ? message.content[0].text : "";

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 const client = new Anthropic();
 
@@ -82,6 +83,12 @@ Responde SOLO con JSON válido, sin texto adicional: { "capitulos": ["nombre1", 
           content,
         },
       ],
+    });
+
+    void registrarLogConsumoIA({
+      funcion: "sugerir-capitulos",
+      inputTokens: response.usage.input_tokens ?? 0,
+      outputTokens: response.usage.output_tokens ?? 0,
     });
 
     const text =
