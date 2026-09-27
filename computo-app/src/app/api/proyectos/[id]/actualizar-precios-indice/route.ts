@@ -1,14 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
-import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
-
-const client = new Anthropic();
 
 function totalRubro(r: { cantidad: number; precioUnit: number }): number {
   return r.cantidad * r.precioUnit;
 }
 
+// Nombre legible de la variante para el mensaje de error — mismo texto que
+// ya mostraba la versión anterior (con búsqueda de IA), para no romper la
+// expectativa del usuario sobre qué variante corresponde a su proyecto.
+function labelVariante(variante: string): string {
+  return variante === "publica" ? "ICCV con participación pública" : "ICCV privado";
+}
+
+// Meses en español para el mensaje de error — mismo criterio que usaba el
+// prompt de IA anterior ("agosto de 2026"), sin depender de Intl (evita
+// diferencias de locale entre entornos).
+const MESES_ES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+function mesLegible(mes: string): string {
+  const [anio, mesNum] = mes.split("-").map(Number);
+  const nombre = MESES_ES[(mesNum ?? 1) - 1] ?? mes;
+  return `${nombre} de ${anio}`;
+}
+
+// POST — antes disparaba una búsqueda web de IA por cada corrida (213k-467k
+// tokens, y fallaba en encontrar el número índice absoluto de las
+// variantes privada/pública 4 de 4 veces en el relevamiento — el INE solo
+// expone esa cifra exacta en informes técnicos que la búsqueda no logra
+// leer). Ahora es una lectura pura contra IndiceICCVMensual (carga manual
+// de Luis en Configuración) — sin ninguna llamada a IA, ni logging de
+// consumo (no hay nada que loguear).
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -39,76 +62,33 @@ export async function POST(
       0
     );
 
-    const varianteEsperada =
-      proyecto.tipoContratacion === "PUBLICA" ? "ICCV con participación pública" : "ICCV privado";
+    const variante = proyecto.tipoContratacion === "PUBLICA" ? "publica" : "privada";
 
-    const prompt = `Buscá en ine.gub.uy (Índice de Costo de la Construcción de Vivienda - ICCV, base junio 2023=100) los siguientes valores, usando SIEMPRE la variante "${varianteEsperada}" (el INE publica dos series distintas cada mes — pública y privada — no uses la otra):
-1. El valor del ICCV (variante "${varianteEsperada}") correspondiente al mes de ${fechaBase}
-2. El valor del ICCV (misma variante) más reciente publicado
-
-Si la fecha base es anterior a junio 2023, indicá que no se puede calcular con la base actual y devolvé error.
-
-Si el mes de ${fechaBase} (o el mes más reciente que correspondería usar) todavía no tiene dato publicado por el INE — recordá que el INE publica con un rezago de hasta 30 días — devolvé un error específico con este formato exacto: "El ICCV de {mes} todavía no fue publicado por el INE. El último dato disponible es {mesMasReciente}." (reemplazando {mes} y {mesMasReciente} por los meses reales en español, ej. "agosto de 2026" y "junio de 2026"). No caigas en un error genérico ni inventes un valor.
-
-Respondé SOLO con JSON:
-{ "indiceBase": number, "indiceActual": number, "mesBase": string, "mesActual": string, "variante": string, "error": string | null }`;
-
-    const messages: Anthropic.MessageParam[] = [{ role: "user", content: prompt }];
-    let message = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2000,
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
-      messages,
+    const filaBase = await db.indiceICCVMensual.findUnique({
+      where: { mes_variante: { mes: fechaBase, variante } },
     });
-
-    // Acumulado de tokens de TODOS los pasos de esta tarea agéntica (el
-    // llamado inicial + cada reintento por "pause_turn" de abajo) — para
-    // FEAT logging de costo real, ver registrarLogICCV al final. pasos
-    // arranca en 1 porque el llamado de arriba ya cuenta como el primero.
-    let inputTokensAcumulado = message.usage.input_tokens ?? 0;
-    let outputTokensAcumulado = message.usage.output_tokens ?? 0;
-    let pasos = 1;
-
-    let intentos = 0;
-    while (message.stop_reason === "pause_turn" && intentos < 5) {
-      messages.push({ role: "assistant", content: message.content });
-      message = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2000,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
-        messages,
+    if (!filaBase) {
+      return NextResponse.json({
+        error: `Índice de ${mesLegible(fechaBase)} no cargado — cargalo primero en Configuración.`,
       });
-      inputTokensAcumulado += message.usage.input_tokens ?? 0;
-      outputTokensAcumulado += message.usage.output_tokens ?? 0;
-      pasos++;
-      intentos++;
     }
 
-    // Fire-and-forget — nunca debe afectar la respuesta real al usuario
-    // (registrarLogConsumoIA ya atrapa cualquier error internamente).
-    void registrarLogConsumoIA({
-      funcion: "iccv",
-      proyectoId,
-      inputTokens: inputTokensAcumulado,
-      outputTokens: outputTokensAcumulado,
-      pasos,
+    // "Más reciente publicado" = el mes más alto cargado para esta
+    // variante (formato "YYYY-MM" ordena igual lexicográfico que
+    // cronológico). Si Luis todavía no cargó nada más nuevo que la base,
+    // el más reciente puede coincidir con la base — factor 1, válido.
+    const filaActual = await db.indiceICCVMensual.findFirst({
+      where: { variante },
+      orderBy: { mes: "desc" },
     });
-
-    const textoCompleto = message.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .join("\n");
-
-    const match = textoCompleto.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("No se pudo interpretar la respuesta del modelo");
-
-    const datos = JSON.parse(match[0]);
-
-    if (datos.error) {
-      return NextResponse.json({ error: datos.error });
+    if (!filaActual) {
+      return NextResponse.json({
+        error: `No hay ningún índice cargado todavía para "${labelVariante(variante)}" — cargalo primero en Configuración.`,
+      });
     }
 
-    const { indiceBase, indiceActual, mesBase, mesActual, variante } = datos;
+    const indiceBase = filaBase.valor;
+    const indiceActual = filaActual.valor;
     const factor = indiceActual / indiceBase;
     const totalProyectado = totalActual * factor;
 
@@ -124,9 +104,9 @@ Respondé SOLO con JSON:
       factor,
       indiceBase,
       indiceActual,
-      mesBase,
-      mesActual,
-      variante: variante ?? varianteEsperada,
+      mesBase: mesLegible(fechaBase),
+      mesActual: mesLegible(filaActual.mes),
+      variante: labelVariante(variante),
       totalActual,
       totalProyectado,
     });

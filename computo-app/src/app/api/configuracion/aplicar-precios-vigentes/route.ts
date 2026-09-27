@@ -1,30 +1,73 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { aplicarPrecioVigenteRubro } from "@/lib/recalcularPrecioRubro";
+import { aplicarPrecioVigenteRubro, calcularPrecioVigenteRubro } from "@/lib/recalcularPrecioRubro";
 
-// Apply masivo — recibe la selección de rubros que quedaron tildados en la
-// pantalla de revisión (ver dry-run/route.ts) y aplica cada uno con el
-// mismo motor que el modal rubro-por-rubro. Un rubro individual que falle
-// (ej. su proyecto volvió a FINALIZADO entre el dry-run y el apply) no
-// aborta el lote — mismo guard 403 que POST /api/rubros/[id]/actualizar-precio-vigente,
-// pero reportado por rubro en vez de cortar toda la corrida.
+interface RubroSinDesglose {
+  rubroId: string;
+  codigo: string;
+  descripcion: string;
+}
+
+// Apply masivo — dos formas de invocarlo, mismo motor (aplicarPrecioVigenteRubro):
+//
+// 1. { rubroIds: string[] } — comportamiento ORIGINAL, sin cambios: la
+//    selección tildada en la pantalla de revisión de Configuración (ver
+//    dry-run/route.ts), típicamente rubros con precioCongelado.
+//
+// 2. { proyectoId: string, dryRun?: boolean } — "actualización paramétrica
+//    de proyecto completo" (botón nuevo en la sección de Actualización de
+//    Precios del proyecto, alternativa a ICCV): resuelve TODOS los rubros
+//    del proyecto, sin filtrar por precioCongelado. dryRun=true solo
+//    calcula (calcularPrecioVigenteRubro, sin escribir) para el preview
+//    antes de confirmar — mismo patrón de dos pasos que ya usa ICCV
+//    (POST calcula, el usuario confirma, PUT aplica).
+//
+// En ambos modos, un rubro sin APU ("sin descompuesto") NO es un error —
+// es información esperada que se reporta aparte (sinDesglose), nunca se
+// oculta ni bloquea el resto del lote. Un rubro individual que sí falle
+// (ej. su proyecto volvió a FINALIZADO a mitad de camino) tampoco aborta
+// el lote — mismo guard 403 que POST /api/rubros/[id]/actualizar-precio-vigente,
+// reportado por rubro.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
-    const rubroIds: string[] = Array.isArray(body?.rubroIds) ? body.rubroIds : [];
+    const proyectoId: string | undefined = typeof body?.proyectoId === "string" ? body.proyectoId : undefined;
+    const dryRun = body?.dryRun === true;
+
+    let rubroIds: string[];
+    if (proyectoId) {
+      const rubrosDelProyecto = await db.rubro.findMany({
+        where: { capitulo: { proyectoId } },
+        select: { id: true },
+      });
+      rubroIds = rubrosDelProyecto.map((r) => r.id);
+    } else {
+      rubroIds = Array.isArray(body?.rubroIds) ? body.rubroIds : [];
+    }
 
     if (rubroIds.length === 0) {
-      return NextResponse.json({ error: "Se esperaba { rubroIds: string[] }" }, { status: 400 });
+      return NextResponse.json(
+        { error: proyectoId ? "El proyecto no tiene rubros" : "Se esperaba { rubroIds: string[] } o { proyectoId: string }" },
+        { status: 400 }
+      );
     }
 
     const errores: { rubroId: string; motivo: string }[] = [];
+    const sinDesglose: RubroSinDesglose[] = [];
     let actualizados = 0;
+    let totalActualAntes = 0;
+    let totalProyectadoDespues = 0;
 
     for (const rubroId of rubroIds) {
       try {
         const rubro = await db.rubro.findUnique({
           where: { id: rubroId },
-          select: { capitulo: { select: { proyecto: { select: { estado: true } } } } },
+          select: {
+            codigo: true,
+            descripcion: true,
+            cantidad: true,
+            capitulo: { select: { proyecto: { select: { estado: true } } } },
+          },
         });
         if (!rubro) {
           errores.push({ rubroId, motivo: "Rubro no encontrado" });
@@ -35,19 +78,30 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        const resultado = await aplicarPrecioVigenteRubro(rubroId);
+        const resultado = dryRun
+          ? await calcularPrecioVigenteRubro(rubroId)
+          : await aplicarPrecioVigenteRubro(rubroId);
+
         if (!resultado) {
-          errores.push({ rubroId, motivo: "Rubro sin descompuesto" });
+          sinDesglose.push({ rubroId, codigo: rubro.codigo, descripcion: rubro.descripcion });
           continue;
         }
         actualizados++;
+        totalActualAntes += resultado.precioUnitAnterior * rubro.cantidad;
+        totalProyectadoDespues += resultado.precioUnitVigente * rubro.cantidad;
       } catch (err) {
         console.error(`[POST /api/configuracion/aplicar-precios-vigentes] rubro ${rubroId}`, err);
         errores.push({ rubroId, motivo: "Error interno" });
       }
     }
 
-    return NextResponse.json({ actualizados, errores });
+    return NextResponse.json({
+      total: rubroIds.length,
+      actualizados,
+      sinDesglose,
+      errores,
+      ...(proyectoId ? { totalActualAntes, totalProyectadoDespues } : {}),
+    });
   } catch (err) {
     console.error("[POST /api/configuracion/aplicar-precios-vigentes]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });

@@ -1367,10 +1367,35 @@ model LogConsumoIA {
   outputTokens Int
   // Cantidad de llamadas a la API de Claude que tomó esta corrida —
   // 1 si respondió directo, más si necesitó reintentos internos por
-  // stop_reason "pause_turn" (sigue buscando, ej. iccv/verificar-precio-
-  // mercado). inputTokens/outputTokens ya son el acumulado de todos los
-  // pasos, esto es para poder correlacionar tokens con cantidad de
-  // búsquedas.
+  // stop_reason "pause_turn" (sigue buscando, ej. verificar-precio-
+  // mercado — iccv dejó de llamar a la IA, ver IndiceICCVMensual).
+  // inputTokens/outputTokens ya son el acumulado de todos los pasos,
+  // esto es para poder correlacionar tokens con cantidad de búsquedas.
   pasos        Int      @default(1)
   createdAt    DateTime @default(now())
+}
+
+// Valores mensuales del ICCV (Índice de Costo de la Construcción de
+// Vivienda, INE) — carga MANUAL, a propósito: el relevamiento previo
+// encontró que la búsqueda web de IA falla sistemáticamente en
+// encontrar el número índice absoluto de las variantes privada/pública
+// (el INE solo publica esa cifra exacta en informes técnicos que la
+// búsqueda no logra leer; solo la variación % es accesible). Luis ya
+// actualiza precios una vez al mes — cargar 2 números acá toma un
+// minuto y es 100% confiable, contra una IA que falló 4 de 4 veces en
+// el relevamiento. actualizar-precios-indice/route.ts lee de acá, sin
+// ninguna llamada a IA.
+model IndiceICCVMensual {
+  id       String @id @default(cuid())
+  mes      String // "2026-06"
+  // "publica" | "privada" — el INE publica dos series mensuales
+  // distintas (ver actualizar-precios-indice/route.ts, mismo criterio
+  // de mapeo por Proyecto.tipoContratacion que ya existía).
+  variante String
+  valor    Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([mes, variante])
 }

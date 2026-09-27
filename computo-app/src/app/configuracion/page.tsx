@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import SeccionAplicarPreciosVigentes from "@/components/configuracion/SeccionAplicarPreciosVigentes";
+import SeccionIndiceICCV from "@/components/configuracion/SeccionIndiceICCV";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 
 interface EmpresaPerfil {
@@ -200,6 +201,8 @@ export default function ConfiguracionPage() {
           )}
         </div>
       </section>
+
+      <SeccionIndiceICCV />
 
       <SeccionAplicarPreciosVigentes />
     </div>
