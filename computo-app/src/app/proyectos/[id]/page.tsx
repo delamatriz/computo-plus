@@ -5307,11 +5307,19 @@ export default function ProyectoPage() {
               de rubros expandida (overflow-x-auto + min-w-[800px]) más abajo. */}
           <div className="overflow-x-auto">
             <div className="min-w-[560px]">
-              {/* Cabecera de la tabla — usa GRID_CAPITULO, la misma plantilla de columnas que la fila de Capítulo más abajo y que comparte Total/% Incid. con GRID_RUBRO */}
+              {/* Cabecera de la tabla — usa GRID_CAPITULO, la misma plantilla de columnas que la fila de Capítulo más abajo y que comparte Total/% Incid. con GRID_RUBRO.
+                  Con modoMultiTitulo, esta celda queda vacía a propósito
+                  (Total/% Incid. siguen aplicando bien a la fila de Título
+                  que va justo abajo, pero "Capítulos" ahí arriba se leía
+                  como si describiera esa fila de Título — ver relevamiento.
+                  La etiqueta correcta vive repetida más abajo, justo
+                  arriba de cada lista 1.1/1.2 real, ver capsDelTitulo.map). */}
               <div className="grid border-b border-slate-200 px-5 py-2.5" style={{ gridTemplateColumns: GRID_CAPITULO }}>
                 <div className="flex items-center gap-3">
                   <span className="w-6 flex-shrink-0" />
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Capítulos</span>
+                  {!modoMultiTitulo && (
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Capítulos</span>
+                  )}
                 </div>
                 <span className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Total</span>
                 <span className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center whitespace-nowrap">% Incid.</span>
@@ -5420,7 +5428,14 @@ export default function ProyectoPage() {
                           Sin capítulos todavía — agregá los primeros abajo, o moveé uno existente desde el selector de título de cualquier capítulo.
                         </p>
                       ) : (
-                        capsDelTitulo.map((cap, i) => renderFilaCapitulo(cap, `${tituloIdx + 1}.${i + 1}`))
+                        <>
+                          {/* Reemplaza al "Capítulos" que se vació arriba
+                              (ver header global) — acá SÍ queda pegada a
+                              capítulos reales (1.1, 1.2...), nunca a la
+                              fila de Título. */}
+                          <p className="px-5 pt-2 text-[10px] text-slate-400 uppercase tracking-wider">Capítulos</p>
+                          {capsDelTitulo.map((cap, i) => renderFilaCapitulo(cap, `${tituloIdx + 1}.${i + 1}`))}
+                        </>
                       )}
                       {!soloLectura && (
                         <div
