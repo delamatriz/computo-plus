@@ -1338,3 +1338,28 @@ model PrecioEquipo {
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 }
+
+// Log de consumo de tokens de la Consulta ICCV (POST
+// /api/proyectos/[id]/actualizar-precios-indice) — feature que existe y
+// funciona pero nunca se usó en producción, así que no había forma de
+// medir su costo real por corrida antes de fijar un límite de uso en el
+// plan de pricing. Solo esto, nada más: no se lee desde ninguna UI, se
+// consulta a mano (SQL directo) cuando haga falta revisar el consumo.
+// proyectoId es un String suelto, sin relación FK a Proyecto a
+// propósito — es un log de métricas desacoplado del ciclo de vida del
+// proyecto: no debe bloquear ni cascadear al borrar un proyecto (ni
+// perder el dato si el proyecto de prueba que generó la corrida se
+// borra después).
+model LogConsultaICCV {
+  id           String   @id @default(cuid())
+  proyectoId   String
+  inputTokens  Int
+  outputTokens Int
+  // Cantidad de llamadas a la API de Claude que tomó esta corrida —
+  // 1 si respondió directo, más si necesitó reintentos internos por
+  // stop_reason "pause_turn" (sigue buscando). inputTokens/outputTokens
+  // ya son el acumulado de todos los pasos, esto es para poder
+  // correlacionar tokens con cantidad de búsquedas.
+  pasos        Int
+  createdAt    DateTime @default(now())
+}
