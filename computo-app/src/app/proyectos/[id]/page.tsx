@@ -5252,23 +5252,45 @@ export default function ProyectoPage() {
             <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Presupuesto</span>
             {!soloLectura && (
               <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setMostrarModalTitulo(true)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Agregar título
-                </button>
+                {/* Tooltip oscuro — mismo patrón visual que TooltipBarra en
+                    SeccionCronograma.tsx (bg-[#1A3A5C], CSS group-hover,
+                    sin librería), adaptado con ancho fijo + wrap porque acá
+                    el texto es una oración, no una etiqueta corta de una
+                    línea. Anclado a la derecha del botón (no centrado):
+                    estos dos botones ya viven pegados al borde derecho de
+                    la tabla, así que centrar el tooltip lo sacaría de
+                    pantalla — extender hacia la izquierda es seguro. */}
+                <div className="group relative">
+                  <button
+                    onClick={() => setMostrarModalTitulo(true)}
+                    className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar título
+                  </button>
+                  <div className="pointer-events-none absolute right-0 top-full mt-2 hidden group-hover:block z-20 w-64">
+                    <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
+                      Agrega un título de sección para organizar visualmente el presupuesto (ej. separar por etapas o bloques)
+                    </div>
+                  </div>
+                </div>
                 {/* Con 2+ títulos cada tarjeta tiene su propio "Agregar
                     capítulo" (sin ambigüedad sobre a cuál título va) — el
                     global solo tiene sentido con ≤1 título, donde manda
                     directo al único bucket visible. */}
                 {!modoMultiTitulo && (
-                  <button
-                    onClick={() => setMostrarModalCapitulo(true)}
-                    className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Agregar capítulo
-                  </button>
+                  <div className="group relative">
+                    <button
+                      onClick={() => setMostrarModalCapitulo(true)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Agregar capítulo
+                    </button>
+                    <div className="pointer-events-none absolute right-0 top-full mt-2 hidden group-hover:block z-20 w-64">
+                      <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
+                        Agrega un capítulo nuevo con sus propios rubros, que suma al Costo Directo
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
