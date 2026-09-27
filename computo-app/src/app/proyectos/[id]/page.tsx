@@ -4423,7 +4423,7 @@ export default function ProyectoPage() {
     const totalCap = totalCapitulo(cap);
 
     return (
-      <div key={cap.id} className="border-b border-slate-200 last:border-0">
+      <div key={cap.id} className="border-b border-slate-300 last:border-0">
 
         {/* Fila del capítulo — antes era un solo <button> (no se puede anidar
             el input de nombre ni el botón de borrar dentro de otro botón),
@@ -5273,25 +5273,26 @@ export default function ProyectoPage() {
                     </div>
                   </div>
                 </div>
-                {/* Con 2+ títulos cada tarjeta tiene su propio "Agregar
-                    capítulo" (sin ambigüedad sobre a cuál título va) — el
-                    global solo tiene sentido con ≤1 título, donde manda
-                    directo al único bucket visible. */}
-                {!modoMultiTitulo && (
-                  <div className="group relative">
-                    <button
-                      onClick={() => setMostrarModalCapitulo(true)}
-                      className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Agregar capítulo
-                    </button>
-                    <div className="pointer-events-none absolute right-0 top-full mt-2 hidden group-hover:block z-20 w-64">
-                      <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
-                        Agrega un capítulo nuevo con sus propios rubros, que suma al Costo Directo
-                      </div>
+                {/* Con 2+ títulos cada tarjeta tiene además su propio
+                    "Agregar capítulo" (sin ambigüedad sobre a cuál título
+                    va) — pero este global sigue siempre visible para no
+                    obligar a bajar a buscarlo. Con 2+ títulos manda al
+                    ÚLTIMO (mayor orden, ver onGuardar del modal más abajo)
+                    sin preguntar; el <select> de cada fila de capítulo ya
+                    permite reasignarlo después. */}
+                <div className="group relative">
+                  <button
+                    onClick={() => setMostrarModalCapitulo(true)}
+                    className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar capítulo
+                  </button>
+                  <div className="pointer-events-none absolute right-0 top-full mt-2 hidden group-hover:block z-20 w-64">
+                    <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
+                      Agrega un capítulo nuevo con sus propios rubros, que suma al Costo Directo
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
@@ -5310,7 +5311,7 @@ export default function ProyectoPage() {
               <div className="grid border-b border-slate-200 px-5 py-2.5" style={{ gridTemplateColumns: GRID_CAPITULO }}>
                 <div className="flex items-center gap-3">
                   <span className="w-6 flex-shrink-0" />
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Capítulo</span>
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Capítulos</span>
                 </div>
                 <span className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Total</span>
                 <span className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center whitespace-nowrap">% Incid.</span>
@@ -5500,10 +5501,18 @@ export default function ProyectoPage() {
           <ModalAgregarCapitulo
             onClose={() => setMostrarModalCapitulo(false)}
             onGuardar={async (nombre) => {
+              // Con 2+ títulos, el botón global manda directo al ÚLTIMO
+              // (mayor orden — `titulos` ya viene ordenado asc desde el
+              // GET, ver PROYECTO_INCLUDE en api/proyectos/[id]/route.ts)
+              // sin preguntar — el usuario reasigna después con el
+              // <select> de esa fila si lo quiere en otro título. Con
+              // ≤1 título se omite tituloId — el backend ya resuelve al
+              // único título existente (mismo comportamiento de siempre).
+              const tituloId = titulos.length > 1 ? titulos[titulos.length - 1].id : undefined;
               const res = await fetch(`/api/proyectos/${proyectoActivo.id}/capitulos`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nombre }),
+                body: JSON.stringify({ nombre, tituloId }),
               });
               if (!res.ok) throw new Error("No se pudo agregar el capítulo");
               window.location.reload();
