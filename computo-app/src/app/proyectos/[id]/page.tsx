@@ -4364,8 +4364,15 @@ export default function ProyectoPage() {
       console.error("[guardar APU]", err);
     }
 
-    // 2. Actualizar precioUnit en DB y UI
-    actualizarRubro(cap.id, rubroId, "precioUnit", String(precioRedondeado));
+    // 2. Actualizar precioUnit en DB y UI — actualizarRubro() espera el
+    // mismo formato que tipearía un usuario (parsearDineroTipeado: "." es
+    // separador de miles, "," es decimal), no el String() nativo de JS
+    // ("." siempre decimal). Pasar String(precioRedondeado) acá hacía que
+    // "73.18" se leyera como "7318" — inflaba el precio ~100x cada vez que
+    // el cálculo no redondeaba a un entero (incidente real: EDIFICIO TORRE
+    // SIGLO XXI, rubro "DEMOLICIÓN DE membrana" guardado como $143.384 en
+    // vez de $1.433,84). fmtMon() ya formatea en ese mismo formato.
+    actualizarRubro(cap.id, rubroId, "precioUnit", fmtMon(precioRedondeado));
     setDrawerRubroId(null);
   }, [capitulos, actualizarRubro]);
 
