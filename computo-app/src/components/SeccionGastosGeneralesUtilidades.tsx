@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Percent, ChevronDown, ChevronRight, Plus, X } from "lucide-react";
+import { Percent, ChevronDown, ChevronRight, Plus, X, Lock, Loader2, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -26,6 +26,9 @@ export {
 export type { ItemGastoGeneral, CategoriaGastoGeneral, ModoGastosGenerales };
 
 interface Props {
+  // Para el preview/aplicar de "Aplicar a rubros existentes" (ver
+  // POST /api/proyectos/[id]/propagar-utilidad).
+  proyectoId: string;
   moneda: string;
   modo: ModoGastosGenerales;
   // null = todavía no se guardó ningún default explícito — se usa 15/10
@@ -100,6 +103,7 @@ function sugerenciasOrdenadas(categoriaId: string) {
 }
 
 export default function SeccionGastosGeneralesUtilidades({
+  proyectoId,
   moneda,
   modo,
   gastosGeneralesPctDefault,
@@ -118,6 +122,60 @@ export default function SeccionGastosGeneralesUtilidades({
 
   const pctGGEfectivo = gastosGeneralesPctDefault ?? 15;
   const pctUtilEfectivo = utilidadPctDefault ?? 10;
+
+  // ── Propagar Utilidad a rubros existentes ──────────────────────────────
+  // Distinto del campo "Utilidad por defecto" de arriba (PctInput, solo
+  // pre-carga rubros NUEVOS) — esto SÍ toca los existentes, salvo los que
+  // tengan el candado (APU.utilidadFija). Mismo patrón de dos pasos
+  // (dry-run → modal de confirmación → aplicar) que ya usa
+  // SeccionActualizacionPrecios.tsx para ICCV/paramétrica.
+  const [consultandoProp, setConsultandoProp] = useState(false);
+  const [previewProp, setPreviewProp] = useState<{ actualizarian: number; protegidos: { rubroId: string; codigo: string; descripcion: string }[]; nuevoPct: number } | null>(null);
+  const [errorProp, setErrorProp] = useState<string | null>(null);
+  const [mostrarModalProp, setMostrarModalProp] = useState(false);
+  const [aplicandoProp, setAplicandoProp] = useState(false);
+
+  async function consultarPropagacion() {
+    setConsultandoProp(true);
+    setErrorProp(null);
+    setPreviewProp(null);
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/propagar-utilidad`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ utilidadPct: pctUtilEfectivo, dryRun: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setErrorProp(data.mensaje ?? data.error ?? "No se pudo calcular la propagación. Probá de nuevo.");
+        return;
+      }
+      setPreviewProp(data);
+      setMostrarModalProp(true);
+    } catch {
+      setErrorProp("No se pudo calcular la propagación. Probá de nuevo.");
+    } finally {
+      setConsultandoProp(false);
+    }
+  }
+
+  async function aplicarPropagacion() {
+    if (!previewProp) return;
+    setAplicandoProp(true);
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/propagar-utilidad`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ utilidadPct: previewProp.nuevoPct }),
+      });
+      if (!res.ok) throw new Error();
+      setMostrarModalProp(false);
+      window.location.reload();
+    } catch {
+      setErrorProp("No se pudo aplicar la propagación de Utilidad.");
+      setAplicandoProp(false);
+    }
+  }
   const categoriasNormalizadas = normalizarCategoriasGastosGenerales(categorias);
   const totalDetallado = categoriasNormalizadas.reduce(
     (s, cat) => s + cat.items.reduce((si, it) => si + (it.monto || 0), 0),
@@ -377,6 +435,25 @@ export default function SeccionGastosGeneralesUtilidades({
                   </div>
                   <PctInput value={pctUtilEfectivo} onChange={onChangeUtilidadPctDefault} />
                 </div>
+                <div className="px-4 pb-3">
+                  <button
+                    onClick={consultarPropagacion}
+                    disabled={consultandoProp}
+                    className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors disabled:opacity-60"
+                  >
+                    {consultandoProp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Percent className="w-3.5 h-3.5" />}
+                    {consultandoProp ? "Calculando..." : `Aplicar ${pctUtilEfectivo}% a rubros existentes`}
+                  </button>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Propaga este % a todos los rubros que ya tienen APU, salvo los que tengan el candado <Lock className="inline w-3 h-3 -mt-0.5" /> fijado.
+                  </p>
+                  {errorProp && (
+                    <div className="flex items-start gap-2 rounded-[10px] bg-amber-50 border border-amber-200 px-3 py-2.5 mt-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-amber-800">{errorProp}</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Ítems extra — conceptualmente distintos de Costos
@@ -426,6 +503,71 @@ export default function SeccionGastosGeneralesUtilidades({
                 </div>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de confirmación — propagar Utilidad a rubros existentes.
+          Mismo patrón visual que los modales de ICCV/paramétrica en
+          SeccionActualizacionPrecios.tsx. */}
+      <AnimatePresence>
+        {mostrarModalProp && previewProp && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+            onClick={() => !aplicandoProp && setMostrarModalProp(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[16px] shadow-xl max-w-md w-full p-6"
+            >
+              <h3 className="text-base font-bold text-[#1A3A5C] mb-2">Confirmar Utilidad {previewProp.nuevoPct}% en rubros existentes</h3>
+              <p className="text-sm text-slate-600 mb-3">
+                <span className="font-semibold">{previewProp.actualizarian} rubro{previewProp.actualizarian === 1 ? "" : "s"}</span> se
+                actualizaría{previewProp.actualizarian === 1 ? "" : "n"} a Utilidad {previewProp.nuevoPct}%, recalculando su precio unitario.
+                {previewProp.protegidos.length > 0 && (
+                  <> <span className="font-semibold">{previewProp.protegidos.length}</span> protegido{previewProp.protegidos.length === 1 ? "" : "s"} por candado no se toca{previewProp.protegidos.length === 1 ? "" : "n"}.</>
+                )}
+              </p>
+              {previewProp.protegidos.length > 0 && (
+                <div className="rounded-[10px] bg-amber-50 border border-amber-200 px-3 py-2 mb-4 max-h-40 overflow-y-auto">
+                  <p className="text-[11px] font-medium text-amber-800 mb-1 flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> Rubros protegidos (no se tocan):
+                  </p>
+                  <ul className="space-y-0.5">
+                    {previewProp.protegidos.map((r) => (
+                      <li key={r.rubroId} className="text-[11px] text-amber-700">
+                        {r.codigo} — {r.descripcion || "Rubro sin nombre"}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <p className="text-sm text-slate-600 mb-6">Esta acción no se puede deshacer automáticamente. ¿Continuar?</p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setMostrarModalProp(false)}
+                  disabled={aplicandoProp}
+                  className="px-4 py-2.5 rounded-[10px] text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={aplicarPropagacion}
+                  disabled={aplicandoProp || previewProp.actualizarian === 0}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-medium hover:bg-[#1A3A5C] transition-colors disabled:opacity-60"
+                >
+                  {aplicandoProp && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {aplicandoProp ? "Aplicando..." : `Aplicar a ${previewProp.actualizarian} rubro${previewProp.actualizarian === 1 ? "" : "s"}`}
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -292,6 +292,13 @@ model APU {
   // conservado en el modelo por ahora; siempre se escribe/lee como 0.
   gastosGeneralesPct Float         @default(0)
   utilidadPct        Float         @default(10)
+  // Candado por rubro — si es true, este rubro NO se toca cuando se
+  // propaga un cambio general de Utilidad desde la tarjeta "Gastos
+  // Generales y Beneficio" (ver POST /api/proyectos/[id]/propagar-utilidad).
+  // No afecta utilidadPctDefault (eso ya es "default solo para rubros
+  // nuevos", sin efecto sobre existentes) — este candado es la excepción
+  // puntual dentro de la propagación masiva nueva.
+  utilidadFija       Boolean       @default(false)
   // % de Aportes Patronales BPS (Empresa paga — FOCER patronal, FSC/FOCAP,
   // FOSVOC, FRL, Fondo Garantía, SNIS adicional), aplicado SOLO sobre la
   // porción de Mano de Obra del Costo Directo (ver montoAportesPatronales en

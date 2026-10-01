@@ -56,7 +56,7 @@ export async function PUT(
 
     // eslint-disable-next-line prefer-const
     let { utilidadPct, aportesPatronalesPct } = body;
-    const { porcentajePiedra = 0.30, dosificacion = null, materiales = [], manoObra = [], equipos = [] } = body;
+    const { porcentajePiedra = 0.30, dosificacion = null, utilidadFija = false, materiales = [], manoObra = [], equipos = [] } = body;
 
     const apuCompleto = await db.$transaction(async (tx) => {
       // Lock explícito — ver comentario de la función. Se ignora el
@@ -109,10 +109,10 @@ export async function PUT(
       const apu = apuExistente
         ? await tx.aPU.update({
             where: { rubroId },
-            data: { gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra, dosificacion },
+            data: { gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra, dosificacion, utilidadFija },
           })
         : await tx.aPU.create({
-            data: { rubroId, gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra, dosificacion },
+            data: { rubroId, gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra, dosificacion, utilidadFija },
           });
 
       const apuId = apu.id;
@@ -222,6 +222,67 @@ export async function PUT(
     return NextResponse.json(apuCompleto);
   } catch (err) {
     console.error("[PUT /api/rubros/[id]/apu]", err);
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  }
+}
+
+// PATCH — toggle puntual de utilidadFija (candado de la Utilidad del
+// rubro), sin tocar materiales/mano de obra/equipos ni recrear nada —
+// a propósito más liviano que el PUT de arriba, que reemplaza el APU
+// completo. Si el rubro todavía no tiene APU persistido (candado
+// tocado antes de la primera "Aplicar al rubro"), se crea uno vacío con
+// los mismos defaults de proyecto que ya usa el PUT, para no dejarlo en
+// un estado inconsistente.
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: rubroId } = await params;
+
+    if (await proyectoFinalizado(rubroId)) {
+      return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const utilidadFija = body?.utilidadFija === true;
+
+    const apuExistente = await db.aPU.findUnique({ where: { rubroId } });
+    if (apuExistente) {
+      const apu = await db.aPU.update({ where: { rubroId }, data: { utilidadFija } });
+      return NextResponse.json(apu);
+    }
+
+    const rubro = await db.rubro.findUnique({
+      where: { id: rubroId },
+      select: {
+        capitulo: {
+          select: {
+            proyecto: {
+              select: {
+                utilidadPctDefault: true,
+                leyesSociales: {
+                  select: {
+                    focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
+                    frlPct: true, fondoGarantiaPct: true, snisAdicionalPct: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const proyectoDefaults = rubro?.capitulo?.proyecto;
+    const utilidadPct = proyectoDefaults?.utilidadPctDefault ?? 10;
+    const aportesPatronalesPct = sumarAportesPatronalesPct(proyectoDefaults?.leyesSociales);
+
+    const apu = await db.aPU.create({
+      data: { rubroId, gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, utilidadFija },
+    });
+    return NextResponse.json(apu);
+  } catch (err) {
+    console.error("[PATCH /api/rubros/[id]/apu]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }

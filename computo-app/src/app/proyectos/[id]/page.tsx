@@ -336,6 +336,13 @@ interface APU {
   equipos: EquipoAPU[];
   gastosGeneralesPct: number;
   utilidadPct: number;
+  // Candado de Utilidad — si es true, este rubro NO se toca cuando se
+  // propaga un cambio general de Utilidad desde "Gastos Generales y
+  // Beneficio" (ver botón "Aplicar a rubros existentes" en
+  // SeccionGastosGeneralesUtilidades.tsx y
+  // POST /api/proyectos/[id]/propagar-utilidad). Opcional/undefined se
+  // trata como false en todos los call sites — ver ?? false.
+  utilidadFija?: boolean;
   // % de Aportes Patronales BPS (Empresa paga), aplicado solo sobre Mano de
   // Obra dentro de Costo Directo — congelado al crearse el APU, igual que
   // gastosGeneralesPct/utilidadPct (ver montoAportesPatronales en apu-calc.ts).
@@ -1470,6 +1477,8 @@ interface DrawerAPUProps {
   onApuChange: (apu: APU) => void;
   onAplicar: (precioUnit: number, apu: APU) => void;
   onToggleTrabajoEnAltura: (actual: boolean) => void;
+  // Candado de Utilidad — ver toggleUtilidadFija en el componente padre.
+  onToggleUtilidadFija: (actual: boolean) => void;
   // Fila de catálogo vigente por materialId — solo trae entradas para
   // materiales de ESTE rubro cuyo precio guardado quedó atrás del de
   // PrecioMTOP (ver detectarPreciosDesactualizados en el componente padre).
@@ -1563,7 +1572,7 @@ function SelectorModoCosteo({ modo, onChange }: { modo: ModoCosteoEquipo; onChan
   );
 }
 
-function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura, preciosVigentesPorMaterial, onSincronizarMaterial, proyectoId }: DrawerAPUProps) {
+function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura, onToggleUtilidadFija, preciosVigentesPorMaterial, onSincronizarMaterial, proyectoId }: DrawerAPUProps) {
   const dragControls = useDragControls();
   const router = useRouter();
   // Deep-link desde la etiqueta "Pendiente de verificar" de un material —
@@ -2749,6 +2758,30 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     />
                     <span className="text-xs text-slate-400">%</span>
                   </div>
+                  {/* Candado — mismo patrón de tooltip oscuro que "Agregar
+                      título"/"Agregar capítulo" (group + group-hover, sin
+                      librería). Cerrado (Lock) = utilidadFija true, este
+                      rubro no se toca al propagar un cambio general de
+                      Utilidad; abierto (LockOpen) = sigue a la tarjeta
+                      general cuando se propague. */}
+                  <div className="group relative">
+                    <button
+                      type="button"
+                      onClick={() => onToggleUtilidadFija(!!apu.utilidadFija)}
+                      className={cn(
+                        "p-0.5 rounded transition-colors",
+                        apu.utilidadFija ? "text-[#2563EB]" : "text-slate-300 hover:text-slate-500"
+                      )}
+                      aria-label={apu.utilidadFija ? "Utilidad fija — click para desbloquear" : "Fijar utilidad de este rubro"}
+                    >
+                      {apu.utilidadFija ? <Lock className="w-3.5 h-3.5" /> : <LockOpen className="w-3.5 h-3.5" />}
+                    </button>
+                    <div className="pointer-events-none absolute left-0 top-full mt-2 hidden group-hover:block z-20 w-56">
+                      <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
+                        Fija la utilidad de este rubro — no se verá afectado si cambiás el % general en Gastos Generales y Beneficio.
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <span className="font-semibold tabular-nums text-slate-700">{fmtMon(costoDirecto * apu.utilidadPct / 100)}</span>
               </div>
@@ -3167,6 +3200,7 @@ export default function ProyectoPage() {
               equipos:            rubro.apu.equipos    ?? [],
               gastosGeneralesPct: rubro.apu.gastosGeneralesPct ?? 0,
               utilidadPct:        rubro.apu.utilidadPct        ?? 10,
+              utilidadFija:       rubro.apu.utilidadFija        ?? false,
               aportesPatronalesPct: rubro.apu.aportesPatronalesPct ?? APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra:   rubro.apu.porcentajePiedra   ?? 0.30,
               dosificacion:       rubro.apu.dosificacion       ?? null,
@@ -4109,6 +4143,26 @@ export default function ProyectoPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ trabajoEnAltura: nuevoValor }),
     }).catch((err) => console.error("[toggle trabajoEnAltura]", err));
+  }, []);
+
+  // Candado de Utilidad — mismo patrón que toggleTrabajoEnAltura (optimista
+  // + PATCH inmediato, sin debounce), pero vive en apuData (parte del APU),
+  // no en capitulos. Usa el PATCH liviano de apu/route.ts (no el PUT
+  // completo) para no recrear materiales/mano de obra/equipos por un
+  // simple toggle.
+  const toggleUtilidadFija = useCallback((rubroId: string, actual: boolean) => {
+    const nuevoValor = !actual;
+    setApuData((prev) => {
+      const apuActual = prev[rubroId];
+      if (!apuActual) return prev;
+      return { ...prev, [rubroId]: { ...apuActual, utilidadFija: nuevoValor } };
+    });
+    if (rubroId.startsWith("temp-")) return;
+    fetch(`/api/rubros/${rubroId}/apu`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ utilidadFija: nuevoValor }),
+    }).catch((err) => console.error("[toggle utilidadFija]", err));
   }, []);
 
   const eliminarRubro = useCallback((capId: string, rubroId: string, descripcion: string) => {
@@ -5496,6 +5550,7 @@ export default function ProyectoPage() {
         />
 
         <SeccionGastosGeneralesUtilidades
+          proyectoId={proyectoId}
           moneda={moneda}
           modo={proyecto?.modoGastosGenerales ?? "PORCENTAJE"}
           gastosGeneralesPctDefault={proyecto?.gastosGeneralesPctDefault ?? null}
@@ -5853,6 +5908,7 @@ export default function ProyectoPage() {
             onApuChange={(apu) => setApuData((prev) => ({ ...prev, [drawerRubroId]: apu }))}
             onAplicar={(precio, apuActual) => aplicarPrecioAPU(drawerRubroId, precio, apuActual)}
             onToggleTrabajoEnAltura={(actual) => toggleTrabajoEnAltura(drawerCapId, drawerRubroId, actual)}
+            onToggleUtilidadFija={(actual) => toggleUtilidadFija(drawerRubroId, actual)}
             preciosVigentesPorMaterial={preciosVigentesPorMaterial}
             onSincronizarMaterial={(materialId) => sincronizarPrecioAPU(drawerRubroId, drawerAPU, materialId)}
             proyectoId={proyectoId}
