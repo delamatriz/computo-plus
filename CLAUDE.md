@@ -116,29 +116,61 @@ que existe un comando invocable.
   `package-lock.json` directamente — el grafo solo tiene el nombre
   del paquete como nodo, no la versión instalada.
 
-## Dev server (Turbopack) — ruta API anidada nueva que da 404
-Síntoma observado dos veces en la misma sesión (feature de ítems de
-Órdenes de Compra, 2026-09-25): un `route.ts` recién creado bajo una
-carpeta con 2+ segmentos dinámicos (ej.
-`[id]/ordenes-compra/[ordenId]/items/route.ts`) devuelve 404 — pero
-es el 404 HTML genérico de Next ("This page could not be found"),
-no un 404 JSON del propio handler. Pasó con esa ruta nueva y, en la
-misma sesión, también se reprodujo en `certificaciones/[certId]/items`
-(ruta preexistente, mismo patrón de anidamiento) sin haberla tocado.
+## Chequeo de tipos — `npm run typecheck`
+El chequeo oficial de tipos es `npm run typecheck` (desde
+`computo-app/`): `next typegen && tsc --noEmit -p tsconfig.typecheck.json`.
+Se corre ANTES de reportar un cambio como terminado y tiene que dar 0
+errores (tarda ~30-80 s).
 
-No se confirmó al 100% que sea reproducible siempre — no se reintentó
-lo suficiente como para descartar coincidencia puntual de esa sesión
-de `next dev`. Pero como se vio en dos rutas distintas con el mismo
-patrón de anidamiento, conviene probarlo primero como rutina antes de
-salir a debuggear código:
+- **No usar `tsc --noEmit` pelado como chequeo oficial.** Lee
+  `.next/dev/types/routes.d.ts`, que el dev server de Next 16 escribe de
+  forma no atómica (varias escrituras solapadas al arrancar) y a veces
+  deja corrupto: ~135 errores falsos `TS1005`/`TS1128`, siempre en ese
+  archivo, que persisten hasta que el dev server lo reescribe.
+  `tsconfig.typecheck.json` lo deja afuera (y también `next-env.d.ts`,
+  que lo importa) y usa los tipos de `next typegen`, que no dependen del
+  dev server.
+- **No tocar `tsconfig.json`**: Next lo reescribe y vuelve a agregar
+  `.next/dev/types`.
+- `scripts/` no entra en el typecheck (exclusión heredada del
+  `tsconfig.json`). Medido el 2026-10-02: si entrara darían 90 errores en
+  62 archivos, casi todos `findUnique({ where: { codigo } })` sobre
+  `PrecioMTOP`, anteriores al `@@unique` compuesto con `proveedor`.
+- **No borrar `.next` con el dev server prendido** (corrompe el caché de
+  Turbopack). Con el server apagado tampoco es gratis: en Windows el
+  borrado puede fallar a medias con "acceso denegado" en
+  `.next\dev\build\chunks`.
 
-1. Si un endpoint nuevo (o uno viejo con 2+ segmentos dinámicos) da
-   404 HTML de Next apenas creado/editado, probar primero:
-   `preview_stop` → `rm -rf computo-app/.next` → `preview_start`
-   (o el equivalente `next dev` manual) antes de sospechar del código
-   de la ruta.
-2. Si después de eso sigue en 404, ahí sí es un bug real de la ruta (ver
-   el archivo, params, nombre de carpeta) — no seguir reiniciando a
+## Dev server (Turbopack) — ruta API anidada que da 404 HTML
+Síntoma (visto en la sesión de ítems de Órdenes de Compra, 2026-09-25):
+un `route.ts` bajo una carpeta con 2+ segmentos dinámicos (ej.
+`[id]/ordenes-compra/[ordenId]/items/route.ts`) devuelve el 404 HTML
+genérico de Next ("This page could not be found"), no un 404 JSON del
+propio handler. También se vio en `certificaciones/[certId]/items`
+(ruta preexistente) sin haberla tocado.
+
+Qué se verificó el 2026-10-02:
+
+- **Ruta nueva, apenas creada:** reproducido. El primer pedido da 404
+  HTML (~10 s) y el segundo ya da 200 JSON, sin borrar `.next` ni
+  reiniciar nada. Es latencia de registro de la ruta en el dev server.
+- **La carrera de `routes.d.ts` NO explica el 404.** Esa carrera corrompe
+  el contenido del archivo de tipos (solo afecta a `tsc`), no el ruteo.
+  Ambas cosas cuelgan del mismo evento (el dev server actualiza su lista
+  de rutas), pero son efectos separados.
+- **Rutas preexistentes:** en una sesión anterior del dev server, el
+  `routes.d.ts` no tenía NINGUNA ruta con 2+ segmentos dinámicos aunque
+  existían en `src/`; un dev server reiniciado sí las registró. No se
+  verificó el 404 en tiempo de ejecución de esa instancia puntual.
+
+Rutina, en este orden (NO hace falta `rm -rf .next`):
+
+1. Esperar unos segundos y repetir el pedido: una ruta recién creada
+   puede dar 404 HTML en el primer intento.
+2. Si sigue en 404 HTML, reiniciar el dev server (`preview_stop` →
+   `preview_start`).
+3. Solo si después de eso sigue, es un bug real de la ruta (ver el
+   archivo, `params`, nombre de carpeta). No seguir reiniciando a
    ciegas.
 
 ## Próxima tarea inmediata

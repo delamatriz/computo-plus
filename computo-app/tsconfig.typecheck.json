@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "files": ["node_modules/next/image-types/global.d.ts"],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.mts", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", "scripts", "prisma/seed-mtop.ts", ".next/dev", "next-env.d.ts"]
+}
