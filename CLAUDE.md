@@ -132,10 +132,19 @@ errores (tarda ~30-80 s).
   dev server.
 - **No tocar `tsconfig.json`**: Next lo reescribe y vuelve a agregar
   `.next/dev/types`.
-- `scripts/` no entra en el typecheck (exclusión heredada del
-  `tsconfig.json`). Medido el 2026-10-02: si entrara darían 90 errores en
-  62 archivos, casi todos `findUnique({ where: { codigo } })` sobre
-  `PrecioMTOP`, anteriores al `@@unique` compuesto con `proveedor`.
+- **`npm run typecheck` cubre los scripts vivos** de `scripts/`.
+  `scripts/_historico/` queda afuera: son scripts de una sola vez, ya
+  aplicados, con los imports rotos a propósito (muchos escriben directo en
+  producción sin dry-run); no se ejecutan ni se tipan, ver el `README.md`
+  de esa carpeta. (Medido el 2026-10-02, con todo `scripts/` adentro daba
+  90 errores en 62 archivos, casi todos `findUnique({ where: { codigo } })`
+  sobre `PrecioMTOP`, anteriores al `@@unique` compuesto con `proveedor`.)
+- **Scripts nuevos:** van en `scripts/`, idempotentes (`upsert` o
+  `findFirst`, nunca `findUnique` sobre `PrecioMTOP` sin `proveedor`:
+  `proveedor` es nullable, se busca con `findFirst({ where: { codigo,
+  proveedor: null } })`), con dry-run por defecto y `--apply` para
+  escribir. Cuando ya se aplicaron y no se vuelven a correr, se mueven a
+  `scripts/_historico/` con `git mv`.
 - **No borrar `.next` con el dev server prendido** (corrompe el caché de
   Turbopack). Con el server apagado tampoco es gratis: en Windows el
   borrado puede fallar a medias con "acceso denegado" en

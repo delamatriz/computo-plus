@@ -1,5 +1,7 @@
 # CURRENT_SPRINT
 
+> Aviso (2026-10-02): los scripts históricos (`fix-*`, `seed-*` de una sola vez, etc.) pasaron a `scripts/_historico/`; las rutas `scripts/<nombre>.ts` de este registro apuntan a su ubicación anterior.
+
 ## Backups de la base de datos (producción)
 
 Contexto: la base gratuita de Render expiró y estuvo a punto de perder

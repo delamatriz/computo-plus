@@ -86,7 +86,7 @@ export function BadgeVerificacion({ fuente, onClickPendiente }: BadgeVerificacio
     // Elegible para el job de verificación de precios (FEAT-AI-006) pero
     // todavía sin ninguna corrida real encima — fechaUltimaVerificacion
     // null es la señal (limpiada de backfills falsos, ver
-    // scripts/limpiar-fecha-verificacion-falsa.ts). Ámbar — mismo color
+    // scripts/_historico/limpiar-fecha-verificacion-falsa.ts). Ámbar — mismo color
     // que el reloj de "pendiente de verificar" en la lista de rubros
     // (mismo estado, misma señal), y acá además refuerza que la etiqueta
     // es clickeable (deep-link a Materiales, ver onClickPendiente).
