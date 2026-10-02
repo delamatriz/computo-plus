@@ -73,6 +73,16 @@ export const CAPITULOS_SAU: MapeoSAU[] = [
   { alias: ["Instalación Eléctrica"], capitulos: ["Instalación Eléctrica"] },
   { alias: ["Instalación Térmica / Aire Acondicionado", "Instalación Térmica"], capitulos: ["Instalación Térmica / Aire Acondicionado"] },
   { alias: ["Ascensor"], capitulos: ["Ascensor"] },
+  // Oct-2026 — el wizard (CapituloEstandar) lo llama "Instalación Contra
+  // Incendio" pero la Biblioteca (CapituloCatalogo) "Contra Incendio": sin
+  // este alias el capítulo nacía con capituloCatalogoId null y "Ver
+  // subrubros típicos" salía vacío aunque haya 16 subrubros cargados.
+  { alias: ["Instalación Contra Incendio"], capitulos: ["Contra Incendio"] },
+  // La lista de sugerir-capitulos (IA) devuelve "Instalación de gas" en
+  // minúscula; el catálogo es "Instalación de Gas" y el lookup final por
+  // nombre es case-sensitive. El alias compara en minúscula, así que cubre
+  // las dos grafías.
+  { alias: ["Instalación de Gas"], capitulos: ["Instalación de Gas"] },
 ];
 
 export function obtenerMapeoSAU(nombreCapitulo: string): { capitulos: string[]; subcapitulos?: string[]; excluirSubcapitulos?: string[] } | undefined {

@@ -448,7 +448,18 @@ export function SelectorCapitulosEstandar({
             Agregar capítulo
           </button>
         </div>
-      ) : null}
+      ) : (
+        // Selección vacía con la biblioteca abierta (ej. modal "Agregar
+        // capítulo" de un proyecto armado): sin esto, la escritura manual
+        // quedaba escondida hasta elegir un capítulo de la lista.
+        <button
+          onClick={agregarCapitulo}
+          className="flex items-center gap-2 w-full px-3 py-2.5 rounded-[10px] border border-dashed border-slate-300 text-sm text-slate-400 hover:text-slate-600 hover:border-slate-400 transition-all"
+        >
+          <Plus className="w-4 h-4" />
+          Agregar capítulo
+        </button>
+      )}
     </div>
   );
 }
