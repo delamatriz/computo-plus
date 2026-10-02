@@ -144,6 +144,21 @@ export function sumarItemsExtraGastosGenerales(raw: unknown): number {
   }, 0);
 }
 
+// Reserva para imprevistos (Proyecto.imprevistosPct, en puntos
+// porcentuales: 5 = 5%) sobre el Costo Directo agregado. null / ausente /
+// no numérico / 0 o negativo = 0, así que un proyecto sin imprevistos
+// calcula exactamente igual que antes. Función numérica pura: el monto
+// nunca pasa por texto ni por parsearDineroTipeado. La usan tanto
+// calcularCostosIndirectosAgregados como la tarjeta de Gastos Generales
+// (para mostrar el monto), así hay una sola definición de la cuenta.
+export function calcularImprevistos(
+  costoDirectoAgregado: number,
+  imprevistosPct: number | null | undefined
+): number {
+  if (typeof imprevistosPct !== "number" || !Number.isFinite(imprevistosPct) || imprevistosPct <= 0) return 0;
+  return costoDirectoAgregado * (imprevistosPct / 100);
+}
+
 export function sumarGastosGeneralesDetallado(raw: unknown): SumaGastosGeneralesDetallado {
   return normalizarCategoriasGastosGenerales(raw).reduce(
     (acc, cat) => {

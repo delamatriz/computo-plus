@@ -13,6 +13,12 @@
 //     Biblioteca (esos conceptos viven en Gastos Generales Detallado, ver
 //     ITEMS_SUGERIDOS_GASTOS_ADMIN en gastosGenerales.ts).
 //
+//   - Imprevistos (oct-2026, segunda corrida de este mismo script): pasó de
+//     capítulo vacío sin Biblioteca a un % dentro de Gastos Generales
+//     (Proyecto.imprevistosPct, ver calcularCostosIndirectosAgregados). La
+//     lista queda en 30 capítulos. Los capítulos "Imprevistos" ya creados
+//     en proyectos existentes no se tocan: esto es solo el catálogo.
+//
 // Nota: seed-capitulos-nuevos.ts (el de la carga original 21-30) hace upsert
 // de esos 4 — NO volver a correrlo, los resucitaría. Este script es el que
 // manda.
@@ -56,7 +62,6 @@ const ORDEN_FINAL = [
   "Equipamiento",
   "Sistemas Constructivos No Tradicionales",
   "Obra Exterior / Jardín",
-  "Imprevistos",
   "Instalación de Gas",
   "Instalación Contra Incendio",
   "Ascensor",
@@ -71,6 +76,7 @@ const ELIMINAR = [
   "Derechos de Construcción y Permisos",
   "Conexiones de Servicios",
   "Gastos Generales de Obra",
+  "Imprevistos",
 ];
 
 async function main() {

@@ -107,6 +107,15 @@ model Proyecto {
   // (ver generarApuParaRubro y PUT /api/rubros/[id]/apu).
   gastosGeneralesPctDefault Float?
   utilidadPctDefault        Float?
+  // Reserva para imprevistos — % sobre el Costo Directo agregado (misma
+  // base que Gastos Generales en modo Porcentaje), en puntos porcentuales
+  // (5 = 5%). null equivale a 0%: los proyectos existentes quedan sin
+  // imprevistos y su cálculo no cambia. Se suma dentro de Costos
+  // Indirectos (ver calcularCostosIndirectosAgregados en costoAgregado.ts),
+  // en los dos modos de Gastos Generales, y entra en la base del IVA.
+  // No tiene relación con Configuracion.margenImprevistos (columna sin
+  // uso, resto del andamiaje inicial).
+  imprevistosPct            Float?
   // "PORCENTAJE" (prorrateado por rubro, comportamiento histórico) |
   // "DETALLADO" (monto fijo por las 5 categorías de abajo, cobrado una sola
   // vez en el Resumen del Presupuesto — rubros nuevos arrancan en 0% GG).

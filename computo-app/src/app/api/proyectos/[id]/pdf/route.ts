@@ -82,7 +82,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       proyecto.gastosGeneralesDetallado,
       proyecto.gastosGeneralesPctDefault,
       costoDirectoAgregado.total,
-      proyecto.gastosGeneralesItems
+      proyecto.gastosGeneralesItems,
+      proyecto.imprevistosPct
     );
     const costosIndirectosExento = calcularCostosIndirectosExento(
       proyecto.modoGastosGenerales,

@@ -31,6 +31,7 @@ import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
 import { calcularDiasObra } from "@/lib/diasObra";
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada } from "@/lib/costoAgregado";
+import { calcularImprevistos } from "@/lib/gastosGenerales";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionResumenPresupuesto from "@/components/SeccionResumenPresupuesto";
@@ -114,6 +115,9 @@ interface ProyectoData {
   // los %s = comportamiento histórico (15/10).
   gastosGeneralesPctDefault?: number | null;
   utilidadPctDefault?: number | null;
+  // Reserva para imprevistos (% sobre Costo Directo) — null = 0%. Ver
+  // Proyecto.imprevistosPct en schema.prisma.
+  imprevistosPct?: number | null;
   modoGastosGenerales?: ModoGastosGenerales;
   gastosGeneralesDetallado?: CategoriaGastoGeneral[] | null;
   // Se carga desde /editar — acá es de solo lectura, mostrada al pie del
@@ -3132,6 +3136,7 @@ export default function ProyectoPage() {
         gastosGeneralesItems: Array.isArray(data.gastosGeneralesItems) ? data.gastosGeneralesItems : [],
         gastosGeneralesPctDefault: data.gastosGeneralesPctDefault ?? null,
         utilidadPctDefault: data.utilidadPctDefault ?? null,
+        imprevistosPct: data.imprevistosPct ?? null,
         modoGastosGenerales: data.modoGastosGenerales === "DETALLADO" ? "DETALLADO" : "PORCENTAJE",
         gastosGeneralesDetallado: Array.isArray(data.gastosGeneralesDetallado) ? data.gastosGeneralesDetallado : null,
         fechaInicio: data.fechaInicio ?? null,
@@ -3368,6 +3373,13 @@ export default function ProyectoPage() {
     guardarCampoProyecto("utilidadPctDefault", v);
   }, [guardarCampoProyecto]);
 
+  // null = campo vacío = 0%. El número llega ya validado (0-100) desde la
+  // tarjeta; el servidor lo vuelve a validar.
+  const actualizarImprevistosPct = useCallback((v: number | null) => {
+    setProyecto((prev) => prev ? { ...prev, imprevistosPct: v } : prev);
+    guardarCampoProyecto("imprevistosPct", v);
+  }, [guardarCampoProyecto]);
+
   const actualizarGastosGeneralesDetallado = useCallback((categorias: CategoriaGastoGeneral[]) => {
     setProyecto((prev) => prev ? { ...prev, gastosGeneralesDetallado: categorias } : prev);
     guardarCampoProyecto("gastosGeneralesDetallado", categorias);
@@ -3407,7 +3419,8 @@ export default function ProyectoPage() {
     proyecto?.gastosGeneralesDetallado,
     proyecto?.gastosGeneralesPctDefault,
     costoDirectoAgregado.total,
-    proyecto?.gastosGeneralesItems
+    proyecto?.gastosGeneralesItems,
+    proyecto?.imprevistosPct
   );
   // Ítems de Gastos Generales Detallado marcados exentoIVA (ej. Timbres
   // CJP) — siguen sumando a costoTotalAgregado, pero salen de la base del
@@ -3416,6 +3429,9 @@ export default function ProyectoPage() {
     proyecto?.modoGastosGenerales,
     proyecto?.gastosGeneralesDetallado
   );
+  // Monto de Imprevistos solo para mostrarlo en la tarjeta — ya viene
+  // sumado dentro de costosIndirectosAgregados (misma función pura).
+  const montoImprevistos = calcularImprevistos(costoDirectoAgregado.total, proyecto?.imprevistosPct);
   const utilidadAgregada = calcularUtilidadAgregada(capitulos, apuData);
   // Mismos términos derivados que ya calcula TarjetaCostoTotalPrecioFinal
   // internamente a partir de costoDirecto+montoGastosGeneralesYBeneficio —
@@ -5571,6 +5587,9 @@ export default function ProyectoPage() {
           modo={proyecto?.modoGastosGenerales ?? "PORCENTAJE"}
           gastosGeneralesPctDefault={proyecto?.gastosGeneralesPctDefault ?? null}
           utilidadPctDefault={proyecto?.utilidadPctDefault ?? null}
+          imprevistosPct={proyecto?.imprevistosPct ?? null}
+          montoImprevistos={montoImprevistos}
+          onChangeImprevistosPct={actualizarImprevistosPct}
           categorias={proyecto?.gastosGeneralesDetallado ?? null}
           costosIndirectosAgregados={costosIndirectosAgregados}
           utilidadAgregada={utilidadAgregada}

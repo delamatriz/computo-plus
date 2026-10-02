@@ -55,7 +55,8 @@ async function calcularPrecioFinalSugerido(proyectoId: string): Promise<number |
     proyecto.gastosGeneralesDetallado,
     proyecto.gastosGeneralesPctDefault,
     costoDirectoAgregado.total,
-    proyecto.gastosGeneralesItems
+    proyecto.gastosGeneralesItems,
+    proyecto.imprevistosPct
   );
   const costosIndirectosExento = calcularCostosIndirectosExento(
     proyecto.modoGastosGenerales,

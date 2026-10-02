@@ -114,6 +114,17 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
+
+    // Imprevistos %: null (= 0%) o un número finito entre 0 y 100. Cualquier
+    // otra cosa se rechaza en vez de guardarse — un valor corrupto acá
+    // movería el Costo Total de todo el presupuesto.
+    if (body.imprevistosPct !== undefined && body.imprevistosPct !== null) {
+      const v = body.imprevistosPct;
+      if (typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > 100) {
+        return NextResponse.json({ error: "imprevistosPct debe ser un número entre 0 y 100" }, { status: 400 });
+      }
+    }
+
     const proyecto = await db.proyecto.update({
       where: { id },
       data: {
@@ -146,6 +157,7 @@ export async function PATCH(
         ...(body.gastosGeneralesItems !== undefined && { gastosGeneralesItems: body.gastosGeneralesItems }),
         ...(body.gastosGeneralesPctDefault !== undefined && { gastosGeneralesPctDefault: body.gastosGeneralesPctDefault }),
         ...(body.utilidadPctDefault !== undefined && { utilidadPctDefault: body.utilidadPctDefault }),
+        ...(body.imprevistosPct !== undefined && { imprevistosPct: body.imprevistosPct }),
         ...(body.modoGastosGenerales !== undefined && { modoGastosGenerales: body.modoGastosGenerales }),
         ...(body.gastosGeneralesDetallado !== undefined && { gastosGeneralesDetallado: body.gastosGeneralesDetallado }),
       },

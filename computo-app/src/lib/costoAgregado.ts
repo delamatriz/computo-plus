@@ -14,7 +14,7 @@
 // proyectos/[id]/page.tsx, sin consulta nueva a la base.
 
 import { sumManoObra, sumEquipos, montoAportesPatronales } from "./apu-calc";
-import { sumarGastosGeneralesDetallado, sumarItemsExtraGastosGenerales } from "./gastosGenerales";
+import { sumarGastosGeneralesDetallado, sumarItemsExtraGastosGenerales, calcularImprevistos } from "./gastosGenerales";
 
 export interface RubroParaCosto {
   id: string;
@@ -126,19 +126,28 @@ export function calcularUtilidadAgregada(
 // parámetro. `gastosGeneralesItems` es obligatorio a propósito (null está
 // permitido): así ningún caller nuevo puede olvidarse de pasarlo, que fue
 // justo lo que dejó los ítems extra sin efecto tras el refactor del 31/08.
+//
+// También se suman los Imprevistos (Proyecto.imprevistosPct): % sobre el
+// Costo Directo agregado, como línea independiente de GG% y de los ítems
+// extra, en los dos modos. Va dentro de Costos Indirectos — o sea dentro
+// de la línea "Gastos Generales" de la cascada, sin fila propia en
+// pantalla/PDF — y entra a la base del IVA (calcularCostosIndirectosExento
+// no lo toca). Mismo criterio de parámetro obligatorio: null = 0%.
 export function calcularCostosIndirectosAgregados(
   modoGastosGenerales: string | null | undefined,
   gastosGeneralesDetallado: unknown,
   gastosGeneralesPctDefault: number | null | undefined,
   costoDirectoAgregado: number,
-  gastosGeneralesItems: unknown
+  gastosGeneralesItems: unknown,
+  imprevistosPct: number | null | undefined
 ): number {
   const itemsExtra = sumarItemsExtraGastosGenerales(gastosGeneralesItems);
+  const imprevistos = calcularImprevistos(costoDirectoAgregado, imprevistosPct);
   if (modoGastosGenerales === "DETALLADO") {
-    return sumarGastosGeneralesDetallado(gastosGeneralesDetallado).total + itemsExtra;
+    return sumarGastosGeneralesDetallado(gastosGeneralesDetallado).total + itemsExtra + imprevistos;
   }
   const pct = gastosGeneralesPctDefault ?? 15;
-  return costoDirectoAgregado * (pct / 100) + itemsExtra;
+  return costoDirectoAgregado * (pct / 100) + itemsExtra + imprevistos;
 }
 
 // Porción de Costos Indirectos exenta de IVA (ítems con exentoIVA dentro

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Percent, ChevronDown, ChevronRight, Plus, X, Lock, Loader2, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,12 @@ interface Props {
   // (mismo comportamiento que antes de esta feature).
   gastosGeneralesPctDefault: number | null;
   utilidadPctDefault: number | null;
+  // Imprevistos: % sobre el Costo Directo (null = 0%) y su monto ya
+  // calculado (calcularImprevistos, gastosGenerales.ts) solo para
+  // mostrarlo. El total real los trae sumados dentro de
+  // costosIndirectosAgregados — esta tarjeta no recalcula nada del total.
+  imprevistosPct: number | null;
+  montoImprevistos: number;
   categorias: CategoriaGastoGeneral[] | null;
   // Ya calculados a nivel proyecto (ver costoAgregado.ts) — se muestran
   // combinados ($ único) en el header colapsado, mismo patrón que ya usa
@@ -58,6 +64,7 @@ interface Props {
   onChangeModo: (modo: ModoGastosGenerales) => void;
   onChangeGastosGeneralesPctDefault: (v: number) => void;
   onChangeUtilidadPctDefault: (v: number) => void;
+  onChangeImprevistosPct: (v: number | null) => void;
   onChangeCategorias: (categorias: CategoriaGastoGeneral[]) => void;
   onChangeGastosGeneralesItems: (items: ItemGastoGeneral[]) => void;
 }
@@ -88,6 +95,71 @@ function PctInput({ value, onChange }: { value: number; onChange: (v: number) =>
   );
 }
 
+/** Parsea el texto tipeado de un % con coma o punto decimal ("2,5" o
+ *  "2.5" → 2.5). Solo cambia la coma por punto: a diferencia de
+ *  parsearDineroTipeado (page.tsx, pensada para montos con "." de miles),
+ *  acá el "." SIEMPRE es decimal — un porcentaje nunca llega a miles.
+ *  "" = vacío = null (0%). Fuera de 0-100 o con basura = "invalido". */
+function parsearPorcentaje(texto: string): number | null | "invalido" {
+  const limpio = texto.trim().replace(",", ".");
+  if (limpio === "") return null;
+  if (!/^(\d+(\.\d*)?|\.\d+)$/.test(limpio)) return "invalido";
+  const n = Number(limpio);
+  if (!Number.isFinite(n) || n < 0 || n > 100) return "invalido";
+  return n;
+}
+
+/** Input de porcentaje decimal con coma uruguaya ("2,5"), 0 a 100, vacío =
+ *  0%. Guarda el texto tipeado aparte del número para poder escribir "2,"
+ *  sin que se pise; solo avisa al padre cuando el valor es válido. */
+function PctDecimalInput({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
+  const aTexto = (v: number | null) => (v == null ? "" : String(v).replace(".", ","));
+  const [texto, setTexto] = useState(aTexto(value));
+  const [invalido, setInvalido] = useState(false);
+
+  // Si el valor cambia desde afuera (ej. carga del proyecto) y no coincide
+  // con lo tipeado, se refleja. Mientras se tipea un valor válido, padre y
+  // texto coinciden y esto no hace nada.
+  useEffect(() => {
+    const actual = parsearPorcentaje(texto);
+    if (actual !== "invalido" && actual !== value) setTexto(aTexto(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return (
+    <span className="inline-flex flex-col items-end gap-1">
+      <span className="inline-flex items-center gap-1">
+        <input
+          type="text"
+          inputMode="decimal"
+          value={texto}
+          aria-label="Imprevistos %"
+          placeholder="0"
+          onChange={(e) => {
+            const t = e.target.value;
+            setTexto(t);
+            const r = parsearPorcentaje(t);
+            if (r === "invalido") {
+              setInvalido(true);
+              return;
+            }
+            setInvalido(false);
+            onChange(r);
+          }}
+          className={cn(
+            "w-20 px-2 py-1 text-right text-sm font-semibold text-slate-700 tabular-nums bg-white border rounded-[6px] focus:outline-none focus:ring-2",
+            invalido
+              ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+              : "border-slate-200 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+          )}
+        />
+        <span className="text-sm text-slate-400">%</span>
+      </span>
+      {invalido && <span className="text-xs text-red-600">Ingresá un valor entre 0 y 100</span>}
+    </span>
+  );
+}
+
 /** Id del <datalist> de sugerencias de un ítem según su categoría —
  *  un datalist por categoría, no uno global, para poder PRIORIZAR
  *  (ver sugerenciasOrdenadas) sin filtrar ni bloquear nada. */
@@ -112,6 +184,8 @@ export default function SeccionGastosGeneralesUtilidades({
   modo,
   gastosGeneralesPctDefault,
   utilidadPctDefault,
+  imprevistosPct,
+  montoImprevistos,
   categorias,
   costosIndirectosAgregados,
   utilidadAgregada,
@@ -119,6 +193,7 @@ export default function SeccionGastosGeneralesUtilidades({
   onChangeModo,
   onChangeGastosGeneralesPctDefault,
   onChangeUtilidadPctDefault,
+  onChangeImprevistosPct,
   onChangeCategorias,
   onChangeGastosGeneralesItems,
 }: Props) {
@@ -428,6 +503,24 @@ export default function SeccionGastosGeneralesUtilidades({
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Imprevistos — reserva % sobre el Costo Directo que se suma
+                  a Gastos Generales (dentro de costosIndirectosAgregados,
+                  sin fila propia en la cascada) y entra en la base del
+                  IVA. Vacío = 0%. */}
+              <div className="rounded-[10px] border border-slate-200 bg-white overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200">
+                  <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Imprevistos</span>
+                  <span className="text-xs font-semibold tabular-nums text-slate-500">{fmtMoneda(montoImprevistos, moneda)}</span>
+                </div>
+                <div className="flex items-center px-4 py-3">
+                  <div className="flex-1 min-w-0 pr-3">
+                    <p className="text-sm text-slate-700">Imprevistos %</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Reserva para imprevistos sobre el Costo Directo. Se suma a Gastos Generales.</p>
+                  </div>
+                  <PctDecimalInput value={imprevistosPct} onChange={onChangeImprevistosPct} />
+                </div>
               </div>
 
               {/* Utilidades */}
