@@ -416,12 +416,26 @@ export function SelectorCapitulosEstandar({
                     cap.activo ? "translate-x-4" : "translate-x-0"
                   )} />
                 </button>
-                <button
-                  onClick={() => eliminarCapitulo(cap.id)}
-                  className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                {/* Tooltip oscuro — mismo patrón que "Agregar título"/
+                    "Agregar capítulo" (proyectos/[id]/page.tsx) y el
+                    candado de Utilidad (DrawerAPU): group + group-hover,
+                    sin librería. Abre hacia arriba-derecha porque la fila
+                    vive en una lista con scroll vertical (max-h-80
+                    overflow-y-auto) — abrir hacia abajo se recortaría
+                    contra la fila siguiente o el borde del contenedor. */}
+                <div className="group relative flex-shrink-0">
+                  <button
+                    onClick={() => eliminarCapitulo(cap.id)}
+                    className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <div className="pointer-events-none absolute right-0 bottom-full mb-2 hidden group-hover:block z-20 w-56">
+                    <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
+                      Quita este capítulo de la lista — podrás volver a agregarlo después desde &quot;Lista estándar&quot;.
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             ))}
           </div>

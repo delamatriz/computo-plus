@@ -333,6 +333,28 @@ function NuevoProyectoContent() {
     }));
   };
 
+  // Catálogo completo con pre-tilde según los capítulos reales ya
+  // resueltos desde Cálculo Rápido (capitulosRealesResueltos, ver
+  // useEffect de resolución más arriba) — mismo matching por alias que
+  // ya usaba el caso "Sin título" (capituloCatalogoResolver.ts), ahora
+  // reusado también para cada Título nuevo. Sin datos de Cálculo Rápido
+  // (capitulosRealesResueltos vacío) es idéntico a listaCatalogo(false)
+  // — ningún cambio de comportamiento para un proyecto que no viene de
+  // ahí. Cálculo Rápido no distingue capítulos por título (no hay esa
+  // señal), así que todos los Títulos nuevos arrancan con el mismo
+  // pre-tilde — es la única información disponible, repetirla es más
+  // útil que dejarlos en blanco.
+  const listaConPretildeCR = (): Capitulo[] =>
+    capitulosRealesResueltos.size > 0
+      ? listaCatalogo(false).map((c) => {
+          const candidatos = obtenerMapeoSAU(c.nombre)?.capitulos ?? [c.nombre];
+          const activo = candidatos.some((cand) =>
+            capitulosRealesResueltos.has(cand.trim().toLowerCase())
+          );
+          return { ...c, activo };
+        })
+      : listaCatalogo(false);
+
   const agregarTituloWizard = () => {
     const color = COLORS[form.titulos.length % COLORS.length];
     set("titulos", [
@@ -988,6 +1010,16 @@ function NuevoProyectoContent() {
                       tipoObra={form.tipo}
                       descripcionTrabajos={form.trabajos}
                       fotos={form.fotos}
+                      // Mismo criterio que el selector de "Sin título" de
+                      // más abajo — si el proyecto viene de Cálculo Rápido,
+                      // "Sugerir con IA" acá sería una segunda IA redundante
+                      // pisando el pre-tilde que ya trae cada Título nuevo
+                      // (ver listaConPretildeCR). Antes de este cambio esta
+                      // instancia no recibía la prop y quedaba siempre
+                      // visible, aunque el proyecto viniera de Cálculo
+                      // Rápido — inconsistencia detectada al agregar el
+                      // pre-tilde por Título.
+                      ocultarSugerirIA={!!calculoRapidoItems?.length}
                     />
                   </div>
                 </div>
@@ -1197,21 +1229,17 @@ function NuevoProyectoContent() {
                   // para asignar capituloCatalogoId (ver
                   // capituloCatalogoResolver.ts), no comparando strings.
                   const lista = capitulosRealesResueltos.size > 0
-                    ? listaCatalogo(false).map((c) => {
-                        const candidatos = obtenerMapeoSAU(c.nombre)?.capitulos ?? [c.nombre];
-                        const activo = candidatos.some((cand) =>
-                          capitulosRealesResueltos.has(cand.trim().toLowerCase())
-                        );
-                        return { ...c, activo };
-                      })
+                    ? listaConPretildeCR()
                     : listaCatalogo(true);
                   set("capitulos", lista);
                   set("sinTituloEsAutomatico", true);
                 }
                 // Títulos que todavía no tienen selección propia arrancan
-                // con el catálogo completo, todo apagado.
+                // con el catálogo completo — pre-tildado según Cálculo
+                // Rápido si hay datos resueltos (listaConPretildeCR),
+                // todo apagado si no (mismo comportamiento de siempre).
                 set("titulos", form.titulos.map((t) =>
-                  t.capitulos.length === 0 ? { ...t, capitulos: listaCatalogo(false) } : t
+                  t.capitulos.length === 0 ? { ...t, capitulos: listaConPretildeCR() } : t
                 ));
               }
               setPaso((p) => p + 1);
