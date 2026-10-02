@@ -31,6 +31,12 @@
 // Reutiliza sin duplicar: IMPL-013 (volqueta/contenedor, ya existente) y
 // MAT-INSUMOS-LIMPIEZA-FINAL (ya usado por 7.14.4).
 //
+// Las descripciones (aptas para imprimir al cliente) y las notasInternas de
+// 28.1, 28.3, 28.5, 28.6 y 28.7 se mantienen en
+// textos-limpieza-retiro-obra-2026-10.ts: mantener ambos archivos
+// sincronizados, o volver a correr este seed revierte los textos. Un rubro
+// sin `notasInternas` acá no toca esa columna.
+//
 // Ejecutar (dry-run): npx tsx scripts/seed-limpieza-retiro-obra-2026-10.ts
 // Ejecutar (real):     npx tsx scripts/seed-limpieza-retiro-obra-2026-10.ts --apply
 
@@ -69,9 +75,12 @@ const CODIGOS_REUTILIZADOS = ["IMPL-013", "MAT-INSUMOS-LIMPIEZA-FINAL"] as const
 type MaterialDef = { precioCodigo: string; rendimiento: number };
 type ManoObraDef = { categoria: string; rendimiento: number };
 
+const NOTA_NO_SUMAR = "No sumar si ya se presupuestó la limpieza final de obra (28.7), que ya incluye este trabajo.";
+
 const RUBROS: {
   codigo: string;
   descripcion: string;
+  notasInternas?: string;
   unidad: string;
   orden: number;
   materiales: MaterialDef[];
@@ -80,7 +89,8 @@ const RUBROS: {
   {
     // 10 jornadas de peón por mes (media jornada diaria en obra chica/mediana).
     codigo: "28.1",
-    descripcion: "Limpieza periódica de obra",
+    descripcion: "Limpieza periódica de obra — mantenimiento mensual",
+    notasInternas: "Calculada con 10 jornadas de peón por mes, pensada para obra chica a mediana. Ajustar las jornadas según el tamaño de la obra.",
     unidad: "MES",
     orden: 0,
     materiales: [{ precioCodigo: "LIMP-001", rendimiento: 1 }],
@@ -100,7 +110,7 @@ const RUBROS: {
     // Volqueta de 6 m3 (PrecioEquipo EQ-VOLQUETA) → 1/6 de volqueta por m3.
     // Carga manual de escombros: ~3 m3 por jornada de peón.
     codigo: "28.3",
-    descripcion: "Retiro de escombros (carga manual y volqueta)",
+    descripcion: "Retiro de escombros (carga manual y volqueta de 6 m³, capacidad estándar en plaza)",
     unidad: "M3",
     orden: 2,
     materiales: [{ precioCodigo: "IMPL-013", rendimiento: 0.1667 }],
@@ -117,7 +127,8 @@ const RUBROS: {
   },
   {
     codigo: "28.5",
-    descripcion: "Limpieza de vidrios y aberturas",
+    descripcion: "Limpieza de vidrios y aberturas — trabajo puntual, distinto de la limpieza final de obra",
+    notasInternas: NOTA_NO_SUMAR,
     unidad: "M2",
     orden: 4,
     materiales: [{ precioCodigo: "MAT-INSUMOS-LIMPIEZA-FINAL", rendimiento: 1 }],
@@ -125,7 +136,8 @@ const RUBROS: {
   },
   {
     codigo: "28.6",
-    descripcion: "Limpieza fina de pisos",
+    descripcion: "Limpieza fina de pisos — trabajo puntual, distinto de la limpieza final de obra",
+    notasInternas: NOTA_NO_SUMAR,
     unidad: "M2",
     orden: 5,
     materiales: [{ precioCodigo: "LIMP-002", rendimiento: 1 }],
@@ -134,7 +146,7 @@ const RUBROS: {
   {
     // Mismo APU que 7.14.4 (que sigue en Albañilería > Patología de Fachada).
     codigo: "28.7",
-    descripcion: "Limpieza final de obra (entrega)",
+    descripcion: "Limpieza final de obra (entrega) — incluye pisos, vidrios, aberturas y sanitarios; no incluye retiro de escombros ni de sobrantes",
     unidad: "M2",
     orden: 6,
     materiales: [{ precioCodigo: "MAT-INSUMOS-LIMPIEZA-FINAL", rendimiento: 1 }],
@@ -245,6 +257,7 @@ async function main() {
       create: {
         codigo: def.codigo,
         descripcion: def.descripcion,
+        ...(def.notasInternas !== undefined && { notasInternas: def.notasInternas }),
         unidad: def.unidad,
         precioUY,
         fechaBase: FECHA,
@@ -254,6 +267,7 @@ async function main() {
       },
       update: {
         descripcion: def.descripcion,
+        ...(def.notasInternas !== undefined && { notasInternas: def.notasInternas }),
         unidad: def.unidad,
         precioUY,
         fechaBase: FECHA,

@@ -205,6 +205,10 @@ interface SubrubroEstandar {
   fechaBase: string;
   aportesSociales: number;
   tieneApuEstandar?: boolean;
+  // Advertencia interna para quien arma el presupuesto (SubrubroEstandar.
+  // notasInternas). Solo se muestra como tooltip en este panel — nunca se
+  // copia al Rubro del proyecto ni sale en ningún documento.
+  notasInternas?: string | null;
   // Fase 2 — FK al catálogo canónico (ver FASE2-DISENO-UNIFICACION-TAXONOMIAS.md)
   capituloId?: string | null;
   subcapituloId?: string | null;
@@ -1332,6 +1336,22 @@ function PanelSubrubrosEstandar({
         <div className="flex items-start justify-between gap-2">
           <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
             {toTitleCase(s.descripcion)}
+            {/* Nota interna — tooltip oscuro, mismo patrón que "Agregar
+                título"/"Agregar capítulo" y el candado de Utilidad: group +
+                group-hover, sin librería. Abre hacia la derecha y centrado
+                en la fila porque la lista vive en un contenedor con scroll
+                (max-h-64 overflow-y-auto): abrir hacia arriba/abajo se
+                recortaría contra el borde. Sin nota no se renderiza nada. */}
+            {s.notasInternas && (
+              <span className="group/nota relative inline-flex align-middle ml-1.5">
+                <Info className="w-3 h-3 text-slate-400 group-hover/nota:text-[#2563EB] transition-colors" aria-label="Nota interna" />
+                <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover/nota:block z-20 w-56">
+                  <span className="block rounded-[8px] bg-[#1A3A5C] text-white text-xs font-normal leading-relaxed px-3 py-2 shadow-lg">
+                    {s.notasInternas}
+                  </span>
+                </span>
+              </span>
+            )}
           </span>
           <span className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
             {s.tieneApuEstandar && (

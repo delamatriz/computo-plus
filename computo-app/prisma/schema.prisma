@@ -1224,6 +1224,15 @@ model SubrubroEstandar {
   subcapituloId       String?
   subcapituloCatalogo SubcapituloCatalogo? @relation(fields: [subcapituloId], references: [id])
 
+  // Advertencias para quien arma el presupuesto (ej. "no sumar con 28.7",
+  // "calculada con 10 jornadas de peón por mes"). Solo se muestra en el
+  // panel "Ver subrubros típicos" (tooltip). NUNCA se copia al Rubro del
+  // proyecto al clonar y no sale en ningún documento (PDF, contrato,
+  // liquidación): `descripcion` es lo que viaja e imprime, así que debe
+  // ser apta para el cliente. Nullable, sin default: los subrubros
+  // existentes quedan en null y no cambia nada para ellos.
+  notasInternas       String?
+
   @@unique([codigo])
 }
 
