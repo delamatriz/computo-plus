@@ -37,8 +37,13 @@
 // sincronizados, o volver a correr este seed revierte los textos. Un rubro
 // sin `notasInternas` acá no toca esa columna.
 //
+// 28.9 "Limpieza de obra — por jornada" (agregado después de los otros 8):
+// 1 jornada de peón + 1/10 de LIMP-001; 28.1 equivale a 10 veces este rubro.
+// Para sumarlo sin tocar los otros 8: --solo=28.9 (ver abajo).
+//
 // Ejecutar (dry-run): npx tsx scripts/seed-limpieza-retiro-obra-2026-10.ts
 // Ejecutar (real):     npx tsx scripts/seed-limpieza-retiro-obra-2026-10.ts --apply
+// Solo algunos códigos: agregar --solo=28.9 (o --solo=28.1,28.9) a cualquiera de los dos.
 
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -90,7 +95,7 @@ const RUBROS: {
     // 10 jornadas de peón por mes (media jornada diaria en obra chica/mediana).
     codigo: "28.1",
     descripcion: "Limpieza periódica de obra — mantenimiento mensual",
-    notasInternas: "Calculada con 10 jornadas de peón por mes, pensada para obra chica a mediana. Ajustar las jornadas según el tamaño de la obra.",
+    notasInternas: "Para reforma u obra de varios meses: 10 jornadas de peón por mes. En una reparación puntual de 1 a 2 días usar 28.9 (limpieza por jornada) en lugar de ajustar este rubro.",
     unidad: "MES",
     orden: 0,
     materiales: [{ precioCodigo: "LIMP-001", rendimiento: 1 }],
@@ -166,11 +171,29 @@ const RUBROS: {
       { categoria: "Peón", rendimiento: 0.25 },
     ],
   },
+  {
+    // Alternativa a 28.1 para una reparación puntual de 1 a 2 días: se carga
+    // la cantidad de jornadas en vez de editar el rendimiento de 28.1. Una
+    // jornada de peón + 1/10 del insumo mensual de 28.1 (LIMP-001), así que
+    // 28.1 equivale a 10 veces este rubro. Unidad "JORNADA": es la forma que
+    // la app ya define como unidad estándar (UNIDADES_ESTANDAR en
+    // proyectos/[id]/page.tsx); la Biblioteca solo tenía "DÍA" para alquileres.
+    codigo: "28.9",
+    descripcion: "Limpieza de obra — por jornada",
+    notasInternas: "Para reparaciones puntuales de 1 a 2 días: cargar la cantidad de jornadas. En obras de varios meses usar 28.1 (limpieza periódica). No sumar ambos.",
+    unidad: "JORNADA",
+    orden: 8,
+    materiales: [{ precioCodigo: "LIMP-001", rendimiento: 0.1 }],
+    manoObra: [{ categoria: "Peón", rendimiento: 1 }],
+  },
 ];
 
 async function main() {
   const aplicar = process.argv.includes("--apply");
-  console.log(`Modo: ${aplicar ? "APLICAR A PRODUCCIÓN" : "DRY RUN (nada se escribe)"}\n`);
+  // --solo=28.9 (o 28.1,28.9): procesa solo esos códigos y no toca los demás.
+  const soloArg = process.argv.find((a) => a.startsWith("--solo="));
+  const solo = soloArg ? soloArg.slice("--solo=".length).split(",").map((c) => c.trim()).filter(Boolean) : null;
+  console.log(`Modo: ${aplicar ? "APLICAR A PRODUCCIÓN" : "DRY RUN (nada se escribe)"}${solo ? `  — solo ${solo.join(", ")}` : ""}\n`);
 
   // ── 1. Capítulo de catálogo ────────────────────────────────────────
   console.log("── CapituloCatalogo ──");
@@ -236,6 +259,7 @@ async function main() {
   let creados = 0;
   let actualizados = 0;
   for (const def of RUBROS) {
+    if (solo && !solo.includes(def.codigo)) continue;
     const sumMat = def.materiales.reduce((s, m) => s + m.rendimiento * precioPorCodigo.get(m.precioCodigo)!.precioUnitario, 0);
     const sumMO = def.manoObra.reduce((s, mo) => s + jornalPorNombre(mo.categoria) / mo.rendimiento, 0);
     const costoDirecto = sumMat + sumMO;
@@ -279,7 +303,21 @@ async function main() {
     if (yaExiste) actualizados++;
     else creados++;
 
-    const apuExistente = await db.aPUEstandar.findUnique({ where: { subrubroId: subrubro.id } });
+    const apuExistente = await db.aPUEstandar.findUnique({
+      where: { subrubroId: subrubro.id },
+      include: { materiales: true, manoObra: true },
+    });
+    // Idempotencia real: si el APU ya tiene exactamente estos insumos no se
+    // reescribe (borrar y recrear cambiaba los ids de las filas en cada
+    // corrida aunque el contenido fuera el mismo).
+    if (apuExistente) {
+      const clave = (xs: (string | number)[][]) => JSON.stringify(xs.map((x) => x.join("|")).sort());
+      const actualMat = clave(apuExistente.materiales.map((m) => [m.descripcion, m.unidad, m.rendimiento]));
+      const actualMO = clave(apuExistente.manoObra.map((m) => [m.categoria, m.jornadaHs, m.rendimiento]));
+      const deseadoMat = clave(def.materiales.map((m) => { const p = precioPorCodigo.get(m.precioCodigo)!; return [p.descripcion, p.unidad, m.rendimiento]; }));
+      const deseadoMO = clave(def.manoObra.map((mo) => [mo.categoria, 8, mo.rendimiento]));
+      if (actualMat === deseadoMat && actualMO === deseadoMO) continue;
+    }
     const apu = apuExistente
       ? await db.aPUEstandar.update({ where: { subrubroId: subrubro.id }, data: {} })
       : await db.aPUEstandar.create({ data: { subrubroId: subrubro.id } });

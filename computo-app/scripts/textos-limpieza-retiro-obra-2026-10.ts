@@ -1,5 +1,5 @@
 // Biblioteca — textos de "Limpieza y Retiro de Obra" (28.1, 28.3, 28.5, 28.6,
-// 28.7): descripción apta para imprimir al cliente + notas internas.
+// 28.7, 28.9): descripción apta para imprimir al cliente + notas internas.
 // SOLO texto: no toca precioUY, rendimientos, insumos, APU ni las
 // descripciones de los materiales (IMPL-013, LIMP-001, LIMP-002,
 // MAT-INSUMOS-LIMPIEZA-FINAL), ni los rubros 28.2, 28.4 y 28.8, ni 7.14.4 /
@@ -42,7 +42,7 @@ const TEXTOS: { codigo: string; descripcion: string; notasInternas?: string }[] 
     codigo: "28.1",
     descripcion: "Limpieza periódica de obra — mantenimiento mensual",
     notasInternas:
-      "Calculada con 10 jornadas de peón por mes, pensada para obra chica a mediana. Ajustar las jornadas según el tamaño de la obra.",
+      "Para reforma u obra de varios meses: 10 jornadas de peón por mes. En una reparación puntual de 1 a 2 días usar 28.9 (limpieza por jornada) en lugar de ajustar este rubro.",
   },
   {
     codigo: "28.3",
@@ -64,6 +64,14 @@ const TEXTOS: { codigo: string; descripcion: string; notasInternas?: string }[] 
     codigo: "28.7",
     descripcion:
       "Limpieza final de obra (entrega) — incluye pisos, vidrios, aberturas y sanitarios; no incluye retiro de escombros ni de sobrantes",
+  },
+  // 28.9 se CREA con seed-limpieza-retiro-obra-2026-10.ts (--solo=28.9): este
+  // script no crea rubros, solo mantiene su texto y su nota.
+  {
+    codigo: "28.9",
+    descripcion: "Limpieza de obra — por jornada",
+    notasInternas:
+      "Para reparaciones puntuales de 1 a 2 días: cargar la cantidad de jornadas. En obras de varios meses usar 28.1 (limpieza periódica). No sumar ambos.",
   },
 ];
 
