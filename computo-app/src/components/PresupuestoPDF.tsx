@@ -102,10 +102,6 @@ export interface ProyectoConCapitulos {
   // del "Plazo de obra" (plazoObra/diasLaborales, campos manuales
   // cargados a mano) — este es calculado.
   diasObra: number;
-  // Sin efecto en el bloque de totales por ahora (pendiente de rediseño
-  // en otra sesión) — se conserva este campo en la interfaz para no
-  // tocar route.ts, pero no se lee en ningún lado de este archivo.
-  sumaItemsExtras: number;
   incluyeIVA: boolean;
   montoImponibleMO: number | null;
   fechaInicio?: string | Date | null;

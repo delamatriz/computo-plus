@@ -3406,7 +3406,8 @@ export default function ProyectoPage() {
     proyecto?.modoGastosGenerales,
     proyecto?.gastosGeneralesDetallado,
     proyecto?.gastosGeneralesPctDefault,
-    costoDirectoAgregado.total
+    costoDirectoAgregado.total,
+    proyecto?.gastosGeneralesItems
   );
   // Ítems de Gastos Generales Detallado marcados exentoIVA (ej. Timbres
   // CJP) — siguen sumando a costoTotalAgregado, pero salen de la base del

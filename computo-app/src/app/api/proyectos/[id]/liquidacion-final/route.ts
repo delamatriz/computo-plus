@@ -55,7 +55,8 @@ async function calcularPresupuestoOriginal(proyectoId: string): Promise<number |
     proyecto.modoGastosGenerales,
     proyecto.gastosGeneralesDetallado,
     proyecto.gastosGeneralesPctDefault,
-    costoDirectoAgregado.total
+    costoDirectoAgregado.total,
+    proyecto.gastosGeneralesItems
   );
   return costoDirectoAgregado.total + costosIndirectosAgregados + utilidadAgregada;
 }

@@ -8,6 +8,7 @@ import {
   CATEGORIAS_GASTOS_GENERALES_FIJAS,
   normalizarCategoriasGastosGenerales,
   sumarGastosGeneralesDetallado,
+  sumarItemsExtraGastosGenerales,
   ITEMS_SUGERIDOS_GASTOS_ADMIN,
   type ItemGastoGeneral,
   type CategoriaGastoGeneral,
@@ -42,14 +43,17 @@ interface Props {
   // que usa la cascada Costo Directo → Costo Total → Precio Final.
   costosIndirectosAgregados: number;
   utilidadAgregada: number;
-  // Ítems extra — antes se editaban en "Resumen del Presupuesto" (ver
-  // git history); se mudaron acá por conveniencia de UX, no de cálculo:
-  // siguen sin formar parte de montoCombinado (Costos Indirectos +
-  // Utilidad) de abajo, van directo a "Costo" en la cascada (ver
-  // page.tsx) y a la línea "GASTOS GENERALES" del PDF, sin pasar por
-  // costoAgregado.ts. Timbres CJP se sacó de acá — ahora es un ítem más
-  // dentro de una categoría del modo Detallado (ver personal_tecnico en
-  // gastosGenerales.ts), con exentoIVA en vez de un campo aparte.
+  // Ítems extra — lista plana por monto (Proyecto.gastosGeneralesItems),
+  // aparte de las 5 categorías del modo Detallado y válida en los dos
+  // modos. SÍ suman: calcularCostosIndirectosAgregados (costoAgregado.ts)
+  // los incluye dentro de costosIndirectosAgregados, así que ya están en
+  // el monto combinado del header de esta tarjeta, en Costo Total / IVA /
+  // Precio Final, en el PDF, el contrato y la liquidación final. Entran a
+  // la base del IVA (no son exentos). Esta tarjeta solo los edita y
+  // muestra su subtotal — no recalcula nada del total. Timbres CJP se sacó
+  // de acá — ahora es un ítem más dentro de una categoría del modo
+  // Detallado (ver personal_tecnico en gastosGenerales.ts), con exentoIVA
+  // en vez de un campo aparte.
   gastosGeneralesItems: ItemGastoGeneral[];
   onChangeModo: (modo: ModoGastosGenerales) => void;
   onChangeGastosGeneralesPctDefault: (v: number) => void;
@@ -185,6 +189,9 @@ export default function SeccionGastosGeneralesUtilidades({
   // Utilidad, ya calculados a nivel proyecto (props), mismo patrón que
   // Leyes Sociales ("$X" único junto al chevron).
   const montoCombinado = costosIndirectosAgregados + utilidadAgregada;
+  // Solo para mostrar el subtotal del bloque "Ítems extra" — el total real
+  // ya los trae sumados dentro de costosIndirectosAgregados.
+  const sumaItemsExtra = sumarItemsExtraGastosGenerales(gastosGeneralesItems);
 
   const agregarItem = (categoriaId: string) => {
     onChangeCategorias(
@@ -234,9 +241,9 @@ export default function SeccionGastosGeneralesUtilidades({
   const agregarItemExtra = () => {
     onChangeGastosGeneralesItems([
       ...gastosGeneralesItems,
-      // exentoIVA sin efecto acá — Ítems extra no pasa por
-      // costoAgregado.ts (ver comentario en Props), solo aplica a los
-      // ítems dentro de una categoría del modo Detallado.
+      // exentoIVA sin efecto acá — los Ítems extra se suman siempre a la
+      // base del IVA (calcularCostosIndirectosExento solo mira los ítems
+      // de las categorías del Detallado, nunca estos).
       { id: `gg-${Date.now()}`, descripcion: "", monto: 0, exentoIVA: false },
     ]);
   };
@@ -456,15 +463,16 @@ export default function SeccionGastosGeneralesUtilidades({
                 </div>
               </div>
 
-              {/* Ítems extra — conceptualmente distintos de Costos
-                  Indirectos/Utilidad de arriba (no entran en
-                  montoCombinado, van directo a "Costo" en la cascada, ver
-                  page.tsx) — vive acá solo por conveniencia de edición.
-                  Timbres CJP se sacó de este bloque: ahora es un ítem más
-                  dentro de personal_tecnico, arriba, en modo Detallado. */}
+              {/* Ítems extra — montos fijos que se suman a Gastos
+                  Generales en cualquiera de los dos modos (ya incluidos
+                  en el monto del header, ver comentario de la prop
+                  gastosGeneralesItems). Timbres CJP se sacó de este
+                  bloque: ahora es un ítem más dentro de personal_tecnico,
+                  arriba, en modo Detallado. */}
               <div className="rounded-[10px] border border-slate-200 bg-white overflow-hidden">
-                <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
+                <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200">
                   <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Ítems extra</span>
+                  <span className="text-xs font-semibold tabular-nums text-slate-500">{fmtMoneda(sumaItemsExtra, moneda)}</span>
                 </div>
 
                 {gastosGeneralesItems.map((item) => (
@@ -501,6 +509,9 @@ export default function SeccionGastosGeneralesUtilidades({
                     <Plus className="w-3.5 h-3.5" /> Agregar ítem
                   </button>
                 </div>
+                <p className="px-4 pb-2.5 text-xs text-slate-400">
+                  Montos fijos que se suman a Gastos Generales (en modo Porcentaje o Detallado) y entran en la base del IVA.
+                </p>
               </div>
             </div>
           </motion.div>

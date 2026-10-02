@@ -131,6 +131,19 @@ export const ITEMS_SUGERIDOS_GASTOS_ADMIN: ItemSugeridoGastoGeneral[] = [
   { descripcion: "Conexión de telecomunicaciones/fibra", categoriaId: "consumos_servicios" },
 ];
 
+// Suma de "Ítems extra" (Proyecto.gastosGeneralesItems) — lista plana
+// por monto, aparte de las 5 categorías del modo Detallado y válida en
+// los dos modos de Gastos Generales. null/ausente/lista vacía = 0, así que
+// un proyecto sin ítems extra calcula exactamente igual que antes. Un ítem
+// con monto no numérico se ignora (mismo criterio que `monto || 0`).
+export function sumarItemsExtraGastosGenerales(raw: unknown): number {
+  if (!Array.isArray(raw)) return 0;
+  return raw.reduce((suma: number, item) => {
+    const monto = (item as { monto?: unknown } | null)?.monto;
+    return suma + (typeof monto === "number" && Number.isFinite(monto) ? monto : 0);
+  }, 0);
+}
+
 export function sumarGastosGeneralesDetallado(raw: unknown): SumaGastosGeneralesDetallado {
   return normalizarCategoriasGastosGenerales(raw).reduce(
     (acc, cat) => {

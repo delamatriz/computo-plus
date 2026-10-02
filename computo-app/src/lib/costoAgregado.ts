@@ -14,7 +14,7 @@
 // proyectos/[id]/page.tsx, sin consulta nueva a la base.
 
 import { sumManoObra, sumEquipos, montoAportesPatronales } from "./apu-calc";
-import { sumarGastosGeneralesDetallado } from "./gastosGenerales";
+import { sumarGastosGeneralesDetallado, sumarItemsExtraGastosGenerales } from "./gastosGenerales";
 
 export interface RubroParaCosto {
   id: string;
@@ -112,21 +112,33 @@ export function calcularUtilidadAgregada(
 }
 
 // Costos Indirectos (Gastos Generales) agregados — modo Detallado usa el
-// monto fijo de las 5 categorías (sin cambios, ya existía); modo Porcentaje
-// es el cálculo NUEVO: Costo Directo agregado × gastosGeneralesPctDefault
-// (15% si nunca se configuró, mismo default histórico que antes tenía cada
-// rubro individual).
+// monto fijo de las 5 categorías; modo Porcentaje es Costo Directo agregado
+// × gastosGeneralesPctDefault (15% si nunca se configuró, mismo default
+// histórico que antes tenía cada rubro individual).
+//
+// A cualquiera de los dos se le suman los "Ítems extra" (lista plana por
+// monto, Proyecto.gastosGeneralesItems), que son una línea aparte de las 5
+// categorías del Detallado y de los dos modos — por eso se suman acá, en
+// el único lugar que calculan pantalla, PDF, contrato y liquidación final.
+// Entran a la base del IVA (no son exentos): calcularCostosIndirectosExento
+// solo mira los ítems con exentoIVA del Detallado. Sin ítems extra
+// (null / lista vacía) el resultado es el mismo que antes de existir este
+// parámetro. `gastosGeneralesItems` es obligatorio a propósito (null está
+// permitido): así ningún caller nuevo puede olvidarse de pasarlo, que fue
+// justo lo que dejó los ítems extra sin efecto tras el refactor del 31/08.
 export function calcularCostosIndirectosAgregados(
   modoGastosGenerales: string | null | undefined,
   gastosGeneralesDetallado: unknown,
   gastosGeneralesPctDefault: number | null | undefined,
-  costoDirectoAgregado: number
+  costoDirectoAgregado: number,
+  gastosGeneralesItems: unknown
 ): number {
+  const itemsExtra = sumarItemsExtraGastosGenerales(gastosGeneralesItems);
   if (modoGastosGenerales === "DETALLADO") {
-    return sumarGastosGeneralesDetallado(gastosGeneralesDetallado).total;
+    return sumarGastosGeneralesDetallado(gastosGeneralesDetallado).total + itemsExtra;
   }
   const pct = gastosGeneralesPctDefault ?? 15;
-  return costoDirectoAgregado * (pct / 100);
+  return costoDirectoAgregado * (pct / 100) + itemsExtra;
 }
 
 // Porción de Costos Indirectos exenta de IVA (ítems con exentoIVA dentro

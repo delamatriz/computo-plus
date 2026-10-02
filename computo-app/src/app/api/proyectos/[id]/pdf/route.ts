@@ -49,10 +49,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     // El AUC propietario NO va en Gastos Generales — se muestra aparte en
     // la línea "Leyes Sociales — Aporte Propietario" para evitar duplicarlo.
-    const itemsExtras = Array.isArray(proyecto.gastosGeneralesItems)
-      ? (proyecto.gastosGeneralesItems as { id: string; descripcion: string; monto: number }[])
-      : [];
-    const sumaItemsExtras = itemsExtras.reduce((s, item) => s + (item.monto || 0), 0);
+    // Los Ítems extra de Gastos Generales sí entran, ya sumados dentro de
+    // costosIndirectosAgregados (ver calcularCostosIndirectosAgregados).
 
     // Costo Directo, Costos Indirectos y Utilidad agregados — mismas
     // funciones puras que ya usa la cascada de tarjetas en
@@ -83,7 +81,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       proyecto.modoGastosGenerales,
       proyecto.gastosGeneralesDetallado,
       proyecto.gastosGeneralesPctDefault,
-      costoDirectoAgregado.total
+      costoDirectoAgregado.total,
+      proyecto.gastosGeneralesItems
     );
     const costosIndirectosExento = calcularCostosIndirectosExento(
       proyecto.modoGastosGenerales,
@@ -121,7 +120,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       costosIndirectosExento,
       utilidadAgregada,
       diasObra: diasObra.total,
-      sumaItemsExtras,
       incluyeIVA: proyecto.incluyeIVA,
       montoImponibleMO: proyecto.leyesSociales?.montoImponibleMO ?? null,
       fechaInicio: proyecto.fechaInicio,
