@@ -5,6 +5,7 @@ import { Building2, ChevronDown, ChevronRight, RotateCw, Info } from "lucide-rea
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { RESERVA_COLA_TABLA } from "@/lib/layoutTablaPresupuesto";
+import { AUC_PCT_DEFAULT, AUC_PCT_JUBILATORIOS, AUC_PCT_CARGAS_SALARIALES, AUC_PCT_FONASA, AUC_PCT_BSE } from "@/lib/auc";
 
 export interface LeyesSocialesData {
   tipoContratante: "empresa" | "propietario_directo";
@@ -184,16 +185,12 @@ export default function SeccionLeyesSociales({
   const montoAUC = base * data.aucPct;
   const totalPropietario = montoAUC;
 
-  // Desglose legal del 71,4% de AUC (fuente: sau.org.uy) — 4 componentes
-  // fijos que no se editan por separado, solo informativos. Se calculan
-  // sobre `base` con los porcentajes legales, no sobre `data.aucPct`
+  // Desglose legal del 71,8% de AUC (Decreto 341/018 — ver src/lib/auc.ts) —
+  // 4 componentes fijos que no se editan por separado, solo informativos. Se
+  // calculan sobre `base` con los porcentajes legales, no sobre `data.aucPct`
   // (editable) — si alguien edita el % de AUC arriba, este desglose puede
   // dejar de sumar exactamente lo mismo, y se avisa igual que en el
   // desglose por capítulo.
-  const AUC_PCT_JUBILATORIOS = 0.09 + 0.179; // patronal 9% + personal 17,9%
-  const AUC_PCT_CARGAS_SALARIALES = 0.295;
-  const AUC_PCT_FONASA = 0.055 + 0.035; // patronal 5,5% + obrero 3,5%
-  const AUC_PCT_BSE = 0.06;
   const montoAucJubilatorios = base * AUC_PCT_JUBILATORIOS;
   const montoAucCargasSalariales = base * AUC_PCT_CARGAS_SALARIALES;
   const montoAucFonasa = base * AUC_PCT_FONASA;
@@ -405,7 +402,7 @@ export default function SeccionLeyesSociales({
                       className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors"
                     >
                       {desgloseAUCExpandido ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                      Ver de qué se compone el 71,4%
+                      Ver de qué se compone el {fmtPct(AUC_PCT_DEFAULT)}%
                     </button>
                     <AnimatePresence initial={false}>
                       {desgloseAUCExpandido && (
@@ -438,7 +435,7 @@ export default function SeccionLeyesSociales({
                             <div className="flex items-start gap-2 mt-2 rounded-[8px] bg-amber-50 border border-amber-200 px-3 py-2">
                               <span className="text-amber-500 flex-shrink-0">⚠</span>
                               <p className="text-[11px] text-amber-700">
-                                Este desglose usa los porcentajes legales fijos (71,4% en total) — si editaste el %
+                                Este desglose usa los porcentajes legales fijos ({fmtPct(AUC_PCT_DEFAULT)}% en total) — si editaste el %
                                 de AUC arriba, puede no coincidir con el monto mostrado.
                               </p>
                             </div>

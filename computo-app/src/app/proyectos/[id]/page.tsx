@@ -32,6 +32,7 @@ import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupues
 import { calcularDiasObra } from "@/lib/diasObra";
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada } from "@/lib/costoAgregado";
 import { calcularImprevistos } from "@/lib/gastosGenerales";
+import { AUC_PCT_DEFAULT } from "@/lib/auc";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionResumenPresupuesto from "@/components/SeccionResumenPresupuesto";
@@ -3287,7 +3288,7 @@ export default function ProyectoPage() {
         setLeyesSociales({
           tipoContratante:  data.tipoContratante  ?? "empresa",
           montoImponibleMO: data.montoImponibleMO ?? 0,
-          aucPct:           data.aucPct           ?? 0.714,
+          aucPct:           data.aucPct           ?? AUC_PCT_DEFAULT,
           focerPatronalPct: data.focerPatronalPct ?? 0.075,
           fscFocapPct:      data.fscFocapPct      ?? 0.010,
           fosvocPct:        data.fosvocPct        ?? 0.005,

@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import path from "path";
 import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
+import { AUC_PCT_DEFAULT } from "@/lib/auc";
 
 // DM Sans — tipografía de marca de CÓMPUTO+ (ver CLAUDE.md), registrada acá
 // en vez de depender de las fuentes estándar de PDFKit (Helvetica), que no
@@ -104,6 +105,8 @@ export interface ProyectoConCapitulos {
   diasObra: number;
   incluyeIVA: boolean;
   montoImponibleMO: number | null;
+  // % de AUC del proyecto (LeyesSociales.aucPct, fracción). null → default legal.
+  aucPct: number | null;
   fechaInicio?: string | Date | null;
   fechaPresupuesto?: string | Date | null;
   plazoObra?: number | null;
@@ -946,7 +949,7 @@ export function PresupuestoPDF({
   const baseIVA = costoTotal - proyecto.costosIndirectosExento;
   const montoIVA = baseIVA * 0.22;
   const precioFinal = costoTotal + montoIVA;
-  const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * 0.714 : null;
+  const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * (proyecto.aucPct ?? AUC_PCT_DEFAULT) : null;
   // AUC (leyesSocialesPropietario) — aporte aparte del propietario a BPS,
   // mensual, ligado al avance real de obra, no parte de lo que la empresa
   // factura (Ley 18.172, Título 10 exonera de IVA los servicios bajo

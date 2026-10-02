@@ -68,7 +68,7 @@ de construcción para el mercado uruguayo.
 ## Conocimiento del dominio Uruguay
 - Lista Oficial MTOP — fuente de precios de materiales
 - Jornales SUNCA Cat. I a XIV — jornal base Cat. V
-- AUC 71.4% — factura del propietario al BPS
+- AUC 71,8% — factura del propietario al BPS (Decreto 341/018, BPS/MTSS, vigente desde nov-2018; verificado oct-2026)
 - Timbres CJP (CJPPU) — dentro de la factura AUC
 - FOCER + FSC + SNIS + FRL — facturas de la empresa
 - Convenios SUNCA — ajuste 1° de abril cada año

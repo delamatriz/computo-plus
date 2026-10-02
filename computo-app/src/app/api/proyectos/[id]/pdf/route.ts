@@ -123,6 +123,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       diasObra: diasObra.total,
       incluyeIVA: proyecto.incluyeIVA,
       montoImponibleMO: proyecto.leyesSociales?.montoImponibleMO ?? null,
+      aucPct: proyecto.leyesSociales?.aucPct ?? null,
       fechaInicio: proyecto.fechaInicio,
       fechaPresupuesto: proyecto.fechaPresupuesto,
       plazoObra: proyecto.plazoObra,

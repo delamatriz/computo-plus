@@ -158,7 +158,10 @@ model LeyesSociales {
 
   // Porcentajes — con valores default Uruguay 2025
   // AUC (propietario)
-  aucPct Float @default(0.714) // 71.4% — Código 2
+  // 71.8% — Código 2. Decreto 341/018 (BPS/MTSS), vigente desde nov-2018,
+  // verificado oct-2026. Era 0.714 (valor de 2017, cargas salariales 29.5%).
+  // Mantener sincronizado con AUC_PCT_DEFAULT en src/lib/auc.ts.
+  aucPct Float @default(0.718)
 
   // Empresa — aportes patronales
   focerPatronalPct Float @default(0.075) // 7.5% — Código 145
