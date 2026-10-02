@@ -111,6 +111,7 @@ const RUBROS: {
     // Carga manual de escombros: ~3 m3 por jornada de peón.
     codigo: "28.3",
     descripcion: "Retiro de escombros (carga manual y volqueta de 6 m³, capacidad estándar en plaza)",
+    notasInternas: "El m³ se mide suelto: el volumen que ocupa el material ya cargado en la volqueta, no en banco. Si la cantidad sale de los planos (volumen del elemento demolido), aplicar el factor de esponjamiento del material: el volumen suelto es mayor y la volqueta se llena antes.",
     unidad: "M3",
     orden: 2,
     materiales: [{ precioCodigo: "IMPL-013", rendimiento: 0.1667 }],

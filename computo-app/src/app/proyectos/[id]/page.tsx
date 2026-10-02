@@ -1248,6 +1248,45 @@ function BuscadorCatalogo<T extends BuscadorCatalogoResultBase>({
 }
 
 /* ─── Subrubros típicos SAU ─────────────────────────────────── */
+// Ícono de información + tooltip oscuro con la nota interna de un subrubro
+// (SubrubroEstandar.notasInternas). Mismo aspecto que el tooltip de "Agregar
+// título"/"Agregar capítulo" y el candado de Utilidad, pero posicionado en
+// `fixed` con las coordenadas del ícono: la lista vive en un contenedor con
+// scroll (max-h-64 overflow-y-auto) y un tooltip `absolute` se recortaba
+// contra su borde (las notas largas, como la de 28.3, quedaban cortadas).
+// Abre a la derecha del ícono, centrado en vertical y acotado al viewport.
+function NotaInternaIcono({ texto }: { texto: string }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const ANCHO = 288; // w-72
+  const mostrar = (e: React.MouseEvent<HTMLSpanElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    // Alto estimado (≈40 caracteres por renglón de 16px + padding) solo para
+    // no salirse del viewport; el centrado real lo hace translateY(-50%).
+    const alto = Math.ceil(texto.length / 40) * 16 + 20;
+    const y = Math.min(Math.max(r.top + r.height / 2, alto / 2 + 8), window.innerHeight - alto / 2 - 8);
+    const x = Math.min(r.right + 8, window.innerWidth - ANCHO - 8);
+    setPos({ x, y });
+  };
+  return (
+    <span className="inline-flex align-middle ml-1.5" onMouseEnter={mostrar} onMouseLeave={() => setPos(null)}>
+      <Info
+        className={`w-3 h-3 transition-colors ${pos ? "text-[#2563EB]" : "text-slate-400"}`}
+        aria-label="Nota interna"
+      />
+      {pos && (
+        <span
+          className="pointer-events-none fixed z-50"
+          style={{ left: pos.x, top: pos.y, width: ANCHO, transform: "translateY(-50%)" }}
+        >
+          <span className="block rounded-[8px] bg-[#1A3A5C] text-white text-xs font-normal leading-relaxed px-3 py-2 shadow-lg">
+            {texto}
+          </span>
+        </span>
+      )}
+    </span>
+  );
+}
+
 function PanelSubrubrosEstandar({
   subrubros,
   cargando,
@@ -1336,22 +1375,7 @@ function PanelSubrubrosEstandar({
         <div className="flex items-start justify-between gap-2">
           <span className="text-xs font-semibold text-slate-700 leading-tight flex-1">
             {toTitleCase(s.descripcion)}
-            {/* Nota interna — tooltip oscuro, mismo patrón que "Agregar
-                título"/"Agregar capítulo" y el candado de Utilidad: group +
-                group-hover, sin librería. Abre hacia la derecha y centrado
-                en la fila porque la lista vive en un contenedor con scroll
-                (max-h-64 overflow-y-auto): abrir hacia arriba/abajo se
-                recortaría contra el borde. Sin nota no se renderiza nada. */}
-            {s.notasInternas && (
-              <span className="group/nota relative inline-flex align-middle ml-1.5">
-                <Info className="w-3 h-3 text-slate-400 group-hover/nota:text-[#2563EB] transition-colors" aria-label="Nota interna" />
-                <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover/nota:block z-20 w-56">
-                  <span className="block rounded-[8px] bg-[#1A3A5C] text-white text-xs font-normal leading-relaxed px-3 py-2 shadow-lg">
-                    {s.notasInternas}
-                  </span>
-                </span>
-              </span>
-            )}
+            {s.notasInternas && <NotaInternaIcono texto={s.notasInternas} />}
           </span>
           <span className="flex items-center gap-1 whitespace-nowrap flex-shrink-0">
             {s.tieneApuEstandar && (
