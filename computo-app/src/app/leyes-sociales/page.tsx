@@ -269,9 +269,18 @@ export default function LeyesSocialesPage() {
               />
               <p className="text-sm text-slate-500 mt-3">
                 <strong className="text-slate-700">FOCER patronal:</strong>{" "}
-                es 5% o 0,5% según la situación del trabajador (Ley 18.236,
-                art. 16). La tabla usa el 5%; si en la obra corresponde el
-                0,5%, se edita en Presupuesto → Leyes Sociales/BPS.
+                es 5% por defecto y corresponde 0,5% si el trabajador tiene
+                derecho a indemnización por despido y la empresa lo declara
+                (declaración jurada) — Ley 18.236, art. 16. La tabla usa el
+                5%; si en la obra corresponde el 0,5%, se edita en
+                Presupuesto → Leyes Sociales/BPS. Ojo: al cambiarlo, los
+                rubros ya creados no se modifican (cada uno guarda el % con el
+                que se creó); para actualizarlos usá el botón{" "}
+                <strong className="text-slate-700">
+                  &quot;Aplicar aportes patronales a rubros existentes&quot;
+                </strong>{" "}
+                de esa misma tarjeta, que muestra una vista previa antes de
+                aplicar.
               </p>
               <p className="text-sm text-slate-500 mt-2">
                 <strong className="text-slate-700">SNIS adicional:</strong>{" "}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, ChevronDown, ChevronRight, RotateCw, Info } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, RotateCw, Info, Loader2, AlertTriangle, Percent } from "lucide-react";
+import { NotaInfoIcono } from "@/components/NotaInfoIcono";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { RESERVA_COLA_TABLA } from "@/lib/layoutTablaPresupuesto";
@@ -45,6 +46,23 @@ interface Props {
   // con data.montoImponibleMO si el usuario lo editó a mano o si el
   // presupuesto cambió después del último "Calcular" — se avisa en la UI.
   desgloseMOPorCapitulo?: { capituloId: string; nombre: string; codigo?: string; monto: number }[];
+}
+
+// Tooltip del FOCER patronal (junto a su input).
+const NOTA_FOCER =
+  "FOCER patronal: 5% por defecto. Corresponde 0,5% si el trabajador tiene derecho a indemnización por despido y la empresa lo declara (declaración jurada). Al cambiarlo, los rubros ya creados no se modifican: usá 'Aplicar aportes patronales a rubros existentes'.";
+
+// Vista previa de POST /api/proyectos/[id]/propagar-aportes-patronales (dryRun).
+interface PreviewAportes {
+  actualizarian: number;
+  protegidos: { rubroId: string; codigo: string; descripcion: string }[];
+  sinApu: number;
+  yaAlDia: number;
+  pctNuevo: number; // puntos porcentuales (6.4191)
+  antes: { costoTotal: number; precioFinal: number };
+  despues: { costoTotal: number; precioFinal: number };
+  contratado: { contrato: boolean; certificaciones: number; ordenesCompra: number; liquidacionFinal: boolean };
+  requiereConfirmacion: boolean;
 }
 
 function fmtMoneda(v: number, moneda: string): string {
@@ -94,6 +112,7 @@ function FilaAporte({
   moneda,
   destacado = false,
   base,
+  nota,
 }: {
   concepto: string;
   codigo: string;
@@ -107,28 +126,37 @@ function FilaAporte({
   // no, porque suman conceptos distintos). Habilita el ícono de info con
   // la cuenta completa al hover/tap.
   base?: number;
+  // Tooltip oscuro (NotaInfoIcono, posición fija: no se corta con el scroll)
+  // junto al nombre del concepto.
+  nota?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex items-center px-4 py-1.5",
+        "flex flex-wrap items-center gap-y-0.5 px-4 py-1.5",
         destacado ? "bg-slate-50 border-t border-slate-200" : "border-b border-slate-50 last:border-0"
       )}
     >
-      <div className="flex-1 min-w-0 flex items-center gap-1">
-        <span className={cn("text-sm truncate", destacado ? "font-bold text-[#1A3A5C] uppercase tracking-wide text-xs" : "text-slate-700")}>
+      {/* El concepto no se corta con "…": en pantallas angostas (< 640 px) ocupa
+          su propia línea (basis-full) y código / % / monto pasan a la línea de
+          abajo; de 640 px para arriba van en la misma fila y, si el texto es
+          largo, pasa a una segunda línea. Flujo de texto en línea, así los
+          íconos (fórmula y nota) quedan pegados al final del texto. */}
+      <div className="basis-full sm:basis-0 sm:flex-1 min-w-0 sm:min-w-[7rem] leading-tight">
+        <span className={cn("text-sm", destacado ? "font-bold text-[#1A3A5C] uppercase tracking-wide text-xs" : "text-slate-700")}>
           {concepto}
         </span>
         {base != null && (
           <span
             title={`${fmtMoneda(base, moneda)} × ${fmtPct(pct)}% = ${fmtMoneda(monto, moneda)}`}
-            className="inline-flex flex-shrink-0 cursor-help"
+            className="inline-flex align-middle ml-1 flex-shrink-0 cursor-help"
           >
             <Info className="w-3 h-3 text-slate-300 hover:text-slate-500 transition-colors" />
           </span>
         )}
+        {nota && <NotaInfoIcono texto={nota} />}
       </div>
-      <div className="text-[11px] text-slate-400 tabular-nums" style={{ width: 56 }}>
+      <div className="text-[11px] text-slate-400 tabular-nums mr-auto sm:mr-0" style={{ width: 56 }}>
         Cód. {codigo}
       </div>
       <div className="text-right" style={{ width: 80 }}>
@@ -155,6 +183,7 @@ function CardResumen({ titulo, monto, moneda }: { titulo: string; monto: number;
 }
 
 export default function SeccionLeyesSociales({
+  proyectoId,
   moneda,
   data,
   onChange,
@@ -170,6 +199,67 @@ export default function SeccionLeyesSociales({
   const [editandoMonto, setEditandoMonto] = useState(false);
   const [desgloseExpandido, setDesgloseExpandido] = useState(false);
   const [desgloseAUCExpandido, setDesgloseAUCExpandido] = useState(false);
+
+  // ── Aplicar aportes patronales a rubros existentes ─────────────────────
+  // Cambiar un fondo acá solo afecta a los rubros que se creen DESPUÉS (cada APU
+  // congela su aportesPatronalesPct). Este botón propaga el % vigente a los ya
+  // creados — mismo patrón de dos pasos que "Aplicar X% a rubros existentes" de
+  // Utilidad: vista previa (dry-run) → confirmación → aplicar.
+  const [consultandoAportes, setConsultandoAportes] = useState(false);
+  const [aplicandoAportes, setAplicandoAportes] = useState(false);
+  const [errorAportes, setErrorAportes] = useState<string | null>(null);
+  const [previewAportes, setPreviewAportes] = useState<PreviewAportes | null>(null);
+  const [confirmaContrato, setConfirmaContrato] = useState(false);
+
+  async function consultarAportes() {
+    setConsultandoAportes(true);
+    setErrorAportes(null);
+    setPreviewAportes(null);
+    setConfirmaContrato(false);
+    try {
+      // La propagación lee los fondos GUARDADOS del proyecto: se guarda primero
+      // lo que esté editado en pantalla para que vista previa y aplicación
+      // usen exactamente los valores que se ven.
+      await onGuardar();
+      const res = await fetch(`/api/proyectos/${proyectoId}/propagar-aportes-patronales`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun: true }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) {
+        setErrorAportes(d.mensaje ?? d.error ?? "No se pudo calcular la vista previa. Probá de nuevo.");
+        return;
+      }
+      setPreviewAportes(d);
+    } catch {
+      setErrorAportes("No se pudo calcular la vista previa. Probá de nuevo.");
+    } finally {
+      setConsultandoAportes(false);
+    }
+  }
+
+  async function aplicarAportes() {
+    if (!previewAportes) return;
+    setAplicandoAportes(true);
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/propagar-aportes-patronales`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmarContrato: confirmaContrato }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        throw new Error(d?.mensaje ?? "No se pudieron aplicar los aportes patronales.");
+      }
+      setPreviewAportes(null);
+      window.location.reload();
+    } catch (e) {
+      setErrorAportes(e instanceof Error ? e.message : "No se pudieron aplicar los aportes patronales.");
+      setPreviewAportes(null);
+      setAplicandoAportes(false);
+    }
+  }
 
   const base = data.montoImponibleMO;
 
@@ -395,7 +485,7 @@ export default function SeccionLeyesSociales({
               </div>
 
               {/* Bloque medio — tabla de aportes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
 
                 {/* Propietario paga */}
                 <div className="rounded-[10px] border border-slate-200 bg-white overflow-hidden">
@@ -501,12 +591,32 @@ export default function SeccionLeyesSociales({
                   <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
                     <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Empresa paga</span>
                   </div>
-                  <FilaAporte concepto="FOCER patronal"           codigo="145" pct={data.focerPatronalPct} onPctChange={(v) => set("focerPatronalPct", v)} monto={montoFocerPatronal} moneda={moneda} base={base} />
+                  <FilaAporte concepto="FOCER patronal"           codigo="145" pct={data.focerPatronalPct} onPctChange={(v) => set("focerPatronalPct", v)} monto={montoFocerPatronal} moneda={moneda} base={base} nota={NOTA_FOCER} />
                   <FilaAporte concepto="FSC/FOCAP"                codigo="34"  pct={data.fscFocapPct}      onPctChange={(v) => set("fscFocapPct", v)}      monto={montoFscFocap}      moneda={moneda} base={base} />
                   <FilaAporte concepto="FOSVOC"                   codigo="43"  pct={data.fosvocPct}        onPctChange={(v) => set("fosvocPct", v)}        monto={montoFosvoc}        moneda={moneda} base={base} />
                   <FilaAporte concepto="FRL"                      codigo="47"  pct={data.frlPct}           onPctChange={(v) => set("frlPct", v)}           monto={montoFrl}           moneda={moneda} base={base} />
                   <FilaAporte concepto="Fdo. Garantía Créd. Lab." codigo="49"  pct={data.fondoGarantiaPct} onPctChange={(v) => set("fondoGarantiaPct", v)} monto={montoFondoGarantia} moneda={moneda} base={base} />
                   <FilaAporte concepto="TOTAL Empresa" codigo="" pct={pctTotalEmpresa} monto={totalEmpresa} moneda={moneda} destacado />
+                  <div className="px-4 py-3 border-t border-slate-100">
+                    <button
+                      onClick={consultarAportes}
+                      disabled={consultandoAportes}
+                      className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors disabled:opacity-60"
+                    >
+                      {consultandoAportes ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Percent className="w-3.5 h-3.5" />}
+                      {consultandoAportes ? "Calculando…" : "Aplicar aportes patronales a rubros existentes"}
+                    </button>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Los rubros ya creados guardan el % de aportes con el que se crearon; esto lo actualiza a {fmtPct(pctTotalEmpresa)}%
+                      (guarda la configuración y muestra una vista previa antes de aplicar).
+                    </p>
+                    {errorAportes && (
+                      <div className="flex items-start gap-2 rounded-[10px] bg-amber-50 border border-amber-200 px-3 py-2.5 mt-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-amber-800">{errorAportes}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -554,6 +664,104 @@ export default function SeccionLeyesSociales({
                 </button>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de confirmación — aplicar aportes patronales a rubros existentes.
+          Mismo patrón visual que el de "Aplicar Utilidad a rubros existentes". */}
+      <AnimatePresence>
+        {previewAportes && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+            onClick={() => !aplicandoAportes && setPreviewAportes(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[16px] shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto"
+            >
+              <h3 className="text-base font-bold text-[#1A3A5C] mb-2">Aplicar aportes patronales {fmtPct(previewAportes.pctNuevo / 100)}% a rubros existentes</h3>
+              <p className="text-sm text-slate-600 mb-3">
+                <span className="font-semibold">{previewAportes.actualizarian} rubro{previewAportes.actualizarian === 1 ? "" : "s"}</span> se
+                actualizaría{previewAportes.actualizarian === 1 ? "" : "n"}, recalculando su precio unitario (los aportes entran solo sobre la mano de obra).
+              </p>
+              <ul className="text-xs text-slate-500 mb-3 space-y-0.5">
+                {previewAportes.protegidos.length > 0 && (
+                  <li><span className="font-semibold">{previewAportes.protegidos.length}</span> con precio congelado: protegido{previewAportes.protegidos.length === 1 ? "" : "s"}, no se toca{previewAportes.protegidos.length === 1 ? "" : "n"}.</li>
+                )}
+                {previewAportes.sinApu > 0 && (
+                  <li><span className="font-semibold">{previewAportes.sinApu}</span> sin análisis de precio unitario (APU): se saltean, no cambian.</li>
+                )}
+                {previewAportes.yaAlDia > 0 && (
+                  <li><span className="font-semibold">{previewAportes.yaAlDia}</span> ya tienen este %: no cambian.</li>
+                )}
+              </ul>
+              <div className="rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 mb-3 text-xs text-slate-600 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span>Costo Total</span>
+                  <span className="tabular-nums">{fmtMoneda(previewAportes.antes.costoTotal, moneda)} → <span className="font-semibold text-[#1A3A5C]">{fmtMoneda(previewAportes.despues.costoTotal, moneda)}</span></span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Precio Final</span>
+                  <span className="tabular-nums">{fmtMoneda(previewAportes.antes.precioFinal, moneda)} → <span className="font-semibold text-[#1A3A5C]">{fmtMoneda(previewAportes.despues.precioFinal, moneda)}</span></span>
+                </div>
+              </div>
+              {previewAportes.protegidos.length > 0 && (
+                <div className="rounded-[10px] bg-amber-50 border border-amber-200 px-3 py-2 mb-3 max-h-32 overflow-y-auto">
+                  <p className="text-[11px] font-medium text-amber-800 mb-1">Rubros protegidos (no se tocan):</p>
+                  <ul className="space-y-0.5">
+                    {previewAportes.protegidos.map((r) => (
+                      <li key={r.rubroId} className="text-[11px] text-amber-700">{r.codigo} — {r.descripcion || "Rubro sin nombre"}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {previewAportes.requiereConfirmacion && (
+                <div className="rounded-[10px] bg-red-50 border border-red-200 px-3 py-2.5 mb-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-red-800">
+                      Este proyecto ya tiene contrato o certificaciones: cambiar precios altera lo contratado
+                      ({[
+                        previewAportes.contratado.contrato && "contrato",
+                        previewAportes.contratado.certificaciones > 0 && `${previewAportes.contratado.certificaciones} certificación(es)`,
+                        previewAportes.contratado.ordenesCompra > 0 && `${previewAportes.contratado.ordenesCompra} orden(es) de compra`,
+                        previewAportes.contratado.liquidacionFinal && "liquidación final",
+                      ].filter(Boolean).join(", ")}).
+                    </p>
+                  </div>
+                  <label className="flex items-start gap-2 mt-2 cursor-pointer">
+                    <input type="checkbox" checked={confirmaContrato} onChange={(e) => setConfirmaContrato(e.target.checked)} className="mt-0.5" />
+                    <span className="text-xs text-red-800">Entiendo que esto modifica precios ya contratados y quiero continuar.</span>
+                  </label>
+                </div>
+              )}
+              <p className="text-sm text-slate-600 mb-5">Esta acción no se puede deshacer automáticamente. ¿Continuar?</p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setPreviewAportes(null)}
+                  disabled={aplicandoAportes}
+                  className="px-4 py-2.5 rounded-[10px] text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={aplicarAportes}
+                  disabled={aplicandoAportes || previewAportes.actualizarian === 0 || (previewAportes.requiereConfirmacion && !confirmaContrato)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-medium hover:bg-[#1A3A5C] transition-colors disabled:opacity-60"
+                >
+                  {aplicandoAportes && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {aplicandoAportes ? "Aplicando…" : `Aplicar a ${previewAportes.actualizarian} rubro${previewAportes.actualizarian === 1 ? "" : "s"}`}
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
