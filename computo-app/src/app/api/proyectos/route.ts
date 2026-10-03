@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       tipoContratacion,
       moneda,
       area,
+      trabajos,
       descripcion,
       direccion,
       fechaInicio,
@@ -137,6 +138,11 @@ export async function POST(req: NextRequest) {
           tipoContratacion: tipoContratacion || "PRIVADA",
           moneda: moneda || "UYU",
           area: area ? parseFloat(area) : null,
+          // "Descripción / Trabajos" va a `trabajos` y "Otros datos" a `descripcion`
+          // (misma separación que /editar). Antes el asistente mandaba
+          // `form.trabajos || form.descripcion` en `descripcion` y uno de los dos
+          // textos se perdía.
+          trabajos: trabajos?.trim() ? trabajos.trim() : null,
           descripcion: descripcion || "",
           direccion: direccion || "",
           // Sin default a "hoy" a propósito — el wizard ya no la pide (ver

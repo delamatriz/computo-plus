@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { subirArchivoABlob } from "@/lib/blob";
+import { subirArchivoABlob, eliminarArchivosDeBlob } from "@/lib/blob";
 
 const CATEGORIAS_VALIDAS = ["PLANO", "FOTO", "DETALLE"];
 const TIPOS_VALIDOS = ["PDF", "IMAGEN", "DWG"];
@@ -74,18 +74,27 @@ export async function POST(
       return NextResponse.json({ error: "No se pudo subir el archivo" }, { status: 400 });
     }
 
-    await db.documentoMetraje.create({
-      data: {
-        proyectoId,
-        categoria: body.categoria,
-        nombre: body.nombre.trim(),
-        tipoArchivo: body.tipoArchivo,
-        archivo: url,
-        nombreArchivoOriginal: body.nombreArchivoOriginal,
-        paginaPDF: typeof body.paginaPDF === "number" ? body.paginaPDF : null,
-        tamano: typeof body.tamano === "number" ? body.tamano : null,
-      },
-    });
+    try {
+      await db.documentoMetraje.create({
+        data: {
+          proyectoId,
+          categoria: body.categoria,
+          nombre: body.nombre.trim(),
+          tipoArchivo: body.tipoArchivo,
+          archivo: url,
+          nombreArchivoOriginal: body.nombreArchivoOriginal,
+          paginaPDF: typeof body.paginaPDF === "number" ? body.paginaPDF : null,
+          tamano: typeof body.tamano === "number" ? body.tamano : null,
+        },
+      });
+    } catch (err) {
+      // El archivo ya está en Blob pero la fila no se pudo crear (proyecto
+      // inexistente, base caída...): se borra de Blob para no dejar un
+      // huérfano que nadie vuelva a referenciar.
+      console.error("[POST /api/proyectos/[id]/documentos-metraje] crear fila; se borra el blob subido", err);
+      await eliminarArchivosDeBlob([url]);
+      return NextResponse.json({ error: "No se pudo registrar el archivo" }, { status: 500 });
+    }
 
     const documentos = await listarDocumentos(proyectoId, body.categoria);
     return NextResponse.json({ documentos });

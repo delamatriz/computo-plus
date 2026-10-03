@@ -20,6 +20,12 @@ import {
   COLORS,
 } from "@/components/SelectorCapitulosEstandar";
 import { obtenerMapeoSAU } from "@/lib/capitulosSau";
+import {
+  armarArchivosDelAsistente,
+  subirArchivosAlProyecto,
+  type FallaSubida,
+  type ProgresoSubida,
+} from "@/lib/subirArchivosDelAsistente";
 
 /* ─── Tipos ─────────────────────────────────────────────── */
 interface FormData {
@@ -140,6 +146,12 @@ function NuevoProyectoContent() {
   const [paso, setPaso] = useState(1);
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
+  // Subida de fotos y documentos del paso 1 a "Documentación para metrar", que
+  // ocurre justo después de crear el proyecto. `progresoSubida` mientras sube;
+  // `avisoSubida` si algún archivo no se pudo subir (el proyecto SE CREÓ igual:
+  // se muestra el aviso con el botón "Ir al proyecto" en vez de navegar solo).
+  const [progresoSubida, setProgresoSubida] = useState<ProgresoSubida | null>(null);
+  const [avisoSubida, setAvisoSubida] = useState<{ proyectoId: string; fallidos: FallaSubida[] } | null>(null);
   // Fetch propio (además del que hace SelectorCapitulosEstandar internamente)
   // — lo sigue necesitando cargarSugeridos() más abajo, que precarga la
   // lista completa al pasar de paso 1 a paso 2, antes de que el paso 3 (y
@@ -286,7 +298,9 @@ function NuevoProyectoContent() {
   const agregarFotos = (files: FileList | null) => {
     if (!files) return;
     const nuevas = Array.from(files)
-      .filter((f) => f.type.startsWith("image/"))
+      // Mismos formatos que la bandeja "Fotos de relevamiento" de
+      // Documentación para metrar (JPG o PNG), donde se guardan.
+      .filter((f) => f.type === "image/jpeg" || f.type === "image/png")
       .slice(0, MAX_FOTOS - form.fotos.length)
       .map((file) => ({ file, preview: URL.createObjectURL(file), mediaType: file.type }));
     if (nuevas.length > 0) set("fotos", [...form.fotos, ...nuevas]);
@@ -420,7 +434,11 @@ function NuevoProyectoContent() {
           moneda: form.moneda,
           fechaPresupuesto: form.fechaPresupuesto || null,
           area: form.area,
-          descripcion: form.trabajos || form.descripcion,
+          // Los dos textos se guardan: "Descripción / Trabajos" → trabajos y
+          // "Otros datos" → descripcion (antes `form.trabajos || form.descripcion`
+          // perdía uno de los dos).
+          trabajos: form.trabajos,
+          descripcion: form.descripcion,
           direccion: form.direccion,
           titulos: titulosBody,
           capitulos: capitulosBody,
@@ -458,6 +476,22 @@ function NuevoProyectoContent() {
         fetch(`/api/proyectos/${proyecto.id}/generar-seguridad-altura`, {
           method: "POST",
         }).catch((err) => console.error("[proyectos/nuevo] generar-seguridad-altura", err));
+      }
+
+      // Fotos (FOTO) y PDF/DWG (PLANO) del paso 1 → "Documentación para metrar".
+      // El proyecto ya existe: un problema de subida NUNCA lo deshace. Si algún
+      // archivo falla, se avisa y se deja ir al proyecto con un botón.
+      const { archivos, descartados } = armarArchivosDelAsistente(form.fotos, form.documentos);
+      let fallidos: FallaSubida[] = [...descartados];
+      if (archivos.length > 0) {
+        const r = await subirArchivosAlProyecto(proyecto.id, archivos, setProgresoSubida);
+        fallidos = [...fallidos, ...r.fallidos];
+      }
+      setProgresoSubida(null);
+      if (fallidos.length > 0) {
+        setAvisoSubida({ proyectoId: proyecto.id, fallidos });
+        setGuardando(false);
+        return;
       }
 
       router.push(`/proyectos/${proyecto.id}`);
@@ -712,7 +746,7 @@ function NuevoProyectoContent() {
                   <input
                     ref={fotosInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png"
                     multiple
                     className="hidden"
                     onChange={(e) => {
@@ -737,6 +771,10 @@ function NuevoProyectoContent() {
                       <span className="text-slate-300">({form.fotos.length}/{MAX_FOTOS})</span>
                     )}
                   </button>
+
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    JPG o PNG, hasta {MAX_FOTOS}. Se guardan en Documentación para metrar.
+                  </p>
 
                   {form.fotos.length > 0 && (
                     <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 md:grid-cols-10 gap-2">
@@ -787,6 +825,10 @@ function NuevoProyectoContent() {
                       <span className="text-slate-300">({form.documentos.length}/{MAX_DOCS})</span>
                     )}
                   </button>
+
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    PDF o DWG, hasta {MAX_DOCS}. Se guardan en Documentación para metrar.
+                  </p>
 
                   {form.documentos.length > 0 && (
                     <ul className="mt-2 space-y-1">
@@ -1146,6 +1188,31 @@ function NuevoProyectoContent() {
                 </div>
               )}
 
+              {progresoSubida && (
+                <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-[8px] px-3 py-2.5 space-y-1.5">
+                  <p>
+                    Proyecto creado. Subiendo archivo {progresoSubida.actual} de {progresoSubida.total}: {progresoSubida.nombre}
+                  </p>
+                  <div className="h-1.5 rounded-full bg-blue-100 overflow-hidden">
+                    <div className="h-full bg-[#2563EB] transition-all" style={{ width: `${progresoSubida.pct}%` }} />
+                  </div>
+                </div>
+              )}
+
+              {avisoSubida && (
+                <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2.5 space-y-1">
+                  <p className="font-semibold">
+                    El proyecto se creó, pero no se pudieron subir {avisoSubida.fallidos.length} archivo{avisoSubida.fallidos.length === 1 ? "" : "s"}.
+                  </p>
+                  <p>Subilos desde Documentación para metrar.</p>
+                  <ul className="list-disc pl-4 text-[11px] text-amber-700">
+                    {avisoSubida.fallidos.map((f, i) => (
+                      <li key={`${f.nombre}-${i}`}>{f.nombre} — {f.motivo}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {errorGuardar && (
                 <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-[8px] px-3 py-2">
                   {errorGuardar}
@@ -1239,6 +1306,15 @@ function NuevoProyectoContent() {
             {paso === 3 ? "Revisar" : "Siguiente"}
             <ChevronRight className="w-4 h-4" />
           </button>
+        ) : avisoSubida ? (
+          <button
+            onClick={() => router.push(`/proyectos/${avisoSubida.proyectoId}`)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-all"
+            style={{ boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.25)" }}
+          >
+            Ir al proyecto
+            <ChevronRight className="w-4 h-4" />
+          </button>
         ) : (
           <button
             onClick={handleGuardar}
@@ -1249,7 +1325,7 @@ function NuevoProyectoContent() {
             {guardando ? (
               <>
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Creando...
+                {progresoSubida ? "Subiendo archivos..." : "Creando..."}
               </>
             ) : (
               "Crear proyecto"
