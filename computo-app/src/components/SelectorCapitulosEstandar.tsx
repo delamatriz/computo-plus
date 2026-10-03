@@ -93,12 +93,19 @@ interface Props {
   // proyecto) que no deberían ofrecerse de nuevo en "Lista estándar",
   // además de los que ya están en `capitulos`.
   nombresExcluidos?: string[];
+  // Nombres (en minúscula) que "Sugerir capítulos" del asistente marcó: se
+  // les agrega una etiqueta "Sugerido" para que el usuario los revise. Es solo
+  // visual — no cambia qué capítulos están activos.
+  nombresSugeridos?: Set<string>;
 }
+
+const SIN_SUGERIDOS = new Set<string>();
 
 export function SelectorCapitulosEstandar({
   capitulos,
   onConfirmar,
   nombresExcluidos = [],
+  nombresSugeridos: sugeridos = SIN_SUGERIDOS,
 }: Props) {
   const [capitulosEstandar, setCapitulosEstandar] = useState<CapituloEstandarItem[]>([]);
 
@@ -258,8 +265,18 @@ export function SelectorCapitulosEstandar({
                   onChange={(e) => renombrarCapitulo(cap.id, e.target.value)}
                   onBlur={(e) => registrarCapituloManual(e.target.value)}
                   placeholder="Nombre del capítulo"
-                  className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                  className="flex-1 min-w-0 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
                 />
+                {sugeridos.has(cap.nombre.trim().toLowerCase()) && (
+                  <>
+                    {/* En celular una etiqueta con texto le saca lugar al
+                        nombre del capítulo: ahí va solo un punto. */}
+                    <span title="Sugerido" aria-label="Sugerido" className="sm:hidden flex-shrink-0 w-2 h-2 rounded-full bg-[#2563EB]" />
+                    <span className="hidden sm:inline-flex flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#2563EB] bg-blue-100 rounded-full px-2 py-0.5">
+                      Sugerido
+                    </span>
+                  </>
+                )}
                 <button
                   onClick={() => toggleCapitulo(cap.id)}
                   className={cn(

@@ -247,7 +247,11 @@ async function generarRubrosAutomaticosInterno(proyectoId: string): Promise<void
 
   const listaCapitulos = proyecto.capitulos.map((c) => c.nombre).join(", ");
 
-  const prompt = `Dado este presupuesto de obra tipo ${proyecto.tipo} con la siguiente descripción de trabajos: '${descripcionTrabajos}', y estos capítulos: ${listaCapitulos}, sugerí los 2-3 rubros más importantes para cada capítulo, con descripción y unidad de medida. Basate en prácticas constructivas uruguayas.
+  // El área se suma al prompt solo como referencia de escala (qué rubros y qué
+  // unidad tienen sentido); no entra en ningún cálculo.
+  const lineaArea = proyecto.area && proyecto.area > 0 ? ` Área de la obra: ${proyecto.area} m².` : "";
+
+  const prompt = `Dado este presupuesto de obra tipo ${proyecto.tipo} con la siguiente descripción de trabajos: '${descripcionTrabajos}', y estos capítulos: ${listaCapitulos}.${lineaArea} Sugerí los 2-3 rubros más importantes para cada capítulo, con descripción y unidad de medida. Basate en prácticas constructivas uruguayas.
 Para la unidad: si el rubro es de estimación global usá unidad "gl", si tiene medida clara (superficie, volumen, longitud) usá m², m³ o ml.
 Respondé SOLO con JSON:
 { "rubros": [{ "capitulo": string, "descripcion": string, "unidad": string }] }`;

@@ -26,6 +26,7 @@ import {
   type FallaSubida,
   type ProgresoSubida,
 } from "@/lib/subirArchivosDelAsistente";
+import { reducirFotosParaIA, SUGERIR_MAX_FOTOS } from "@/lib/reducirFotosParaIA";
 
 /* ─── Tipos ─────────────────────────────────────────────── */
 interface FormData {
@@ -152,6 +153,12 @@ function NuevoProyectoContent() {
   // se muestra el aviso con el botón "Ir al proyecto" en vez de navegar solo).
   const [progresoSubida, setProgresoSubida] = useState<ProgresoSubida | null>(null);
   const [avisoSubida, setAvisoSubida] = useState<{ proyectoId: string; fallidos: FallaSubida[] } | null>(null);
+  // "Sugerir capítulos según los datos ingresados" (paso 3): una llamada por
+  // clic, sin reintentos. `sugeridos` guarda los nombres (en minúscula) que
+  // marcó, para la etiqueta "Sugerido" del selector.
+  const [sugiriendo, setSugiriendo] = useState(false);
+  const [mensajeSugerencia, setMensajeSugerencia] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
+  const [sugeridos, setSugeridos] = useState<Set<string>>(new Set());
   // Fetch propio (además del que hace SelectorCapitulosEstandar internamente)
   // — lo sigue necesitando cargarSugeridos() más abajo, que precarga la
   // lista completa al pasar de paso 1 a paso 2, antes de que el paso 3 (y
@@ -368,6 +375,91 @@ function NuevoProyectoContent() {
           return { ...c, activo };
         })
       : listaCatalogo(false);
+
+  // ── Sugerir capítulos según los datos del paso 1 ──────────────────────
+  // Solo para un proyecto que NO viene de Cálculo Rápido (ahí los capítulos ya
+  // se resolvieron con el desglose real y se pre-tildan solos).
+  const vieneDeCalculoRapido = tipoPrellenado || !!calculoRapidoItems?.length;
+  const areaNumero = parseFloat(form.area.replace(",", "."));
+  const sugerirConArea = Number.isFinite(areaNumero) && areaNumero > 0;
+  const sugerirConTrabajos = form.trabajos.trim().length > 0;
+  const sugerirConOtros = form.descripcion.trim().length > 0;
+  const sugerirNFotos = Math.min(form.fotos.length, SUGERIR_MAX_FOTOS);
+  const hayDatosParaSugerir = sugerirConArea || sugerirConTrabajos || sugerirConOtros || sugerirNFotos > 0;
+  // "Se basa en": solo lo que realmente está cargado — es lo que viaja.
+  // PDF y DWG nunca se mandan, por eso no figuran.
+  const baseDeLaSugerencia = (() => {
+    const partes = ["tipo de obra"];
+    if (sugerirConArea) partes.push("área");
+    if (sugerirConTrabajos) partes.push("descripción");
+    if (sugerirConOtros) partes.push("otros datos");
+    if (sugerirNFotos > 0) partes.push(`${sugerirNFotos} foto${sugerirNFotos === 1 ? "" : "s"}`);
+    return partes.length === 1 ? partes[0] : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
+  })();
+
+  const sugerirCapitulos = async () => {
+    if (sugiriendo || !hayDatosParaSugerir) return;
+    setSugiriendo(true);
+    setMensajeSugerencia(null);
+    try {
+      const fotos = await reducirFotosParaIA(form.fotos);
+      const res = await fetch("/api/sugerir-capitulos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipo: form.tipo,
+          area: form.area,
+          trabajos: form.trabajos,
+          otrosDatos: form.descripcion,
+          fotos,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !Array.isArray(data?.capitulos) || data.capitulos.length === 0) {
+        throw new Error(data?.error ?? `status ${res.status}`);
+      }
+      const nombres: string[] = data.capitulos;
+      const buscados = new Set(nombres.map((n) => n.trim().toLowerCase()));
+
+      // SOLO prende: los sugeridos que estaban apagados pasan a prendidos; ni
+      // los que el usuario ya tenía prendidos ni el resto de la lista se
+      // tocan. Si un sugerido no está en la lista armada, se agrega prendido.
+      const marcar = (lista: Capitulo[]): Capitulo[] => {
+        const base = lista.length > 0 ? lista : listaCatalogo(false);
+        const marcados = base.map((c) =>
+          buscados.has(c.nombre.trim().toLowerCase()) && !c.activo ? { ...c, activo: true } : c
+        );
+        const faltan = nombres
+          .filter((n) => !marcados.some((c) => c.nombre.trim().toLowerCase() === n.trim().toLowerCase()))
+          .map((n, i) => ({
+            id: `sug-${Date.now()}-${i}`,
+            nombre: n,
+            color: COLORES_CAPITULOS[n] ?? COLORS[(marcados.length + i) % COLORS.length],
+            activo: true,
+          }));
+        return [...marcados, ...faltan];
+      };
+
+      setForm((prev) =>
+        prev.titulos.length > 0
+          ? { ...prev, titulos: prev.titulos.map((t) => ({ ...t, capitulos: marcar(t.capitulos) })) }
+          : { ...prev, capitulos: marcar(prev.capitulos), sinTituloEsAutomatico: false }
+      );
+      setSugeridos(buscados);
+      setMensajeSugerencia({
+        tipo: "ok",
+        texto: `Se sugirieron ${nombres.length} capítulo${nombres.length === 1 ? "" : "s"} y se prendieron. Los que ya tenías prendidos siguen igual. Revisalos y ajustá lo que haga falta.`,
+      });
+    } catch (err) {
+      console.error("[proyectos/nuevo] sugerir-capitulos", err);
+      setMensajeSugerencia({
+        tipo: "error",
+        texto: "No se pudo generar la sugerencia ahora. Elegí los capítulos a mano en la Lista estándar.",
+      });
+    } finally {
+      setSugiriendo(false);
+    }
+  };
 
   const agregarTituloWizard = () => {
     const color = COLORS[form.titulos.length % COLORS.length];
@@ -1033,6 +1125,52 @@ function NuevoProyectoContent() {
                 <p className="text-sm text-slate-400">Organizá el presupuesto en capítulos. Podés modificarlos después.</p>
               </div>
 
+              {/* Sugerencia de capítulos según lo cargado en el paso 1. No
+                  aparece si el proyecto viene de Cálculo Rápido (ahí ya se
+                  resolvieron). Sin datos aparte del tipo de obra queda
+                  deshabilitado. Una llamada por clic, sin reintentos. */}
+              {!vieneDeCalculoRapido && (
+                <div className="rounded-[16px] border border-slate-200 bg-white p-4 space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={sugerirCapitulos}
+                    disabled={!hayDatosParaSugerir || sugiriendo}
+                    className={cn(
+                      "flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-[10px] text-sm font-semibold transition-all",
+                      !hayDatosParaSugerir
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : sugiriendo
+                          ? "bg-blue-50 text-[#2563EB] cursor-wait"
+                          : "bg-blue-50 text-[#2563EB] hover:bg-blue-100"
+                    )}
+                  >
+                    {sugiriendo ? (
+                      <span className="w-3.5 h-3.5 border-2 border-[#2563EB]/30 border-t-[#2563EB] rounded-full animate-spin flex-shrink-0" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+                    )}
+                    {sugiriendo ? "Analizando los datos..." : "Sugerir capítulos según los datos ingresados"}
+                  </button>
+                  {hayDatosParaSugerir ? (
+                    <p className="text-xs text-slate-400">Se basa en: {baseDeLaSugerencia}</p>
+                  ) : (
+                    <p className="text-xs text-slate-400">Cargá descripción, área o fotos en el paso 1</p>
+                  )}
+                  {mensajeSugerencia && (
+                    <p
+                      className={cn(
+                        "text-xs rounded-[8px] px-3 py-2 border",
+                        mensajeSugerencia.tipo === "ok"
+                          ? "text-blue-700 bg-blue-50 border-blue-200"
+                          : "text-amber-700 bg-amber-50 border-amber-200"
+                      )}
+                    >
+                      {mensajeSugerencia.texto}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Un bloque por título ya nombrado en "Detalles" — el nombre
                   es fijo acá (se edita en el paso anterior, no acá) y
                   arranca con el catálogo completo apagado (ver transición
@@ -1049,6 +1187,7 @@ function NuevoProyectoContent() {
                     <SelectorCapitulosEstandar
                       capitulos={titulo.capitulos}
                       onConfirmar={(c) => setCapitulosDeTitulo(titulo.id, c)}
+                      nombresSugeridos={sugeridos}
                     />
                   </div>
                 </div>
@@ -1075,6 +1214,7 @@ function NuevoProyectoContent() {
                     // ver transición 2 → 3, que respeta esto y no la pisa.
                     set("sinTituloEsAutomatico", false);
                   }}
+                  nombresSugeridos={sugeridos}
                 />
               )}
             </div>
