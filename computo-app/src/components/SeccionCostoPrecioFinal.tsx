@@ -85,12 +85,28 @@ export function TarjetaCostoDirecto({
   return (
     <div className="flex flex-col gap-2 mt-2">
       {metodoCostoDirecto === "estimado" && (
-        <div className="flex items-start gap-2 rounded-[8px] bg-amber-50 border border-amber-200 px-3 py-2">
+        <div className="group relative flex items-start gap-2 rounded-[8px] bg-amber-50 border border-amber-200 px-3 py-2">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-amber-700">
             {rubrosSinApu} rubro{rubrosSinApu !== 1 ? "s" : ""} sin Análisis de Precio Unitario — se usó su precio
             cargado a mano como Costo Directo completo, sin poder separar cuánto de eso sería Utilidad.
           </p>
+          {/* Tooltip oscuro (mismo patrón group/group-hover que "Agregar
+              título"): explica qué es un rubro sin APU y cómo completarlo.
+              Cada afirmación está verificada en el código — entra en Costo
+              Directo y totales (calcularCostoDirectoAgregado), no lo toca
+              "Actualizar por fórmula paramétrica" (queda como sinDesglose en
+              aplicar-precios-vigentes) ni "Aplicar X% a rubros existentes"
+              (propagar-utilidad saltea los rubros sin APU), pero SÍ lo
+              ajusta "Actualizar por ICCV" (aplica el factor a todos los
+              precioUnit). Singular/plural según rubrosSinApu. */}
+          <div className="pointer-events-none absolute left-0 top-full mt-2 hidden group-hover:block z-20 w-80 max-w-full">
+            <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
+              {rubrosSinApu === 1
+                ? "1 rubro sin análisis de precio unitario (APU). Tiene el precio cargado a mano, sin desglose de materiales y mano de obra. Entra igual en el total, pero no se actualiza con la fórmula paramétrica ni con el % de Utilidad general (el ajuste por ICCV sí lo toma). Para completarlo, abrí el rubro y cargá su APU."
+                : `${rubrosSinApu} rubros sin análisis de precio unitario (APU). Tienen el precio cargado a mano, sin desglose de materiales y mano de obra. Entran igual en el total, pero no se actualizan con la fórmula paramétrica ni con el % de Utilidad general (el ajuste por ICCV sí los toma). Para completarlos, abrí cada rubro y cargá su APU.`}
+            </div>
+          </div>
         </div>
       )}
       {/* Mismo peso tipográfico que el header de "Gastos Generales y
