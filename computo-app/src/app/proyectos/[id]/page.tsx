@@ -69,6 +69,7 @@ import SeccionActualizacionPrecios from "@/components/SeccionActualizacionPrecio
 import SeccionDocumentacionLlamado from "@/components/SeccionDocumentacionLlamado";
 import { SelectorCapitulosEstandar, type CapituloSeleccionable } from "@/components/SelectorCapitulosEstandar";
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
+import { NotaInfoIcono } from "@/components/NotaInfoIcono";
 
 // SeccionMetrajesPresupuesto (vía SeccionPlanos/VisorPlano) importa react-pdf
 // (pdf.js), que revienta con "DOMMatrix is not defined" si su módulo se
@@ -5081,6 +5082,20 @@ export default function ProyectoPage() {
                 {!!proyectoActivo.area && ` · ${proyectoActivo.area} m²`}
                 {proyectoActivo.direccion && ` · ${proyectoActivo.direccion}`}
               </p>
+              {/* Indicador rápido: Precio Final / área. Solo formato de salida
+                  (mismos totales que las tarjetas: precioFinalAgregado y
+                  costoTotalAgregado, así que se actualiza solo al cambiar
+                  los totales). Sin área, o con el presupuesto vacío, no se
+                  muestra nada. */}
+              {proyectoActivo.area > 0 && precioFinalAgregado > 0 && (
+                <p className="text-xs md:text-sm text-slate-500 mt-0.5 tabular-nums">
+                  <span className="text-slate-400">Precio por m²: </span>
+                  <span className="font-semibold text-[#1A3A5C]">{fmtMonedaDecimal(precioFinalAgregado / proyectoActivo.area, moneda)}</span>
+                  <NotaInfoIcono
+                    texto={`Precio Final (con IVA) dividido el área del proyecto. Costo Total por m²: ${fmtMonedaDecimal(costoTotalAgregado / proyectoActivo.area, moneda)}`}
+                  />
+                </p>
+              )}
               {soloLectura && proyectoActivo.fechaUltimaEntrega && (
                 <p className="text-[11px] md:text-xs text-amber-600 mt-0.5">
                   Entregado el{" "}
