@@ -1007,19 +1007,6 @@ function NuevoProyectoContent() {
                     <SelectorCapitulosEstandar
                       capitulos={titulo.capitulos}
                       onConfirmar={(c) => setCapitulosDeTitulo(titulo.id, c)}
-                      tipoObra={form.tipo}
-                      descripcionTrabajos={form.trabajos}
-                      fotos={form.fotos}
-                      // Mismo criterio que el selector de "Sin título" de
-                      // más abajo — si el proyecto viene de Cálculo Rápido,
-                      // "Sugerir con IA" acá sería una segunda IA redundante
-                      // pisando el pre-tilde que ya trae cada Título nuevo
-                      // (ver listaConPretildeCR). Antes de este cambio esta
-                      // instancia no recibía la prop y quedaba siempre
-                      // visible, aunque el proyecto viniera de Cálculo
-                      // Rápido — inconsistencia detectada al agregar el
-                      // pre-tilde por Título.
-                      ocultarSugerirIA={!!calculoRapidoItems?.length}
                     />
                   </div>
                 </div>
@@ -1041,15 +1028,11 @@ function NuevoProyectoContent() {
                   capitulos={form.capitulos}
                   onConfirmar={(c) => {
                     set("capitulos", c);
-                    // Cualquier interacción real del usuario acá (switch, IA,
+                    // Cualquier interacción real del usuario acá (switch,
                     // agregar/borrar/renombrar) deja de ser "automática" —
                     // ver transición 2 → 3, que respeta esto y no la pisa.
                     set("sinTituloEsAutomatico", false);
                   }}
-                  tipoObra={form.tipo}
-                  descripcionTrabajos={form.trabajos}
-                  fotos={form.fotos}
-                  ocultarSugerirIA={!!calculoRapidoItems?.length}
                 />
               )}
             </div>

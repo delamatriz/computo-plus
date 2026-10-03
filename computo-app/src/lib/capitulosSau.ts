@@ -78,7 +78,7 @@ export const CAPITULOS_SAU: MapeoSAU[] = [
   // este alias el capítulo nacía con capituloCatalogoId null y "Ver
   // subrubros típicos" salía vacío aunque haya 16 subrubros cargados.
   { alias: ["Instalación Contra Incendio"], capitulos: ["Contra Incendio"] },
-  // La lista de sugerir-capitulos (IA) devuelve "Instalación de gas" en
+  // La lista de capítulos que sugería la IA devolvía "Instalación de gas" en
   // minúscula; el catálogo es "Instalación de Gas" y el lookup final por
   // nombre es case-sensitive. El alias compara en minúscula, así que cubre
   // las dos grafías.

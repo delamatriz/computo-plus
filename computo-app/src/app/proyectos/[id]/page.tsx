@@ -92,9 +92,8 @@ interface ProyectoData {
   nombre: string;
   cliente: string;
   tipo: string;
-  // Descripción de los trabajos — la misma que alimenta "Sugerir con IA"
-  // en el asistente de "Nuevo proyecto" (ver SelectorCapitulosEstandar),
-  // reusada acá para el selector de capítulos por título.
+  // Descripción de los trabajos del proyecto (la misma que se carga en el
+  // asistente de "Nuevo proyecto").
   descripcion?: string;
   tipoContratacion?: string;
   estado: keyof typeof ESTADOS;
@@ -2872,27 +2871,18 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   );
 }
 
-// Modal "Agregar capítulo" — antes un window.prompt() nativo. Mismo
-// patrón que ModalCalibrarEscala en Visor.tsx (título + X, un input,
-// error inline, Cancelar/Guardar) para el mismo nivel de pulido que el
-// resto de los modales chicos de la app.
-// Generalizado con textos opcionales para reusarlo también como
-// "Agregar título" (mismo modal, mismo comportamiento) — ver
-// mostrarModalTitulo más abajo.
-function ModalAgregarCapitulo({
+// Modal "Agregar título" — antes un window.prompt() nativo. Mismo patrón que
+// ModalCalibrarEscala en Visor.tsx (título + X, un input, error inline,
+// Cancelar/Guardar) para el mismo nivel de pulido que el resto de los
+// modales chicos de la app. (Los capítulos se agregan con
+// ModalSelectorCapitulosTitulo, desde el "+ Agregar capítulo" del final de la
+// lista — ya no hay un modal de texto libre para capítulos.)
+function ModalAgregarTitulo({
   onClose,
   onGuardar,
-  titulo = "Agregar capítulo",
-  etiquetaCampo = "Nombre del capítulo",
-  placeholder = "Ej. Instalación eléctrica",
-  mensajeError = "No se pudo agregar el capítulo. Probá de nuevo.",
 }: {
   onClose: () => void;
   onGuardar: (nombre: string) => Promise<void>;
-  titulo?: string;
-  etiquetaCampo?: string;
-  placeholder?: string;
-  mensajeError?: string;
 }) {
   const [nombre, setNombre] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -2906,7 +2896,7 @@ function ModalAgregarCapitulo({
       await onGuardar(nombre.trim());
       onClose();
     } catch {
-      setError(mensajeError);
+      setError("No se pudo agregar el título. Probá de nuevo.");
     } finally {
       setGuardando(false);
     }
@@ -2917,13 +2907,13 @@ function ModalAgregarCapitulo({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-white rounded-[16px] shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-          <h2 className="text-base font-bold text-[#1A3A5C]">{titulo}</h2>
+          <h2 className="text-base font-bold text-[#1A3A5C]">Agregar título</h2>
           <button onClick={onClose} className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
         <div className="px-5 py-4 space-y-2.5">
-          <label className="block text-sm font-semibold text-[#1A3A5C]">{etiquetaCampo}</label>
+          <label className="block text-sm font-semibold text-[#1A3A5C]">Nombre del título</label>
           <input
             type="text"
             value={nombre}
@@ -2932,7 +2922,7 @@ function ModalAgregarCapitulo({
               if (error) setError(null);
             }}
             onKeyDown={(e) => e.key === "Enter" && guardar()}
-            placeholder={placeholder}
+            placeholder="Ej. Impermeabilización azotea"
             autoFocus
             className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
           />
@@ -2963,26 +2953,20 @@ function ModalAgregarCapitulo({
   );
 }
 
-// Modal "+ Agregar capítulo" scopeado a un título — reusa
-// SelectorCapitulosEstandar (IA + lista estándar + edición con toggles) en
-// vez del modal de texto libre (ModalAgregarCapitulo, que sigue existiendo
-// intacto para los capítulos sueltos del proyecto). La selección se
-// acumula localmente adentro del modal y recién se persiste (un POST por
-// capítulo, secuencial) cuando el usuario aprieta "Agregar".
-// `titulo` null = botón global "Agregar capítulo" con ≤1 título: el título
-// único es implícito (la vista plana no lo muestra), así que no se nombra
-// en el encabezado del modal.
+// Modal "+ Agregar capítulo" (al final de la lista de capítulos) — reusa
+// SelectorCapitulosEstandar (Lista estándar + escritura manual con toggles).
+// La selección se acumula localmente adentro del modal y recién se persiste
+// (un POST por capítulo, secuencial) cuando el usuario aprieta "Agregar".
+// `titulo` null = vista plana (un solo título): el título único es implícito
+// (la vista plana no lo muestra), así que no se nombra en el encabezado del
+// modal.
 function ModalSelectorCapitulosTitulo({
   titulo,
-  tipoObra,
-  descripcionTrabajos,
   nombresExcluidos,
   onClose,
   onAgregar,
 }: {
   titulo: Titulo | null;
-  tipoObra: string;
-  descripcionTrabajos: string;
   nombresExcluidos: string[];
   onClose: () => void;
   onAgregar: (seleccionados: CapituloSeleccionable[]) => Promise<void>;
@@ -3020,8 +3004,6 @@ function ModalSelectorCapitulosTitulo({
           <SelectorCapitulosEstandar
             capitulos={seleccion}
             onConfirmar={setSeleccion}
-            tipoObra={tipoObra}
-            descripcionTrabajos={descripcionTrabajos}
             nombresExcluidos={nombresExcluidos}
           />
         </div>
@@ -3050,6 +3032,31 @@ function ModalSelectorCapitulosTitulo({
   );
 }
 
+// "+ Agregar capítulo" del final de la lista de capítulos (de cada título con
+// 2+ títulos; de toda la lista en la vista plana y en el presupuesto vacío).
+// Mismo aspecto de enlace que "+ Agregar rubro". Tooltip oscuro (patrón
+// group/group-hover) que abre hacia ARRIBA: el botón vive al borde inferior
+// de la tabla, dentro de contenedores con overflow (la tarjeta y el scroll
+// horizontal), y abrir hacia abajo se recortaría. El padding vertical agranda
+// la zona táctil en el celular sin cambiar el alto de la fila.
+function BotonAgregarCapitulo({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="group relative">
+      <button
+        onClick={onClick}
+        className="flex items-center gap-1.5 whitespace-nowrap py-2 pr-4 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+      >
+        <Plus className="w-3 h-3 flex-shrink-0" /> Agregar capítulo
+      </button>
+      <div className="pointer-events-none absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 w-64">
+        <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
+          Agrega un capítulo nuevo con sus propios rubros, que suma al Costo Directo
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Componente principal ────────────────────────────────── */
 export default function ProyectoPage() {
   const params = useParams();
@@ -3065,14 +3072,10 @@ export default function ProyectoPage() {
   const [entregando, setEntregando] = useState(false);
   const [habilitandoEdicion, setHabilitandoEdicion] = useState(false);
   const [convirtiendoAnteproyecto, setConvirtiendoAnteproyecto] = useState(false);
-  // Modal "Agregar capítulo" — antes era un window.prompt() nativo, ver
-  // ModalAgregarCapitulo más abajo (mismo patrón que ModalCalibrarEscala
-  // en Visor.tsx: título, un input, Cancelar/Guardar).
-  const [mostrarModalCapitulo, setMostrarModalCapitulo] = useState(false);
-  // Selector estándar (Lista estándar + Sugerir con IA + escritura manual)
-  // abierto desde el botón GLOBAL "Agregar capítulo" cuando el proyecto
-  // tiene ≤1 título — con 2+ sigue abriéndose el modal de texto libre de
-  // arriba, que manda al último título sin preguntar.
+  // Selector estándar (Lista estándar + escritura manual) abierto desde el
+  // "+ Agregar capítulo" del final de la lista en la vista plana (≤1
+  // título, también con el presupuesto vacío). Con 2+ títulos cada uno
+  // tiene el suyo (ver tituloParaAgregarCapitulos).
   const [mostrarSelectorCapitulosGlobal, setMostrarSelectorCapitulosGlobal] = useState(false);
   // Rubro cuya descripción está siendo editada — mientras tanto se muestra el valor real, no toTitleCase
   const [descripcionEnFoco, setDescripcionEnFoco] = useState<string | null>(null);
@@ -3508,12 +3511,16 @@ export default function ProyectoPage() {
   // Todo proyecto tiene siempre ≥1 Título (implícito o explícito, ver
   // POST /api/proyectos) — un título sin ningún capítulo no cuenta para
   // esta decisión, mismo criterio que ya usan el PDF/Excel/Planilla de
-  // Cómputo. Con ≤1 título con contenido, la vista se muestra plana (sin
-  // header de título, numeración 01/02) — el caso simple de siempre, sin
-  // ningún rastro de que por debajo exista un Titulo. Con 2+, se agrupa
-  // por título (N · Nombre, numeración N.M).
-  const titulosConContenido = titulos.filter((t) => capitulos.some((c) => c.tituloId === t.id));
-  const modoMultiTitulo = titulosConContenido.length >= 2;
+  // Cómputo. Con ≤1 título, la vista se muestra plana (sin header de título,
+  // numeración 01/02) — el caso simple de siempre, sin ningún rastro de que
+  // por debajo exista un Titulo. Con 2+ títulos se agrupa por título
+  // (N · Nombre, numeración N.M), incluso si alguno todavía no tiene
+  // capítulos: así un título recién agregado se ve y tiene su propio
+  // "+ Agregar capítulo" (ya no hay un botón global que mande el capítulo
+  // al último título sin preguntar). Antes la decisión contaba solo los
+  // títulos con contenido; en los 5 proyectos reales no cambia nada (todos
+  // los que tienen 2+ títulos ya tenían 2+ con capítulos).
+  const modoMultiTitulo = titulos.length >= 2;
   const capitulosConSubtotal = capitulos.map((c) => ({
     id: c.id,
     nombre: c.nombre,
@@ -5375,13 +5382,11 @@ export default function ProyectoPage() {
 
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 
-          {/* Barra de título + "Agregar capítulo" — antes vivía como botón
-              fantasma al final de toda la tabla (después de los totales),
-              casi invisible y solo alcanzable scrolleando todo. Reubicado
-              acá arriba, mismo estilo que "+ Agregar rubro" (texto azul de
-              marca, no borde punteado), para que sea igual de descubrible
-              que agregar un rubro dentro de un capítulo. */}
-          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+          {/* Barra de título + "Agregar título". Los capítulos se agregan
+              con el "+ Agregar capítulo" del final de la lista de cada
+              título (o de toda la lista en la vista plana), mismo estilo
+              que "+ Agregar rubro" — ya no hay un botón global arriba. */}
+          <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-200">
             <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Presupuesto</span>
             {!soloLectura && (
               <div className="flex items-center gap-4">
@@ -5390,44 +5395,21 @@ export default function ProyectoPage() {
                     sin librería), adaptado con ancho fijo + wrap porque acá
                     el texto es una oración, no una etiqueta corta de una
                     línea. Anclado a la derecha del botón (no centrado):
-                    estos dos botones ya viven pegados al borde derecho de
-                    la tabla, así que centrar el tooltip lo sacaría de
-                    pantalla — extender hacia la izquierda es seguro. */}
-                <div className="group relative">
+                    el botón vive pegado al borde derecho de la tabla, así
+                    que centrar el tooltip lo sacaría de pantalla —
+                    extender hacia la izquierda es seguro. whitespace-nowrap
+                    + flex-shrink-0: en el celular el texto no se parte y el
+                    "+" queda pegado a "Agregar título". */}
+                <div className="group relative flex-shrink-0">
                   <button
                     onClick={() => setMostrarModalTitulo(true)}
-                    className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                    className="flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Agregar título
+                    <Plus className="w-3.5 h-3.5 flex-shrink-0" /> Agregar título
                   </button>
                   <div className="pointer-events-none absolute right-0 top-full mt-2 hidden group-hover:block z-20 w-64">
                     <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
                       Agrega un título de sección para organizar visualmente el presupuesto (ej. separar por etapas o bloques)
-                    </div>
-                  </div>
-                </div>
-                {/* Con 2+ títulos cada tarjeta tiene además su propio
-                    "Agregar capítulo" (sin ambigüedad sobre a cuál título
-                    va) — pero este global sigue siempre visible para no
-                    obligar a bajar a buscarlo. Con 2+ títulos manda al
-                    ÚLTIMO (mayor orden, ver onGuardar del modal más abajo)
-                    sin preguntar; el <select> de cada fila de capítulo ya
-                    permite reasignarlo después. Con ≤1 título abre el
-                    selector estándar (Lista estándar + Sugerir con IA +
-                    escritura manual), el mismo que ya usa cada título
-                    con 2+. */}
-                <div className="group relative">
-                  <button
-                    onClick={() =>
-                      titulos.length > 1 ? setMostrarModalCapitulo(true) : setMostrarSelectorCapitulosGlobal(true)
-                    }
-                    className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Agregar capítulo
-                  </button>
-                  <div className="pointer-events-none absolute right-0 top-full mt-2 hidden group-hover:block z-20 w-64">
-                    <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
-                      Agrega un capítulo nuevo con sus propios rubros, que suma al Costo Directo
                     </div>
                   </div>
                 </div>
@@ -5578,14 +5560,9 @@ export default function ProyectoPage() {
                       {!soloLectura && (
                         <div
                           className="flex items-center pl-6"
-                          style={{ height: 30, borderTop: capsDelTitulo.length > 0 ? "1px solid #F1F5F9" : undefined }}
+                          style={{ minHeight: 30, borderTop: capsDelTitulo.length > 0 ? "1px solid #F1F5F9" : undefined }}
                         >
-                          <button
-                            onClick={() => setTituloParaAgregarCapitulos(titulo)}
-                            className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-                          >
-                            <Plus className="w-3.5 h-3.5" /> Agregar capítulo
-                          </button>
+                          <BotonAgregarCapitulo onClick={() => setTituloParaAgregarCapitulos(titulo)} />
                         </div>
                       )}
                     </motion.div>
@@ -5604,11 +5581,23 @@ export default function ProyectoPage() {
               {!modoMultiTitulo && (
                 capitulos.length === 0 ? (
                   <p className="px-5 py-3 text-xs text-slate-400">
-                    Sin capítulos todavía — agregá el primero con &quot;Agregar capítulo&quot; arriba.
+                    Sin capítulos todavía — agregá el primero con &quot;+ Agregar capítulo&quot;.
                   </p>
                 ) : (
                   capitulos.map((cap, i) => renderFilaCapitulo(cap, String(i + 1).padStart(2, "0")))
                 )
+              )}
+              {/* "+ Agregar capítulo" al final de la lista (o en el espacio
+                  vacío si no hay capítulos), igual que "+ Agregar rubro" al
+                  final de cada capítulo. Vista plana = un solo título, sin
+                  nombre en la ventana. */}
+              {!modoMultiTitulo && !soloLectura && (
+                <div
+                  className="flex items-center pl-6"
+                  style={{ minHeight: 30, borderTop: capitulos.length > 0 ? "1px solid #F1F5F9" : undefined }}
+                >
+                  <BotonAgregarCapitulo onClick={() => setMostrarSelectorCapitulosGlobal(true)} />
+                </div>
               )}
             </div>
           </div>
@@ -5654,35 +5643,8 @@ export default function ProyectoPage() {
           precioFinal={precioFinalAgregado}
         />
 
-        {mostrarModalCapitulo && (
-          <ModalAgregarCapitulo
-            onClose={() => setMostrarModalCapitulo(false)}
-            onGuardar={async (nombre) => {
-              // Con 2+ títulos, el botón global manda directo al ÚLTIMO
-              // (mayor orden — `titulos` ya viene ordenado asc desde el
-              // GET, ver PROYECTO_INCLUDE en api/proyectos/[id]/route.ts)
-              // sin preguntar — el usuario reasigna después con el
-              // <select> de esa fila si lo quiere en otro título. Con
-              // ≤1 título se omite tituloId — el backend ya resuelve al
-              // único título existente (mismo comportamiento de siempre).
-              const tituloId = titulos.length > 1 ? titulos[titulos.length - 1].id : undefined;
-              const res = await fetch(`/api/proyectos/${proyectoActivo.id}/capitulos`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nombre, tituloId }),
-              });
-              if (!res.ok) throw new Error("No se pudo agregar el capítulo");
-              window.location.reload();
-            }}
-          />
-        )}
-
         {mostrarModalTitulo && (
-          <ModalAgregarCapitulo
-            titulo="Agregar título"
-            etiquetaCampo="Nombre del título"
-            placeholder="Ej. Impermeabilización azotea"
-            mensajeError="No se pudo agregar el título. Probá de nuevo."
+          <ModalAgregarTitulo
             onClose={() => setMostrarModalTitulo(false)}
             onGuardar={agregarTitulo}
           />
@@ -5691,8 +5653,6 @@ export default function ProyectoPage() {
         {mostrarSelectorCapitulosGlobal && (
           <ModalSelectorCapitulosTitulo
             titulo={null}
-            tipoObra={proyectoActivo.tipo}
-            descripcionTrabajos={proyectoActivo.descripcion ?? ""}
             nombresExcluidos={capitulos.map((c) => c.nombre)}
             onClose={() => setMostrarSelectorCapitulosGlobal(false)}
             onAgregar={(seleccionados) => agregarCapitulosATitulo(titulos[0]?.id, seleccionados)}
@@ -5702,8 +5662,6 @@ export default function ProyectoPage() {
         {tituloParaAgregarCapitulos && (
           <ModalSelectorCapitulosTitulo
             titulo={tituloParaAgregarCapitulos}
-            tipoObra={proyectoActivo.tipo}
-            descripcionTrabajos={proyectoActivo.descripcion ?? ""}
             nombresExcluidos={capitulos
               .filter((c) => c.tituloId === tituloParaAgregarCapitulos.id)
               .map((c) => c.nombre)}

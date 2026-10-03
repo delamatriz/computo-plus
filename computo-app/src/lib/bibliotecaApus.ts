@@ -19,12 +19,13 @@ export interface SubrubroConApu {
 /**
  * Clasifica una descripción libre de trabajos contra los CapituloCatalogo
  * que tienen biblioteca real de subrubros (SubrubroEstandar activo) —
- * mismo patrón de prompt de clasificación barata que ya usa
- * /api/sugerir-capitulos (una sola llamada de IA, sin pricing), pero
- * contra la lista real de capítulos CON biblioteca — sugerir-capitulos
- * usa una lista más amplia de 16 nombres que incluye categorías
- * administrativas sin biblioteca propia (Honorarios profesionales,
- * Imprevistos, etc.), que acá no aplican.
+ * prompt de clasificación barata (una sola llamada de IA, sin pricing)
+ * contra la lista real de capítulos CON biblioteca — no contra una lista
+ * amplia con categorías administrativas sin biblioteca propia (Honorarios
+ * profesionales, Imprevistos, etc.), que acá no aplican. (Antes existía
+ * una ruta aparte de sugerencia de capítulos con una lista más amplia; se
+ * eliminó junto con la pestaña "Sugerir con IA" — la sugerencia de
+ * capítulos vive en Cálculo Rápido.)
  *
  * Puede devolver varios capítulos (una tarea real casi siempre toca más
  * de uno) o ninguno si la descripción no matchea bien con nada — ese

@@ -21,8 +21,8 @@ export async function POST(
     const nombre = body.nombre ?? "Nuevo capítulo";
 
     // tituloId es obligatorio (todo capítulo pertenece siempre a un
-    // título, ver schema.prisma). Si no viene explícito en el body (botón
-    // global "Agregar capítulo", visible cuando el proyecto tiene ≤1
+    // título, ver schema.prisma). Si no viene explícito en el body
+    // (vista plana: "+ Agregar capítulo" del final de la lista, con ≤1
     // título), se usa el título de menor orden del proyecto — mismo
     // criterio de "título por defecto" que ya usa DELETE /api/titulos/[id]
     // al reasignar.

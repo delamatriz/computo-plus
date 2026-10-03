@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { List, Plus, Sparkles, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { List, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Extraído de proyectos/nuevo/page.tsx (paso 3 "Capítulos de la obra") para
-// reusarlo también al agregar capítulos dentro de un Título ya existente en
-// un proyecto real (ver "+ Agregar capítulo" por título en
-// proyectos/[id]/page.tsx). Mismo comportamiento, ahora controlado por
+// reusarlo también al agregar capítulos en un proyecto real (ver
+// "+ Agregar capítulo" al final de la lista de cada título en
+// proyectos/[id]/page.tsx). Lista estándar + escritura manual: la sugerencia
+// de capítulos con IA ya no vive acá (queda en Cálculo Rápido). Mismo comportamiento, ahora controlado por
 // props en vez de vivir atado al estado `form` del asistente — el asistente
 // sigue siendo la fuente de verdad de su propia lista (onConfirmar ahí
 // escribe directo en form.capitulos), y el modal del proyecto real
@@ -29,18 +30,11 @@ interface CapituloEstandarItem {
   vecesUsado: number;
 }
 
-interface FotoParaIA {
-  file?: File;
-  base64?: string;
-  mediaType: string;
-}
-
 // Colores de referencia para los 20 capítulos de la biblioteca estándar
-// + nombres históricos sugeridos por la IA (para mantener consistencia
-// visual) — exportados porque proyectos/nuevo/page.tsx los sigue
-// necesitando para su propio cargarSugeridos() (precarga automática de la
-// lista completa al pasar de paso 1 a paso 2, antes de que este componente
-// exista en pantalla).
+// + nombres históricos (para mantener consistencia visual) — exportados
+// porque proyectos/nuevo/page.tsx los sigue necesitando para su propio
+// cargarSugeridos() (precarga automática de la lista completa al pasar de
+// paso 1 a paso 2, antes de que este componente exista en pantalla).
 export const COLORES_CAPITULOS: Record<string, string> = {
   "Implantación y Replanteo":                 "#94A3B8",
   "Excavaciones y Movimiento de Tierra":       "#78716C",
@@ -62,7 +56,7 @@ export const COLORES_CAPITULOS: Record<string, string> = {
   "Sistemas Constructivos No Tradicionales":   "#6366F1",
   "Obra Exterior / Jardín":                    "#22C55E",
   "Imprevistos":                               "#64748B",
-  // Nombres históricos (sugerencias de IA por tipo de obra)
+  // Nombres históricos (de cuando los sugería la IA por tipo de obra)
   "Trabajos preliminares":              "#94A3B8",
   "Movimiento de tierra y fundaciones": "#78716C",
   "Estructura":                         "#2563EB",
@@ -87,18 +81,6 @@ export const COLORS = [
   "#EC4899", "#06B6D4", "#22C55E", "#78716C", "#64748B",
 ];
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1] ?? "");
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 interface Props {
   capitulos: CapituloSeleccionable[];
   // Se llama con la lista completa actualizada en cada cambio (agregar,
@@ -107,39 +89,18 @@ interface Props {
   // escribe directo a su form; un modal en un proyecto real acumula local
   // y persiste recién con su propio botón "Agregar").
   onConfirmar: (capitulos: CapituloSeleccionable[]) => void;
-  tipoObra: string;
-  descripcionTrabajos: string;
-  fotos?: FotoParaIA[];
   // Nombres ya presentes en otro lado (ej. otros títulos del mismo
   // proyecto) que no deberían ofrecerse de nuevo en "Lista estándar",
   // además de los que ya están en `capitulos`.
   nombresExcluidos?: string[];
-  // El proyecto viene de Cálculo Rápido: los capítulos ya se resolvieron
-  // ahí (ver proyectos/nuevo/page.tsx) a partir de los subrubros reales
-  // matcheados, así que "Sugerir con IA" sería una segunda IA redundante
-  // pisando ese resultado — se oculta solo en este caso.
-  ocultarSugerirIA?: boolean;
 }
 
 export function SelectorCapitulosEstandar({
   capitulos,
   onConfirmar,
-  tipoObra,
-  descripcionTrabajos,
-  fotos = [],
   nombresExcluidos = [],
-  ocultarSugerirIA = false,
 }: Props) {
-  const [cargandoIA, setCargandoIA] = useState(false);
-  const [errorIA, setErrorIA] = useState<string | null>(null);
   const [capitulosEstandar, setCapitulosEstandar] = useState<CapituloEstandarItem[]>([]);
-  // "Lista estándar" es la opción primaria — abierta por defecto, mismo
-  // criterio en el wizard y en el modal de "Agregar capítulo" por título.
-  // "Sugerir con IA" es secundaria: dispara la generación al toque (no
-  // tiene un panel propio que mostrar), y de paso cierra la biblioteca
-  // para no competirle atención mientras corre / mientras se ven los
-  // resultados recién agregados abajo.
-  const [mostrarBiblioteca, setMostrarBiblioteca] = useState(true);
 
   useEffect(() => {
     fetch("/api/capitulos-estandar")
@@ -149,50 +110,6 @@ export function SelectorCapitulosEstandar({
       })
       .catch(() => {});
   }, []);
-
-  const cargarSugeridosIA = async () => {
-    if (!descripcionTrabajos.trim()) {
-      setErrorIA("Completá la descripción de trabajos para usar esta función");
-      return;
-    }
-    setErrorIA(null);
-    setMostrarBiblioteca(false);
-    setCargandoIA(true);
-    try {
-      const fotosBase64 = await Promise.all(
-        fotos.map(async (f) => ({
-          mediaType: f.mediaType,
-          data: f.base64 ?? (f.file ? await fileToBase64(f.file) : ""),
-        }))
-      );
-
-      const res = await fetch("/api/sugerir-capitulos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tipo: tipoObra,
-          descripcion: descripcionTrabajos,
-          fotos: fotosBase64.filter((f) => f.data),
-        }),
-      });
-      const data = await res.json();
-      if (data.error === "sin_descripcion") {
-        setErrorIA("Completá la descripción de trabajos para usar esta función");
-        return;
-      }
-      if (!data.capitulos?.length) throw new Error("Sin capítulos");
-      onConfirmar(data.capitulos.map((nombre: string, i: number) => ({
-        id: String(Date.now() + i),
-        nombre,
-        color: COLORES_CAPITULOS[nombre] ?? COLORS[i % COLORS.length],
-        activo: true,
-      })));
-    } catch {
-      setErrorIA("No se pudo conectar con la IA. Intentá de nuevo.");
-    } finally {
-      setCargandoIA(false);
-    }
-  };
 
   // Agrega o quita un capítulo de la biblioteca a la selección actual
   const toggleDesdeBiblioteca = (item: CapituloEstandarItem) => {
@@ -254,50 +171,14 @@ export function SelectorCapitulosEstandar({
 
   return (
     <div className="bg-white rounded-[16px] border border-slate-300 p-5 shadow-sm">
-      {/* Selector de modo — "Lista estándar" es la opción primaria
-          (siempre a la izquierda, abierta por defecto); "Sugerir con IA"
-          es secundaria y dispara la generación al toque. Segmented
-          control real (no dos links de texto al mismo nivel) para que se
-          lea como una elección clara entre dos modos, no como metadata. */}
+      {/* Encabezado: solo "Lista estándar" (ya no hay selector de pestañas:
+          la sugerencia con IA se sacó, queda en Cálculo Rápido) y el
+          contador de capítulos activos. */}
       <div className="flex items-center justify-between gap-3 mb-3">
-        {ocultarSugerirIA ? (
-          <div className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-semibold text-[#1A3A5C]">
-            <List className="w-3.5 h-3.5" />
-            Lista estándar
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 p-1 rounded-[10px] bg-slate-100 flex-1 max-w-sm">
-            <button
-              onClick={() => setMostrarBiblioteca(true)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-all",
-                mostrarBiblioteca
-                  ? "bg-white text-[#2563EB] shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              )}
-            >
-              <List className="w-3.5 h-3.5" />
-              Lista estándar
-            </button>
-            <button
-              onClick={cargarSugeridosIA}
-              disabled={cargandoIA}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-all disabled:cursor-wait",
-                !mostrarBiblioteca
-                  ? "bg-white text-[#2563EB] shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              )}
-            >
-              {cargandoIA ? (
-                <span className="w-3.5 h-3.5 border-2 border-[#2563EB]/30 border-t-[#2563EB] rounded-full animate-spin" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5" />
-              )}
-              {cargandoIA ? "Analizando..." : "Sugerir con IA"}
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-semibold text-[#1A3A5C]">
+          <List className="w-3.5 h-3.5" />
+          Lista estándar
+        </div>
         {capitulos.length > 0 && (
           <p className="text-xs text-slate-400 whitespace-nowrap">
             {capitularActivos.length} activo{capitularActivos.length !== 1 ? "s" : ""}
@@ -305,22 +186,7 @@ export function SelectorCapitulosEstandar({
         )}
       </div>
 
-      {errorIA && (
-        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-[8px] px-3 py-2 mb-3">
-          {errorIA}
-        </p>
-      )}
-
-      <AnimatePresence initial={false}>
-        {mostrarBiblioteca && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="p-3 mb-3 rounded-[10px] border border-slate-200">
+      <div className="p-3 mb-3 rounded-[10px] border border-slate-200">
               {capitulosEstandar.length === 0 ? (
                 <p className="text-xs text-slate-400">Cargando biblioteca de capítulos...</p>
               ) : (
@@ -366,19 +232,9 @@ export function SelectorCapitulosEstandar({
                   );
                 })()
               )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </div>
 
-      {capitulos.length === 0 && !mostrarBiblioteca ? (
-        <div className="text-center py-8">
-          <p className="text-sm text-slate-400">
-            Usá &quot;Lista estándar&quot; para elegir entre los capítulos típicos de obra,<br />
-            o &quot;Sugerir con IA&quot; para generarlos según los trabajos descritos.
-          </p>
-        </div>
-      ) : capitulos.length > 0 ? (
+      {capitulos.length > 0 ? (
         <div>
 
           <div className="space-y-1.5 mb-4 max-h-80 overflow-y-auto pr-1">
@@ -449,9 +305,9 @@ export function SelectorCapitulosEstandar({
           </button>
         </div>
       ) : (
-        // Selección vacía con la biblioteca abierta (ej. modal "Agregar
-        // capítulo" de un proyecto armado): sin esto, la escritura manual
-        // quedaba escondida hasta elegir un capítulo de la lista.
+        // Selección vacía (ej. modal "Agregar capítulo" de un proyecto
+        // armado): sin esto, la escritura manual quedaba escondida hasta
+        // elegir un capítulo de la lista.
         <button
           onClick={agregarCapitulo}
           className="flex items-center gap-2 w-full px-3 py-2.5 rounded-[10px] border border-dashed border-slate-300 text-sm text-slate-400 hover:text-slate-600 hover:border-slate-400 transition-all"
