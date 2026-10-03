@@ -27,6 +27,7 @@ import {
   Type as TypeIcon,
   Info,
   MapPin,
+  Waypoints,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { obtenerArchivoCacheado } from "@/lib/archivoCache";
@@ -349,6 +350,17 @@ export type NuevaMedicionInput =
       repeticiones: number;
       descripcion: string;
       rubroId: string | null;
+    }
+  | {
+      // Polilínea — longitud sobre N >= 2 puntos. Los vértices van en
+      // `puntos` y el total (editable en el modal) en longitudReal, mismas
+      // columnas que ya usan Área/Punto y Línea — ver API route.
+      tipo: "POLILINEA";
+      puntos: { x: number; y: number }[];
+      longitudReal: number;
+      repeticiones: number;
+      descripcion: string;
+      rubroId: string | null;
     };
 
 // Anotaciones libres — Trazo (mano alzada) y Texto, sin medida ni
@@ -413,6 +425,26 @@ function calcularAreaReal(
   const areaPapelMM2 = Math.abs(suma) / 2;
   const areaRealMM2 = areaPapelMM2 * factorEscala * factorEscala;
   return areaRealMM2 / 1_000_000;
+}
+
+// Polilínea — longitud de cada tramo (misma fórmula que Medir, ver
+// calcularLongitudReal) entre puntos consecutivos. El total que se guarda
+// es siempre la suma de estos tramos (editable a mano en el modal, igual
+// que la longitud de Medir).
+function calcularTramosPolilinea(
+  puntos: { x: number; y: number }[],
+  pageDimsMM: { width: number; height: number },
+  factorEscala: number
+): number[] {
+  const tramos: number[] = [];
+  for (let i = 1; i < puntos.length; i++) {
+    tramos.push(calcularLongitudReal(puntos[i - 1].x, puntos[i - 1].y, puntos[i].x, puntos[i].y, pageDimsMM, factorEscala));
+  }
+  return tramos;
+}
+
+function fmtMetros(v: number): string {
+  return `${v.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`;
 }
 
 // Convierte el path crudo de Trazo libre (puntos capturados en
@@ -530,11 +562,14 @@ function puntoDesdeEvento(svg: SVGSVGElement, clientX: number, clientY: number):
 function ModalConfirmarMedicion({
   unidadLabel,
   valorInicial,
+  tramos,
   onCancelar,
   onGuardar,
 }: {
   unidadLabel: string;
   valorInicial: number;
+  /** Solo Polilínea: medida de cada tramo, para mostrarla antes del total. */
+  tramos?: number[];
   onCancelar: () => void;
   onGuardar: (descripcion: string, repeticiones: number, valor: number) => Promise<void>;
 }) {
@@ -596,6 +631,23 @@ function ModalConfirmarMedicion({
               className="w-full px-3 py-2 rounded-[10px] border border-slate-300 bg-[#F8FAFC] text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all"
             />
           </div>
+          {tramos && tramos.length > 0 && (
+            <div className="rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Tramos</p>
+              <ul className="max-h-28 overflow-y-auto space-y-0.5">
+                {tramos.map((t, i) => (
+                  <li key={i} className="flex items-center justify-between text-xs text-slate-600">
+                    <span>Tramo {i + 1}</span>
+                    <span className="tabular-nums font-medium">{fmtMetros(t)}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-1.5 pt-1.5 border-t border-slate-200 flex items-center justify-between text-xs font-bold text-[#1A3A5C]">
+                <span>Total</span>
+                <span className="tabular-nums">{fmtMetros(tramos.reduce((s, t) => s + t, 0))}</span>
+              </div>
+            </div>
+          )}
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-sm font-semibold text-[#1A3A5C] mb-1">{unidadLabel}</label>
@@ -925,6 +977,15 @@ export interface ControlesMedicion {
    * cualquier otra herramienta (ver cancelarHerramienta). */
   medicionObjetivo: { filaId: string; descripcion: string } | null;
   onIniciarAsignacionAncho: (filaId: string, descripcion: string) => void;
+  /** Polilínea — misma convención que Trazo/Recta/Texto (booleano propio
+   * en vez de ampliar `herramienta`, así los botones de Medir/Área/Punto
+   * no cambian). Click en el botón: la prende; con 2+ puntos puestos
+   * termina (mismo botón hace de "Finalizar", como Área); con menos, la
+   * apaga y descarta lo que hubiera. */
+  polilineaActiva: boolean;
+  onTogglePolilinea: () => void;
+  /** Puntos puestos de la polilínea en curso — para el texto del botón. */
+  puntosPolilineaCount: number;
 }
 
 // Medición pendiente de confirmar en el modal — Línea, Área o Punto,
@@ -934,7 +995,10 @@ export interface ControlesMedicion {
 type MedicionPendiente =
   | { tipo: "LINEA"; xInicio: number; yInicio: number; xFin: number; yFin: number; valor: number }
   | { tipo: "AREA"; puntos: { x: number; y: number }[]; valor: number }
-  | { tipo: "PUNTO"; puntos: { x: number; y: number }[]; valor: number };
+  | { tipo: "PUNTO"; puntos: { x: number; y: number }[]; valor: number }
+  // Polilínea: valor = total (suma de los tramos); tramos se congela acá
+  // para mostrar la medida de cada uno en el modal y sobre el plano.
+  | { tipo: "POLILINEA"; puntos: { x: number; y: number }[]; valor: number; tramos: number[] };
 
 function VisorPrincipal({
   doc,
@@ -1042,10 +1106,17 @@ function VisorPrincipal({
   };
   const dprRender = calcularDprRender(multiplicadorDPR);
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
-  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "PUNTO" | "TRAZO" | "RECTA" | "TEXTO" | null>(null);
+  const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "PUNTO" | "TRAZO" | "RECTA" | "TEXTO" | "POLILINEA" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
   const [puntosArea, setPuntosArea] = useState<{ x: number; y: number }[]>([]);
   const [cursorArea, setCursorArea] = useState<{ x: number; y: number } | null>(null);
+  // Polilínea — mismo patrón que Área (puntos puestos + cursor para el
+  // tramo en vivo), pero mide una longitud abierta en vez de una
+  // superficie. Se limpia sola al cambiar de herramienta (ver el efecto
+  // de más abajo), así los toggle* de las demás herramientas no necesitan
+  // saber que existe.
+  const [puntosPolilinea, setPuntosPolilinea] = useState<{ x: number; y: number }[]>([]);
+  const [cursorPolilinea, setCursorPolilinea] = useState<{ x: number; y: number } | null>(null);
   // Punto (conteo) — cada click acumula un marcador, sin trazo/línea que
   // los conecte (a diferencia de puntosArea). Mismo ciclo de vida que
   // puntosArea: se limpia al cambiar de herramienta, se congela dentro
@@ -1162,6 +1233,9 @@ function VisorPrincipal({
       // Modo "clic + clic": ya está el punto A, esto solo actualiza la
       // línea de previsualización hasta la posición actual del mouse.
       setRectaCursor(p);
+    } else if (herramienta === "POLILINEA" && puntosPolilinea.length > 0 && !medicionPendiente) {
+      // Tramo en vivo: del último punto puesto hasta el cursor.
+      setCursorPolilinea(p);
     }
   };
 
@@ -1321,6 +1395,20 @@ function VisorPrincipal({
     } else if (herramienta === "PUNTO" && !medicionPendiente) {
       const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
       if (p) setPuntosPunto((prev) => [...prev, p]);
+    } else if (herramienta === "POLILINEA" && !medicionPendiente) {
+      // El segundo clic de un doble clic (e.detail >= 2) NO suma otro
+      // punto: el primero ya colocó el último vértice y el dblclick que
+      // sigue (onSvgDoubleClick) cierra la polilínea.
+      if (e.detail >= 2) return;
+      const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
+      if (!p) return;
+      // Mismo umbral que el resto de las herramientas: un clic casi
+      // encima del punto anterior no agrega un tramo de largo cero.
+      setPuntosPolilinea((prev) => {
+        const ultimo = prev[prev.length - 1];
+        if (ultimo && Math.hypot(p.x - ultimo.x, p.y - ultimo.y) < 0.5) return prev;
+        return [...prev, p];
+      });
     } else if (herramienta === "TEXTO" && !textoPendientePunto) {
       const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
       if (p) setTextoPendientePunto(p);
@@ -1359,7 +1447,33 @@ function VisorPrincipal({
       // puesto se mantiene.
       finalizarRectaDrag();
       setRectaCursor(null);
+    } else if (herramienta === "POLILINEA") {
+      // Igual que Área: solo se limpia el tramo en vivo, los puntos ya
+      // puestos se mantienen.
+      setCursorPolilinea(null);
     }
+  };
+
+  // Cierra la polilínea con los puntos ya colocados (Enter, doble clic o
+  // el botón de la barra). Hacen falta al menos 2 puntos — con menos no
+  // hace nada (los puntos puestos se mantienen; Esc los descarta). Reusa
+  // el mismo modal de confirmación que Medir/Área (valor editable,
+  // descripción, repeticiones), con la medida de cada tramo además del
+  // total.
+  const finalizarPolilinea = () => {
+    if (puntosPolilinea.length < 2 || !pageDimsMM || doc.factorEscala == null || medicionPendiente) return;
+    const tramos = calcularTramosPolilinea(puntosPolilinea, pageDimsMM, doc.factorEscala);
+    const total = tramos.reduce((s, t) => s + t, 0);
+    if (!(total > 0)) return;
+    setMedicionPendiente({ tipo: "POLILINEA", puntos: puntosPolilinea, valor: total, tramos });
+    setPuntosPolilinea([]);
+    setCursorPolilinea(null);
+  };
+
+  // Doble clic = colocar el último punto (ya lo puso el primer clic del
+  // doble clic, ver onSvgClick) y cerrar.
+  const onSvgDoubleClick = () => {
+    if (herramienta === "POLILINEA" && !medicionPendiente) finalizarPolilinea();
   };
 
   const finalizarArea = () => {
@@ -1443,6 +1557,34 @@ function VisorPrincipal({
     } else {
       setHerramienta(null);
       setPuntosPunto([]);
+    }
+  };
+
+  // Polilínea — mismo patrón que toggleArea (el botón hace de "Finalizar"
+  // con 2+ puntos puestos; con menos, apaga la herramienta).
+  const togglePolilinea = () => {
+    if (herramienta !== "POLILINEA") {
+      setHerramienta("POLILINEA");
+      setPuntosPolilinea([]);
+      setCursorPolilinea(null);
+      setPuntosArea([]);
+      setCursorArea(null);
+      setPuntosPunto([]);
+      setDibujoActual(null);
+      setTrazoActual(null);
+      setRectaActual(null);
+      setRectaPrimerPunto(null);
+      setRectaCursor(null);
+      setTextoPendientePunto(null);
+      setMedicionObjetivo(null);
+      return;
+    }
+    if (puntosPolilinea.length >= 2) {
+      finalizarPolilinea();
+    } else {
+      setHerramienta(null);
+      setPuntosPolilinea([]);
+      setCursorPolilinea(null);
     }
   };
 
@@ -1544,15 +1686,61 @@ function VisorPrincipal({
     setMedicionObjetivo(null);
   };
 
+  // Polilínea: ¿hay una en curso (puntos puestos, sin modal abierto)? Va
+  // en un ref porque el listener de Escape de abajo solo se re-suscribe
+  // al cambiar de herramienta y leería un valor viejo.
+  const polilineaEnCursoRef = useRef(false);
+  useEffect(() => {
+    polilineaEnCursoRef.current = herramienta === "POLILINEA" && puntosPolilinea.length > 0 && !medicionPendiente;
+  }, [herramienta, puntosPolilinea.length, medicionPendiente]);
+
   useEffect(() => {
     if (!herramienta) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cancelarHerramienta();
+      if (e.key === "Escape") {
+        // Polilínea en curso: Esc descarta lo dibujado y deja la
+        // herramienta prendida. Sin nada en curso, sale de la
+        // herramienta como todas las demás.
+        if (polilineaEnCursoRef.current) {
+          setPuntosPolilinea([]);
+          setCursorPolilinea(null);
+          return;
+        }
+        cancelarHerramienta();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [herramienta]);
+
+  // Polilínea — al salir de la herramienta (otra herramienta, Esc o el
+  // botón) se descarta lo que hubiera en curso.
+  useEffect(() => {
+    if (herramienta !== "POLILINEA") {
+      setPuntosPolilinea([]);
+      setCursorPolilinea(null);
+    }
+  }, [herramienta]);
+
+  // Polilínea — Enter termina con los puntos ya colocados. Se ignora si
+  // el foco está en un campo de texto (ej. el modal de confirmación, que
+  // ya usa Enter para guardar).
+  useEffect(() => {
+    if (herramienta !== "POLILINEA") return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (puntosPolilinea.length >= 2 && !medicionPendiente) {
+        e.preventDefault();
+        finalizarPolilinea();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [herramienta, puntosPolilinea, medicionPendiente, pageDimsMM, doc.factorEscala]);
 
   // Se guarda directo al confirmar el texto en el modal — sin paso
   // intermedio "pendiente" ni banner flotante pidiendo Guardar/Cancelar
@@ -1684,6 +1872,15 @@ function VisorPrincipal({
         descripcion,
         rubroId: null,
       });
+    } else if (medicionPendiente.tipo === "POLILINEA") {
+      await onGuardarMedicion({
+        tipo: "POLILINEA",
+        puntos: medicionPendiente.puntos,
+        longitudReal: valor,
+        repeticiones,
+        descripcion,
+        rubroId: null,
+      });
     } else {
       await onGuardarMedicion({
         tipo: "PUNTO",
@@ -1740,9 +1937,12 @@ function VisorPrincipal({
       onToggleTexto: toggleTexto,
       medicionObjetivo,
       onIniciarAsignacionAncho: iniciarAsignacionAncho,
+      polilineaActiva: herramienta === "POLILINEA",
+      onTogglePolilinea: togglePolilinea,
+      puntosPolilineaCount: puntosPolilinea.length,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length, puntosPunto.length, medicionObjetivo]);
+  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length, puntosPunto.length, puntosPolilinea.length, medicionObjetivo]);
 
   useEffect(() => {
     return () => onControlesMedicionListos(null);
@@ -1750,6 +1950,16 @@ function VisorPrincipal({
   }, []);
 
   if (doc.tipoArchivo === "DWG") return <SinVistaPrevia doc={doc} />;
+
+  // Polilínea — total acumulado EN VIVO, incluido el tramo que sigue al
+  // cursor (de ahí que se calcule sobre puntos + cursor, no solo los ya
+  // colocados). null si no hay nada en curso.
+  const polilineaEnVivo = (() => {
+    if (herramienta !== "POLILINEA" || puntosPolilinea.length === 0 || medicionPendiente || !pageDimsMM || doc.factorEscala == null) return null;
+    const pts = cursorPolilinea ? [...puntosPolilinea, cursorPolilinea] : puntosPolilinea;
+    const tramos = calcularTramosPolilinea(pts, pageDimsMM, doc.factorEscala);
+    return { total: tramos.reduce((s, t) => s + t, 0), puntos: puntosPolilinea.length };
+  })();
 
   return (
     <>
@@ -1792,6 +2002,14 @@ function VisorPrincipal({
                 style={{ backgroundColor: c.valor }}
               />
             ))}
+          </div>
+        )}
+        {polilineaEnVivo && (
+          <div className="flex items-center gap-2 bg-white rounded-full px-3 py-1.5 shadow-md border border-slate-200 pointer-events-none">
+            <Waypoints className="w-3.5 h-3.5 text-[#2563EB]" />
+            <span className="text-xs text-slate-500">Total acumulado</span>
+            <span className="text-sm font-bold tabular-nums text-[#1A3A5C]">{fmtMetros(polilineaEnVivo.total)}</span>
+            <span className="text-[11px] text-slate-400">· {polilineaEnVivo.puntos} {polilineaEnVivo.puntos === 1 ? "punto" : "puntos"}</span>
           </div>
         )}
         {renderizandoPDF && !cargando && (
@@ -1872,6 +2090,12 @@ function VisorPrincipal({
         maxScale={6}
         centerOnInit
         panning={{ disabled: herramienta != null, velocityDisabled: false }}
+        // Con Polilínea el doble clic CIERRA la polilínea (ver
+        // onSvgDoubleClick): react-zoom-pan-pinch lo usa por defecto para
+        // hacer zoom, así que se desactiva solo mientras esa herramienta
+        // está activa. Con cualquier otra herramienta (o ninguna) no
+        // cambia nada.
+        doubleClick={{ disabled: herramienta === "POLILINEA" }}
         onZoomStop={actualizarDPRSegunZoom}
         onPanningStop={actualizarDPRSegunZoom}
       >
@@ -1933,6 +2157,7 @@ function VisorPrincipal({
               onMouseMove={onSvgMouseMove}
               onMouseLeave={onSvgMouseLeave}
               onClick={onSvgClick}
+              onDoubleClick={onSvgDoubleClick}
             >
               {/* Tres estados, tres colores, sin ambigüedad posible entre
                   "lo que ya guardé" y "lo que estoy dibujando ahora":
@@ -1972,6 +2197,19 @@ function VisorPrincipal({
                         strokeLinejoin="round"
                         vectorEffect="non-scaling-stroke"
                       />
+                    </g>
+                  );
+                }
+                // Polilínea guardada — mismo color/grosor/click-para-borrar
+                // que Medir. Sus vértices están en `puntos` (no en
+                // xInicio/xFin), por eso va antes del chequeo de abajo.
+                if (m.tipo === "POLILINEA" && m.puntos && m.puntos.length >= 2) {
+                  const pts = m.puntos.map((p) => `${p.x},${p.y}`).join(" ");
+                  return (
+                    <g key={m.id} style={estiloClick} onClick={onClickBorrar}>
+                      <title>{`"${m.descripcion}" — polilínea de ${m.puntos.length - 1} tramos${m.longitudReal != null ? `, ${fmtMetros(m.longitudReal)}` : ""} — click para eliminar`}</title>
+                      <polyline points={pts} fill="none" stroke="transparent" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                      <polyline points={pts} fill="none" stroke="#2563EB" strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                     </g>
                   );
                 }
@@ -2041,6 +2279,21 @@ function VisorPrincipal({
               {puntosArea.length > 0 && (
                 <polyline
                   points={[...puntosArea, ...(cursorArea ? [cursorArea] : [])].map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="none"
+                  stroke="#64748B"
+                  strokeWidth={0.8}
+                  strokeDasharray="5,3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+              {/* Polilínea en curso — mismo gris/punteado que el Área
+                  mientras se dibuja; el último tramo llega hasta el
+                  cursor. */}
+              {herramienta === "POLILINEA" && puntosPolilinea.length > 0 && !medicionPendiente && (
+                <polyline
+                  points={[...puntosPolilinea, ...(cursorPolilinea ? [cursorPolilinea] : [])].map((p) => `${p.x},${p.y}`).join(" ")}
                   fill="none"
                   stroke="#64748B"
                   strokeWidth={0.8}
@@ -2141,6 +2394,17 @@ function VisorPrincipal({
                   fillOpacity={0.15}
                   stroke="#F59E0B"
                   strokeWidth={1.75}
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+              {medicionPendiente?.tipo === "POLILINEA" && (
+                <polyline
+                  points={medicionPendiente.puntos.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="none"
+                  stroke="#F59E0B"
+                  strokeWidth={1.75}
+                  strokeLinecap="round"
                   strokeLinejoin="round"
                   vectorEffect="non-scaling-stroke"
                 />
@@ -2278,6 +2542,24 @@ function VisorPrincipal({
                     {i + 1}
                   </div>
                 ))}
+              {/* Polilínea terminada, a confirmar — la medida de CADA tramo
+                  sobre el plano (capa HTML, mismo motivo que Punto/Texto:
+                  el <svg> distorsiona de forma no uniforme) y, en el
+                  modal, el detalle y el total. */}
+              {medicionPendiente?.tipo === "POLILINEA" &&
+                medicionPendiente.tramos.map((t, i) => {
+                  const a = medicionPendiente.puntos[i];
+                  const b = medicionPendiente.puntos[i + 1];
+                  return (
+                    <div
+                      key={`tramoConfirmar-${i}`}
+                      style={{ left: `${(a.x + b.x) / 2}%`, top: `${(a.y + b.y) / 2}%` }}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-[6px] bg-amber-500 border border-white shadow-md text-[10px] font-bold text-white whitespace-nowrap select-none pointer-events-none"
+                    >
+                      {fmtMetros(t)}
+                    </div>
+                  );
+                })}
               {medicionPendiente?.tipo === "PUNTO" &&
                 medicionPendiente.puntos.map((p, i) => (
                   <div
@@ -2295,9 +2577,16 @@ function VisorPrincipal({
       {medicionPendiente && (
         <ModalConfirmarMedicion
           unidadLabel={
-            medicionPendiente.tipo === "LINEA" ? "Longitud (m)" : medicionPendiente.tipo === "AREA" ? "Área (m²)" : "Cantidad"
+            medicionPendiente.tipo === "LINEA"
+              ? "Longitud (m)"
+              : medicionPendiente.tipo === "POLILINEA"
+              ? "Longitud total (m)"
+              : medicionPendiente.tipo === "AREA"
+              ? "Área (m²)"
+              : "Cantidad"
           }
           valorInicial={medicionPendiente.valor}
+          tramos={medicionPendiente.tipo === "POLILINEA" ? medicionPendiente.tramos : undefined}
           onCancelar={() => setMedicionPendiente(null)}
           onGuardar={confirmarMedicion}
         />
@@ -2771,6 +3060,36 @@ export default function Visor({
               <Ruler className="w-3.5 h-3.5" /> {controlesMedicion?.herramienta === "LINEA" ? "Midiendo…" : "Medir"}
               {controlesMedicion?.herramienta === "LINEA" && <PistaEscape />}
             </button>
+            {/* Polilínea — medir una longitud con más de dos puntos. Tooltip
+                oscuro con el uso (mismo patrón group/group-hover que
+                "Agregar título" y el candado de Utilidad: sin librería),
+                en vez del title nativo del resto de las píldoras. Cuando
+                el botón está deshabilitado el tooltip explica por qué. */}
+            <span className="group relative inline-flex">
+              <button
+                onClick={controlesMedicion?.onTogglePolilinea}
+                disabled={!puedeActivarMedicion || !!controlesMedicion?.medicionObjetivo}
+                aria-label="Polilínea — medir una longitud con más de dos puntos"
+                className={clasePildoraHerramienta(!!controlesMedicion?.polilineaActiva, puedeActivarMedicion && !controlesMedicion?.medicionObjetivo)}
+              >
+                <Waypoints className="w-3.5 h-3.5" />
+                {controlesMedicion?.polilineaActiva
+                  ? controlesMedicion.puntosPolilineaCount >= 2
+                    ? `Finalizar (${controlesMedicion.puntosPolilineaCount})`
+                    : `Dibujando… (${controlesMedicion.puntosPolilineaCount})`
+                  : "Polilínea"}
+                {controlesMedicion?.polilineaActiva && <PistaEscape />}
+              </button>
+              <span className="pointer-events-none absolute left-0 top-full mt-2 hidden group-hover:block z-30 w-56">
+                <span className="block rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
+                  {controlesMedicion?.medicionObjetivo
+                    ? "No disponible mientras se está midiendo un ANCHO — cancelá con ESC o con el ícono de regla"
+                    : documentoPrincipal.tipoArchivo !== "PDF"
+                    ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
+                    : "Clic en cada punto. Doble clic o Enter para terminar. Esc cancela."}
+                </span>
+              </span>
+            </span>
             <button
               onClick={controlesMedicion?.onToggleArea}
               disabled={!puedeActivarMedicion || !!controlesMedicion?.medicionObjetivo}

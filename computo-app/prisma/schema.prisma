@@ -1087,7 +1087,7 @@ model MedicionDocumento {
   id            String           @id @default(cuid())
   documentoId   String
   documento     DocumentoMetraje @relation(fields: [documentoId], references: [id], onDelete: Cascade)
-  tipo          String           @default("LINEA") // "LINEA" | "AREA" | "PUNTO" (futuro)
+  tipo          String           @default("LINEA") // "LINEA" | "AREA" | "PUNTO" | "POLILINEA"
 
   // LINEA — dos puntos fijos, en % del plano (0-100). Opcionales porque
   // AREA no los usa (validado en la API, no acá — mismo criterio que el
@@ -1096,11 +1096,11 @@ model MedicionDocumento {
   yInicio       Float?
   xFin          Float?
   yFin          Float?
-  longitudReal  Float?           // metros — solo tipo=LINEA (factorEscala × distancia en papel)
+  longitudReal  Float?           // metros — tipo=LINEA (factorEscala × distancia en papel) y tipo=POLILINEA (total de los tramos)
 
   // AREA — polígono de N vértices (N >= 3), mismo sistema de
   // coordenadas (% del plano, 0-100) que xInicio/etc. de LINEA.
-  puntos        Json?            // [{ x: number, y: number }, ...] — solo tipo=AREA
+  puntos        Json?            // [{ x: number, y: number }, ...] — tipo=AREA, PUNTO y POLILINEA (vértices, N >= 2)
   areaReal      Float?           // m² — solo tipo=AREA (shoelace × factorEscala², editable a mano antes de guardar)
 
   repeticiones  Float            @default(1)

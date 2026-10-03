@@ -327,15 +327,21 @@ const tutorialFlujoPrincipal: PasoTutorial[] = [
     titulo: "Medí algo en el plano",
     contenido: (
       <>
-        En la barra de herramientas del Visor tenés seis opciones:{" "}
+        En la barra de herramientas del Visor tenés siete opciones:{" "}
         <strong className="text-slate-700">Medir</strong>,{" "}
+        <strong className="text-slate-700">Polilínea</strong>,{" "}
         <strong className="text-slate-700">Área</strong>,{" "}
         <strong className="text-slate-700">Punto</strong> (para contar
         elementos repetidos, como columnas o ventanas),{" "}
         <strong className="text-slate-700">Trazo libre</strong>,{" "}
         <strong className="text-slate-700">Línea recta</strong> y{" "}
         <strong className="text-slate-700">Texto</strong> — una para cada tipo
-        de medición o anotación que necesites. Para este ejemplo usamos{" "}
+        de medición o anotación que necesites.{" "}
+        <strong className="text-slate-700">Medir</strong> mide la distancia
+        entre dos puntos; <strong className="text-slate-700">Polilínea</strong>{" "}
+        suma varios tramos —un muro que dobla, un perímetro abierto o el
+        recorrido de una cañería—: hacés clic en cada punto y terminás con
+        doble clic o Enter (Esc cancela). Para este ejemplo usamos{" "}
         <strong className="text-slate-700">Medir</strong>: hacés clic y
         arrastrás sobre el plano, de una punta a la otra de lo que querés
         medir (un muro, por ejemplo), y soltás. Se abre un cuadro{" "}

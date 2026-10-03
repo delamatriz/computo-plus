@@ -382,7 +382,8 @@ export default function VisorProyectoPage() {
     // PUNTO nunca llega acá en la práctica — iniciarAsignacionAncho
     // fuerza herramienta a LINEA siempre (ver Visor.tsx) — pero el tipo
     // es la unión completa, así que se cubre el caso para que compile.
-    const anchoReal = input.tipo === "LINEA" ? input.longitudReal : input.tipo === "AREA" ? input.areaReal : input.valorConteo;
+    const anchoReal =
+      input.tipo === "LINEA" || input.tipo === "POLILINEA" ? input.longitudReal : input.tipo === "AREA" ? input.areaReal : input.valorConteo;
     const resFila = await fetch(`/api/proyectos/${proyectoId}/filas-metraje/${filaId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

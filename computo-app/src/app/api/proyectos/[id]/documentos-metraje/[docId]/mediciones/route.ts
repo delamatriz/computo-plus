@@ -65,8 +65,8 @@ function validarPuntoXY(p: unknown): p is { x: number; y: number } {
 }
 
 // POST — crea una marca de medición. tipo="LINEA" (dos puntos fijos),
-// tipo="AREA" (polígono de N >= 3 vértices) o tipo="PUNTO" (conteo,
-// N >= 1 marcadores).
+// tipo="AREA" (polígono de N >= 3 vértices), tipo="PUNTO" (conteo,
+// N >= 1 marcadores) o tipo="POLILINEA" (longitud sobre N >= 2 puntos).
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string; docId: string }> }
@@ -74,7 +74,8 @@ export async function POST(
   try {
     const { docId } = await context.params;
     const body = await req.json().catch(() => null);
-    const tipo = body?.tipo === "AREA" ? "AREA" : body?.tipo === "PUNTO" ? "PUNTO" : "LINEA";
+    const tipo =
+      body?.tipo === "AREA" ? "AREA" : body?.tipo === "PUNTO" ? "PUNTO" : body?.tipo === "POLILINEA" ? "POLILINEA" : "LINEA";
 
     const errorComun = validarComun(body);
     if (errorComun) {
@@ -133,6 +134,22 @@ export async function POST(
       }
       medicion = await db.medicionDocumento.create({
         data: { ...datosComunes, tipo: "PUNTO", puntos, areaReal: body.valorConteo },
+      });
+    } else if (tipo === "POLILINEA") {
+      const puntos = body?.puntos;
+      const puntosValidos = Array.isArray(puntos) && puntos.length >= 2 && puntos.every(validarPuntoXY);
+      // El total (editable a mano antes de guardar, igual que la longitud
+      // de LINEA) va en longitudReal; los vértices en `puntos` — mismas
+      // columnas que ya existen, no hace falta nada nuevo en el schema.
+      const longitudValida = typeof body?.longitudReal === "number" && isFinite(body.longitudReal) && body.longitudReal > 0;
+      if (!puntosValidos || !longitudValida) {
+        return NextResponse.json(
+          { error: "Se esperaba { puntos: [{x,y: 0-100}, ...] con mínimo 2, longitudReal: number > 0 }" },
+          { status: 400 }
+        );
+      }
+      medicion = await db.medicionDocumento.create({
+        data: { ...datosComunes, tipo: "POLILINEA", puntos, longitudReal: body.longitudReal },
       });
     } else {
       const camposNumericos = [body?.xInicio, body?.yInicio, body?.xFin, body?.yFin, body?.longitudReal];
