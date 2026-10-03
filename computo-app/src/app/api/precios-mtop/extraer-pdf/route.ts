@@ -20,6 +20,7 @@ Para cada ítem, identificá:
 - descripcion: el nombre/descripción del producto, tal como figura en el documento.
 - unidad: la unidad de venta (ej: "unidad", "m2", "m3", "kg", "bolsa", "rollo", "caja"). Si no está explícita en el documento, devolvé null antes que adivinar.
 - precioUnitario: el precio numérico, sin símbolo de moneda ni separadores de miles (ej: 1234.56).
+  Si el documento indica el precio por lote ("por 1.000 u", "x millar", "por 100 kg"), devolvé el precio UNITARIO: dividí el precio del documento por el lote, y aclará el lote en la descripción (ej: "Ladrillo de campo (lista por 1.000 u)") o en la unidad. Si no podés determinar con certeza de cuántas unidades es el precio, preferís null en la unidad y confianza baja antes que adivinar el divisor.
 - confianza: un número de 0 a 1 que indique qué tan seguro estás de haber leído ESTE ítem completo correctamente (descripción + unidad + precio) — 1 = totalmente seguro (texto impreso claro, sin ambigüedad), 0 = muy inseguro (texto borroso, cortado, ambiguo, o tuviste que inferir algo). Sé honesto y conservador: es mejor un número bajo cuando hay duda real que uno alto injustificado.
 
 También fijate si el documento tiene un encabezado, membrete o pie de página que identifique el nombre del proveedor/comercio — devolvelo en "proveedor" (null si no aparece ningún nombre de proveedor identificable en el documento — nunca lo inventes ni lo asumas del nombre del archivo).
