@@ -60,7 +60,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
                 leyesSociales: {
                   select: {
                     focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
-                    frlPct: true, fondoGarantiaPct: true, snisAdicionalPct: true,
+                    frlPct: true, fondoGarantiaPct: true, 
                   },
                 },
               },

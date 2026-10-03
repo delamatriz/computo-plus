@@ -625,8 +625,11 @@ const glosario: CategoriaGlosario[] = [
         nombre: "Leyes sociales",
         contenido: (
           <p>
-            Cargas sociales sobre la mano de obra en Uruguay. Porcentaje que
-            se agrega al costo de MO. Varía según categoría y convenio.
+            Cargas sociales sobre la mano de obra en Uruguay. Los aportes
+            patronales (los paga la empresa) son un porcentaje que se agrega
+            al costo de MO de cada rubro: es uno solo para todas las
+            categorías. El AUC lo paga el propietario al BPS y va aparte, no
+            entra al precio del rubro.
           </p>
         ),
       },

@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import path from "path";
 import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
 import { AUC_PCT_DEFAULT } from "@/lib/auc";
+import { CAJA_PROFESIONALES_ETIQUETA, CAJA_PROFESIONALES_PCT, montoCajaProfesionales, normalizarTipoCaja } from "@/lib/cajaProfesionales";
 
 // DM Sans — tipografía de marca de CÓMPUTO+ (ver CLAUDE.md), registrada acá
 // en vez de depender de las fuentes estándar de PDFKit (Helvetica), que no
@@ -107,6 +108,9 @@ export interface ProyectoConCapitulos {
   montoImponibleMO: number | null;
   // % de AUC del proyecto (LeyesSociales.aucPct, fracción). null → default legal.
   aucPct: number | null;
+  // Caja de Profesionales (Ley 17.738) — informativa, junto al AUC; nunca se
+  // suma a Precio Final. null → default (Arquitectura). Ver cajaProfesionales.ts.
+  cajaProfesionalesTipo: string | null;
   fechaInicio?: string | Date | null;
   fechaPresupuesto?: string | Date | null;
   plazoObra?: number | null;
@@ -950,6 +954,10 @@ export function PresupuestoPDF({
   const montoIVA = baseIVA * 0.22;
   const precioFinal = costoTotal + montoIVA;
   const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * (proyecto.aucPct ?? AUC_PCT_DEFAULT) : null;
+  // Caja de Profesionales: misma base que el AUC; solo informativa.
+  const tipoCaja = normalizarTipoCaja(proyecto.cajaProfesionalesTipo);
+  const cajaProfesionales =
+    proyecto.montoImponibleMO != null && tipoCaja !== "NO_APLICA" ? montoCajaProfesionales(proyecto.montoImponibleMO, tipoCaja) : null;
   // AUC (leyesSocialesPropietario) — aporte aparte del propietario a BPS,
   // mensual, ligado al avance real de obra, no parte de lo que la empresa
   // factura (Ley 18.172, Título 10 exonera de IVA los servicios bajo
@@ -1126,6 +1134,14 @@ export function PresupuestoPDF({
               <Text style={styles.labelResumenLinea}>LEYES SOCIALES/BPS</Text>
               <Text style={styles.montoResumenLinea}>{fmtMonTotal(leyesSocialesPropietario, simbolo)}</Text>
             </View>
+            {!!cajaProfesionales && (
+              <View style={styles.filaResumenLinea}>
+                <Text style={styles.labelResumenLinea}>
+                  CAJA DE PROFESIONALES ({CAJA_PROFESIONALES_ETIQUETA[tipoCaja].split(" (")[0].toUpperCase()} {CAJA_PROFESIONALES_PCT[tipoCaja]}%)
+                </Text>
+                <Text style={styles.montoResumenLinea}>{fmtMonTotal(cajaProfesionales, simbolo)}</Text>
+              </View>
+            )}
           </View>
         )}
 

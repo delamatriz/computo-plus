@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { calcularMOTotal } from "@/lib/calculos";
+import { LEYES_SOCIALES_DEFAULTS_FRACCION } from "@/lib/aportesPatronales";
+import { normalizarTipoCaja } from "@/lib/cajaProfesionales";
+
+// Los cinco fondos patronales (y los dos personales informativos) se pasan explícitos al crear (en vez de depender
+// del @default de schema.prisma): así un proyecto nuevo nace siempre con los
+// valores de aportesPatronales.ts, aunque el default de la base se actualice
+// después (prisma db push).
 
 // GET — retorna el registro LeyesSociales del proyecto; lo crea con defaults si no existe
 export async function GET(
@@ -15,7 +22,7 @@ export async function GET(
     if (!leyesSociales) {
       const { total: montoImponibleMO } = await calcularMOTotal(proyectoId);
       leyesSociales = await db.leyesSociales.create({
-        data: { proyectoId, montoImponibleMO },
+        data: { proyectoId, montoImponibleMO, ...LEYES_SOCIALES_DEFAULTS_FRACCION },
       });
     }
 
@@ -38,7 +45,7 @@ export async function POST(
     const leyesSociales = await db.leyesSociales.upsert({
       where: { proyectoId },
       update: { montoImponibleMO },
-      create: { proyectoId, montoImponibleMO },
+      create: { proyectoId, montoImponibleMO, ...LEYES_SOCIALES_DEFAULTS_FRACCION },
     });
 
     return NextResponse.json({ ...leyesSociales, metodo });
@@ -68,12 +75,15 @@ export async function PUT(
       ...(body.fondoGarantiaPct  !== undefined && { fondoGarantiaPct:  body.fondoGarantiaPct }),
       ...(body.snisAdicionalPct  !== undefined && { snisAdicionalPct:  body.snisAdicionalPct }),
       ...(body.focerPersonalPct  !== undefined && { focerPersonalPct:  body.focerPersonalPct }),
+      // Caja de Profesionales (informativa) — se valida contra los 3 tipos
+      // conocidos; un valor raro cae al default en vez de guardarse.
+      ...(body.cajaProfesionalesTipo !== undefined && { cajaProfesionalesTipo: normalizarTipoCaja(body.cajaProfesionalesTipo) }),
     };
 
     const leyesSociales = await db.leyesSociales.upsert({
       where: { proyectoId },
       update: campos,
-      create: { proyectoId, ...campos },
+      create: { proyectoId, ...LEYES_SOCIALES_DEFAULTS_FRACCION, ...campos },
     });
 
     return NextResponse.json(leyesSociales);

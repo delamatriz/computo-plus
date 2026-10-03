@@ -5,6 +5,7 @@ import { Building2, ChevronDown, ChevronRight, RotateCw, Info } from "lucide-rea
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { RESERVA_COLA_TABLA } from "@/lib/layoutTablaPresupuesto";
+import { CAJA_PROFESIONALES_ETIQUETA, CAJA_PROFESIONALES_PCT, montoCajaProfesionales, normalizarTipoCaja, type TipoCajaProfesionales } from "@/lib/cajaProfesionales";
 import { AUC_PCT_DEFAULT, AUC_PCT_JUBILATORIOS, AUC_PCT_CARGAS_SALARIALES, AUC_PCT_FONASA, AUC_PCT_BSE } from "@/lib/auc";
 
 export interface LeyesSocialesData {
@@ -18,6 +19,9 @@ export interface LeyesSocialesData {
   fondoGarantiaPct: number;
   snisAdicionalPct: number;
   focerPersonalPct: number;
+  // Caja de Profesionales (Ley 17.738) — informativa, sin efecto en ningún
+  // precio. Ver src/lib/cajaProfesionales.ts.
+  cajaProfesionalesTipo: TipoCajaProfesionales;
 }
 
 interface Props {
@@ -49,8 +53,11 @@ function fmtMoneda(v: number, moneda: string): string {
   return moneda === "USD" ? `U$S ${fmt}` : `$ ${fmt}`;
 }
 
+// Hasta 4 decimales (mínimo 1): los fondos patronales legales tienen
+// 1,2691% (FSC + FOCAP) y 0,025% (FOSVOC, Fondo de Garantía) — con 1 decimal
+// se veían como 1,3% y 0,0%.
 function fmtPct(v: number): string {
-  return (v * 100).toLocaleString("es-UY", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return (v * 100).toLocaleString("es-UY", { minimumFractionDigits: 1, maximumFractionDigits: 4 });
 }
 
 /** Input editable inline para un porcentaje (almacenado como fracción 0–1) */
@@ -65,13 +72,13 @@ function PctInput({
     <span className="inline-flex items-center gap-0.5">
       <input
         type="number"
-        step="0.1"
-        value={value === 0 ? "" : (value * 100).toFixed(1)}
+        step="any"
+        value={value === 0 ? "" : String(Number((value * 100).toFixed(4)))}
         onChange={(e) => {
           const n = parseFloat(e.target.value);
           onChange(isNaN(n) ? 0 : n / 100);
         }}
-        className="w-12 text-right text-sm font-semibold text-slate-600 bg-transparent border-b border-dashed border-slate-300 focus:outline-none focus:border-[#2563EB] focus:text-[#2563EB] tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-14 text-right text-sm font-semibold text-slate-600 bg-transparent border-b border-dashed border-slate-300 focus:outline-none focus:border-[#2563EB] focus:text-[#2563EB] tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       <span className="text-xs text-slate-400">%</span>
     </span>
@@ -183,7 +190,12 @@ export default function SeccionLeyesSociales({
   // vive como ítem (exentoIVA) dentro de Gastos Generales Detallado, ver
   // gastosGenerales.ts — se muestra ahí, no se duplica en esta cascada.
   const montoAUC = base * data.aucPct;
-  const totalPropietario = montoAUC;
+  const totalPropietario = montoAUC; // header de la tarjeta y Precio Final: solo AUC
+  // Caja de Profesionales — informativa: mismo monto imponible que el AUC, se
+  // recauda junto con él. No entra a ningún precio ni al header de arriba.
+  const tipoCaja = normalizarTipoCaja(data.cajaProfesionalesTipo);
+  const montoCaja = montoCajaProfesionales(base, tipoCaja);
+  const totalPropietarioConCaja = montoAUC + montoCaja;
 
   // Desglose legal del 71,8% de AUC (Decreto 341/018 — ver src/lib/auc.ts) —
   // 4 componentes fijos que no se editan por separado, solo informativos. Se
@@ -204,16 +216,19 @@ export default function SeccionLeyesSociales({
   const montoFosvoc        = base * data.fosvocPct;
   const montoFrl           = base * data.frlPct;
   const montoFondoGarantia = base * data.fondoGarantiaPct;
-  const montoSnisAdicional = base * data.snisAdicionalPct;
+  // SNIS adicional ya NO es patronal: es un aporte personal variable del
+  // trabajador (ver aportesPatronales.ts) — vive en "Retención personal".
   const pctTotalEmpresa =
     data.focerPatronalPct + data.fscFocapPct + data.fosvocPct +
-    data.frlPct + data.fondoGarantiaPct + data.snisAdicionalPct;
+    data.frlPct + data.fondoGarantiaPct;
   const totalEmpresa =
     montoFocerPatronal + montoFscFocap + montoFosvoc +
-    montoFrl + montoFondoGarantia + montoSnisAdicional;
+    montoFrl + montoFondoGarantia;
 
-  // Retención personal
+  // Retención personal (informativa, no entra al precio)
   const montoFocerPersonal = base * data.focerPersonalPct;
+  const montoSnisAdicional = base * data.snisAdicionalPct;
+  const totalRetencionPersonal = montoFocerPersonal + montoSnisAdicional;
 
   const set = <K extends keyof LeyesSocialesData>(field: K, value: LeyesSocialesData[K]) =>
     onChange({ ...data, [field]: value });
@@ -444,11 +459,38 @@ export default function SeccionLeyesSociales({
                       )}
                     </AnimatePresence>
                   </div>
+                  {/* Caja de Profesionales — informativa (Ley 17.738): se recauda
+                      junto con el AUC sobre el mismo monto imponible. Sin efecto
+                      en ningún precio. Selector Arquitectura / Ingeniería / No aplica. */}
+                  <div className="flex flex-wrap items-center gap-y-1 px-4 py-1.5 border-b border-slate-50">
+                    <div className="flex-1 min-w-[150px] flex items-center gap-1">
+                      <span className="text-sm text-slate-700">Caja de Profesionales</span>
+                      <span
+                        title="Aporte del propietario que se recauda junto con el AUC (Ley 17.738): 4% en obras de arquitectura, 2% en ingeniería. Solo informativo: no entra al precio de ningún rubro."
+                        className="inline-flex flex-shrink-0 cursor-help"
+                      >
+                        <Info className="w-3 h-3 text-slate-300 hover:text-slate-500 transition-colors" />
+                      </span>
+                    </div>
+                    <select
+                      value={tipoCaja}
+                      onChange={(e) => set("cajaProfesionalesTipo", e.target.value as TipoCajaProfesionales)}
+                      aria-label="Tipo de obra para la Caja de Profesionales"
+                      className="ml-auto mr-2 px-1.5 py-0.5 text-xs text-slate-600 bg-white border border-slate-200 rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+                    >
+                      {(Object.keys(CAJA_PROFESIONALES_ETIQUETA) as TipoCajaProfesionales[]).map((t) => (
+                        <option key={t} value={t}>{CAJA_PROFESIONALES_ETIQUETA[t]}</option>
+                      ))}
+                    </select>
+                    <div className="text-right tabular-nums text-sm font-semibold text-[#2563EB]" style={{ width: 80 }}>
+                      {tipoCaja === "NO_APLICA" ? "—" : fmtMoneda(montoCaja, moneda)}
+                    </div>
+                  </div>
                   <FilaAporte
                     concepto="TOTAL Propietario"
                     codigo=""
-                    pct={data.aucPct}
-                    monto={totalPropietario}
+                    pct={data.aucPct + CAJA_PROFESIONALES_PCT[tipoCaja] / 100}
+                    monto={totalPropietarioConCaja}
                     moneda={moneda}
                     destacado
                   />
@@ -464,7 +506,6 @@ export default function SeccionLeyesSociales({
                   <FilaAporte concepto="FOSVOC"                   codigo="43"  pct={data.fosvocPct}        onPctChange={(v) => set("fosvocPct", v)}        monto={montoFosvoc}        moneda={moneda} base={base} />
                   <FilaAporte concepto="FRL"                      codigo="47"  pct={data.frlPct}           onPctChange={(v) => set("frlPct", v)}           monto={montoFrl}           moneda={moneda} base={base} />
                   <FilaAporte concepto="Fdo. Garantía Créd. Lab." codigo="49"  pct={data.fondoGarantiaPct} onPctChange={(v) => set("fondoGarantiaPct", v)} monto={montoFondoGarantia} moneda={moneda} base={base} />
-                  <FilaAporte concepto="SNIS adicional"           codigo="108" pct={data.snisAdicionalPct} onPctChange={(v) => set("snisAdicionalPct", v)} monto={montoSnisAdicional} moneda={moneda} base={base} />
                   <FilaAporte concepto="TOTAL Empresa" codigo="" pct={pctTotalEmpresa} monto={totalEmpresa} moneda={moneda} destacado />
                 </div>
               </div>
@@ -483,13 +524,24 @@ export default function SeccionLeyesSociales({
                   moneda={moneda}
                   base={base}
                 />
+                {/* SNIS adicional: aporte personal variable del trabajador (no
+                    patronal) — informativo, no entra al precio. */}
+                <FilaAporte
+                  concepto="SNIS adicional"
+                  codigo="108"
+                  pct={data.snisAdicionalPct}
+                  onPctChange={(v) => set("snisAdicionalPct", v)}
+                  monto={montoSnisAdicional}
+                  moneda={moneda}
+                  base={base}
+                />
               </div>
 
               {/* Bloque inferior — resumen */}
               <div className="flex flex-col sm:flex-row gap-3">
-                <CardResumen titulo="Aportes propietario"            monto={totalPropietario}    moneda={moneda} />
+                <CardResumen titulo="Aportes propietario"  monto={totalPropietarioConCaja} moneda={moneda} />
                 <CardResumen titulo="Aportes empresa (patronal)"     monto={totalEmpresa}        moneda={moneda} />
-                <CardResumen titulo="Retención personal"             monto={montoFocerPersonal}  moneda={moneda} />
+                <CardResumen titulo="Retención personal"             monto={totalRetencionPersonal} moneda={moneda} />
               </div>
 
               <div className="flex justify-end">

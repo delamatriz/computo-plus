@@ -92,8 +92,7 @@ export default function SeccionComparativoOfertas({ proyectoId, moneda }: Props)
         (leyes.fscFocapPct ?? 0) +
         (leyes.fosvocPct ?? 0) +
         (leyes.frlPct ?? 0) +
-        (leyes.fondoGarantiaPct ?? 0) +
-        (leyes.snisAdicionalPct ?? 0);
+        (leyes.fondoGarantiaPct ?? 0);
       setPctLeyesEmpresa(pctEmpresa);
 
       const caps: CapituloInfo[] = [];

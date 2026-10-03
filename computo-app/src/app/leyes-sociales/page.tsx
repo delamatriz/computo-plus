@@ -2,6 +2,23 @@
 
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
+import { AUC_PCT_DEFAULT } from "@/lib/auc";
+import { FONDOS_PATRONALES, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/aportesPatronales";
+
+// Los porcentajes de los aportes patronales salen de aportesPatronales.ts
+// (única fuente, la misma que usan los rubros nuevos y la tarjeta Leyes
+// Sociales/BPS): la guía nunca vuelve a tener su propia copia de los números.
+const fmtPct = (pct: number) =>
+  pct.toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+const fmtMonto = (n: number) =>
+  n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const JORNAL_EJEMPLO = 2176.19; // Medio Oficial Albañil (Categoría V)
+const AUC_PCT_PUNTOS = AUC_PCT_DEFAULT * 100;
+// Total de referencia sobre el jornal: AUC (lo paga el propietario) + los
+// aportes patronales (los paga la empresa).
+const TOTAL_REFERENCIA_PCT = AUC_PCT_PUNTOS + APORTES_PATRONALES_PCT_LEGAL_DEFAULT;
+const COSTO_REAL_EJEMPLO = JORNAL_EJEMPLO * (1 + TOTAL_REFERENCIA_PCT / 100);
 
 // Info general de BPS (no el texto de una ley puntual) — base de esta
 // sección práctica.
@@ -22,8 +39,9 @@ const referencias: ReferenciaLink[] = [
 // (desktop) y la barra de pills horizontal (mobile). Mismos ids que las
 // <section> más abajo.
 const secciones = [
+  { id: "quien-paga", label: "Quién paga qué" },
   { id: "auc", label: "AUC" },
-  { id: "fondos-adicionales", label: "Fondos adicionales" },
+  { id: "fondos-adicionales", label: "Aportes patronales" },
   { id: "caja-profesionales", label: "Caja de Profesionales" },
   { id: "total-referencia", label: "Total de referencia" },
   { id: "ejemplo", label: "Ejemplo" },
@@ -173,11 +191,41 @@ export default function LeyesSocialesPage() {
 
           {/* Contenido de la guía */}
           <div className="flex-1 min-w-0 space-y-10">
+            <section id="quien-paga" className="scroll-mt-20">
+              <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
+                Quién paga qué
+              </h3>
+              <Tabla
+                encabezados={["Aporte", "Quién lo paga y dónde entra"]}
+                filas={[
+                  [
+                    `AUC (${fmtPct(AUC_PCT_PUNTOS)}%)`,
+                    "Lo paga el propietario directamente al BPS. Va aparte, después del Precio Final: no entra al precio de ningún rubro",
+                  ],
+                  [
+                    "Caja de Profesionales (4% arquitectura / 2% ingeniería)",
+                    "La paga el propietario y se recauda junto con el AUC, sobre el mismo monto imponible. En Cómputo+ es solo informativa: no entra a ningún precio",
+                  ],
+                  [
+                    "Aportes patronales (FOCER, FSC/FOCAP, FOSVOC, FRL, Fondo de Garantía de Créditos Laborales)",
+                    "Los paga la empresa. Van dentro del costo de la mano de obra de cada rubro, como un % solo sobre la mano de obra",
+                  ],
+                  [
+                    "Aportes personales (FOCER personal 0,5%, SNIS adicional)",
+                    "Los paga el trabajador: se le descuentan del jornal. No son un costo de la empresa y no entran al precio (se muestran como informativos)",
+                  ],
+                ]}
+              />
+            </section>
+
             <section id="auc" className="scroll-mt-20">
               <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
                 AUC (Aporte Unificado de la Construcción) — el aporte
                 principal
               </h3>
+              <p className="text-sm text-slate-500 mb-2">
+                Lo paga el propietario directamente al BPS.
+              </p>
               <p className="text-sm font-semibold text-slate-700 mb-1">
                 Total: 71,8% sobre el jornal.
               </p>
@@ -200,25 +248,66 @@ export default function LeyesSocialesPage() {
 
             <section id="fondos-adicionales" className="scroll-mt-20">
               <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
-                Fondos adicionales
+                Aportes patronales (fondos que paga la empresa)
               </h3>
+              <p className="text-sm text-slate-500 mb-1">
+                Los paga la empresa, no el propietario. Se calculan sobre la
+                mano de obra y van dentro del precio de cada rubro: es un solo
+                porcentaje para todas las categorías, no varía según
+                categoría ni convenio.
+              </p>
               <Tabla
-                encabezados={["Fondo", "% patronal", "% personal", "Total"]}
+                encabezados={["Fondo", "Código BPS", "% sobre la mano de obra"]}
                 filas={[
-                  ["FSC + FOCAP (código 34)", "—", "—", "1,85%"],
-                  ["FOSVOC (código 43)", "0,025%", "0,025%", "0,05%"],
-                  ["FRL (Fondo de Reconversión Laboral)", "0,125%", "0,10%", "0,225%"],
+                  ...FONDOS_PATRONALES.map((f) => [
+                    f.nombre,
+                    f.codigoBPS,
+                    `${fmtPct(f.pct)}%`,
+                  ]),
+                  ["Total aportes patronales", "", `${fmtPct(APORTES_PATRONALES_PCT_LEGAL_DEFAULT)}%`],
                 ]}
               />
+              <p className="text-sm text-slate-500 mt-3">
+                <strong className="text-slate-700">FOCER patronal:</strong>{" "}
+                es 5% o 0,5% según la situación del trabajador (Ley 18.236,
+                art. 16). La tabla usa el 5%; si en la obra corresponde el
+                0,5%, se edita en Presupuesto → Leyes Sociales/BPS.
+              </p>
+              <p className="text-sm text-slate-500 mt-2">
+                <strong className="text-slate-700">SNIS adicional:</strong>{" "}
+                no es un aporte patronal sino un aporte{" "}
+                <strong className="text-slate-700">personal</strong> variable
+                del trabajador (0,5% de referencia): por eso no entra en la
+                tabla ni en el precio del rubro.
+              </p>
+              <p className="text-sm text-slate-500 mt-2">
+                <strong className="text-slate-700">El 7,5%:</strong> es el
+                aporte jubilatorio patronal que se paga solo sobre las
+                partidas (alimentación, salud, seguros, transporte); no
+                integra el AUC y no es una carga fija sobre el jornal, así
+                que no está en la tabla.
+              </p>
+              <p className="text-sm text-slate-500 mt-2">
+                <strong className="text-slate-700">
+                  Complemento de Cuota Mutual (CCM):
+                </strong>{" "}
+                depende de los beneficiarios de cada trabajador; Cómputo+ no
+                lo modela.
+              </p>
             </section>
 
             <section id="caja-profesionales" className="scroll-mt-20">
               <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
-                Si dirigís la obra como arquitecto
+                Caja de Profesionales
               </h3>
               <p className="text-sm text-slate-500">
-                Sumá un 4% de Caja de Profesionales (2% si es obra de
-                Ingeniería) — Ley 17.738. Es aparte del AUC, no lo reemplaza.
+                4% del monto imponible en obras de arquitectura (2% en
+                ingeniería) — Ley 17.738. Se recauda junto con el AUC y es
+                aparte de él, no lo reemplaza. En la tarjeta Leyes
+                Sociales/BPS la elegís (Arquitectura / Ingeniería / No aplica;
+                por defecto Arquitectura) y se muestra también en el PDF
+                junto al AUC, como línea informativa: no entra al precio de
+                ningún rubro ni al Precio Final.
               </p>
             </section>
 
@@ -227,9 +316,10 @@ export default function LeyesSocialesPage() {
                 Total de referencia sobre jornal
               </h3>
               <p className="text-sm text-slate-700">
-                AUC (71,8%) + FSC/FOCAP (1,85%) + FOSVOC (0,05%) + FRL
-                (0,225%) ≈{" "}
-                <span className="font-bold text-[#2563EB]">73,93%</span>
+                AUC ({fmtPct(AUC_PCT_PUNTOS)}%, lo paga el propietario) + aportes
+                patronales ({fmtPct(APORTES_PATRONALES_PCT_LEGAL_DEFAULT)}%, los
+                paga la empresa) ≈{" "}
+                <span className="font-bold text-[#2563EB]">{fmtPct(TOTAL_REFERENCIA_PCT)}%</span>
               </p>
             </section>
 
@@ -238,11 +328,12 @@ export default function LeyesSocialesPage() {
                 Ejemplo
               </h3>
               <p className="text-sm text-slate-500 mb-1">
-                Medio Oficial Albañil (Categoría V), jornal $2.176,19:
+                Medio Oficial Albañil (Categoría V), jornal ${fmtMonto(JORNAL_EJEMPLO)}:
               </p>
               <p className="text-sm text-slate-700">
-                Costo real de mano de obra por jornada ≈ $2.176,19 × 1,7393 ≈{" "}
-                <span className="font-bold text-[#2563EB]">$3.785,05</span>
+                Costo real de mano de obra por jornada ≈ ${fmtMonto(JORNAL_EJEMPLO)} ×{" "}
+                {(1 + TOTAL_REFERENCIA_PCT / 100).toLocaleString("es-UY", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ≈{" "}
+                <span className="font-bold text-[#2563EB]">${fmtMonto(COSTO_REAL_EJEMPLO)}</span>
               </p>
             </section>
 
@@ -312,9 +403,10 @@ export default function LeyesSocialesPage() {
                 <strong className="text-slate-700">
                   Presupuesto → Leyes Sociales/BPS
                 </strong>
-                . Ahí vas a ver dos tablas, &quot;Empresa paga&quot; y
-                &quot;Propietario paga&quot;, con cada fila (AUC, FOCER
-                patronal, FSC/FOCAP, FOSVOC, FRL, etc.) editable una por una.
+                . Ahí vas a ver las tablas &quot;Empresa paga&quot; y
+                &quot;Propietario paga&quot;, y la retención personal, con cada
+                fila (AUC, FOCER patronal, FSC/FOCAP, FOSVOC, FRL, etc.)
+                editable una por una.
                 Apenas cambiás un valor, el total de esa tarjeta se actualiza
                 al instante — es un cálculo en vivo.
               </p>

@@ -30,6 +30,8 @@ import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMate
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
 import { calcularDiasObra } from "@/lib/diasObra";
+import { LEYES_SOCIALES_DEFAULTS_FRACCION } from "@/lib/aportesPatronales";
+import { normalizarTipoCaja } from "@/lib/cajaProfesionales";
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada } from "@/lib/costoAgregado";
 import { calcularImprevistos } from "@/lib/gastosGenerales";
 import { AUC_PCT_DEFAULT } from "@/lib/auc";
@@ -3336,13 +3338,14 @@ export default function ProyectoPage() {
           tipoContratante:  data.tipoContratante  ?? "empresa",
           montoImponibleMO: data.montoImponibleMO ?? 0,
           aucPct:           data.aucPct           ?? AUC_PCT_DEFAULT,
-          focerPatronalPct: data.focerPatronalPct ?? 0.075,
-          fscFocapPct:      data.fscFocapPct      ?? 0.010,
-          fosvocPct:        data.fosvocPct        ?? 0.005,
-          frlPct:           data.frlPct           ?? 0.002,
-          fondoGarantiaPct: data.fondoGarantiaPct ?? 0.005,
-          snisAdicionalPct: data.snisAdicionalPct ?? 0.005,
-          focerPersonalPct: data.focerPersonalPct ?? 0.030,
+          focerPatronalPct: data.focerPatronalPct ?? LEYES_SOCIALES_DEFAULTS_FRACCION.focerPatronalPct,
+          fscFocapPct:      data.fscFocapPct      ?? LEYES_SOCIALES_DEFAULTS_FRACCION.fscFocapPct,
+          fosvocPct:        data.fosvocPct        ?? LEYES_SOCIALES_DEFAULTS_FRACCION.fosvocPct,
+          frlPct:           data.frlPct           ?? LEYES_SOCIALES_DEFAULTS_FRACCION.frlPct,
+          fondoGarantiaPct: data.fondoGarantiaPct ?? LEYES_SOCIALES_DEFAULTS_FRACCION.fondoGarantiaPct,
+          snisAdicionalPct: data.snisAdicionalPct ?? LEYES_SOCIALES_DEFAULTS_FRACCION.snisAdicionalPct,
+          focerPersonalPct: data.focerPersonalPct ?? LEYES_SOCIALES_DEFAULTS_FRACCION.focerPersonalPct,
+          cajaProfesionalesTipo: normalizarTipoCaja(data.cajaProfesionalesTipo),
         });
       } catch (err) {
         console.error("[cargar leyes sociales]", err);

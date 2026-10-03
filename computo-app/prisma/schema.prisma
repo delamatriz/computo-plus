@@ -163,16 +163,31 @@ model LeyesSociales {
   // Mantener sincronizado con AUC_PCT_DEFAULT en src/lib/auc.ts.
   aucPct Float @default(0.718)
 
-  // Empresa — aportes patronales
-  focerPatronalPct Float @default(0.075) // 7.5% — Código 145
-  fscFocapPct      Float @default(0.010) // 1.0% — Código 34
-  fosvocPct        Float @default(0.005) // 0.5% — Código 43
-  frlPct           Float @default(0.002) // 0.2% — Código 47
-  fondoGarantiaPct Float @default(0.005) // 0.5% — Código 49
-  snisAdicionalPct Float @default(0.005) // 0.5% — Código 108
+  // Empresa — aportes patronales (se guardan como fracción: 0.012691 = 1,2691%)
+  // Valores de aportesPatronales.ts (única fuente: valor, código BPS, fuente y
+  // fecha). Fuente: BPS y Ley 18.236 art. 16 (modificado), parte patronal,
+  // verificado oct-2026. Antes eran 7,5 / 1,0 / 0,5 / 0,2 / 0,5 (+ SNIS 0,5 =
+  // 10,2%), sin fuente documentada. Mantener sincronizado con
+  // aportesPatronales.ts. Float = doble precisión: guarda sin pérdida los 4
+  // decimales de FSC+FOCAP. Suma patronal: 6,4191% (FOCER 5%).
+  focerPatronalPct Float @default(0.05)     // 5% — Código 145 (5% o 0,5% según el personal; editable por proyecto)
+  fscFocapPct      Float @default(0.012691) // 1,2691% — Código 34
+  fosvocPct        Float @default(0.00025)  // 0,025% — Código 43
+  frlPct           Float @default(0.001)    // 0,10% — Código 47
+  fondoGarantiaPct Float @default(0.00025)  // 0,025% — Código 49
 
-  // Empresa — aporte personal (descuento al obrero, la empresa lo retiene)
-  focerPersonalPct Float @default(0.030) // 3.0% — Código 146
+  // Trabajador — aportes PERSONALES informativos (no entran a ningún precio).
+  // SNIS adicional es un aporte personal variable, NO patronal: ya no integra
+  // la suma de "Empresa paga" (oct-2026). FOCER personal: era 3,0 sin fuente.
+  snisAdicionalPct Float @default(0.005) // 0,5% — Código 108
+  focerPersonalPct Float @default(0.005) // 0,5% — Código 146
+
+  // Caja de Profesionales (Ley 17.738) — aporte del propietario recaudado junto
+  // con el AUC, sobre el mismo monto imponible: "ARQUITECTURA" 4% |
+  // "INGENIERIA" 2% | "NO_APLICA". SOLO informativa: no entra al precio.
+  // String (no enum), mismo criterio que tipoContratante. Mantener sincronizado
+  // con CAJA_PROFESIONALES_TIPO_DEFAULT en src/lib/cajaProfesionales.ts.
+  cajaProfesionalesTipo String @default("ARQUITECTURA")
 
   updatedAt DateTime @updatedAt
 }
@@ -315,10 +330,11 @@ model APU {
   // FOSVOC, FRL, Fondo Garantía, SNIS adicional), aplicado SOLO sobre la
   // porción de Mano de Obra del Costo Directo (ver montoAportesPatronales en
   // apu-calc.ts). Se lee en vivo desde LeyesSociales del proyecto (o el
-  // default legal 10,2% si el registro no existe todavía) únicamente al
+  // default legal si el registro no existe todavía) únicamente al
   // crear/regenerar este APU — después queda congelado acá, mismo criterio
-  // que gastosGeneralesPct/utilidadPct.
-  aportesPatronalesPct Float       @default(10.2)
+  // que gastosGeneralesPct/utilidadPct. El @default es la suma de los cinco
+  // fondos patronales de aportesPatronales.ts (6,4191 con FOCER 5%; era 10,2).
+  aportesPatronalesPct Float       @default(6.4191)
   // % de piedra bruta sobre 1 m3, para hormigón ciclópeo — desplaza volumen
   // de hormigón simple (cemento+arena+balasto) al recalcular en vivo.
   porcentajePiedra   Float         @default(0.30)

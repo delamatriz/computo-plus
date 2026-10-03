@@ -85,7 +85,7 @@ export async function PUT(
                     leyesSociales: {
                       select: {
                         focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
-                        frlPct: true, fondoGarantiaPct: true, snisAdicionalPct: true,
+                        frlPct: true, fondoGarantiaPct: true, 
                       },
                     },
                   },
@@ -264,7 +264,7 @@ export async function PATCH(
                 leyesSociales: {
                   select: {
                     focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
-                    frlPct: true, fondoGarantiaPct: true, snisAdicionalPct: true,
+                    frlPct: true, fondoGarantiaPct: true, 
                   },
                 },
               },

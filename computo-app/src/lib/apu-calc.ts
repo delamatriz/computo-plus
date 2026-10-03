@@ -2,6 +2,8 @@
 // de API que clonan/guardan un APU (servidor) — para no duplicar la lógica
 // de modo de costeo de equipos en los dos lugares.
 
+import { APORTES_PATRONALES_PCT_LEGAL_DEFAULT, redondearPctAportes } from "./aportesPatronales";
+
 export interface EquipoCalc {
   id?: string;
   rendimiento: number;
@@ -66,14 +68,13 @@ export function calcularPrecioUnitario(
 }
 
 // ── Aportes Patronales BPS (Empresa paga) ───────────────────────────────
-// % legal por default (Uruguay 2025) — FOCER patronal 7,5% + FSC/FOCAP 1% +
-// FOSVOC 0,5% + FRL 0,2% + Fondo Garantía 0,5% + SNIS adicional 0,5% =
-// 10,2%. Mismo valor que el @default() de LeyesSociales en schema.prisma,
-// usado acá como fallback cuando el proyecto todavía no tiene un registro
-// LeyesSociales — se crea de forma perezosa (ver
+// % legal por default: la suma de los cinco fondos patronales definidos en
+// aportesPatronales.ts (única fuente, con su valor, código BPS, fuente y
+// fecha de verificación). Se usa como fallback cuando el proyecto todavía no
+// tiene un registro LeyesSociales — se crea de forma perezosa (ver
 // GET /api/proyectos/[id]/leyes-sociales), así que un rubro puede necesitar
 // este % antes de que exista esa fila.
-export const APORTES_PATRONALES_PCT_LEGAL_DEFAULT = 10.2;
+export { APORTES_PATRONALES_PCT_LEGAL_DEFAULT };
 
 export interface AportesPatronalesPcts {
   focerPatronalPct: number;
@@ -81,23 +82,25 @@ export interface AportesPatronalesPcts {
   fosvocPct: number;
   frlPct: number;
   fondoGarantiaPct: number;
-  snisAdicionalPct: number;
 }
 
-// Suma los 6 sub-componentes de "Empresa paga" en LeyesSociales (guardados
+// Suma los 5 sub-componentes patronales de "Empresa paga" en LeyesSociales (guardados
 // como fracción, 0.075 = 7,5%) y los convierte a puntos porcentuales (7.5),
 // mismo formato en que se guarda APU.aportesPatronalesPct. null/undefined
 // (proyecto sin LeyesSociales todavía) usa el default legal.
 export function sumarAportesPatronalesPct(pcts: AportesPatronalesPcts | null | undefined): number {
   if (!pcts) return APORTES_PATRONALES_PCT_LEGAL_DEFAULT;
-  return (
-    pcts.focerPatronalPct +
-    pcts.fscFocapPct +
-    pcts.fosvocPct +
-    pcts.frlPct +
-    pcts.fondoGarantiaPct +
-    pcts.snisAdicionalPct
-  ) * 100;
+  // Redondeo a 4 decimales: los fondos nuevos tienen hasta 4 (1,2691%) y la
+  // suma de fracciones en punto flotante arrastra ruido (6.919100000000001).
+  return redondearPctAportes(
+    (
+      pcts.focerPatronalPct +
+      pcts.fscFocapPct +
+      pcts.fosvocPct +
+      pcts.frlPct +
+      pcts.fondoGarantiaPct
+    ) * 100
+  );
 }
 
 // Monto de Aportes Patronales a sumar dentro de Costo Directo — aplica el %
