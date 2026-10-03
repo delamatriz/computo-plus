@@ -138,7 +138,7 @@ export default async function DashboardPage() {
 
         <div
           className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm"
-          title="Costo Directo + Utilidad, sin Gastos Generales ni IVA — no es el precio final de cliente"
+          title="Costo Directo + Utilidad, sin Gastos Generales ni IVA sobre el total (los materiales ya lo incluyen) — no es el precio final de cliente"
         >
           <div className="space-y-0.5">
             {MONEDAS_ORDEN.filter((m) => m in totalPorMoneda).map((m) => (

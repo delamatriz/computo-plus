@@ -859,7 +859,7 @@ export default function CalcularPage() {
                         </p>
                       )}
                       <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
-                        * Costo Directo — sin IVA, sin aportes BPS / Leyes Sociales
+                        * Costo Directo — materiales a precio de lista (IVA incluido), sin aportes BPS / Leyes Sociales
                         <br />
                         * Gastos Generales, Beneficio e IVA se agregan más abajo
                       </p>
@@ -1086,7 +1086,7 @@ export default function CalcularPage() {
                           </span>
                         </div>
                         <p className="text-[11px] text-text-muted leading-relaxed pt-1">
-                          * Valores estimativos sin IVA ni aportes sociales (BPS).
+                          * Valores estimativos: materiales con IVA incluido, sin aportes sociales (BPS).
                           <br />
                           * Para mayor exactitud desarrollá un proyecto completo.
                         </p>

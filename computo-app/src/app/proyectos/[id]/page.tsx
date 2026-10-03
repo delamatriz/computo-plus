@@ -798,7 +798,7 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
   styleRow(r, styTotalGeneral);
 
   pushRow([]);
-  r = pushRow(["Valores sin IVA ni aportes sociales (BPS)"]);
+  r = pushRow(["Valores con materiales a precio de lista (IVA incluido), sin aportes sociales (BPS)"]);
   styledCells.push({ addr: `A${r + 1}`, s: { font: { italic: true, color: { rgb: "64748B" } } } });
 
   const ws = XLSX.utils.aoa_to_sheet(datos);
