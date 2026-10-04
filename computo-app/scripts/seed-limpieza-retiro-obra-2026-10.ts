@@ -59,18 +59,31 @@ const UTIL_PCT = 10;
 const CAPITULO = { nombre: "Limpieza y Retiro de Obra", orden: 27 };
 const NOTA = "Estimado por IA (Claude), pendiente de revisión manual — biblioteca Limpieza y Retiro de Obra, oct-2026";
 
+// LIMP-001 y LIMP-002: descripciones y precios SINCRONIZADOS con
+// actualizar-precios-limpieza-2026-10.ts (oct-2026, ya aplicado): kit mensual
+// SOLO de consumibles ($1.470/gl) y limpiapisos + trapos ($1,25/m2), ambos
+// ESTIMACIONES de mercado sin cotización, IVA incluido. Las herramientas
+// (escobas, cepillo, pala, secador) van en Gastos Generales. Si se cambian
+// acá, cambiarlos también allá (y viceversa), o volver a correr este seed
+// revierte la descripción del insumo y el precio de 28.1, 28.9 y 28.6.
+const NOTA_ESTIMACION_LIMPIEZA =
+  "Estimación general de mercado, sin cotización, IVA incluido (detalle de la cuenta en la nota aplicada por actualizar-precios-limpieza-2026-10.ts). " +
+  "ESTIMACIÓN sin cotización, rango de mercado; reemplazar por precios de tienda cuando se compren. Pendiente de verificar.";
+
 const PRECIOS_MTOP_NUEVOS = [
   {
     codigo: "LIMP-001",
-    descripcion: "Insumos de limpieza periódica de obra (bolsas de residuos, escobas, palas y herramientas menores)",
+    descripcion: "Insumos de limpieza periódica (consumibles)",
     unidad: "gl",
-    precioUnitario: 1800,
+    precioUnitario: 1470,
+    notaProcedencia: NOTA_ESTIMACION_LIMPIEZA,
   },
   {
     codigo: "LIMP-002",
-    descripcion: "Insumos de limpieza fina de pisos (detergente neutro, desengrasante, protector y paños)",
+    descripcion: "Insumos de limpieza fina de pisos (limpiapisos concentrado y trapos)",
     unidad: "m2",
-    precioUnitario: 22,
+    precioUnitario: 1.25,
+    notaProcedencia: NOTA_ESTIMACION_LIMPIEZA,
   },
 ] as const;
 
@@ -224,7 +237,7 @@ async function main() {
           precioUnitario: p.precioUnitario,
           numeroLista: 0,
           fechaLista: FECHA,
-          notaProcedencia: NOTA,
+          notaProcedencia: p.notaProcedencia ?? NOTA,
         },
       });
     }

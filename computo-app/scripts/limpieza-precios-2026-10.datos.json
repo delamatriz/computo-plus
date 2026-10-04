@@ -1,0 +1,18 @@
+{
+  "_ayuda": "Valores de Luis: ESTIMACIONES generales de mercado (no cotizaciones), IVA incluido. Luis puede corregirlos si alguno está lejos. La procedencia lo dice y los materiales quedan pendientes de verificar.",
+  "fecha": "2026-10",
+  "estimacion": true,
+  "bolsas": { "precioPaqueteX10": 150, "comercio": "Estimación general de mercado, sin cotización" },
+  "desengrasante": { "precioBidon5L": 450, "comercio": "Estimación general de mercado, sin cotización" },
+  "guantes": { "precioPar": 180, "comercio": "Estimación general de mercado, sin cotización" },
+  "trapo": { "precioUnidad": 90, "comercio": "Estimación general de mercado, sin cotización" },
+  "limpiapisos": {
+    "precioBidon5L": 700,
+    "comercio": "Estimación general de mercado, sin cotización",
+    "dilucionMlPorBalde": 100,
+    "litrosBalde": 10,
+    "m2PorBalde": 40,
+    "m2PorTrapo": 100,
+    "_supuestos": "SUPUESTOS (a confirmar): 40 m2 cubre un balde y se usa 1 trapo cada 100 m2."
+  }
+}
