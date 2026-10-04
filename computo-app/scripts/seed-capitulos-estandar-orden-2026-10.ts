@@ -16,8 +16,17 @@
 //   - Imprevistos (oct-2026, segunda corrida de este mismo script): pasó de
 //     capítulo vacío sin Biblioteca a un % dentro de Gastos Generales
 //     (Proyecto.imprevistosPct, ver calcularCostosIndirectosAgregados). La
-//     lista queda en 30 capítulos. Los capítulos "Imprevistos" ya creados
+//     lista quedó en 30 capítulos. Los capítulos "Imprevistos" ya creados
 //     en proyectos existentes no se tocan: esto es solo el catálogo.
+//
+//   - Seguridad y Trabajos en Altura (oct-2026, tercera corrida): ya no es un
+//     capítulo propio — sus 3 rubros fijos (Estudio y plan de seguridad,
+//     Memoria de instalación eléctrica de obra, Señalización y vallado
+//     perimetral de obra) van dentro de "Implantación y Replanteo" de cada
+//     título con requierePlanSeguridad (ver lib/seguridadAltura.ts). La lista
+//     queda en 29 capítulos, posiciones 1..29 sin huecos. Los capítulos
+//     "Seguridad…" ya creados en proyectos los resuelve
+//     migrar-estructura-proyectos-2026-10.ts.
 //
 // Nota: seed-capitulos-nuevos.ts (el de la carga original 21-30) hace upsert
 // de esos 4 — NO volver a correrlo, los resucitaría. Este script es el que
@@ -66,7 +75,6 @@ const ORDEN_FINAL = [
   "Instalación Contra Incendio",
   "Ascensor",
   "Ensayo de Suelos",
-  "Seguridad y Trabajos en Altura",
   "Instalación Energías Renovables",
   "Limpieza y Retiro de Obra",
 ];
@@ -77,6 +85,7 @@ const ELIMINAR = [
   "Conexiones de Servicios",
   "Gastos Generales de Obra",
   "Imprevistos",
+  "Seguridad y Trabajos en Altura",
 ];
 
 async function main() {
