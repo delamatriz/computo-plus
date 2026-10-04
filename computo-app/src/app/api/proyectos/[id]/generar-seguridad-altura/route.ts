@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { generarCapituloSeguridad } from "@/lib/seguridadAltura";
 
 /**
- * Crea el capítulo "Seguridad y Trabajos en Altura" con sus rubros
- * predefinidos según la modalidad declarada en el proyecto. Es rápida y
- * determinística (sin llamada a IA), por lo que se resuelve antes de responder.
+ * Carga los 3 rubros del Plan y Estudio de Seguridad dentro de "Implantación y
+ * Replanteo" de cada título con requierePlanSeguridad (creando ese capítulo si
+ * falta). Idempotente. Es rápida y determinística (sin llamada a IA), por lo
+ * que se resuelve antes de responder.
  */
 export async function POST(
   _req: NextRequest,
