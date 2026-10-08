@@ -7,7 +7,10 @@ import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 const client = new Anthropic();
 
 interface RubroSugerido {
-  capitulo: string;
+  // Número del capítulo en la lista numerada que se le pasa a la IA (ver
+  // generarRubrosAutomaticosInterno) — no el nombre: con varios títulos los
+  // nombres se repiten ("Demoliciones y Picados" en cada frente).
+  capitulo: number;
   descripcion: string;
   unidad: string;
 }
@@ -239,28 +242,50 @@ async function generarRubrosDesdeCalculoRapido(
 async function generarRubrosAutomaticosInterno(proyectoId: string): Promise<void> {
   const proyecto = await db.proyecto.findUnique({
     where: { id: proyectoId },
-    include: { capitulos: true },
+    include: { capitulos: true, titulos: true },
   });
 
   const descripcionTrabajos = proyecto?.trabajos?.trim() || proyecto?.descripcion?.trim();
   if (!proyecto || !descripcionTrabajos || proyecto.capitulos.length === 0) return;
 
-  const listaCapitulos = proyecto.capitulos.map((c) => c.nombre).join(", ");
+  // Capítulos numerados en el orden del presupuesto (título y capítulo), con
+  // el nombre del título adelante cuando hay 2 o más. La IA devuelve el
+  // NÚMERO del capítulo de cada rubro, no su nombre: antes se buscaba el
+  // capítulo por nombre y, como los títulos repiten capítulos ("Demoliciones
+  // y Picados" en cada frente), todos los rubros caían en los del primer
+  // título y los demás quedaban vacíos.
+  const ordenTitulo = new Map(proyecto.titulos.map((t) => [t.id, t.orden]));
+  const nombreTitulo = new Map(proyecto.titulos.map((t) => [t.id, t.nombre]));
+  const conVariosTitulos = proyecto.titulos.length >= 2;
+  const capitulosNumerados = [...proyecto.capitulos].sort(
+    (a, b) => (ordenTitulo.get(a.tituloId) ?? 0) - (ordenTitulo.get(b.tituloId) ?? 0) || a.orden - b.orden
+  );
+  const listaCapitulos = capitulosNumerados
+    .map((c, i) => `[${i + 1}] ${conVariosTitulos ? `${nombreTitulo.get(c.tituloId) ?? "Sin título"} › ` : ""}${c.nombre}`)
+    .join("\n");
+  const aclaracionTitulos = conVariosTitulos
+    ? " El presupuesto está dividido en títulos (frentes de obra independientes) y un mismo capítulo puede repetirse en varios: sugerí rubros propios de cada título según su nombre."
+    : "";
 
   // El área se suma al prompt solo como referencia de escala (qué rubros y qué
   // unidad tienen sentido); no entra en ningún cálculo.
   const lineaArea = proyecto.area && proyecto.area > 0 ? ` Área de la obra: ${proyecto.area} m².` : "";
 
-  const prompt = `Dado este presupuesto de obra tipo ${proyecto.tipo} con la siguiente descripción de trabajos: '${descripcionTrabajos}', y estos capítulos: ${listaCapitulos}.${lineaArea} Sugerí los 2-3 rubros más importantes para cada capítulo, con descripción y unidad de medida. Basate en prácticas constructivas uruguayas.
+  const prompt = `Dado este presupuesto de obra tipo ${proyecto.tipo} con la siguiente descripción de trabajos: '${descripcionTrabajos}', y estos capítulos numerados:
+${listaCapitulos}
+${lineaArea}${aclaracionTitulos} Sugerí los 2-3 rubros más importantes para cada capítulo, con descripción y unidad de medida. Basate en prácticas constructivas uruguayas.
 Para la unidad: si el rubro es de estimación global usá unidad "gl", si tiene medida clara (superficie, volumen, longitud) usá m², m³ o ml.
+En "capitulo" poné el NÚMERO del capítulo de la lista (el que está entre corchetes), no su nombre.
 Respondé SOLO con JSON:
-{ "rubros": [{ "capitulo": string, "descripcion": string, "unidad": string }] }`;
+{ "rubros": [{ "capitulo": number, "descripcion": string, "unidad": string }] }`;
 
   let sugerencias: RubroSugerido[] = [];
   try {
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 2000,
+      // 2-3 rubros por capítulo y por título: con varios títulos la lista
+      // crece y 2000 tokens podía cortar el JSON (y sin JSON no hay rubros).
+      max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     });
     void registrarLogConsumoIA({
@@ -280,12 +305,10 @@ Respondé SOLO con JSON:
   }
 
   for (const sugerido of sugerencias) {
-    const capitulo = proyecto.capitulos.find(
-      (c) => c.nombre.toLowerCase() === sugerido.capitulo?.toLowerCase()
-    ) ?? proyecto.capitulos.find((c) =>
-      c.nombre.toLowerCase().includes(sugerido.capitulo?.toLowerCase() ?? "__") ||
-      (sugerido.capitulo ?? "").toLowerCase().includes(c.nombre.toLowerCase())
-    );
+    // Número fuera de la lista (o que no es un número) → el rubro se
+    // descarta: mejor que caiga en un capítulo equivocado.
+    const numero = Number(sugerido.capitulo);
+    const capitulo = Number.isInteger(numero) ? capitulosNumerados[numero - 1] : undefined;
     if (!capitulo || !sugerido.descripcion?.trim()) continue;
 
     try {
