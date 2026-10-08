@@ -332,7 +332,7 @@ const tutorialFlujoPrincipal: PasoTutorial[] = [
         <strong className="text-slate-700">Polilínea</strong>,{" "}
         <strong className="text-slate-700">Área</strong>,{" "}
         <strong className="text-slate-700">Punto</strong> (para contar
-        elementos repetidos, como columnas o ventanas),{" "}
+        elementos repetidos, como pilares o ventanas),{" "}
         <strong className="text-slate-700">Trazo libre</strong>,{" "}
         <strong className="text-slate-700">Línea recta</strong> y{" "}
         <strong className="text-slate-700">Texto</strong> — una para cada tipo
@@ -340,13 +340,19 @@ const tutorialFlujoPrincipal: PasoTutorial[] = [
         <strong className="text-slate-700">Medir</strong> mide la distancia
         entre dos puntos; <strong className="text-slate-700">Polilínea</strong>{" "}
         suma varios tramos —un muro que dobla, un perímetro abierto o el
-        recorrido de una cañería—: hacés clic en cada punto y terminás con
-        doble clic, Enter o clic derecho (Esc cancela; en pantallas
-        táctiles, con el botón <strong className="text-slate-700">Terminar</strong>{" "}
-        que aparece arriba del plano). Para este ejemplo usamos{" "}
+        recorrido de una cañería—; <strong className="text-slate-700">Área</strong>{" "}
+        mide la superficie de un polígono y{" "}
+        <strong className="text-slate-700">Punto</strong> cuenta. En esas
+        tres hacés clic en cada punto y terminás con Enter, doble clic, clic
+        derecho o el botón <strong className="text-slate-700">Terminar</strong>{" "}
+        (Área necesita al menos 3 vértices y Polilínea 2). Mientras dibujás,
+        un cartelito chico arriba del plano te va mostrando la medida en
+        vivo. Esc borra lo que estás dibujando y deja la herramienta
+        prendida; un segundo Esc la apaga. Para este ejemplo usamos{" "}
         <strong className="text-slate-700">Medir</strong>: hacés clic y
         arrastrás sobre el plano, de una punta a la otra de lo que querés
-        medir (un muro, por ejemplo), y soltás. Se abre un cuadro{" "}
+        medir (un muro, por ejemplo), y soltás. Si te resulta más cómodo,
+        también podés hacer un clic en cada punta. Se abre un cuadro{" "}
         <strong className="text-slate-700">Nueva medición</strong> con la
         longitud ya calculada —la podés corregir a mano si hace falta—, más
         los campos <strong className="text-slate-700">Descripción</strong> y{" "}
@@ -356,6 +362,7 @@ const tutorialFlujoPrincipal: PasoTutorial[] = [
         se cierra sin guardar y no queda nada dibujado en el plano. Si la
         querés en tu cómputo, escribí la descripción y tocá{" "}
         <strong className="text-slate-700">Guardar en la Planilla</strong>.
+        Esc con el cuadro abierto equivale a Solo ver la medida.
       </>
     ),
   },

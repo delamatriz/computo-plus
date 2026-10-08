@@ -1150,7 +1150,12 @@ function VisorPrincipal({
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
   const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "PUNTO" | "TRAZO" | "RECTA" | "TEXTO" | "POLILINEA" | null>(null);
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
-  const [puntosArea, setPuntosArea] = useState<{ x: number; y: number }[]>([]);
+  // Medir con dos clics (alternativa al arrastre, que sigue siendo el modo
+  // principal): un clic sin arrastrar fija el origen acá y el segundo clic
+  // cierra la medida. lineaCursor es la punta de la línea en vivo.
+  const [lineaPrimerPunto, setLineaPrimerPunto] = useState<{ x: number; y: number } | null>(null);
+  const [lineaCursor, setLineaCursor] = useState<{ x: number; y: number } | null>(null);
+  const [puntosArea,setPuntosArea] = useState<{ x: number; y: number }[]>([]);
   const [cursorArea, setCursorArea] = useState<{ x: number; y: number } | null>(null);
   // Polilínea — mismo patrón que Área (puntos puestos + cursor para el
   // tramo en vivo), pero mide una longitud abierta en vez de una
@@ -1252,7 +1257,10 @@ function VisorPrincipal({
     if (!svgRef.current) return;
     const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
     if (!p) return;
-    if (herramienta === "LINEA" && !medicionPendiente) {
+    // Medir: solo el botón izquierdo arranca el arrastre, y no si ya hay un
+    // origen fijado por un clic (ese caso lo cierra el segundo clic, en
+    // onSvgClick).
+    if (herramienta === "LINEA" && !medicionPendiente && !lineaPrimerPunto && e.button === 0) {
       setDibujoActual({ xInicio: p.x, yInicio: p.y, xActual: p.x, yActual: p.y });
     } else if (herramienta === "TRAZO" && !trazoPendiente) {
       setTrazoActual([p]);
@@ -1271,6 +1279,8 @@ function VisorPrincipal({
     if (!p) return;
     if (herramienta === "LINEA" && dibujoActual) {
       setDibujoActual((prev) => (prev ? { ...prev, xActual: p.x, yActual: p.y } : prev));
+    } else if (herramienta === "LINEA" && lineaPrimerPunto && !medicionPendiente) {
+      setLineaCursor(p);
     } else if (herramienta === "AREA" && puntosArea.length > 0 && !medicionPendiente) {
       setCursorArea(p);
     } else if (herramienta === "TRAZO" && trazoActual) {
@@ -1309,7 +1319,20 @@ function VisorPrincipal({
     const { xInicio, yInicio, xActual: xFin, yActual: yFin } = dibujoActual;
     setDibujoActual(null);
     const distPercent = Math.hypot(xFin - xInicio, yFin - yInicio);
-    if (distPercent < 0.5 || !pageDimsMM || doc.factorEscala == null) return;
+    // Un clic sin arrastrar no se descarta: fija el origen del modo "clic +
+    // clic" (mismo criterio que Línea recta, ver finalizarRectaDrag).
+    if (distPercent < 0.5) {
+      setLineaPrimerPunto({ x: xInicio, y: yInicio });
+      return;
+    }
+    cerrarLinea(xInicio, yInicio, xFin, yFin);
+  };
+
+  // Cierre común de Medir (arrastre o segundo clic): calcula la longitud y
+  // abre la ventana del resultado, o la asigna directo como ANCHO si se
+  // estaba midiendo para una fila.
+  const cerrarLinea = (xInicio: number, yInicio: number, xFin: number, yFin: number) => {
+    if (!pageDimsMM || doc.factorEscala == null) return;
     const valor = calcularLongitudReal(xInicio, yInicio, xFin, yFin, pageDimsMM, doc.factorEscala);
     if (medicionObjetivo) {
       asignarAnchoDesdeDrag(xInicio, yInicio, xFin, yFin, valor);
@@ -1454,10 +1477,24 @@ function VisorPrincipal({
   // arrastre significativo de por medio) para no pisarse con esa lógica.
   const onSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current) return;
-    if (herramienta === "AREA" && !medicionPendiente) {
+    if (herramienta === "LINEA" && lineaPrimerPunto && !medicionPendiente) {
+      // Segundo clic de Medir "clic + clic". El clic que FIJÓ el origen
+      // también llega acá (después de su mouseup), casi encima del origen:
+      // ese y cualquier otro de largo cero se ignoran.
+      const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
+      if (!p || Math.hypot(p.x - lineaPrimerPunto.x, p.y - lineaPrimerPunto.y) < 0.5) return;
+      const origen = lineaPrimerPunto;
+      setLineaPrimerPunto(null);
+      setLineaCursor(null);
+      cerrarLinea(origen.x, origen.y, p.x, p.y);
+    } else if (herramienta === "AREA" && !medicionPendiente) {
+      // Igual que Polilínea: el segundo clic de un doble clic no suma otro
+      // vértice, el doble clic (onSvgDoubleClick) cierra el polígono.
+      if (e.detail >= 2) return;
       const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
       if (p) setPuntosArea((prev) => [...prev, p]);
     } else if (herramienta === "PUNTO" && !medicionPendiente) {
+      if (e.detail >= 2) return;
       const p = puntoDesdeEvento(svgRef.current, e.clientX, e.clientY);
       if (p) setPuntosPunto((prev) => [...prev, p]);
     } else if (herramienta === "POLILINEA" && !medicionPendiente) {
@@ -1496,7 +1533,10 @@ function VisorPrincipal({
 
   const onSvgMouseLeave = () => {
     if (herramienta === "LINEA") {
+      // Cierra un arrastre en curso; con el origen de "clic + clic" fijado
+      // solo se limpia la línea en vivo (el origen se mantiene).
       finalizarDibujoLinea();
+      setLineaCursor(null);
     } else if (herramienta === "AREA") {
       // Solo se limpia la línea de previsualización — los vértices ya
       // puestos se mantienen, perderlos porque el mouse salió un
@@ -1535,31 +1575,49 @@ function VisorPrincipal({
     setCursorPolilinea(null);
   };
 
+  // Polilínea, Área y Punto terminan igual: Enter, doble clic, clic
+  // derecho, el botón "Terminar" del cartelito o "Finalizar (N)" de la
+  // barra. Cada finalizar* exige su mínimo (2, 3 y 1 punto) y con menos no
+  // hace nada: los puntos puestos se mantienen.
+  const puntosEnCurso =
+    herramienta === "POLILINEA" ? puntosPolilinea.length : herramienta === "AREA" ? puntosArea.length : herramienta === "PUNTO" ? puntosPunto.length : 0;
+  const finalizarMedicionEnCurso = () => {
+    if (medicionPendiente) return;
+    if (herramienta === "POLILINEA") finalizarPolilinea();
+    else if (herramienta === "AREA") finalizarArea();
+    else if (herramienta === "PUNTO") finalizarPunto();
+  };
+
   // Doble clic = colocar el último punto (ya lo puso el primer clic del
   // doble clic, ver onSvgClick) y cerrar.
-  const onSvgDoubleClick = () => {
-    if (herramienta === "POLILINEA" && !medicionPendiente) finalizarPolilinea();
-  };
+  const onSvgDoubleClick = () => finalizarMedicionEnCurso();
 
-  // Descarta la polilínea en curso y deja la herramienta prendida (lo mismo
-  // que Esc con una polilínea a medio dibujar).
-  const descartarPolilinea = () => {
+  // Descarta lo que se esté dibujando con cualquier herramienta de medición
+  // y deja la herramienta prendida (lo mismo que Esc con algo a medio
+  // dibujar, o el botón "Cancelar" del cartelito).
+  const descartarMedicionEnCurso = () => {
+    setDibujoActual(null);
+    setLineaPrimerPunto(null);
+    setLineaCursor(null);
     setPuntosPolilinea([]);
     setCursorPolilinea(null);
+    setPuntosArea([]);
+    setCursorArea(null);
+    setPuntosPunto([]);
   };
 
-  // Clic DERECHO mientras se dibuja una polilínea = Enter: termina con los
-  // puntos ya colocados (no suma un punto) y necesita 2 o más; con 1 solo
-  // punto no hace nada. El menú del navegador se evita SOLO mientras hay una
-  // polilínea en curso: con la herramienta apagada, sin puntos puestos o con
-  // cualquier otra herramienta el menú contextual se comporta como siempre.
-  // En pantallas táctiles el contextmenu es la pulsación larga: no cierra la
-  // polilínea (para eso está el botón "Terminar").
+  // Clic DERECHO con Polilínea, Área o Punto en curso = Enter: termina con
+  // los puntos ya colocados (no suma uno) si llega al mínimo; si no, no
+  // hace nada. El menú del navegador se evita SOLO mientras hay puntos
+  // puestos: con la herramienta apagada, sin puntos o con cualquier otra
+  // herramienta el menú contextual se comporta como siempre. En pantallas
+  // táctiles el contextmenu es la pulsación larga: no termina nada (para
+  // eso está el botón "Terminar").
   const onSvgContextMenu = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (herramienta !== "POLILINEA" || medicionPendiente || puntosPolilinea.length === 0) return;
+    if (medicionPendiente || puntosEnCurso === 0) return;
     e.preventDefault();
     if (typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches) return;
-    if (puntosPolilinea.length >= 2) finalizarPolilinea();
+    finalizarMedicionEnCurso();
   };
 
   const finalizarArea = () => {
@@ -1736,6 +1794,8 @@ function VisorPrincipal({
   const iniciarAsignacionAncho = (filaId: string, descripcion: string) => {
     setHerramienta("LINEA");
     setDibujoActual(null);
+    setLineaPrimerPunto(null);
+    setLineaCursor(null);
     setPuntosArea([]);
     setCursorArea(null);
     setPuntosPunto([]);
@@ -1772,61 +1832,78 @@ function VisorPrincipal({
     setMedicionObjetivo(null);
   };
 
-  // Polilínea: ¿hay una en curso (puntos puestos, sin modal abierto)? Va
-  // en un ref porque el listener de Escape de abajo solo se re-suscribe
-  // al cambiar de herramienta y leería un valor viejo.
-  const polilineaEnCursoRef = useRef(false);
+  // Esc, igual en las cuatro herramientas de medición (Medir, Polilínea,
+  // Área, Punto):
+  //   - con la ventana del resultado abierta, solo la cierra (igual que
+  //     "Solo ver la medida") y la herramienta sigue prendida;
+  //   - con algo a medio dibujar, lo descarta y la herramienta sigue
+  //     prendida;
+  //   - sin nada en curso, apaga la herramienta.
+  // Las anotaciones (Trazo libre, Línea recta, Texto) siguen como siempre:
+  // Esc apaga la herramienta. Va en refs porque el listener solo se
+  // re-suscribe al cambiar de herramienta y leería valores viejos.
+  const esMedicion = herramienta === "LINEA" || herramienta === "POLILINEA" || herramienta === "AREA" || herramienta === "PUNTO";
+  const medicionPendienteRef = useRef(false);
+  const medicionEnCursoRef = useRef(false);
+  const medicionEnCurso = esMedicion && (puntosEnCurso > 0 || dibujoActual != null || lineaPrimerPunto != null);
   useEffect(() => {
-    polilineaEnCursoRef.current = herramienta === "POLILINEA" && puntosPolilinea.length > 0 && !medicionPendiente;
-  }, [herramienta, puntosPolilinea.length, medicionPendiente]);
+    medicionPendienteRef.current = medicionPendiente != null;
+    medicionEnCursoRef.current = medicionEnCurso;
+  }, [medicionPendiente, medicionEnCurso]);
 
   useEffect(() => {
     if (!herramienta) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        // Polilínea en curso: Esc descarta lo dibujado y deja la
-        // herramienta prendida. Sin nada en curso, sale de la
-        // herramienta como todas las demás.
-        if (polilineaEnCursoRef.current) {
-          setPuntosPolilinea([]);
-          setCursorPolilinea(null);
-          return;
-        }
-        cancelarHerramienta();
+      if (e.key !== "Escape") return;
+      if (medicionPendienteRef.current) {
+        setMedicionPendiente(null);
+        return;
       }
+      if (medicionEnCursoRef.current) {
+        descartarMedicionEnCurso();
+        return;
+      }
+      cancelarHerramienta();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [herramienta]);
 
-  // Polilínea — al salir de la herramienta (otra herramienta, Esc o el
-  // botón) se descarta lo que hubiera en curso.
+  // Al salir de una herramienta (otra herramienta, Esc o el botón) se
+  // descarta lo que hubiera en curso de Polilínea y de Medir "clic + clic"
+  // (las demás ya se limpian en cada toggle*).
   useEffect(() => {
     if (herramienta !== "POLILINEA") {
       setPuntosPolilinea([]);
       setCursorPolilinea(null);
     }
+    if (herramienta !== "LINEA") {
+      setLineaPrimerPunto(null);
+      setLineaCursor(null);
+    }
   }, [herramienta]);
 
-  // Polilínea — Enter termina con los puntos ya colocados. Se ignora si
-  // el foco está en un campo de texto (ej. el modal de confirmación, que
-  // ya usa Enter para guardar).
+  // Polilínea, Área y Punto — Enter termina con los puntos ya colocados (ver
+  // finalizarMedicionEnCurso). Se ignora si el foco está en un campo de
+  // texto (ej. la ventana del resultado, que ya usa Enter para guardar) o
+  // si no se llegó al mínimo de puntos.
+  const minimoPuntos = herramienta === "POLILINEA" ? 2 : herramienta === "AREA" ? 3 : 1;
   useEffect(() => {
-    if (herramienta !== "POLILINEA") return;
+    if (herramienta !== "POLILINEA" && herramienta !== "AREA" && herramienta !== "PUNTO") return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Enter") return;
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
-      if (puntosPolilinea.length >= 2 && !medicionPendiente) {
+      if (puntosEnCurso >= minimoPuntos && !medicionPendiente) {
         e.preventDefault();
-        finalizarPolilinea();
+        finalizarMedicionEnCurso();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [herramienta, puntosPolilinea, medicionPendiente, pageDimsMM, doc.factorEscala]);
+  }, [herramienta, puntosPolilinea, puntosArea, puntosPunto, medicionPendiente, pageDimsMM, doc.factorEscala]);
 
   // Medición guardada seleccionada o bajo el mouse (ver medicionHoverId):
   // Supr la elimina (con la confirmación de siempre), Esc o un clic en otro
@@ -2079,14 +2156,52 @@ function VisorPrincipal({
 
   if (doc.tipoArchivo === "DWG") return <SinVistaPrevia doc={doc} />;
 
-  // Polilínea — total acumulado EN VIVO, incluido el tramo que sigue al
-  // cursor (de ahí que se calcule sobre puntos + cursor, no solo los ya
-  // colocados). null si no hay nada en curso.
-  const polilineaEnVivo = (() => {
-    if (herramienta !== "POLILINEA" || puntosPolilinea.length === 0 || medicionPendiente || !pageDimsMM || doc.factorEscala == null) return null;
-    const pts = cursorPolilinea ? [...puntosPolilinea, cursorPolilinea] : puntosPolilinea;
-    const tramos = calcularTramosPolilinea(pts, pageDimsMM, doc.factorEscala);
-    return { total: tramos.reduce((s, t) => s + t, 0), puntos: puntosPolilinea.length };
+  // Cartelito EN VIVO de las herramientas de medición: lo que mide lo que
+  // se está dibujando, incluido el tramo hasta el cursor. null si no hay
+  // nada en curso (o si la ventana del resultado ya está abierta).
+  //   - Medir: el largo, durante el arrastre o con el origen fijado por un
+  //     clic (sin botones: termina al soltar o con el segundo clic).
+  //   - Polilínea: el total acumulado y la cantidad de puntos.
+  //   - Área: los m² del polígono cerrado hasta el cursor y los vértices.
+  //   - Punto: la cantidad de puntos.
+  // Polilínea, Área y Punto llevan además "Terminar" y "Cancelar".
+  const medicionEnVivo = ((): { icono: "LINEA" | "POLILINEA" | "AREA" | "PUNTO"; etiqueta: string; valor: string; detalle?: string; conBotones: boolean } | null => {
+    if (medicionPendiente) return null;
+    const escala = pageDimsMM && doc.factorEscala != null ? { dims: pageDimsMM, factor: doc.factorEscala } : null;
+    if (herramienta === "LINEA" && escala) {
+      const tramo = dibujoActual
+        ? { x1: dibujoActual.xInicio, y1: dibujoActual.yInicio, x2: dibujoActual.xActual, y2: dibujoActual.yActual }
+        : lineaPrimerPunto
+        ? { x1: lineaPrimerPunto.x, y1: lineaPrimerPunto.y, x2: (lineaCursor ?? lineaPrimerPunto).x, y2: (lineaCursor ?? lineaPrimerPunto).y }
+        : null;
+      if (!tramo) return null;
+      const largo = calcularLongitudReal(tramo.x1, tramo.y1, tramo.x2, tramo.y2, escala.dims, escala.factor);
+      return { icono: "LINEA", etiqueta: "Largo", valor: fmtMetros(largo), detalle: lineaPrimerPunto ? "clic en la otra punta" : undefined, conBotones: false };
+    }
+    if (herramienta === "POLILINEA" && puntosPolilinea.length > 0 && escala) {
+      const pts = cursorPolilinea ? [...puntosPolilinea, cursorPolilinea] : puntosPolilinea;
+      const total = calcularTramosPolilinea(pts, escala.dims, escala.factor).reduce((s, t) => s + t, 0);
+      const n = puntosPolilinea.length;
+      return { icono: "POLILINEA", etiqueta: "Total acumulado", valor: fmtMetros(total), detalle: `${n} ${n === 1 ? "punto" : "puntos"}`, conBotones: true };
+    }
+    if (herramienta === "AREA" && puntosArea.length > 0 && escala) {
+      const pts = cursorArea ? [...puntosArea, cursorArea] : puntosArea;
+      const area = pts.length >= 3 ? calcularAreaReal(pts, escala.dims, escala.factor) : 0;
+      const n = puntosArea.length;
+      return { icono: "AREA", etiqueta: "Área", valor: fmtResumenMedida("AREA", area), detalle: `${n} ${n === 1 ? "vértice" : "vértices"}`, conBotones: true };
+    }
+    if (herramienta === "PUNTO" && puntosPunto.length > 0) {
+      return { icono: "PUNTO", etiqueta: "Conteo", valor: fmtResumenMedida("PUNTO", puntosPunto.length), conBotones: true };
+    }
+    return null;
+  })();
+  const IconoEnVivo = medicionEnVivo ? { LINEA: Ruler, POLILINEA: Waypoints, AREA: Hexagon, PUNTO: MapPin }[medicionEnVivo.icono] : null;
+  const faltanPuntos = puntosEnCurso < minimoPuntos;
+  // Área en curso: puntos + cursor, cerrado de vuelta al primero con 3 o más.
+  const trazoAreaEnCurso = (() => {
+    if (puntosArea.length === 0) return null;
+    const pts = cursorArea ? [...puntosArea, cursorArea] : puntosArea;
+    return (pts.length >= 3 ? [...pts, pts[0]] : pts).map((p) => `${p.x},${p.y}`).join(" ");
   })();
 
   return (
@@ -2132,34 +2247,40 @@ function VisorPrincipal({
             ))}
           </div>
         )}
-        {/* Polilínea en curso: total acumulado + las dos salidas a la vista.
-            Terminar (Enter, clic derecho o este botón) necesita 2+ puntos;
-            Cancelar (Esc) descarta lo dibujado. En pantallas táctiles estos
-            botones son la forma de cerrar la polilínea. Una sola línea y
-            compacta: en celular se esconden los textos de ayuda (queda
-            "Terminar" / "Cancelar") para no tapar el plano. El contenedor no
-            captura el mouse (pointer-events-none); solo los botones. */}
-        {polilineaEnVivo && (
-          <div className="flex items-center gap-1.5 sm:gap-2 bg-white rounded-full pl-3 pr-1.5 py-1 shadow-md border border-slate-200 pointer-events-none max-w-[calc(100vw-1.5rem)]">
-            <Waypoints className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0" />
-            <span className="hidden sm:inline text-xs text-slate-500">Total acumulado</span>
-            <span className="text-sm font-bold tabular-nums text-[#1A3A5C] whitespace-nowrap">{fmtMetros(polilineaEnVivo.total)}</span>
-            <span className="hidden sm:inline text-[11px] text-slate-400 whitespace-nowrap">· {polilineaEnVivo.puntos} {polilineaEnVivo.puntos === 1 ? "punto" : "puntos"}</span>
-            <button
-              onClick={finalizarPolilinea}
-              disabled={polilineaEnVivo.puntos < 2}
-              title={polilineaEnVivo.puntos < 2 ? "Hacen falta al menos 2 puntos" : "Terminar la polilínea (Enter o clic derecho)"}
-              className="pointer-events-auto rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs font-semibold px-3 py-1.5 whitespace-nowrap transition-colors"
-            >
-              Terminar<span className="hidden sm:inline font-normal opacity-80"> (Enter o clic derecho)</span>
-            </button>
-            <button
-              onClick={descartarPolilinea}
-              title="Cancelar y descartar lo dibujado (Esc)"
-              className="pointer-events-auto rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 whitespace-nowrap transition-colors"
-            >
-              Cancelar<span className="hidden sm:inline text-slate-400"> (Esc)</span>
-            </button>
+        {/* Cartelito de la medición en curso (ver medicionEnVivo): el valor
+            en vivo y, en Polilínea, Área y Punto, las dos salidas a la
+            vista. Terminar (Enter, doble clic, clic derecho o este botón)
+            pide el mínimo de puntos de cada herramienta; Cancelar (Esc)
+            descarta lo dibujado. En pantallas táctiles estos botones son la
+            forma de terminar. Una sola línea y compacta: en celular se
+            esconden los textos de ayuda para no tapar el plano. El
+            contenedor no captura el mouse (pointer-events-none); solo los
+            botones. */}
+        {medicionEnVivo && IconoEnVivo && (
+          <div className={cn("flex items-center gap-1.5 sm:gap-2 bg-white rounded-full pl-3 py-1 shadow-md border border-slate-200 pointer-events-none max-w-[calc(100vw-1.5rem)]", medicionEnVivo.conBotones ? "pr-1.5" : "pr-3 py-1.5")}>
+            <IconoEnVivo className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0" />
+            <span className="hidden sm:inline text-xs text-slate-500">{medicionEnVivo.etiqueta}</span>
+            <span className="text-sm font-bold tabular-nums text-[#1A3A5C] whitespace-nowrap">{medicionEnVivo.valor}</span>
+            {medicionEnVivo.detalle && <span className="hidden sm:inline text-[11px] text-slate-400 whitespace-nowrap">· {medicionEnVivo.detalle}</span>}
+            {medicionEnVivo.conBotones && (
+              <>
+                <button
+                  onClick={finalizarMedicionEnCurso}
+                  disabled={faltanPuntos}
+                  title={faltanPuntos ? `Hacen falta al menos ${minimoPuntos} ${minimoPuntos === 1 ? "punto" : "puntos"}` : "Terminar (Enter, doble clic o clic derecho)"}
+                  className="pointer-events-auto rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs font-semibold px-3 py-1.5 whitespace-nowrap transition-colors"
+                >
+                  Terminar<span className="hidden sm:inline font-normal opacity-80"> (Enter o clic derecho)</span>
+                </button>
+                <button
+                  onClick={descartarMedicionEnCurso}
+                  title="Cancelar y descartar lo dibujado (Esc)"
+                  className="pointer-events-auto rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 whitespace-nowrap transition-colors"
+                >
+                  Cancelar<span className="hidden sm:inline text-slate-400"> (Esc)</span>
+                </button>
+              </>
+            )}
           </div>
         )}
         {renderizandoPDF && !cargando && (
@@ -2240,12 +2361,12 @@ function VisorPrincipal({
         maxScale={6}
         centerOnInit
         panning={{ disabled: herramienta != null, velocityDisabled: false }}
-        // Con Polilínea el doble clic CIERRA la polilínea (ver
+        // Con Polilínea, Área y Punto el doble clic TERMINA la medición (ver
         // onSvgDoubleClick): react-zoom-pan-pinch lo usa por defecto para
-        // hacer zoom, así que se desactiva solo mientras esa herramienta
-        // está activa. Con cualquier otra herramienta (o ninguna) no
+        // hacer zoom, así que se desactiva solo mientras una de esas
+        // herramientas está activa. Con cualquier otra (o ninguna) no
         // cambia nada.
-        doubleClick={{ disabled: herramienta === "POLILINEA" }}
+        doubleClick={{ disabled: herramienta === "POLILINEA" || herramienta === "AREA" || herramienta === "PUNTO" }}
         onZoomStop={actualizarDPRSegunZoom}
         onPanningStop={actualizarDPRSegunZoom}
         onTransform={(_ref, st) => {
@@ -2435,15 +2556,33 @@ function VisorPrincipal({
                   vectorEffect="non-scaling-stroke"
                 />
               )}
+              {/* Medir "clic + clic": del origen fijado hasta el cursor, mismo
+                  gris/punteado que el arrastre. */}
+              {herramienta === "LINEA" && lineaPrimerPunto && lineaCursor && !medicionPendiente && (
+                <line
+                  x1={lineaPrimerPunto.x}
+                  y1={lineaPrimerPunto.y}
+                  x2={lineaCursor.x}
+                  y2={lineaCursor.y}
+                  stroke="#64748B"
+                  strokeWidth={0.7}
+                  strokeDasharray="5,3"
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
               {/* Sin círculos de vértice — mismo criterio que Trazo libre
                   (sin ningún marcador). strokeWidth 0.8 — mismo grosor
                   fino que el punteado de Línea recta (no el 1.25 del
                   polígono ya guardado, que probamos en la ronda anterior:
                   con el Área quedaba más grueso que el resto de los
                   punteados de preview mientras se dibuja). */}
-              {puntosArea.length > 0 && (
+              {/* Con 3 o más puntos (contando el cursor) el polígono se
+                  dibuja cerrado, igual que el área que muestra el cartelito
+                  en vivo. */}
+              {trazoAreaEnCurso && (
                 <polyline
-                  points={[...puntosArea, ...(cursorArea ? [cursorArea] : [])].map((p) => `${p.x},${p.y}`).join(" ")}
+                  points={trazoAreaEnCurso}
                   fill="none"
                   stroke="#64748B"
                   strokeWidth={0.8}
@@ -3252,7 +3391,7 @@ export default function Visor({
                 documentoPrincipal.tipoArchivo !== "PDF"
                   ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
                   : controlesMedicion?.herramienta === "LINEA"
-                  ? "Midiendo — clic y arrastre para dibujar una línea"
+                  ? "Midiendo — arrastrá de una punta a la otra, o hacé clic en cada punta. Esc cancela."
                   : "Medir una distancia trazando una línea sobre el plano"
               }
               className={clasePildoraHerramienta(controlesMedicion?.herramienta === "LINEA", puedeActivarMedicion)}
@@ -3301,8 +3440,8 @@ export default function Visor({
                   : controlesMedicion?.herramienta !== "AREA"
                   ? "Medir una superficie dibujando un polígono sobre el plano — clic para cada vértice"
                   : controlesMedicion.puntosAreaCount < 3
-                  ? "Agregá al menos 3 vértices — clic en el plano (volvé a clickear acá para cancelar)"
-                  : "Cerrar el polígono y calcular el área"
+                  ? "Clic en cada vértice (mínimo 3). Enter, doble clic o clic derecho para terminar. Esc cancela."
+                  : "Cerrar el polígono y calcular el área (o Enter, doble clic o clic derecho)"
               }
               className={clasePildoraHerramienta(controlesMedicion?.herramienta === "AREA", puedeActivarMedicion && !controlesMedicion?.medicionObjetivo)}
             >
@@ -3325,8 +3464,8 @@ export default function Visor({
                   : controlesMedicion?.herramienta !== "PUNTO"
                   ? "Contar elementos puntuales sobre el plano — clic por cada uno"
                   : controlesMedicion.puntosPuntoCount < 1
-                  ? "Marcá al menos un punto — clic en el plano (volvé a clickear acá para cancelar)"
-                  : "Terminar de contar y confirmar"
+                  ? "Clic en cada elemento. Enter, doble clic o clic derecho para terminar. Esc cancela."
+                  : "Terminar de contar y confirmar (o Enter, doble clic o clic derecho)"
               }
               className={clasePildoraHerramienta(controlesMedicion?.herramienta === "PUNTO", puedeActivarMedicion && !controlesMedicion?.medicionObjetivo)}
             >
