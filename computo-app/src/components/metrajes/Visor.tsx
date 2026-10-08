@@ -447,6 +447,31 @@ function fmtMetros(v: number): string {
   return `${v.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`;
 }
 
+// Dónde mostrar el botón "Eliminar" de una medición guardada (% del plano):
+// punto medio de la línea, del tramo central de la polilínea, centro del
+// polígono o el primer punto marcado.
+function anclaMedicion(m: MedicionDocumento): { x: number; y: number } | null {
+  if (m.tipo === "LINEA" && m.xInicio != null && m.yInicio != null && m.xFin != null && m.yFin != null) {
+    return { x: (m.xInicio + m.xFin) / 2, y: (m.yInicio + m.yFin) / 2 };
+  }
+  const ps = m.puntos;
+  if (!ps || ps.length === 0) return null;
+  if (m.tipo === "POLILINEA" && ps.length >= 2) {
+    const i = Math.floor((ps.length - 1) / 2);
+    return { x: (ps[i].x + ps[i + 1].x) / 2, y: (ps[i].y + ps[i + 1].y) / 2 };
+  }
+  if (m.tipo === "AREA") return { x: ps.reduce((s, p) => s + p.x, 0) / ps.length, y: ps.reduce((s, p) => s + p.y, 0) / ps.length };
+  return { x: ps[0].x, y: ps[0].y };
+}
+
+// La medida con su unidad, para leerla de un vistazo en la ventana de
+// confirmación (Medir/Polilínea en m, Área en m², Punto en cantidad).
+function fmtResumenMedida(tipo: "LINEA" | "AREA" | "POLILINEA" | "PUNTO", valor: number): string {
+  if (tipo === "AREA") return `${valor.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²`;
+  if (tipo === "PUNTO") return `${valor} ${valor === 1 ? "punto" : "puntos"}`;
+  return fmtMetros(valor);
+}
+
 // Convierte el path crudo de Trazo libre (puntos capturados en
 // mousemove) en un <path> suave — spline Catmull-Rom pasada a curvas
 // Bézier cúbicas (tensión 1/6, la conversión estándar). Sin esto, el
@@ -559,14 +584,24 @@ function puntoDesdeEvento(svg: SVGSVGElement, clientX: number, clientY: number):
 // descripción, repeticiones. Sin rubro acá — se asigna después, directo
 // en la columna "Rubro vinculado" de la Planilla (ver comentario en
 // FilaCalibracion). Solo cambia la etiqueta/unidad del valor numérico.
+//
+// Dos salidas, a propósito explícitas: "Guardar en la Planilla" (la medida
+// queda dibujada en azul y suma una fila a la Planilla) y "Solo ver la
+// medida" (cierra sin guardar y sin dejar nada dibujado: la línea provisoria
+// ámbar desaparece). Cerrar con la X, tocar el fondo o Esc equivale a "Solo
+// ver la medida". Sirve de "medida rápida": se mide, se lee el valor y no queda
+// ninguna marca en el plano.
 function ModalConfirmarMedicion({
   unidadLabel,
+  resumen,
   valorInicial,
   tramos,
   onCancelar,
   onGuardar,
 }: {
   unidadLabel: string;
+  /** La medida ya formateada con su unidad (ej. "11,41 m"), para leerla de un vistazo. */
+  resumen: string;
   valorInicial: number;
   /** Solo Polilínea: medida de cada tramo, para mostrarla antes del total. */
   tramos?: number[];
@@ -616,6 +651,13 @@ function ModalConfirmarMedicion({
           </button>
         </div>
         <div className="px-5 py-4 space-y-3">
+          <div className="rounded-[10px] border border-blue-100 bg-blue-50/60 px-3 py-2.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Medida</p>
+            <p className="text-2xl font-bold tabular-nums text-[#1A3A5C] leading-tight">{resumen}</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Podés cerrarla sin guardar y no queda nada dibujado. Para dejarla en la Planilla, escribí una descripción y tocá Guardar.
+            </p>
+          </div>
           <div>
             <label className="block text-sm font-semibold text-[#1A3A5C] mb-1">Descripción</label>
             <input
@@ -682,9 +724,9 @@ function ModalConfirmarMedicion({
           <button
             onClick={onCancelar}
             disabled={guardando}
-            className="px-4 py-2 rounded-[8px] text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-[8px] border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Cancelar
+            Solo ver la medida
           </button>
           <button
             onClick={guardar}
@@ -695,7 +737,7 @@ function ModalConfirmarMedicion({
             )}
           >
             {guardando && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {guardando ? "Guardando…" : "Guardar"}
+            {guardando ? "Guardando…" : "Guardar en la Planilla"}
           </button>
         </div>
       </div>
@@ -1123,6 +1165,29 @@ function VisorPrincipal({
   // de medicionPendiente al finalizar.
   const [puntosPunto, setPuntosPunto] = useState<{ x: number; y: number }[]>([]);
   const [medicionPendiente, setMedicionPendiente] = useState<MedicionPendiente | null>(null);
+  // Medición YA GUARDADA bajo el mouse (hover) o elegida con un clic
+  // (seleccionada): muestra un control visible "Eliminar" junto a la medición
+  // (con la confirmación de siempre) y habilita la tecla Supr. Solo se
+  // ofrece con ninguna herramienta activa (mismo criterio que el clic para
+  // borrar de siempre: con una herramienta activa un clic sobre la medición
+  // debe poner un punto, no seleccionarla).
+  const [medicionHoverId, setMedicionHoverId] = useState<string | null>(null);
+  const [medicionSelId, setMedicionSelId] = useState<string | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Zoom actual del plano: el botón "Eliminar" vive dentro del contenido
+  // escalado, así que se le aplica el zoom inverso para que se vea siempre del
+  // mismo tamaño en pantalla (sin esto, con el plano alejado queda ilegible).
+  const [escalaVista, setEscalaVista] = useState(1);
+  const entrarMedicion = (id: string) => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setMedicionHoverId(id);
+  };
+  // Pequeña demora al salir: da tiempo a pasar del trazo al botón "Eliminar"
+  // sin que desaparezca en el camino.
+  const salirMedicion = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setMedicionHoverId(null), 350);
+  };
   // Modo "medir ANCHO hacia una fila existente" — ver ControlesMedicion.
   // No null mientras dura: el próximo trazo de Línea confirmado no pasa
   // por medicionPendiente/el modal, se guarda directo contra filaId
@@ -1476,6 +1541,27 @@ function VisorPrincipal({
     if (herramienta === "POLILINEA" && !medicionPendiente) finalizarPolilinea();
   };
 
+  // Descarta la polilínea en curso y deja la herramienta prendida (lo mismo
+  // que Esc con una polilínea a medio dibujar).
+  const descartarPolilinea = () => {
+    setPuntosPolilinea([]);
+    setCursorPolilinea(null);
+  };
+
+  // Clic DERECHO mientras se dibuja una polilínea = Enter: termina con los
+  // puntos ya colocados (no suma un punto) y necesita 2 o más; con 1 solo
+  // punto no hace nada. El menú del navegador se evita SOLO mientras hay una
+  // polilínea en curso: con la herramienta apagada, sin puntos puestos o con
+  // cualquier otra herramienta el menú contextual se comporta como siempre.
+  // En pantallas táctiles el contextmenu es la pulsación larga: no cierra la
+  // polilínea (para eso está el botón "Terminar").
+  const onSvgContextMenu = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (herramienta !== "POLILINEA" || medicionPendiente || puntosPolilinea.length === 0) return;
+    e.preventDefault();
+    if (typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches) return;
+    if (puntosPolilinea.length >= 2) finalizarPolilinea();
+  };
+
   const finalizarArea = () => {
     if (puntosArea.length < 3 || !pageDimsMM || doc.factorEscala == null) return;
     const valor = calcularAreaReal(puntosArea, pageDimsMM, doc.factorEscala);
@@ -1742,6 +1828,46 @@ function VisorPrincipal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [herramienta, puntosPolilinea, medicionPendiente, pageDimsMM, doc.factorEscala]);
 
+  // Medición guardada seleccionada o bajo el mouse (ver medicionHoverId):
+  // Supr la elimina (con la confirmación de siempre), Esc o un clic en otro
+  // lado la sueltan, y al activar cualquier herramienta se limpia todo.
+  const medicionesRef = useRef(mediciones);
+  medicionesRef.current = mediciones;
+  useEffect(() => {
+    if (herramienta !== null) {
+      setMedicionSelId(null);
+      setMedicionHoverId(null);
+    }
+  }, [herramienta]);
+  useEffect(() => {
+    const id = medicionSelId ?? medicionHoverId;
+    if (!id || herramienta !== null) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
+      if (e.key === "Delete") {
+        const m = medicionesRef.current.find((x) => x.id === id);
+        if (m) {
+          e.preventDefault();
+          eliminarMedicionConConfirmacion(m);
+        }
+      } else if (e.key === "Escape") {
+        setMedicionSelId(null);
+        setMedicionHoverId(null);
+      }
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement | null)?.closest?.("[data-medicion-ctrl]")) setMedicionSelId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mousedown", onMouseDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mousedown", onMouseDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [medicionSelId, medicionHoverId, herramienta]);
+
   // Se guarda directo al confirmar el texto en el modal — sin paso
   // intermedio "pendiente" ni banner flotante pidiendo Guardar/Cancelar
   // (el usuario reportó que ese cartel tapaba textos chicos en el
@@ -1844,6 +1970,8 @@ function VisorPrincipal({
   const eliminarMedicionConConfirmacion = (medicion: MedicionDocumento) => {
     if (confirm(`¿Eliminar "${medicion.descripcion}"?`)) {
       onEliminarMedicion(medicion.id);
+      setMedicionSelId(null);
+      setMedicionHoverId(null);
     }
   };
 
@@ -2004,12 +2132,34 @@ function VisorPrincipal({
             ))}
           </div>
         )}
+        {/* Polilínea en curso: total acumulado + las dos salidas a la vista.
+            Terminar (Enter, clic derecho o este botón) necesita 2+ puntos;
+            Cancelar (Esc) descarta lo dibujado. En pantallas táctiles estos
+            botones son la forma de cerrar la polilínea. Una sola línea y
+            compacta: en celular se esconden los textos de ayuda (queda
+            "Terminar" / "Cancelar") para no tapar el plano. El contenedor no
+            captura el mouse (pointer-events-none); solo los botones. */}
         {polilineaEnVivo && (
-          <div className="flex items-center gap-2 bg-white rounded-full px-3 py-1.5 shadow-md border border-slate-200 pointer-events-none">
-            <Waypoints className="w-3.5 h-3.5 text-[#2563EB]" />
-            <span className="text-xs text-slate-500">Total acumulado</span>
-            <span className="text-sm font-bold tabular-nums text-[#1A3A5C]">{fmtMetros(polilineaEnVivo.total)}</span>
-            <span className="text-[11px] text-slate-400">· {polilineaEnVivo.puntos} {polilineaEnVivo.puntos === 1 ? "punto" : "puntos"}</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-white rounded-full pl-3 pr-1.5 py-1 shadow-md border border-slate-200 pointer-events-none max-w-[calc(100vw-1.5rem)]">
+            <Waypoints className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0" />
+            <span className="hidden sm:inline text-xs text-slate-500">Total acumulado</span>
+            <span className="text-sm font-bold tabular-nums text-[#1A3A5C] whitespace-nowrap">{fmtMetros(polilineaEnVivo.total)}</span>
+            <span className="hidden sm:inline text-[11px] text-slate-400 whitespace-nowrap">· {polilineaEnVivo.puntos} {polilineaEnVivo.puntos === 1 ? "punto" : "puntos"}</span>
+            <button
+              onClick={finalizarPolilinea}
+              disabled={polilineaEnVivo.puntos < 2}
+              title={polilineaEnVivo.puntos < 2 ? "Hacen falta al menos 2 puntos" : "Terminar la polilínea (Enter o clic derecho)"}
+              className="pointer-events-auto rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs font-semibold px-3 py-1.5 whitespace-nowrap transition-colors"
+            >
+              Terminar<span className="hidden sm:inline font-normal opacity-80"> (Enter o clic derecho)</span>
+            </button>
+            <button
+              onClick={descartarPolilinea}
+              title="Cancelar y descartar lo dibujado (Esc)"
+              className="pointer-events-auto rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 whitespace-nowrap transition-colors"
+            >
+              Cancelar<span className="hidden sm:inline text-slate-400"> (Esc)</span>
+            </button>
           </div>
         )}
         {renderizandoPDF && !cargando && (
@@ -2098,6 +2248,10 @@ function VisorPrincipal({
         doubleClick={{ disabled: herramienta === "POLILINEA" }}
         onZoomStop={actualizarDPRSegunZoom}
         onPanningStop={actualizarDPRSegunZoom}
+        onTransform={(_ref, st) => {
+          const e = Math.round(st.scale * 100) / 100;
+          setEscalaVista((prev) => (prev === e ? prev : e));
+        }}
       >
         {/* OJO: contentStyle NO debe forzar width/height/flex — la librería
             centra vía centerOnInit midiendo el tamaño NATURAL del
@@ -2158,6 +2312,7 @@ function VisorPrincipal({
               onMouseLeave={onSvgMouseLeave}
               onClick={onSvgClick}
               onDoubleClick={onSvgDoubleClick}
+              onContextMenu={onSvgContextMenu}
             >
               {/* Tres estados, tres colores, sin ambigüedad posible entre
                   "lo que ya guardé" y "lo que estoy dibujando ahora":
@@ -2180,20 +2335,30 @@ function VisorPrincipal({
               {mediciones.map((m) => {
                 const clickeable = herramienta === null;
                 const estiloClick: React.CSSProperties = { pointerEvents: clickeable ? "auto" : "none", cursor: clickeable ? "pointer" : "default" };
+                // Clic = seleccionar (aparece "Eliminar" junto a la medición y
+                // Supr la elimina, siempre con confirmación); pasar el mouse
+                // por encima la resalta y muestra el mismo botón.
+                const resaltada = clickeable && (m.id === medicionHoverId || m.id === medicionSelId);
+                const trazoGrueso = resaltada ? 2.6 : 1.25;
                 const onClickBorrar = (e: React.MouseEvent) => {
                   e.stopPropagation();
-                  eliminarMedicionConConfirmacion(m);
+                  setMedicionSelId(m.id);
+                };
+                const eventosMedicion = {
+                  "data-medicion-ctrl": "1",
+                  onMouseEnter: () => entrarMedicion(m.id),
+                  onMouseLeave: salirMedicion,
                 };
                 if (m.tipo === "AREA" && m.puntos && m.puntos.length >= 3) {
                   return (
-                    <g key={m.id} style={estiloClick} onClick={onClickBorrar}>
-                      <title>{`"${m.descripcion}" — click para eliminar`}</title>
+                    <g key={m.id} style={estiloClick} onClick={onClickBorrar} {...eventosMedicion}>
+                      <title>{`"${m.descripcion}" — clic para seleccionar y eliminar`}</title>
                       <polygon
                         points={m.puntos.map((p) => `${p.x},${p.y}`).join(" ")}
                         fill="#2563EB"
-                        fillOpacity={0.12}
+                        fillOpacity={resaltada ? 0.22 : 0.12}
                         stroke="#2563EB"
-                        strokeWidth={1.25}
+                        strokeWidth={trazoGrueso}
                         strokeLinejoin="round"
                         vectorEffect="non-scaling-stroke"
                       />
@@ -2206,10 +2371,10 @@ function VisorPrincipal({
                 if (m.tipo === "POLILINEA" && m.puntos && m.puntos.length >= 2) {
                   const pts = m.puntos.map((p) => `${p.x},${p.y}`).join(" ");
                   return (
-                    <g key={m.id} style={estiloClick} onClick={onClickBorrar}>
-                      <title>{`"${m.descripcion}" — polilínea de ${m.puntos.length - 1} tramos${m.longitudReal != null ? `, ${fmtMetros(m.longitudReal)}` : ""} — click para eliminar`}</title>
+                    <g key={m.id} style={estiloClick} onClick={onClickBorrar} {...eventosMedicion}>
+                      <title>{`"${m.descripcion}" — polilínea de ${m.puntos.length - 1} tramos${m.longitudReal != null ? `, ${fmtMetros(m.longitudReal)}` : ""} — clic para seleccionar y eliminar`}</title>
                       <polyline points={pts} fill="none" stroke="transparent" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-                      <polyline points={pts} fill="none" stroke="#2563EB" strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                      <polyline points={pts} fill="none" stroke="#2563EB" strokeWidth={trazoGrueso} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                     </g>
                   );
                 }
@@ -2221,10 +2386,10 @@ function VisorPrincipal({
                 if (m.tipo === "PUNTO") return null;
                 if (m.xInicio == null || m.yInicio == null || m.xFin == null || m.yFin == null) return null;
                 return (
-                  <g key={m.id} style={estiloClick} onClick={onClickBorrar}>
-                    <title>{`"${m.descripcion}" — click para eliminar`}</title>
+                  <g key={m.id} style={estiloClick} onClick={onClickBorrar} {...eventosMedicion}>
+                    <title>{`"${m.descripcion}" — clic para seleccionar y eliminar`}</title>
                     <line x1={m.xInicio} y1={m.yInicio} x2={m.xFin} y2={m.yFin} stroke="transparent" strokeWidth={3} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-                    <line x1={m.xInicio} y1={m.yInicio} x2={m.xFin} y2={m.yFin} stroke="#2563EB" strokeWidth={1.25} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                    <line x1={m.xInicio} y1={m.yInicio} x2={m.xFin} y2={m.yFin} stroke="#2563EB" strokeWidth={trazoGrueso} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
                   </g>
                 );
               })}
@@ -2515,11 +2680,14 @@ function VisorPrincipal({
                 return m.puntos.map((p, i) => (
                   <div
                     key={`${m.id}-${i}`}
+                    data-medicion-ctrl="1"
+                    onMouseEnter={() => entrarMedicion(m.id)}
+                    onMouseLeave={salirMedicion}
                     onClick={(e) => {
                       e.stopPropagation();
-                      eliminarMedicionConConfirmacion(m);
+                      setMedicionSelId(m.id);
                     }}
-                    title={`"${m.descripcion}" — click para eliminar`}
+                    title={`"${m.descripcion}" — clic para seleccionar y eliminar`}
                     style={{
                       left: `${p.x}%`,
                       top: `${p.y}%`,
@@ -2532,6 +2700,37 @@ function VisorPrincipal({
                   </div>
                 ));
               })}
+              {/* Control visible para borrar una medición guardada: aparece al
+                  pasar el mouse o al seleccionarla (clic), junto a la medición,
+                  y pide la confirmación de siempre. Con la herramienta apagada
+                  (Esc) — con una activa, los clics sobre el plano dibujan. */}
+              {herramienta === null &&
+                (() => {
+                  const id = medicionSelId ?? medicionHoverId;
+                  const m = id ? mediciones.find((x) => x.id === id) : null;
+                  const a = m ? anclaMedicion(m) : null;
+                  if (!m || !a) return null;
+                  return (
+                    <div
+                      data-medicion-ctrl="1"
+                      onMouseEnter={() => entrarMedicion(m.id)}
+                      onMouseLeave={salirMedicion}
+                      style={{ left: `${a.x}%`, top: `${a.y}%`, pointerEvents: "auto", scale: String(1 / escalaVista), transformOrigin: "50% 100%" }}
+                      className="absolute z-10 -translate-x-1/2 -translate-y-full pb-2"
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          eliminarMedicionConConfirmacion(m);
+                        }}
+                        title={`Eliminar "${m.descripcion}" (Supr)`}
+                        className="flex items-center gap-1 rounded-full bg-white border border-red-200 shadow-md px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50 whitespace-nowrap"
+                      >
+                        <Trash2 className="w-3 h-3" /> Eliminar<span className="hidden sm:inline font-normal text-red-400"> (Supr)</span>
+                      </button>
+                    </div>
+                  );
+                })()}
               {herramienta === "PUNTO" &&
                 puntosPunto.map((p, i) => (
                   <div
@@ -2585,6 +2784,7 @@ function VisorPrincipal({
               ? "Área (m²)"
               : "Cantidad"
           }
+          resumen={fmtResumenMedida(medicionPendiente.tipo, medicionPendiente.valor)}
           valorInicial={medicionPendiente.valor}
           tramos={medicionPendiente.tipo === "POLILINEA" ? medicionPendiente.tramos : undefined}
           onCancelar={() => setMedicionPendiente(null)}
@@ -3086,7 +3286,7 @@ export default function Visor({
                     ? "No disponible mientras se está midiendo un ANCHO — cancelá con ESC o con el ícono de regla"
                     : documentoPrincipal.tipoArchivo !== "PDF"
                     ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
-                    : "Clic en cada punto. Doble clic o Enter para terminar. Esc cancela."}
+                    : "Clic en cada punto. Doble clic, Enter o clic derecho para terminar. Esc cancela."}
                 </span>
               </span>
             </span>

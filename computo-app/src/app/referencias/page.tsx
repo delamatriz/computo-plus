@@ -341,15 +341,21 @@ const tutorialFlujoPrincipal: PasoTutorial[] = [
         entre dos puntos; <strong className="text-slate-700">Polilínea</strong>{" "}
         suma varios tramos —un muro que dobla, un perímetro abierto o el
         recorrido de una cañería—: hacés clic en cada punto y terminás con
-        doble clic o Enter (Esc cancela). Para este ejemplo usamos{" "}
+        doble clic, Enter o clic derecho (Esc cancela; en pantallas
+        táctiles, con el botón <strong className="text-slate-700">Terminar</strong>{" "}
+        que aparece arriba del plano). Para este ejemplo usamos{" "}
         <strong className="text-slate-700">Medir</strong>: hacés clic y
         arrastrás sobre el plano, de una punta a la otra de lo que querés
         medir (un muro, por ejemplo), y soltás. Se abre un cuadro{" "}
         <strong className="text-slate-700">Nueva medición</strong> con la
         longitud ya calculada —la podés corregir a mano si hace falta—, más
         los campos <strong className="text-slate-700">Descripción</strong> y{" "}
-        <strong className="text-slate-700">Repeticiones</strong>. Guardás con{" "}
-        <strong className="text-slate-700">Guardar</strong>.
+        <strong className="text-slate-700">Repeticiones</strong>. Arriba del
+        cuadro ves la medida en grande. Si solo querías conocer el valor,
+        tocá <strong className="text-slate-700">Solo ver la medida</strong>:
+        se cierra sin guardar y no queda nada dibujado en el plano. Si la
+        querés en tu cómputo, escribí la descripción y tocá{" "}
+        <strong className="text-slate-700">Guardar en la Planilla</strong>.
       </>
     ),
   },
@@ -361,7 +367,11 @@ const tutorialFlujoPrincipal: PasoTutorial[] = [
         Ni bien guardás, la fila aparece en la{" "}
         <strong className="text-slate-700">Planilla de Cómputo</strong>, con
         su largo, ancho, alto y subtotal según corresponda. No hay que hacer
-        nada más para que llegue ahí.
+        nada más para que llegue ahí. La medición también queda dibujada en
+        azul sobre el plano; para borrarla, apagá la herramienta (Esc), pasá
+        el mouse por encima o hacé clic y tocá{" "}
+        <strong className="text-slate-700">Eliminar</strong> (o la tecla
+        Supr); te pide confirmar.
       </>
     ),
   },
