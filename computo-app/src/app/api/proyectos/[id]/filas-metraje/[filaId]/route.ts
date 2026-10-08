@@ -93,6 +93,16 @@ export async function PATCH(
         return NextResponse.json({ error: "rubroId tiene que ser string o null" }, { status: 400 });
       }
       data.rubroId = body.rubroId || null;
+      // Desvincular a mano ("Sin vincular") limpia la unidad: si no, la fila
+      // queda atada a la unidad del rubro anterior (la hereda al vincularse)
+      // y ya no se puede vincular a un rubro de otra unidad. La próxima
+      // vinculación vuelve a heredar la unidad del rubro nuevo. No aplica si
+      // el mismo patch trae una unidad explícita, ni a la desvinculación
+      // automática por cambio de unidad (más abajo), que fija la unidad nueva.
+      if (!data.rubroId && fila.rubroId && !("unidad" in body)) {
+        data.unidad = null;
+        unidadEfectiva = null;
+      }
     }
     // Mover la fila a otra sección de la Planilla (o a sueltas con null).
     // No toca el vínculo con el rubro ni la unidad.

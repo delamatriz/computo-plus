@@ -532,7 +532,7 @@ export default function VisorProyectoPage() {
 
   const actualizarFila = async (id: string, field: keyof MetrajeFila, value: string) => {
     const nuevoValor: string | number | null =
-      field === "descripcion" || field === "rubroId" || field === "unidad"
+      field === "descripcion" || field === "rubroId" || field === "unidad" || field === "seccionId"
         ? value || null
         : value === ""
         ? null

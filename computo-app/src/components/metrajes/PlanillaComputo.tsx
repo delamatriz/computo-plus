@@ -88,6 +88,8 @@ function InputNumericoFila({
 // La Calculadora rápida se sacó de acá — quedó redundante con el botón
 // flotante circular (CalculadoraFlotante, global en toda la app), que
 // es ahora la única forma de acceder a ella desde esta página.
+const ANCHO_SECCION = 150;
+
 export default function PlanillaComputo({
   filas,
   secciones,
@@ -187,6 +189,9 @@ export default function PlanillaComputo({
   };
 
   const idsSecciones = new Set(secciones.map((sec) => sec.id));
+  // Columna "Sección" (mover la fila) — solo cuando hay secciones: sin
+  // ninguna, la Planilla se ve exactamente como siempre.
+  const haySecciones = secciones.length > 0;
   const sueltas = filas.filter((f) => !f.seccionId || !idsSecciones.has(f.seccionId));
   const rubrosVinculados = new Set(filas.map((f) => f.rubroId).filter(Boolean)).size;
 
@@ -331,6 +336,26 @@ export default function PlanillaComputo({
             );
           })()}
         </div>
+        {haySecciones && (
+          <div style={{ width: ANCHO_SECCION, flexShrink: 0 }} className="px-2 py-1.5">
+            {/* Mover la fila a otra sección o a sueltas — solo cambia
+                dónde se muestra; no toca el rubro ni las cantidades. */}
+            <select
+              value={fila.seccionId && idsSecciones.has(fila.seccionId) ? fila.seccionId : ""}
+              onChange={(e) => onActualizarFila(fila.id, "seccionId", e.target.value)}
+              aria-label="Sección de la fila"
+              title="Mover la fila a otra sección"
+              className={cn(inputCls, "cursor-pointer", !(fila.seccionId && idsSecciones.has(fila.seccionId)) && "text-slate-400")}
+            >
+              <option value="">Filas sueltas</option>
+              {secciones.map((sec) => (
+                <option key={sec.id} value={sec.id}>
+                  {sec.nombre.trim() || "Sección sin nombre"}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div style={{ width: 36, flexShrink: 0 }} className="flex items-center justify-center">
           <button
             onClick={() => onEliminarFila(fila.id)}
@@ -391,7 +416,7 @@ export default function PlanillaComputo({
               className="overflow-hidden"
             >
         <div className="overflow-x-auto">
-          <div className="min-w-[880px]">
+          <div className={haySecciones ? "min-w-[1030px]" : "min-w-[880px]"}>
             {/* Cabecera */}
             <div className="flex items-center bg-slate-50 border-b border-slate-200" style={{ height: 32 }}>
               <div className="flex-1 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Descripción</div>
@@ -401,6 +426,9 @@ export default function PlanillaComputo({
               <div style={{ width: 80, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Cant.</div>
               <div style={{ width: 110, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Subtotal</div>
               <div style={{ width: 220, flexShrink: 0 }} className="px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Rubro vinculado</div>
+              {haySecciones && (
+                <div style={{ width: ANCHO_SECCION, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Sección</div>
+              )}
               <div style={{ width: 36, flexShrink: 0 }} />
             </div>
 
@@ -457,11 +485,11 @@ export default function PlanillaComputo({
                         aria-label="Nombre de la sección"
                         className="min-w-0 flex-1 text-sm font-bold text-[#1A3A5C] bg-transparent rounded px-1 py-0.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#2563EB]/30 placeholder:text-slate-300"
                       />
-                      <span className="text-[11px] text-slate-400 whitespace-nowrap flex-shrink-0">
+                    </div>
+                    <div style={{ width: 364, flexShrink: 0 }} className="px-2 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-slate-400 whitespace-nowrap">
                         {propias.length} {propias.length === 1 ? "fila" : "filas"}
                       </span>
-                    </div>
-                    <div style={{ width: 364, flexShrink: 0 }} className="px-2 flex justify-end">
                       {activa ? (
                         <span className="text-[11px] font-semibold text-[#2563EB] whitespace-nowrap">Las filas nuevas van acá</span>
                       ) : (
@@ -487,6 +515,7 @@ export default function PlanillaComputo({
                         <Plus className="w-3 h-3" /> Agregar fila
                       </button>
                     </div>
+                    {haySecciones && <div style={{ width: ANCHO_SECCION, flexShrink: 0 }} />}
                     <div style={{ width: 36, flexShrink: 0 }} className="flex items-center justify-center">
                       <button
                         onClick={() => {
@@ -606,6 +635,7 @@ export default function PlanillaComputo({
                 </span>
               </div>
               <div style={{ width: 220 }} />
+              {haySecciones && <div style={{ width: ANCHO_SECCION }} />}
               <div style={{ width: 36 }} />
             </div>
           </div>
