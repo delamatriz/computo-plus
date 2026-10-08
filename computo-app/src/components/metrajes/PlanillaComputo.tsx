@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Plus, X, ChevronDown, Sparkles, Loader2, Calculator, AlertTriangle, CheckCircle2, Ruler } from "lucide-react";
+import { Download, Plus, X, ChevronDown, ChevronUp, Sparkles, Loader2, Calculator, AlertTriangle, CheckCircle2, Ruler, Trash2, FolderPlus, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fmtNum, fmtUnidad, subtotalFila, rubroCompatibleConFila, type MetrajeFila, type RubroOption, type ActualizacionComputo } from "./metrajeFila";
+import { fmtNum, fmtUnidad, subtotalFila, rubroCompatibleConFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ActualizacionComputo } from "./metrajeFila";
 
 // Estado del modal de "Aplicar al presupuesto" — dos pasos (preview sin
 // tocar la base → confirmar y aplicar de verdad) más los estados de
@@ -90,6 +90,14 @@ function InputNumericoFila({
 // es ahora la única forma de acceder a ella desde esta página.
 export default function PlanillaComputo({
   filas,
+  secciones,
+  seccionActivaId,
+  onElegirSeccionActiva,
+  onAgregarSeccion,
+  onRenombrarSeccion,
+  onMoverSeccion,
+  onEliminarSeccion,
+  onAgruparPorRubro,
   rubrosDisponibles,
   totalGeneral,
   iaTexto,
@@ -106,12 +114,27 @@ export default function PlanillaComputo({
   soloLectura = false,
 }: {
   filas: MetrajeFila[];
+  /** Secciones opcionales (vacío = la Planilla de siempre). Las filas sin
+   * sección (o con una sección que ya no existe) se muestran sueltas,
+   * arriba de todas. */
+  secciones: SeccionPlanilla[];
+  /** Adonde van las filas nuevas — null = sueltas. */
+  seccionActivaId: string | null;
+  onElegirSeccionActiva: (seccionId: string | null) => void;
+  onAgregarSeccion: () => void;
+  onRenombrarSeccion: (seccionId: string, nombre: string) => void;
+  onMoverSeccion: (seccionId: string, direccion: -1 | 1) => void;
+  /** Sin confirmar: la confirmación la pide este componente. */
+  onEliminarSeccion: (seccionId: string) => void;
+  onAgruparPorRubro: () => void;
   rubrosDisponibles: RubroOption[];
   totalGeneral: number;
   iaTexto: string;
   iaCargando: boolean;
   onActualizarFila: (id: string, field: keyof MetrajeFila, value: string) => void;
-  onAgregarFila: () => void;
+  /** Sin argumento: a la sección activa. Con seccionId (o null = sueltas):
+   * a esa, que además pasa a ser la activa. */
+  onAgregarFila: (seccionId?: string | null) => void;
   onEliminarFila: (id: string) => void;
   onIaTextoChange: (value: string) => void;
   onAgregarFilaIA: () => void;
@@ -161,6 +184,164 @@ export default function PlanillaComputo({
     } catch {
       setModalAplicar({ paso: "error", mensaje: "No se pudo aplicar al presupuesto. Probá de nuevo." });
     }
+  };
+
+  const idsSecciones = new Set(secciones.map((sec) => sec.id));
+  const sueltas = filas.filter((f) => !f.seccionId || !idsSecciones.has(f.seccionId));
+  const rubrosVinculados = new Set(filas.map((f) => f.rubroId).filter(Boolean)).size;
+
+  // Una fila de la Planilla — igual para filas sueltas y filas de una
+  // sección (misma edición inline, mismo vínculo con el rubro, misma X).
+  const renderFila = (fila: MetrajeFila, idx: number) => {
+    const subtotal = subtotalFila(fila);
+    return (
+      <div
+        key={fila.id}
+        className={cn(
+          "flex items-center hover:bg-blue-50/20 transition-colors",
+          idx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white"
+        )}
+        style={{ minHeight: 36, borderBottom: "1px solid #F1F5F9" }}
+      >
+        <div className="flex-1 px-3">
+          <input
+            type="text"
+            value={fila.descripcion}
+            onChange={(e) => onActualizarFila(fila.id, "descripcion", e.target.value)}
+            placeholder="Descripción del elemento"
+            className={inputCls}
+          />
+        </div>
+        <div style={{ width: 88, flexShrink: 0 }} className="px-2">
+          <InputNumericoFila
+            value={fila.largo}
+            onChange={(v) => onActualizarFila(fila.id, "largo", v)}
+            className={cn(inputCls, "text-right")}
+          />
+        </div>
+        <div style={{ width: 108, flexShrink: 0 }} className="px-2 flex items-center gap-1">
+          <InputNumericoFila
+            value={fila.ancho}
+            onChange={(v) => onActualizarFila(fila.id, "ancho", v)}
+            className={cn(inputCls, "text-right")}
+          />
+          {/* Espacio del ícono reservado con ancho fijo SIEMPRE
+              presente (tenga o no medicionId la fila) — si no,
+              el input de Ancho competía por ese ancho contra el
+              ícono cuando aparecía, quedando ~20px más angosto
+              que Largo/Alto/Cantidad y descolocando toda la fila
+              (ver ronda de investigación del bug "descentrado"). */}
+          <div style={{ width: 16, flexShrink: 0 }} className="flex items-center justify-center">
+            {fila.medicionId && onMedirAnchoParaFila && (
+              <button
+                type="button"
+                onClick={() => onMedirAnchoParaFila(fila.id, fila.descripcion || "elemento sin descripción")}
+                title="Medir el ancho directo en el plano"
+                className="p-0.5 rounded text-slate-300 hover:text-[#2563EB] hover:bg-blue-50 transition-colors"
+              >
+                <Ruler className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+        <div style={{ width: 88, flexShrink: 0 }} className="px-2">
+          <InputNumericoFila
+            value={fila.alto}
+            onChange={(v) => onActualizarFila(fila.id, "alto", v)}
+            className={cn(inputCls, "text-right")}
+          />
+        </div>
+        <div style={{ width: 80, flexShrink: 0 }} className="px-2">
+          <InputNumericoFila
+            value={fila.cantidad}
+            onChange={(v) => onActualizarFila(fila.id, "cantidad", v)}
+            className={cn(inputCls, "text-right")}
+          />
+        </div>
+        <div style={{ width: 110, flexShrink: 0 }} className="px-2 text-right">
+          <span className={cn("text-sm font-semibold tabular-nums whitespace-nowrap", subtotal > 0 ? "text-[#2563EB]" : "text-slate-300")}>
+            {subtotal > 0 ? fmtNum(subtotal) : "—"}
+          </span>
+          {subtotal > 0 && fila.unidad && (
+            <span className="text-[10px] font-normal text-slate-400 ml-0.5">{fmtUnidad(fila.unidad)}</span>
+          )}
+        </div>
+        <div style={{ width: 220, flexShrink: 0 }} className="px-3 py-1.5">
+          <select
+            value={fila.rubroId ?? ""}
+            onChange={(e) => onActualizarFila(fila.id, "rubroId", e.target.value)}
+            className={cn(inputCls, "cursor-pointer", !fila.rubroId && "text-slate-400")}
+          >
+            <option value="">Sin vincular</option>
+            {Object.entries(
+              // Clave compuesta título › capítulo — sin título, un
+              // capítulo se agrupa solo por su nombre (igual que
+              // siempre); con título, el nombre del título se suma
+              // adelante para desambiguar dos capítulos con el
+              // mismo nombre en títulos distintos (ej. dos
+              // "Albañilería", uno por título).
+              rubrosDisponibles.reduce<Record<string, RubroOption[]>>((acc, r) => {
+                const clave = r.tituloNombre ? `${r.tituloNombre} › ${r.capituloNombre}` : r.capituloNombre;
+                (acc[clave] ??= []).push(r);
+                return acc;
+              }, {})
+            ).map(([clave, rubros]) => (
+              <optgroup key={clave} label={clave}>
+                {rubros.map((r) => {
+                  // Si la fila ya tiene una unidad propia (cargada a
+                  // mano o heredada de una medición — ver
+                  // guardarMedicion en page.tsx), no se puede vincular
+                  // a un rubro de unidad distinta (m² vs m³, etc) —
+                  // salvo que el rubro sea "GL" (ítem Global, no
+                  // depende de ninguna unidad), ver
+                  // rubroCompatibleConFila en metrajeFila.ts.
+                  const incompatible = !!fila.unidad && !rubroCompatibleConFila(fila.unidad, r.unidad);
+                  return (
+                    <option
+                      key={r.id}
+                      value={r.id}
+                      disabled={incompatible}
+                      title={incompatible ? `Unidad distinta: fila en ${fila.unidad}, rubro en ${r.unidad}` : undefined}
+                    >
+                      {r.nombre} ({r.unidad}){incompatible ? " — unidad distinta" : ""}
+                    </option>
+                  );
+                })}
+              </optgroup>
+            ))}
+          </select>
+          {(() => {
+            // Si NINGÚN rubro del proyecto es compatible (ni por
+            // unidad exacta ni por la excepción GL), el <select>
+            // queda con todas las opciones deshabilitadas salvo
+            // "Sin vincular" — sin este mensaje, eso se veía
+            // idéntico a un desplegable roto (el único indicio era
+            // el sufijo "— unidad distinta" dentro de cada opción
+            // larga, y el title, que no sirve en mobile porque
+            // depende de hover). Visible siempre que aplica, sin
+            // necesitar hover ni tap.
+            const unidadFila = fila.unidad;
+            if (!unidadFila) return null;
+            const hayCompatible = rubrosDisponibles.some((r) => rubroCompatibleConFila(unidadFila, r.unidad));
+            if (hayCompatible) return null;
+            return (
+              <p className="text-[10px] text-red-500 mt-0.5 leading-tight">
+                Ningún rubro tiene unidad {unidadFila} (ni es Global) — no se puede vincular
+              </p>
+            );
+          })()}
+        </div>
+        <div style={{ width: 36, flexShrink: 0 }} className="flex items-center justify-center">
+          <button
+            onClick={() => onEliminarFila(fila.id)}
+            className="text-slate-300 hover:text-red-500 transition-colors"
+            aria-label="Eliminar fila"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -223,167 +404,167 @@ export default function PlanillaComputo({
               <div style={{ width: 36, flexShrink: 0 }} />
             </div>
 
-            {/* Filas */}
-            {filas.map((fila, idx) => {
-              const subtotal = subtotalFila(fila);
+            {/* Filas sueltas — sin sección, arriba de todo (igual que siempre
+                cuando no hay secciones). */}
+            {sueltas.map(renderFila)}
+
+            {/* Secciones — cabecera (orden, nombre editable inline, destino
+                de las filas nuevas, subtotal, agregar fila, eliminar) y sus
+                filas. */}
+            {secciones.map((seccion, i) => {
+              const propias = filas.filter((f) => f.seccionId === seccion.id);
+              const subtotalSeccion = propias.reduce((acc, f) => acc + subtotalFila(f), 0);
+              // La unidad se muestra junto al subtotal solo si todas las
+              // filas con unidad de la sección comparten la misma (típico de
+              // "Agrupar por rubro"); sumar m² con ml no tiene unidad.
+              const unidades = new Set(propias.map((f) => f.unidad?.trim().toUpperCase()).filter(Boolean));
+              const unidadSeccion = unidades.size === 1 ? propias.find((f) => f.unidad)?.unidad ?? null : null;
+              const activa = seccion.id === seccionActivaId;
               return (
-                <div
-                  key={fila.id}
-                  className={cn(
-                    "flex items-center hover:bg-blue-50/20 transition-colors",
-                    idx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white"
-                  )}
-                  style={{ minHeight: 36, borderBottom: "1px solid #F1F5F9" }}
-                >
-                  <div className="flex-1 px-3">
-                    <input
-                      type="text"
-                      value={fila.descripcion}
-                      onChange={(e) => onActualizarFila(fila.id, "descripcion", e.target.value)}
-                      placeholder="Descripción del elemento"
-                      className={inputCls}
-                    />
-                  </div>
-                  <div style={{ width: 88, flexShrink: 0 }} className="px-2">
-                    <InputNumericoFila
-                      value={fila.largo}
-                      onChange={(v) => onActualizarFila(fila.id, "largo", v)}
-                      className={cn(inputCls, "text-right")}
-                    />
-                  </div>
-                  <div style={{ width: 108, flexShrink: 0 }} className="px-2 flex items-center gap-1">
-                    <InputNumericoFila
-                      value={fila.ancho}
-                      onChange={(v) => onActualizarFila(fila.id, "ancho", v)}
-                      className={cn(inputCls, "text-right")}
-                    />
-                    {/* Espacio del ícono reservado con ancho fijo SIEMPRE
-                        presente (tenga o no medicionId la fila) — si no,
-                        el input de Ancho competía por ese ancho contra el
-                        ícono cuando aparecía, quedando ~20px más angosto
-                        que Largo/Alto/Cantidad y descolocando toda la fila
-                        (ver ronda de investigación del bug "descentrado"). */}
-                    <div style={{ width: 16, flexShrink: 0 }} className="flex items-center justify-center">
-                      {fila.medicionId && onMedirAnchoParaFila && (
+                <div key={seccion.id}>
+                  <div
+                    className={cn(
+                      "flex items-center border-t border-b",
+                      activa ? "bg-blue-50/70 border-blue-200" : "bg-slate-50 border-slate-200"
+                    )}
+                    style={{ minHeight: 38 }}
+                  >
+                    <div className="flex-1 min-w-0 flex items-center gap-1.5 pl-1.5 pr-3">
+                      <div className="flex flex-col flex-shrink-0">
                         <button
-                          type="button"
-                          onClick={() => onMedirAnchoParaFila(fila.id, fila.descripcion || "elemento sin descripción")}
-                          title="Medir el ancho directo en el plano"
-                          className="p-0.5 rounded text-slate-300 hover:text-[#2563EB] hover:bg-blue-50 transition-colors"
+                          onClick={() => onMoverSeccion(seccion.id, -1)}
+                          disabled={i === 0}
+                          title="Subir la sección"
+                          className="p-0.5 rounded text-slate-400 hover:text-[#1A3A5C] hover:bg-white disabled:opacity-25 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                         >
-                          <Ruler className="w-3 h-3" />
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => onMoverSeccion(seccion.id, 1)}
+                          disabled={i === secciones.length - 1}
+                          title="Bajar la sección"
+                          className="p-0.5 rounded text-slate-400 hover:text-[#1A3A5C] hover:bg-white disabled:opacity-25 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={seccion.nombre}
+                        onChange={(e) => onRenombrarSeccion(seccion.id, e.target.value)}
+                        onBlur={(e) => !e.target.value.trim() && onRenombrarSeccion(seccion.id, "Sección sin nombre")}
+                        placeholder="Nombre de la sección"
+                        aria-label="Nombre de la sección"
+                        className="min-w-0 flex-1 text-sm font-bold text-[#1A3A5C] bg-transparent rounded px-1 py-0.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#2563EB]/30 placeholder:text-slate-300"
+                      />
+                      <span className="text-[11px] text-slate-400 whitespace-nowrap flex-shrink-0">
+                        {propias.length} {propias.length === 1 ? "fila" : "filas"}
+                      </span>
+                    </div>
+                    <div style={{ width: 364, flexShrink: 0 }} className="px-2 flex justify-end">
+                      {activa ? (
+                        <span className="text-[11px] font-semibold text-[#2563EB] whitespace-nowrap">Las filas nuevas van acá</span>
+                      ) : (
+                        <button
+                          onClick={() => onElegirSeccionActiva(seccion.id)}
+                          className="text-[11px] font-medium text-slate-400 hover:text-[#2563EB] whitespace-nowrap transition-colors"
+                        >
+                          Agregar las filas nuevas acá
                         </button>
                       )}
                     </div>
+                    <div style={{ width: 110, flexShrink: 0 }} className="px-2 text-right">
+                      <span className="text-sm font-bold tabular-nums text-[#1A3A5C] whitespace-nowrap">{fmtNum(subtotalSeccion)}</span>
+                      {unidadSeccion && subtotalSeccion > 0 && (
+                        <span className="text-[10px] font-normal text-slate-400 ml-0.5">{fmtUnidad(unidadSeccion)}</span>
+                      )}
+                    </div>
+                    <div style={{ width: 220, flexShrink: 0 }} className="px-3 flex items-center justify-end">
+                      <button
+                        onClick={() => onAgregarFila(seccion.id)}
+                        className="flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors whitespace-nowrap"
+                      >
+                        <Plus className="w-3 h-3" /> Agregar fila
+                      </button>
+                    </div>
+                    <div style={{ width: 36, flexShrink: 0 }} className="flex items-center justify-center">
+                      <button
+                        onClick={() => {
+                          const n = propias.length;
+                          const detalle = n === 0 ? "No tiene filas." : `${n === 1 ? "Su fila pasa" : `Sus ${n} filas pasan`} a sueltas: no se borra${n === 1 ? "" : "n"}.`;
+                          if (confirm(`¿Eliminar la sección "${seccion.nombre.trim() || "sin nombre"}"?\n\n${detalle}`)) {
+                            onEliminarSeccion(seccion.id);
+                          }
+                        }}
+                        title="Eliminar la sección (las filas no se borran)"
+                        aria-label="Eliminar sección"
+                        className="text-slate-300 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ width: 88, flexShrink: 0 }} className="px-2">
-                    <InputNumericoFila
-                      value={fila.alto}
-                      onChange={(v) => onActualizarFila(fila.id, "alto", v)}
-                      className={cn(inputCls, "text-right")}
-                    />
-                  </div>
-                  <div style={{ width: 80, flexShrink: 0 }} className="px-2">
-                    <InputNumericoFila
-                      value={fila.cantidad}
-                      onChange={(v) => onActualizarFila(fila.id, "cantidad", v)}
-                      className={cn(inputCls, "text-right")}
-                    />
-                  </div>
-                  <div style={{ width: 110, flexShrink: 0 }} className="px-2 text-right">
-                    <span className={cn("text-sm font-semibold tabular-nums whitespace-nowrap", subtotal > 0 ? "text-[#2563EB]" : "text-slate-300")}>
-                      {subtotal > 0 ? fmtNum(subtotal) : "—"}
-                    </span>
-                    {subtotal > 0 && fila.unidad && (
-                      <span className="text-[10px] font-normal text-slate-400 ml-0.5">{fmtUnidad(fila.unidad)}</span>
-                    )}
-                  </div>
-                  <div style={{ width: 220, flexShrink: 0 }} className="px-3 py-1.5">
-                    <select
-                      value={fila.rubroId ?? ""}
-                      onChange={(e) => onActualizarFila(fila.id, "rubroId", e.target.value)}
-                      className={cn(inputCls, "cursor-pointer", !fila.rubroId && "text-slate-400")}
-                    >
-                      <option value="">Sin vincular</option>
-                      {Object.entries(
-                        // Clave compuesta título › capítulo — sin título, un
-                        // capítulo se agrupa solo por su nombre (igual que
-                        // siempre); con título, el nombre del título se suma
-                        // adelante para desambiguar dos capítulos con el
-                        // mismo nombre en títulos distintos (ej. dos
-                        // "Albañilería", uno por título).
-                        rubrosDisponibles.reduce<Record<string, RubroOption[]>>((acc, r) => {
-                          const clave = r.tituloNombre ? `${r.tituloNombre} › ${r.capituloNombre}` : r.capituloNombre;
-                          (acc[clave] ??= []).push(r);
-                          return acc;
-                        }, {})
-                      ).map(([clave, rubros]) => (
-                        <optgroup key={clave} label={clave}>
-                          {rubros.map((r) => {
-                            // Si la fila ya tiene una unidad propia (cargada a
-                            // mano o heredada de una medición — ver
-                            // guardarMedicion en page.tsx), no se puede vincular
-                            // a un rubro de unidad distinta (m² vs m³, etc) —
-                            // salvo que el rubro sea "GL" (ítem Global, no
-                            // depende de ninguna unidad), ver
-                            // rubroCompatibleConFila en metrajeFila.ts.
-                            const incompatible = !!fila.unidad && !rubroCompatibleConFila(fila.unidad, r.unidad);
-                            return (
-                              <option
-                                key={r.id}
-                                value={r.id}
-                                disabled={incompatible}
-                                title={incompatible ? `Unidad distinta: fila en ${fila.unidad}, rubro en ${r.unidad}` : undefined}
-                              >
-                                {r.nombre} ({r.unidad}){incompatible ? " — unidad distinta" : ""}
-                              </option>
-                            );
-                          })}
-                        </optgroup>
-                      ))}
-                    </select>
-                    {(() => {
-                      // Si NINGÚN rubro del proyecto es compatible (ni por
-                      // unidad exacta ni por la excepción GL), el <select>
-                      // queda con todas las opciones deshabilitadas salvo
-                      // "Sin vincular" — sin este mensaje, eso se veía
-                      // idéntico a un desplegable roto (el único indicio era
-                      // el sufijo "— unidad distinta" dentro de cada opción
-                      // larga, y el title, que no sirve en mobile porque
-                      // depende de hover). Visible siempre que aplica, sin
-                      // necesitar hover ni tap.
-                      const unidadFila = fila.unidad;
-                      if (!unidadFila) return null;
-                      const hayCompatible = rubrosDisponibles.some((r) => rubroCompatibleConFila(unidadFila, r.unidad));
-                      if (hayCompatible) return null;
-                      return (
-                        <p className="text-[10px] text-red-500 mt-0.5 leading-tight">
-                          Ningún rubro tiene unidad {unidadFila} (ni es Global) — no se puede vincular
-                        </p>
-                      );
-                    })()}
-                  </div>
-                  <div style={{ width: 36, flexShrink: 0 }} className="flex items-center justify-center">
-                    <button
-                      onClick={() => onEliminarFila(fila.id)}
-                      className="text-slate-300 hover:text-red-500 transition-colors"
-                      aria-label="Eliminar fila"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  {propias.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-slate-400" style={{ borderBottom: "1px solid #F1F5F9" }}>
+                      Sin filas todavía.
+                    </div>
+                  ) : (
+                    propias.map(renderFila)
+                  )}
                 </div>
               );
             })}
 
-            {/* Agregar fila */}
-            <div className="flex items-center pl-3" style={{ height: 32, borderTop: "1px solid #F1F5F9" }}>
+            {/* Acciones — agregar fila (a la sección activa), secciones y
+                agrupar por rubro. */}
+            <div className="flex items-center gap-4 pl-3 pr-3 flex-wrap" style={{ minHeight: 34, borderTop: "1px solid #F1F5F9" }}>
               <button
-                onClick={onAgregarFila}
+                onClick={() => onAgregarFila()}
                 className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
               >
                 <Plus className="w-3 h-3" /> Agregar fila
               </button>
+              {secciones.length > 0 && (
+                <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                  Filas nuevas en
+                  <select
+                    value={seccionActivaId ?? ""}
+                    onChange={(e) => onElegirSeccionActiva(e.target.value || null)}
+                    className="text-xs text-slate-600 bg-white border border-slate-200 rounded-[6px] px-1.5 py-0.5 max-w-[200px] focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 cursor-pointer"
+                  >
+                    <option value="">Filas sueltas</option>
+                    {secciones.map((sec) => (
+                      <option key={sec.id} value={sec.id}>
+                        {sec.nombre.trim() || "Sección sin nombre"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <div className="flex items-center gap-4 ml-auto">
+                <button
+                  onClick={onAgregarSeccion}
+                  className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-[#1A3A5C] transition-colors"
+                >
+                  <FolderPlus className="w-3.5 h-3.5" /> Agregar sección
+                </button>
+                <button
+                  onClick={() => {
+                    if (
+                      confirm(
+                        "Se crea una sección por cada rubro vinculado (con el nombre del rubro) y sus filas pasan a esa sección. Las filas sin vínculo quedan donde están.\n\n¿Agrupar por rubro?"
+                      )
+                    ) {
+                      onAgruparPorRubro();
+                    }
+                  }}
+                  disabled={rubrosVinculados < 2}
+                  title={rubrosVinculados < 2 ? "Hace falta vincular filas a dos rubros distintos o más" : "Una sección por cada rubro vinculado"}
+                  className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-[#1A3A5C] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-500"
+                >
+                  <Layers className="w-3.5 h-3.5" /> Agrupar por rubro
+                </button>
+              </div>
             </div>
 
             {/* Fila IA */}

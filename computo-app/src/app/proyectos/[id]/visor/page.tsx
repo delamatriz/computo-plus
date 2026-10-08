@@ -8,7 +8,7 @@ import * as XLSX from "xlsx";
 import { X, Plus, Sparkles, Loader2, ArrowLeft, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { urlProxyDocumentoMetraje } from "@/lib/blob";
-import { fmtNum, subtotalFila, type MetrajeFila, type RubroOption, type ActualizacionComputo } from "@/components/metrajes/metrajeFila";
+import { fmtNum, subtotalFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ActualizacionComputo } from "@/components/metrajes/metrajeFila";
 import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, Anotacion } from "@/components/metrajes/documentoMetraje";
 import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion, ControlesMedicion } from "@/components/metrajes/Visor";
 
@@ -55,6 +55,12 @@ export default function VisorProyectoPage() {
   // abierto — ver GET /api/proyectos/[id]/filas-metraje y el diseño
   // confirmado de "Aplicar al presupuesto").
   const [filas, setFilas] = useState<MetrajeFila[]>([]);
+  // Secciones opcionales de la Planilla (también a nivel de proyecto) y la
+  // sección ACTIVA: adonde van las filas nuevas (Agregar fila, IA, una
+  // medición guardada en el plano). null = filas sueltas. Pasa a ser la
+  // última sección creada o la que el usuario elige; no se persiste.
+  const [secciones, setSecciones] = useState<SeccionPlanilla[]>([]);
+  const [seccionActivaId, setSeccionActivaId] = useState<string | null>(null);
   // Aviso breve cuando completar/borrar Alto cambia la unidad de una
   // fila (ml→m² o m²→m³) y eso desvincula automáticamente el Rubro que
   // tenía puesto — ver actualizarFila. Se autolimpia solo, no requiere
@@ -184,6 +190,14 @@ export default function VisorProyectoPage() {
         if (!cancelado) setFilas(data.filas ?? []);
       } catch {
         if (!cancelado) setFilas([]);
+      }
+      try {
+        const res = await fetch(`/api/proyectos/${proyectoId}/secciones-planilla`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!cancelado) setSecciones(data.secciones ?? []);
+      } catch {
+        if (!cancelado) setSecciones([]);
       }
     })();
     return () => {
@@ -324,6 +338,7 @@ export default function VisorProyectoPage() {
         unidad: null,
         rubroId: input.rubroId ?? null,
         medicionId: data.medicion.id,
+        seccionId: seccionActivaId,
       }),
     });
     if (resFila.ok) {
@@ -503,12 +518,12 @@ export default function VisorProyectoPage() {
     alto?: number | null;
     cantidad?: number | null;
     unidad?: string | null;
-  }): Promise<MetrajeFila | null> {
+  }, seccionId?: string | null): Promise<MetrajeFila | null> {
     if (!documentoAbierto) return null;
     const res = await fetch(`/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/filas-metraje`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(datos),
+      body: JSON.stringify({ ...datos, seccionId: seccionId === undefined ? seccionActivaId : seccionId }),
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -556,9 +571,81 @@ export default function VisorProyectoPage() {
     }
   };
 
-  const agregarFila = async () => {
-    const fila = await crearFila({ descripcion: "" });
+  // Sin seccionId agrega a la sección activa; desde el "+" de una sección,
+  // a esa sección (y la deja activa).
+  const agregarFila = async (seccionId?: string | null) => {
+    if (seccionId !== undefined) setSeccionActivaId(seccionId);
+    const fila = await crearFila({ descripcion: "" }, seccionId);
     if (fila) setFilas((prev) => [...prev, fila]);
+  };
+
+  /* Secciones de la Planilla — ver SeccionPlanilla en prisma/schema.prisma.
+     Las filas sueltas y las de cada sección suman todas al total general. */
+  const agregarSeccion = async () => {
+    const res = await fetch(`/api/proyectos/${proyectoId}/secciones-planilla`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      alert("No se pudo crear la sección");
+      return;
+    }
+    const data = await res.json();
+    setSecciones((prev) => [...prev, data.seccion]);
+    setSeccionActivaId(data.seccion.id);
+  };
+
+  // Edición inline, optimista (igual que la descripción de una fila).
+  const renombrarSeccion = (id: string, nombre: string) => {
+    setSecciones((prev) => prev.map((s) => (s.id === id ? { ...s, nombre } : s)));
+    fetch(`/api/proyectos/${proyectoId}/secciones-planilla/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre }),
+    }).catch(() => {});
+  };
+
+  // Flechas subir/bajar — optimista; la respuesta del server trae el orden
+  // real y se toma ese.
+  const moverSeccion = async (id: string, direccion: -1 | 1) => {
+    const i = secciones.findIndex((s) => s.id === id);
+    const j = i + direccion;
+    if (i < 0 || j < 0 || j >= secciones.length) return;
+    const nuevas = [...secciones];
+    [nuevas[i], nuevas[j]] = [nuevas[j], nuevas[i]];
+    setSecciones(nuevas);
+    const res = await fetch(`/api/proyectos/${proyectoId}/secciones-planilla/reordenar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: nuevas.map((s) => s.id) }),
+    }).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    if (data?.secciones) setSecciones(data.secciones);
+  };
+
+  // Las filas de la sección pasan a sueltas (FilaMetraje.seccionId tiene
+  // onDelete: SetNull), no se borran. La confirmación la pide la Planilla.
+  const eliminarSeccion = async (id: string) => {
+    const res = await fetch(`/api/proyectos/${proyectoId}/secciones-planilla/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      alert("No se pudo eliminar la sección");
+      return;
+    }
+    setSecciones((prev) => prev.filter((s) => s.id !== id));
+    setFilas((prev) => prev.map((f) => (f.seccionId === id ? { ...f, seccionId: null } : f)));
+    if (seccionActivaId === id) setSeccionActivaId(null);
+  };
+
+  const agruparPorRubro = async () => {
+    const res = await fetch(`/api/proyectos/${proyectoId}/secciones-planilla/agrupar-por-rubro`, { method: "POST" });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) {
+      alert(data?.error || "No se pudo agrupar por rubro");
+      return;
+    }
+    setSecciones(data.secciones);
+    setFilas(data.filas);
   };
 
   const eliminarFila = async (id: string) => {
@@ -673,30 +760,45 @@ export default function VisorProyectoPage() {
     [filas]
   );
 
-  /* Exportar a Excel */
+  /* Exportar a Excel — mismo orden que la Planilla: filas sueltas arriba
+     y después cada sección con su nombre y su subtotal. */
   const exportarExcel = () => {
     const fecha = new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
     const wb = XLSX.utils.book_new();
+
+    const filaExcel = (f: MetrajeFila): (string | number | null)[] => {
+      const rubro = rubrosDisponibles.find((r) => r.id === f.rubroId);
+      return [
+        f.descripcion,
+        f.largo ?? null,
+        f.ancho ?? null,
+        f.alto ?? null,
+        f.cantidad ?? null,
+        parseFloat(subtotalFila(f).toFixed(2)),
+        rubro ? rubro.nombre : "",
+      ];
+    };
+    const conDescripcion = filas.filter((f) => f.descripcion.trim());
+    const idsSecciones = new Set(secciones.map((s) => s.id));
+    const bloquesSecciones = secciones.flatMap((s): (string | number | null)[][] => {
+      const propias = conDescripcion.filter((f) => f.seccionId === s.id);
+      const subtotal = propias.reduce((acc, f) => acc + subtotalFila(f), 0);
+      return [
+        [],
+        [s.nombre.trim().toUpperCase() || "SECCIÓN SIN NOMBRE"],
+        ...propias.map(filaExcel),
+        [`Subtotal ${s.nombre.trim()}`, "", "", "", "", parseFloat(subtotal.toFixed(2)), ""],
+      ];
+    });
 
     const datos: (string | number | null)[][] = [
       [`METRAJES — ${proyectoNombre || "Proyecto"}`],
       [`Fecha de generación: ${fecha}`],
       [],
       ["DESCRIPCIÓN", "LARGO", "ANCHO", "ALTO", "CANT.", "SUBTOTAL", "RUBRO VINCULADO"],
-      ...filas
-        .filter((f) => f.descripcion.trim())
-        .map((f) => {
-          const rubro = rubrosDisponibles.find((r) => r.id === f.rubroId);
-          return [
-            f.descripcion,
-            f.largo ?? null,
-            f.ancho ?? null,
-            f.alto ?? null,
-            f.cantidad ?? null,
-            parseFloat(subtotalFila(f).toFixed(2)),
-            rubro ? rubro.nombre : "",
-          ];
-        }),
+      ...conDescripcion.filter((f) => !f.seccionId || !idsSecciones.has(f.seccionId)).map(filaExcel),
+      ...bloquesSecciones,
+      ...(secciones.length > 0 ? [[]] : []),
       ["TOTAL GENERAL", "", "", "", "", parseFloat(totalGeneral.toFixed(2)), ""],
     ];
 
@@ -774,6 +876,14 @@ export default function VisorProyectoPage() {
             <div className="flex-shrink-0 max-h-[280px] overflow-y-auto">
               <PlanillaComputo
                 filas={filas}
+                secciones={secciones}
+                seccionActivaId={seccionActivaId}
+                onElegirSeccionActiva={setSeccionActivaId}
+                onAgregarSeccion={agregarSeccion}
+                onRenombrarSeccion={renombrarSeccion}
+                onMoverSeccion={moverSeccion}
+                onEliminarSeccion={eliminarSeccion}
+                onAgruparPorRubro={agruparPorRubro}
                 rubrosDisponibles={rubrosDisponibles}
                 totalGeneral={totalGeneral}
                 iaTexto={iaTexto}

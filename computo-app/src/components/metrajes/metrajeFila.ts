@@ -23,6 +23,17 @@ export interface MetrajeFila {
   // fila no tiene medicionId (no se ofrece esta opción para filas
   // manuales/IA).
   medicionAnchoId: string | null;
+  // Sección de la Planilla (ver SeccionPlanilla) — null = fila suelta,
+  // arriba de cualquier sección.
+  seccionId: string | null;
+}
+
+// Sección opcional de la Planilla — a nivel de proyecto, ordenada por
+// `orden` (ver SeccionPlanilla en prisma/schema.prisma).
+export interface SeccionPlanilla {
+  id: string;
+  nombre: string;
+  orden: number;
 }
 
 export interface RubroOption {

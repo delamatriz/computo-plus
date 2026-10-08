@@ -69,6 +69,7 @@ model Proyecto {
   documentosPostObra DocumentoPostObra[]
   documentosLlamado DocumentoLlamado[]
   documentosMetraje DocumentoMetraje[]
+  seccionesPlanilla SeccionPlanilla[]
   notas              String?    @db.Text // única por proyecto (ver UI_UX_REDESIGN.md 2quinquies) — antes vivía por-plano en PlanoProyecto.notas
   memoriaDescriptiva String? @db.Text
   // Notas del Presupuesto (sección propia, entre Garantías y Resumen del
@@ -1176,8 +1177,34 @@ model FilaMetraje {
   medicion        MedicionDocumento?  @relation("FilaMedicionLargo", fields: [medicionId], references: [id], onDelete: Cascade)
   medicionAnchoId String?             @unique
   medicionAncho   MedicionDocumento?  @relation("FilaMedicionAncho", fields: [medicionAnchoId], references: [id], onDelete: SetNull)
+  // Sección opcional de la Planilla (ver SeccionPlanilla). null = fila
+  // suelta, arriba de cualquier sección. SetNull: borrar una sección
+  // devuelve sus filas a sueltas, nunca las borra.
+  seccionId       String?
+  seccion         SeccionPlanilla?    @relation(fields: [seccionId], references: [id], onDelete: SetNull)
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+
+  @@index([seccionId])
+}
+
+// Sección opcional de la Planilla de cómputo — agrupa filas bajo un nombre
+// libre ("Muros planta baja", o el nombre de un rubro con "Agrupar por
+// rubro") y muestra su subtotal. Cuelga del PROYECTO, no de un documento,
+// porque la Planilla es a nivel de proyecto (junta filas de todos los
+// planos, ver GET /api/proyectos/[id]/filas-metraje): una sección puede
+// tener filas de planos distintos. Sin secciones, la Planilla funciona
+// igual que antes.
+model SeccionPlanilla {
+  id         String        @id @default(cuid())
+  proyectoId String
+  proyecto   Proyecto      @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  nombre     String
+  orden      Int
+  filas      FilaMetraje[]
+  createdAt  DateTime      @default(now())
+
+  @@index([proyectoId])
 }
 
 // Anotaciones libres sobre un plano — reemplaza a MarcaReferencia (que

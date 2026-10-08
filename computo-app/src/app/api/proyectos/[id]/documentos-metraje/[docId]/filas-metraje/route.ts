@@ -14,15 +14,15 @@ export async function POST(
   context: { params: Promise<{ id: string; docId: string }> }
 ) {
   try {
-    const { docId } = await context.params;
+    const { id, docId } = await context.params;
     const body = await req.json().catch(() => null);
 
     if (typeof body?.descripcion !== "string") {
       return NextResponse.json({ error: "Se esperaba { descripcion: string }" }, { status: 400 });
     }
 
-    const documento = await db.documentoMetraje.findUnique({ where: { id: docId }, select: { id: true } });
-    if (!documento) {
+    const documento = await db.documentoMetraje.findUnique({ where: { id: docId }, select: { proyectoId: true } });
+    if (!documento || documento.proyectoId !== id) {
       return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
     }
 
@@ -54,6 +54,16 @@ export async function POST(
       }
     }
 
+    // Sección activa de la Planilla (opcional) — tiene que ser del mismo
+    // proyecto; sin seccionId la fila nace suelta, como siempre.
+    const seccionId = typeof body.seccionId === "string" ? body.seccionId : null;
+    if (seccionId) {
+      const seccion = await db.seccionPlanilla.findUnique({ where: { id: seccionId }, select: { proyectoId: true } });
+      if (!seccion || seccion.proyectoId !== id) {
+        return NextResponse.json({ error: "Sección no encontrada" }, { status: 404 });
+      }
+    }
+
     const fila = await db.filaMetraje.create({
       data: {
         documentoId: docId,
@@ -65,6 +75,7 @@ export async function POST(
         unidad,
         rubroId,
         medicionId,
+        seccionId,
       },
     });
 

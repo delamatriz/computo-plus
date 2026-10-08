@@ -94,6 +94,20 @@ export async function PATCH(
       }
       data.rubroId = body.rubroId || null;
     }
+    // Mover la fila a otra sección de la Planilla (o a sueltas con null).
+    // No toca el vínculo con el rubro ni la unidad.
+    if ("seccionId" in body) {
+      if (body.seccionId !== null && typeof body.seccionId !== "string") {
+        return NextResponse.json({ error: "seccionId tiene que ser string o null" }, { status: 400 });
+      }
+      if (body.seccionId) {
+        const seccion = await db.seccionPlanilla.findUnique({ where: { id: body.seccionId }, select: { proyectoId: true } });
+        if (!seccion || seccion.proyectoId !== id) {
+          return NextResponse.json({ error: "Sección no encontrada" }, { status: 404 });
+        }
+      }
+      data.seccionId = body.seccionId || null;
+    }
     if ("medicionAnchoId" in body) {
       if (body.medicionAnchoId !== null && typeof body.medicionAnchoId !== "string") {
         return NextResponse.json({ error: "medicionAnchoId tiene que ser string o null" }, { status: 400 });
