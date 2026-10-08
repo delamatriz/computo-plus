@@ -375,10 +375,12 @@ const tutorialFlujoPrincipal: PasoTutorial[] = [
         <strong className="text-slate-700">Planilla de Cómputo</strong>, con
         su largo, ancho, alto y subtotal según corresponda. No hay que hacer
         nada más para que llegue ahí. La medición también queda dibujada en
-        azul sobre el plano; para borrarla, apagá la herramienta (Esc), pasá
-        el mouse por encima o hacé clic y tocá{" "}
-        <strong className="text-slate-700">Eliminar</strong> (o la tecla
-        Supr); te pide confirmar.
+        azul sobre el plano. Para sacar solo el dibujo, apagá la herramienta
+        (Esc), pasá el mouse por encima o hacé clic y tocá{" "}
+        <strong className="text-slate-700">Eliminar del dibujo</strong> (o la
+        tecla Supr); te pide confirmar. La fila de la Planilla queda intacta,
+        con sus valores: para borrar el registro usá la X de la fila, que
+        borra la fila y su dibujo.
       </>
     ),
   },

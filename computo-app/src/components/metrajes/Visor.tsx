@@ -1063,8 +1063,8 @@ function VisorPrincipal({
    * de Línea recién confirmado no crea una fila, completa el ANCHO de
    * filaId. */
   onAsignarAncho: (filaId: string, input: NuevaMedicionInput) => Promise<void>;
-  /** Borra una marca de medición ya guardada (corrección de un trazo mal
-   * hecho) — también saca la fila que había generado en la Planilla. */
+  /** "Eliminar del dibujo": borra solo la marca de una medición ya guardada;
+   * la fila que generó en la Planilla queda intacta (desvinculada). */
   onEliminarMedicion: (medicionId: string) => Promise<void>;
   onGuardarAnotacion: (input: NuevaAnotacionInput) => Promise<void>;
   onEliminarAnotacion: (anotacionId: string) => Promise<void>;
@@ -2041,11 +2041,13 @@ function VisorPrincipal({
     }
   };
 
-  // Reemplaza al panel flotante de mediciones (sacado por redundante con
-  // la Planilla de Cómputo) — mismo patrón de click + confirmación que
-  // ya tienen Trazo libre y Texto.
+  // "Eliminar del dibujo": borra solo la marca del plano, con confirmación
+  // (mismo patrón de click + confirmación que Trazo libre y Texto). La fila
+  // de la Planilla queda intacta; borrar el registro es la X de la fila.
   const eliminarMedicionConConfirmacion = (medicion: MedicionDocumento) => {
-    if (confirm(`¿Eliminar "${medicion.descripcion}"?`)) {
+    if (confirm(`¿Eliminar "${medicion.descripcion}" del dibujo?
+
+La fila de la Planilla no se borra: para eso está la X de la fila.`)) {
       onEliminarMedicion(medicion.id);
       setMedicionSelId(null);
       setMedicionHoverId(null);
@@ -2473,7 +2475,7 @@ function VisorPrincipal({
                 if (m.tipo === "AREA" && m.puntos && m.puntos.length >= 3) {
                   return (
                     <g key={m.id} style={estiloClick} onClick={onClickBorrar} {...eventosMedicion}>
-                      <title>{`"${m.descripcion}" — clic para seleccionar y eliminar`}</title>
+                      <title>{`"${m.descripcion}" — clic para eliminar del dibujo`}</title>
                       <polygon
                         points={m.puntos.map((p) => `${p.x},${p.y}`).join(" ")}
                         fill="#2563EB"
@@ -2493,7 +2495,7 @@ function VisorPrincipal({
                   const pts = m.puntos.map((p) => `${p.x},${p.y}`).join(" ");
                   return (
                     <g key={m.id} style={estiloClick} onClick={onClickBorrar} {...eventosMedicion}>
-                      <title>{`"${m.descripcion}" — polilínea de ${m.puntos.length - 1} tramos${m.longitudReal != null ? `, ${fmtMetros(m.longitudReal)}` : ""} — clic para seleccionar y eliminar`}</title>
+                      <title>{`"${m.descripcion}" — polilínea de ${m.puntos.length - 1} tramos${m.longitudReal != null ? `, ${fmtMetros(m.longitudReal)}` : ""} — clic para eliminar del dibujo`}</title>
                       <polyline points={pts} fill="none" stroke="transparent" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                       <polyline points={pts} fill="none" stroke="#2563EB" strokeWidth={trazoGrueso} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                     </g>
@@ -2508,7 +2510,7 @@ function VisorPrincipal({
                 if (m.xInicio == null || m.yInicio == null || m.xFin == null || m.yFin == null) return null;
                 return (
                   <g key={m.id} style={estiloClick} onClick={onClickBorrar} {...eventosMedicion}>
-                    <title>{`"${m.descripcion}" — clic para seleccionar y eliminar`}</title>
+                    <title>{`"${m.descripcion}" — clic para eliminar del dibujo`}</title>
                     <line x1={m.xInicio} y1={m.yInicio} x2={m.xFin} y2={m.yFin} stroke="transparent" strokeWidth={3} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
                     <line x1={m.xInicio} y1={m.yInicio} x2={m.xFin} y2={m.yFin} stroke="#2563EB" strokeWidth={trazoGrueso} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
                   </g>
@@ -2826,7 +2828,7 @@ function VisorPrincipal({
                       e.stopPropagation();
                       setMedicionSelId(m.id);
                     }}
-                    title={`"${m.descripcion}" — clic para seleccionar y eliminar`}
+                    title={`"${m.descripcion}" — clic para eliminar del dibujo`}
                     style={{
                       left: `${p.x}%`,
                       top: `${p.y}%`,
@@ -2839,7 +2841,7 @@ function VisorPrincipal({
                   </div>
                 ));
               })}
-              {/* Control visible para borrar una medición guardada: aparece al
+              {/* "Eliminar del dibujo" de una medición guardada (la fila de la Planilla no se toca): aparece al
                   pasar el mouse o al seleccionarla (clic), junto a la medición,
                   y pide la confirmación de siempre. Con la herramienta apagada
                   (Esc) — con una activa, los clics sobre el plano dibujan. */}
@@ -2862,10 +2864,10 @@ function VisorPrincipal({
                           e.stopPropagation();
                           eliminarMedicionConConfirmacion(m);
                         }}
-                        title={`Eliminar "${m.descripcion}" (Supr)`}
+                        title={`Eliminar "${m.descripcion}" del dibujo (Supr) — la fila de la Planilla no se borra`}
                         className="flex items-center gap-1 rounded-full bg-white border border-red-200 shadow-md px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50 whitespace-nowrap"
                       >
-                        <Trash2 className="w-3 h-3" /> Eliminar<span className="hidden sm:inline font-normal text-red-400"> (Supr)</span>
+                        <Trash2 className="w-3 h-3" /> Eliminar del dibujo
                       </button>
                     </div>
                   );

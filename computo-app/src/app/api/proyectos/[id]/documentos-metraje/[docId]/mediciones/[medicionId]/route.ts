@@ -16,8 +16,15 @@ import { unidadPorDimensiones, contarCargados, calcularDesvinculacion } from "@/
 // detrás. Misma lógica de recálculo que el PATCH de filas-metraje (ver
 // src/lib/recalculoUnidadFila.ts) para que no queden dos criterios
 // distintos.
+//
+// ?soloDibujo=1 — "Eliminar del dibujo" del Visor: borra SOLO el trazo del
+// plano y deja intactas las filas de la Planilla que salieron de él. Antes
+// de borrar se sueltan los vínculos (medicionId / medicionAnchoId a null),
+// así el cascade no se lleva la fila y el ancho no se recalcula: la fila
+// queda con sus valores, como una fila cargada a mano. Borrar el registro
+// sigue siendo la X de la fila (DELETE .../filas-metraje/[filaId]).
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ id: string; docId: string; medicionId: string }> }
 ) {
   try {
@@ -29,6 +36,30 @@ export async function DELETE(
     });
     if (!medicion || medicion.documentoId !== docId) {
       return NextResponse.json({ error: "Medición no encontrada" }, { status: 404 });
+    }
+
+    if (req.nextUrl.searchParams.get("soloDibujo") === "1") {
+      const filasDesvinculadas = await db.$transaction(async (tx) => {
+        const filas = await tx.filaMetraje.findMany({
+          where: { OR: [{ medicionId }, { medicionAnchoId: medicionId }] },
+          select: { id: true, medicionId: true, medicionAnchoId: true },
+        });
+        const actualizadas = [];
+        for (const f of filas) {
+          actualizadas.push(
+            await tx.filaMetraje.update({
+              where: { id: f.id },
+              data: {
+                ...(f.medicionId === medicionId ? { medicionId: null } : {}),
+                ...(f.medicionAnchoId === medicionId ? { medicionAnchoId: null } : {}),
+              },
+            })
+          );
+        }
+        await tx.medicionDocumento.delete({ where: { id: medicionId } });
+        return actualizadas;
+      });
+      return NextResponse.json({ ok: true, filasDesvinculadas });
     }
 
     const filaComoAncho = await db.filaMetraje.findFirst({

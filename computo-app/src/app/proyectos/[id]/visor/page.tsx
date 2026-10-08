@@ -332,31 +332,24 @@ export default function VisorProyectoPage() {
     }
   }
 
-  // Borra una marca de medición (corrección de un trazo mal hecho) — si
-  // era el LARGO de una fila (medicionId), la fila se borra en cascada en
-  // la base (FilaMetraje.medicionId, onDelete: Cascade), acá solo hace
-  // falta sacarla del estado local. Si era el ANCHO de una fila
-  // (medicionAnchoId), la fila NO se borra — el server la recalcula
-  // (ancho/unidad vuelven a lo que tenía antes de asignarle ese ancho,
-  // y puede desvincular el Rubro si la unidad degradada ya no coincide,
-  // ver DELETE .../mediciones/[medicionId]) y la devuelve actualizada.
+  // "Eliminar del dibujo" (Visor): borra SOLO la marca del plano. Las filas
+  // de la Planilla que salieron de ella quedan intactas, desvinculadas
+  // (medicionId / medicionAnchoId en null), como filas cargadas a mano: el
+  // server suelta el vínculo antes de borrar para que el cascade no se las
+  // lleve (ver DELETE .../mediciones/[medicionId]?soloDibujo=1). Borrar el
+  // registro sigue siendo la X de cada fila.
   async function eliminarMedicion(medicionId: string) {
     if (!documentoAbierto) return;
     const res = await fetch(
-      `/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/mediciones/${medicionId}`,
+      `/api/proyectos/${proyectoId}/documentos-metraje/${documentoAbierto.id}/mediciones/${medicionId}?soloDibujo=1`,
       { method: "DELETE" }
     );
     if (!res.ok) throw new Error();
-    const data = await res.json();
+    const data: { filasDesvinculadas?: MetrajeFila[] } = await res.json();
     setMediciones((prev) => prev.filter((m) => m.id !== medicionId));
-    if (data.filaActualizada) {
-      setFilas((prev) => prev.map((f) => (f.id === data.filaActualizada.id ? data.filaActualizada : f)));
-    } else {
-      setFilas((prev) => prev.filter((f) => f.medicionId !== medicionId));
-    }
-    if (data.desvinculado) {
-      setAvisoUnidad(`Se desvinculó de "${data.desvinculado.nombre}" porque la unidad cambió a ${data.desvinculado.unidadNueva}`);
-      setTimeout(() => setAvisoUnidad(null), 5000);
+    const desvinculadas = new Map((data.filasDesvinculadas ?? []).map((f) => [f.id, f]));
+    if (desvinculadas.size > 0) {
+      setFilas((prev) => prev.map((f) => desvinculadas.get(f.id) ?? f));
     }
   }
 
