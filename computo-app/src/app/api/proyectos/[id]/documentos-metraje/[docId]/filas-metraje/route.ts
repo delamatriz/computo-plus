@@ -33,9 +33,15 @@ export async function POST(
     const rubroId: string | null = typeof body.rubroId === "string" ? body.rubroId : null;
 
     if (rubroId) {
-      const rubro = await db.rubro.findUnique({ where: { id: rubroId }, select: { unidad: true } });
+      const rubro = await db.rubro.findUnique({
+        where: { id: rubroId },
+        select: { unidad: true, capitulo: { select: { proyectoId: true } } },
+      });
       if (!rubro) {
         return NextResponse.json({ error: "Rubro no encontrado" }, { status: 404 });
+      }
+      if (rubro.capitulo.proyectoId !== id) {
+        return NextResponse.json({ error: "El rubro no pertenece a este proyecto" }, { status: 400 });
       }
       if (unidad && !rubroCompatibleConFila(unidad, rubro.unidad)) {
         return NextResponse.json(

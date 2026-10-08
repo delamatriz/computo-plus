@@ -47,6 +47,8 @@ export async function PATCH(
         ancho: true,
         alto: true,
         medicionAnchoId: true,
+        seccionId: true,
+        seccion: { select: { rubroId: true } },
         medicion: { select: { tipo: true } },
         documento: { select: { proyectoId: true } },
       },
@@ -177,9 +179,18 @@ export async function PATCH(
     }
 
     if (rubroIdEfectivo) {
-      const rubro = await db.rubro.findUnique({ where: { id: rubroIdEfectivo }, select: { unidad: true } });
+      const rubro = await db.rubro.findUnique({
+        where: { id: rubroIdEfectivo },
+        select: { unidad: true, capitulo: { select: { proyectoId: true } } },
+      });
       if (!rubro) {
         return NextResponse.json({ error: "Rubro no encontrado" }, { status: 404 });
+      }
+      // Solo se puede vincular a un rubro del mismo proyecto que la fila. Se
+      // valida al cambiar el vínculo (no en cada edición de la fila, para no
+      // trabar una fila vieja que ya estuviera mal vinculada).
+      if ("rubroId" in body && rubro.capitulo.proyectoId !== id) {
+        return NextResponse.json({ error: "El rubro no pertenece a este proyecto" }, { status: 400 });
       }
       if (unidadEfectiva) {
         if (!rubroCompatibleConFila(unidadEfectiva, rubro.unidad)) {
@@ -191,6 +202,22 @@ export async function PATCH(
       } else {
         // Fila sin unidad propia todavía — la hereda del rubro al vincularse.
         data.unidad = rubro.unidad;
+      }
+    }
+
+    // Cambio de rubro (a mano o por la desvinculación automática de arriba):
+    // si la fila estaba suelta o en la sección de un rubro (las que arma
+    // "Agrupar por rubro"), pasa a la sección de su rubro nuevo si existe, o
+    // a sueltas si no. Una fila en una sección armada a mano se queda donde
+    // está. Si el mismo patch elige la sección explícitamente, manda eso.
+    if (rubroIdEfectivo !== fila.rubroId && !("seccionId" in body)) {
+      const enSeccionManual = fila.seccionId != null && fila.seccion?.rubroId == null;
+      if (!enSeccionManual) {
+        const destino = rubroIdEfectivo
+          ? await db.seccionPlanilla.findFirst({ where: { proyectoId: id, rubroId: rubroIdEfectivo }, select: { id: true } })
+          : null;
+        const seccionNueva = destino?.id ?? null;
+        if (seccionNueva !== fila.seccionId) data.seccionId = seccionNueva;
       }
     }
 

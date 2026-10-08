@@ -28,6 +28,8 @@ export async function PATCH(
 
     const body = await req.json();
 
+    const anterior = body.unidad !== undefined ? await db.rubro.findUnique({ where: { id }, select: { unidad: true } }) : null;
+
     const rubro = await db.rubro.update({
       where: { id },
       data: {
@@ -47,6 +49,15 @@ export async function PATCH(
         ...("fechaFin" in body && { fechaFin: body.fechaFin ? new Date(body.fechaFin) : null }),
       },
     });
+
+    // Cambió la unidad del rubro: las filas de la Planilla vinculadas a él
+    // toman la unidad nueva (heredaron la vieja al vincularse; si no, quedan
+    // vinculadas con una unidad que ya no coincide). Con "GL" (ítem Global,
+    // compatible con cualquier unidad, ver rubroCompatibleConFila) las filas
+    // conservan la suya.
+    if (anterior && typeof rubro.unidad === "string" && rubro.unidad !== anterior.unidad && rubro.unidad.trim().toUpperCase() !== "GL") {
+      await db.filaMetraje.updateMany({ where: { rubroId: id }, data: { unidad: rubro.unidad } });
+    }
 
     return NextResponse.json(rubro);
   } catch (err) {

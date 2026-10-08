@@ -12,7 +12,6 @@ import {
   Expand,
   Shrink,
   Loader2,
-  Sparkles,
   FileText,
   FileImage,
   File as FileGenerico,
@@ -3148,8 +3147,6 @@ export default function Visor({
   onToggleExpandir,
   notas,
   onGuardarNotas,
-  imagenesParaIA,
-  onAnalizarConIA,
   onGuardarCalibracion,
   mediciones,
   onGuardarMedicion,
@@ -3180,8 +3177,6 @@ export default function Visor({
   onToggleExpandir: () => void;
   notas: string;
   onGuardarNotas: (notas: string) => Promise<void> | void;
-  imagenesParaIA: string[];
-  onAnalizarConIA: (imagenes: string[], contexto: string | null) => Promise<void> | void;
   /** Guarda la calibración de escala (Etapa 2 de "Metrajes con plano") del
    * documento principal — solo se llama/muestra cuando es categoria=PLANO. */
   onGuardarCalibracion: (escalaDeclarada: string, factorEscala: number) => Promise<void>;
@@ -3299,21 +3294,6 @@ export default function Visor({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [expandido, onToggleExpandir]);
-
-  const [analizando, setAnalizando] = useState(false);
-  const [errorAnalisis, setErrorAnalisis] = useState<string | null>(null);
-  const handleAnalizar = async () => {
-    if (imagenesParaIA.length === 0 || analizando) return;
-    setAnalizando(true);
-    setErrorAnalisis(null);
-    try {
-      await onAnalizarConIA(imagenesParaIA, notasLocal || null);
-    } catch {
-      setErrorAnalisis("No se pudo analizar. Probá de nuevo.");
-    } finally {
-      setAnalizando(false);
-    }
-  };
 
   return (
     // Visor siempre llena su contenedor (h-full) — si ese contenedor es
@@ -3619,28 +3599,6 @@ export default function Visor({
                 if (confirm(`¿Eliminar "${doc.nombre}"?`)) onEliminarDocumento(doc);
               }}
             />
-            <div className="p-2.5 border-t border-slate-200 flex-shrink-0">
-              <button
-                type="button"
-                onClick={handleAnalizar}
-                disabled={imagenesParaIA.length === 0 || analizando}
-                title={
-                  imagenesParaIA.length === 0
-                    ? "Sin imágenes para analizar — el documento principal tiene que ser una imagen, o necesitás al menos una foto de relevamiento"
-                    : "Leer cotas con IA y autocompletar la planilla de cómputo"
-                }
-                className={cn(
-                  "flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-[8px] text-sm font-semibold transition-colors",
-                  imagenesParaIA.length === 0 || analizando
-                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                    : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-                )}
-              >
-                {analizando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {analizando ? "Analizando…" : "Analizar con IA"}
-              </button>
-              {errorAnalisis && <p className="text-xs text-red-500 mt-1.5">{errorAnalisis}</p>}
-            </div>
           </div>
         )}
       </div>

@@ -178,9 +178,17 @@ Rutina, en este orden (NO hace falta `rm -rf .next`):
    puede dar 404 HTML en el primer intento.
 2. Si sigue en 404 HTML, reiniciar el dev server (`preview_stop` →
    `preview_start`).
-3. Solo si después de eso sigue, es un bug real de la ruta (ver el
-   archivo, `params`, nombre de carpeta). No seguir reiniciando a
-   ciegas.
+3. Si sigue en 404 HTML después de reiniciar, tocar los `route.ts` de la
+   carpeta afectada (`touch "<carpeta>/route.ts"`) para que el watcher la
+   vuelva a leer, esperar ~8 s y repetir. Visto el 2026-10-08: tras un
+   reinicio, TODO el árbol `documentos-metraje/[docId]` daba 404 HTML
+   (también rutas no tocadas, como `mediciones`) y no figuraba en
+   `.next/dev/types/routes.d.ts`; el `touch` lo destrabó sin borrar
+   `.next`.
+4. Solo si después de eso sigue, es un bug real de la ruta (ver el
+   archivo, `params`, nombre de carpeta). Pista para distinguirlo: si
+   también falla una ruta hermana que no se tocó, es el dev server, no
+   la ruta. No seguir reiniciando a ciegas.
 
 ## Próxima tarea inmediata
 Revisar las páginas construidas (/calcular, /proyectos/nuevo,

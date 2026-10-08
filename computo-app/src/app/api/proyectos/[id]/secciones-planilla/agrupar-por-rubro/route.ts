@@ -6,10 +6,12 @@ import { db } from "@/lib/db";
 // sección de su rubro. Las filas sin vínculo no se tocan (siguen donde
 // estaban: sueltas o en su sección).
 //
-// - Pide filas vinculadas a 2 rubros distintos o más (con uno solo no hay
-//   nada que agrupar).
-// - Si ya existe una sección con ese mismo nombre, se reusa en vez de
-//   duplicarla (correr el botón dos veces da el mismo resultado).
+// - Alcanza con filas vinculadas a un rubro (una sola sección también
+//   ordena: separa lo vinculado de lo suelto).
+// - Cada sección guarda su rubro (SeccionPlanilla.rubroId): si ya existe la
+//   sección de ese rubro se reusa aunque la hayan renombrado; si no, se
+//   reusa una sección manual con el mismo nombre (y pasa a ser la del
+//   rubro). Correr el botón dos veces da el mismo resultado.
 // - Dos rubros con el mismo nombre en capítulos distintos (ej. "Revoque
 //   grueso" en Albañilería y en Fachada) quedan en secciones separadas, con
 //   el capítulo entre paréntesis.
@@ -37,9 +39,9 @@ export async function POST(
       rubros.set(f.rubro.id, f.rubro);
       filasPorRubro.set(f.rubro.id, [...(filasPorRubro.get(f.rubro.id) ?? []), f.id]);
     }
-    if (rubros.size < 2) {
+    if (rubros.size < 1) {
       return NextResponse.json(
-        { error: "Para agrupar por rubro hacen falta filas vinculadas a dos rubros distintos o más." },
+        { error: "Para agrupar por rubro hace falta al menos una fila vinculada a un rubro." },
         { status: 400 }
       );
     }
@@ -67,16 +69,26 @@ export async function POST(
 
     await db.$transaction(async (tx) => {
       const existentes = await tx.seccionPlanilla.findMany({ where: { proyectoId: id }, orderBy: { orden: "asc" } });
-      const porNombre = new Map(existentes.map((s) => [s.nombre.trim().toLowerCase(), s.id]));
+      const porRubro = new Map(existentes.filter((s) => s.rubroId).map((s) => [s.rubroId!, s.id]));
+      // Solo secciones manuales: una que ya es de otro rubro no se reclama
+      // aunque se llame igual.
+      const manualesPorNombre = new Map(existentes.filter((s) => !s.rubroId).map((s) => [s.nombre.trim().toLowerCase(), s.id]));
       let siguienteOrden = (existentes.at(-1)?.orden ?? -1) + 1;
 
       for (const r of ordenados) {
         const nombre = nombreSeccion(r);
-        let seccionId = porNombre.get(nombre.toLowerCase());
+        let seccionId = porRubro.get(r.id);
         if (!seccionId) {
-          const nueva = await tx.seccionPlanilla.create({ data: { proyectoId: id, nombre, orden: siguienteOrden++ } });
-          seccionId = nueva.id;
-          porNombre.set(nombre.toLowerCase(), seccionId);
+          const manual = manualesPorNombre.get(nombre.toLowerCase());
+          if (manual) {
+            await tx.seccionPlanilla.update({ where: { id: manual }, data: { rubroId: r.id } });
+            manualesPorNombre.delete(nombre.toLowerCase());
+            seccionId = manual;
+          } else {
+            const nueva = await tx.seccionPlanilla.create({ data: { proyectoId: id, nombre, orden: siguienteOrden++, rubroId: r.id } });
+            seccionId = nueva.id;
+          }
+          porRubro.set(r.id, seccionId);
         }
         await tx.filaMetraje.updateMany({ where: { id: { in: filasPorRubro.get(r.id) ?? [] } }, data: { seccionId } });
       }

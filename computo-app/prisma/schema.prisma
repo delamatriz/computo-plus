@@ -297,6 +297,7 @@ model Rubro {
   observacionesCierre ObservacionCierreRubro[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  seccionesPlanilla SeccionPlanilla[]
 }
 
 model CotizacionProveedor {
@@ -1201,10 +1202,17 @@ model SeccionPlanilla {
   proyecto   Proyecto      @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
   nombre     String
   orden      Int
+  // Rubro del que salió la sección ("Agrupar por rubro"); null en una
+  // sección armada a mano. Sirve para mover sola una fila cuando cambia de
+  // rubro (ver PATCH .../filas-metraje/[filaId]) aunque se renombre la
+  // sección. SetNull: borrar el rubro deja la sección como manual.
+  rubroId    String?
+  rubro      Rubro?        @relation(fields: [rubroId], references: [id], onDelete: SetNull)
   filas      FilaMetraje[]
   createdAt  DateTime      @default(now())
 
   @@index([proyectoId])
+  @@index([rubroId])
 }
 
 // Anotaciones libres sobre un plano — reemplaza a MarcaReferencia (que

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Plus, X, ChevronDown, ChevronUp, Sparkles, Loader2, Calculator, AlertTriangle, CheckCircle2, Ruler, Trash2, FolderPlus, Layers } from "lucide-react";
+import { Download, Plus, X, ChevronDown, ChevronUp, Loader2, Calculator, AlertTriangle, CheckCircle2, Ruler, Trash2, FolderPlus, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtNum, fmtUnidad, subtotalFila, rubroCompatibleConFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ActualizacionComputo } from "./metrajeFila";
 
@@ -102,13 +102,9 @@ export default function PlanillaComputo({
   onAgruparPorRubro,
   rubrosDisponibles,
   totalGeneral,
-  iaTexto,
-  iaCargando,
   onActualizarFila,
   onAgregarFila,
   onEliminarFila,
-  onIaTextoChange,
-  onAgregarFilaIA,
   onExportarExcel,
   onAplicarComputoPreview,
   onAplicarComputoConfirmar,
@@ -131,15 +127,11 @@ export default function PlanillaComputo({
   onAgruparPorRubro: () => void;
   rubrosDisponibles: RubroOption[];
   totalGeneral: number;
-  iaTexto: string;
-  iaCargando: boolean;
   onActualizarFila: (id: string, field: keyof MetrajeFila, value: string) => void;
   /** Sin argumento: a la sección activa. Con seccionId (o null = sueltas):
    * a esa, que además pasa a ser la activa. */
   onAgregarFila: (seccionId?: string | null) => void;
   onEliminarFila: (id: string) => void;
-  onIaTextoChange: (value: string) => void;
-  onAgregarFilaIA: () => void;
   onExportarExcel: () => void;
   onAplicarComputoPreview: () => Promise<ActualizacionComputo[]>;
   onAplicarComputoConfirmar: () => Promise<ActualizacionComputo[]>;
@@ -587,8 +579,8 @@ export default function PlanillaComputo({
                       onAgruparPorRubro();
                     }
                   }}
-                  disabled={rubrosVinculados < 2}
-                  title={rubrosVinculados < 2 ? "Hace falta vincular filas a dos rubros distintos o más" : "Una sección por cada rubro vinculado"}
+                  disabled={rubrosVinculados < 1}
+                  title={rubrosVinculados < 1 ? "Vinculá al menos una fila a un rubro para agrupar" : "Una sección por cada rubro vinculado"}
                   className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-[#1A3A5C] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-500"
                 >
                   <Layers className="w-3.5 h-3.5" /> Agrupar por rubro
@@ -596,31 +588,6 @@ export default function PlanillaComputo({
               </div>
             </div>
 
-            {/* Fila IA */}
-            <div className="flex items-center gap-2 px-3 py-2.5 border-t border-slate-100 bg-[#F0F7FF]">
-              <Sparkles className="w-4 h-4 text-[#2563EB] flex-shrink-0" />
-              <input
-                type="text"
-                value={iaTexto}
-                onChange={(e) => onIaTextoChange(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && onAgregarFilaIA()}
-                placeholder="Describí el elemento (ej: tabique de durlock 2.40m x 3.10m, 4 unidades) y la IA completa la fila"
-                className="flex-1 min-w-0 text-sm text-slate-700 bg-white border border-blue-200 rounded-[8px] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] placeholder:text-slate-400"
-              />
-              <button
-                onClick={onAgregarFilaIA}
-                disabled={!iaTexto.trim() || iaCargando}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-semibold transition-colors flex-shrink-0",
-                  !iaTexto.trim() || iaCargando
-                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                    : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-                )}
-              >
-                {iaCargando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                Generar fila
-              </button>
-            </div>
 
             {/* Total general */}
             <div className="flex items-center border-t-2 border-slate-300 bg-white" style={{ height: 40 }}>

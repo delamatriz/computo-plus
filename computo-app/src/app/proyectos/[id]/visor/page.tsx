@@ -5,10 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import * as XLSX from "xlsx";
-import { X, Plus, Sparkles, Loader2, ArrowLeft, AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { urlProxyDocumentoMetraje } from "@/lib/blob";
-import { fmtNum, subtotalFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ActualizacionComputo } from "@/components/metrajes/metrajeFila";
+import { Loader2, ArrowLeft, AlertTriangle } from "lucide-react";
+import { subtotalFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ActualizacionComputo } from "@/components/metrajes/metrajeFila";
 import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, Anotacion } from "@/components/metrajes/documentoMetraje";
 import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion, ControlesMedicion } from "@/components/metrajes/Visor";
 
@@ -19,17 +17,6 @@ import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion, Control
 // ssr:false nunca se evalúan ahí, solo en el browser.
 const Visor = dynamic(() => import("@/components/metrajes/Visor"), { ssr: false });
 const PlanillaComputo = dynamic(() => import("@/components/metrajes/PlanillaComputo"), { ssr: false });
-
-interface ElementoDetectado {
-  descripcion: string;
-  largo: number | null;
-  ancho: number | null;
-  alto: number | null;
-  cantidad: number;
-  subtotal: number;
-  unidad: "M2" | "M3" | "ML" | "U";
-  nota: string;
-}
 
 // Visor de "Documentación para metrar" — página propia (UI_UX_REDESIGN.md
 // 2quinquies, ajuste post-implementación): antes vivía como estado de
@@ -63,22 +50,14 @@ export default function VisorProyectoPage() {
   const [seccionActivaId, setSeccionActivaId] = useState<string | null>(null);
   // Aviso breve cuando completar/borrar Alto cambia la unidad de una
   // fila (ml→m² o m²→m³) y eso desvincula automáticamente el Rubro que
-  // tenía puesto — ver actualizarFila. Se autolimpia solo, no requiere
-  // que el usuario lo cierre a mano.
+  // tenía puesto — ver actualizarFila. También avisa si se toca "Agregar
+  // fila" sin un plano abierto (ver agregarFila). Se autolimpia solo, no
+  // requiere que el usuario lo cierre a mano.
   const [avisoUnidad, setAvisoUnidad] = useState<string | null>(null);
 
-  // Fila con IA
-  const [iaTexto, setIaTexto] = useState("");
-  const [iaCargando, setIaCargando] = useState(false);
-
-  // Análisis de imágenes con IA — dispara desde el visor
-  const [elementosDetectados, setElementosDetectados] = useState<ElementoDetectado[] | null>(null);
-  const [observacionesIA, setObservacionesIA] = useState("");
-  const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
-
   // Las 3 categorías de documentos — acá solo para armar la lista
-  // combinada del visor y las fotos para "Analizar con IA"; el
-  // alta/listado/subida en sí vive en Documentación para metrar
+  // combinada del visor; el alta/listado/subida en sí vive en
+  // Documentación para metrar
   // (pestaña Presupuesto).
   const [planos, setPlanos] = useState<DocumentoResumen[]>([]);
   const [fotos, setFotos] = useState<DocumentoResumen[]>([]);
@@ -574,6 +553,11 @@ export default function VisorProyectoPage() {
   // Sin seccionId agrega a la sección activa; desde el "+" de una sección,
   // a esa sección (y la deja activa).
   const agregarFila = async (seccionId?: string | null) => {
+    if (!documentoAbierto) {
+      setAvisoUnidad("Abrí un plano en el visor para agregar filas: cada fila queda guardada junto a su documento.");
+      setTimeout(() => setAvisoUnidad(null), 5000);
+      return;
+    }
     if (seccionId !== undefined) setSeccionActivaId(seccionId);
     const fila = await crearFila({ descripcion: "" }, seccionId);
     if (fila) setFilas((prev) => [...prev, fila]);
@@ -665,94 +649,6 @@ export default function VisorProyectoPage() {
       // silencioso — la fila ya se sacó optimistamente; un fallo acá solo
       // deja el trazo en el plano hasta el próximo reload, no es crítico.
     }
-  };
-
-  /* Fila generada a partir de descripción en lenguaje natural vía IA */
-  const agregarFilaIA = async () => {
-    if (!iaTexto.trim() || iaCargando) return;
-    setIaCargando(true);
-    try {
-      const res = await fetch("/api/metrajes/sugerir", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ descripcion: iaTexto.trim() }),
-      });
-      if (!res.ok) throw new Error("Error al generar la fila");
-      const data = await res.json();
-
-      const fila = await crearFila({
-        descripcion: data.nota ? `${data.descripcion} (${data.nota})` : data.descripcion,
-        largo: data.largo ?? null,
-        ancho: data.ancho ?? null,
-        alto: data.alto ?? null,
-        cantidad: data.cantidad ?? 1,
-        unidad: typeof data.unidad === "string" ? data.unidad.toUpperCase() : null,
-      });
-      if (fila) setFilas((prev) => [...prev, fila]);
-      setIaTexto("");
-    } catch (err) {
-      console.error("[visor] agregarFilaIA", err);
-    } finally {
-      setIaCargando(false);
-    }
-  };
-
-  /* Analizar con IA el documento principal (si es imagen) + todas las
-   * fotos de relevamiento del proyecto. */
-  const imagenesParaIA = useMemo(() => {
-    const imgs: string[] = [];
-    if (documentoAbierto?.tipoArchivo === "IMAGEN") imgs.push(documentoAbierto.archivo);
-    for (const f of fotos) imgs.push(urlProxyDocumentoMetraje(proyectoId, f.id));
-    return imgs;
-  }, [documentoAbierto, fotos, proyectoId]);
-
-  const analizarConIA = async (imagenesBase64: string[], contexto: string | null) => {
-    const res = await fetch("/api/metrajes/analizar-imagen", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fotos: imagenesBase64, contexto: contexto?.trim() || undefined }),
-    });
-    if (!res.ok) throw new Error("Error al analizar las imágenes");
-    const data = await res.json();
-    const elementos: ElementoDetectado[] = data.elementos ?? [];
-    setElementosDetectados(elementos);
-    setObservacionesIA(data.observaciones ?? "");
-    setSeleccionados(new Set(elementos.map((_, i) => i)));
-  };
-
-  const toggleSeleccionado = (i: number) => {
-    setSeleccionados((prev) => {
-      const copia = new Set(prev);
-      if (copia.has(i)) copia.delete(i);
-      else copia.add(i);
-      return copia;
-    });
-  };
-
-  const cerrarPanelAnalisis = () => {
-    setElementosDetectados(null);
-    setObservacionesIA("");
-    setSeleccionados(new Set());
-  };
-
-  const agregarElementosSeleccionados = async () => {
-    if (!elementosDetectados) return;
-    const elegidos = elementosDetectados.filter((_, i) => seleccionados.has(i));
-    const nuevasFilas = await Promise.all(
-      elegidos.map((el) =>
-        crearFila({
-          descripcion: el.nota ? `${el.descripcion} (${el.nota})` : el.descripcion,
-          largo: el.largo,
-          ancho: el.ancho,
-          alto: el.alto,
-          cantidad: el.cantidad ?? 1,
-          unidad: el.unidad,
-        })
-      )
-    );
-    const creadas = nuevasFilas.filter((f): f is MetrajeFila => f !== null);
-    if (creadas.length > 0) setFilas((prev) => [...prev, ...creadas]);
-    cerrarPanelAnalisis();
   };
 
   const totalGeneral = useMemo(
@@ -886,13 +782,9 @@ export default function VisorProyectoPage() {
                 onAgruparPorRubro={agruparPorRubro}
                 rubrosDisponibles={rubrosDisponibles}
                 totalGeneral={totalGeneral}
-                iaTexto={iaTexto}
-                iaCargando={iaCargando}
                 onActualizarFila={actualizarFila}
                 onAgregarFila={agregarFila}
                 onEliminarFila={eliminarFila}
-                onIaTextoChange={setIaTexto}
-                onAgregarFilaIA={agregarFilaIA}
                 onExportarExcel={exportarExcel}
                 onAplicarComputoPreview={aplicarComputoPreview}
                 onAplicarComputoConfirmar={aplicarComputoConfirmar}
@@ -922,8 +814,6 @@ export default function VisorProyectoPage() {
               onToggleExpandir={() => setVisorExpandido((v) => !v)}
               notas={notas}
               onGuardarNotas={guardarNotas}
-              imagenesParaIA={imagenesParaIA}
-              onAnalizarConIA={analizarConIA}
               onGuardarCalibracion={guardarCalibracion}
               mediciones={mediciones}
               onGuardarMedicion={guardarMedicion}
@@ -961,123 +851,6 @@ export default function VisorProyectoPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Modal: elementos detectados por IA ────────────── */}
-      <AnimatePresence>
-        {elementosDetectados && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
-            onClick={cerrarPanelAnalisis}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 12, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.98 }}
-              transition={{ duration: 0.2 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-[16px] shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
-            >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#2563EB]" />
-                  <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
-                    Elementos detectados
-                  </span>
-                </div>
-                <button
-                  onClick={cerrarPanelAnalisis}
-                  className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                  aria-label="Cerrar"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-auto px-5 py-4 space-y-2">
-                {elementosDetectados.length === 0 ? (
-                  <p className="text-sm text-slate-400 text-center py-6">
-                    No se detectaron elementos medibles en las imágenes.
-                  </p>
-                ) : (
-                  elementosDetectados.map((el, i) => (
-                    <label
-                      key={i}
-                      className={cn(
-                        "flex items-start gap-3 px-3 py-2.5 rounded-[10px] border cursor-pointer transition-colors",
-                        seleccionados.has(i)
-                          ? "border-[#2563EB] bg-blue-50/50"
-                          : "border-slate-200 hover:bg-slate-50"
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={seleccionados.has(i)}
-                        onChange={() => toggleSeleccionado(i)}
-                        className="mt-0.5 w-4 h-4 accent-[#2563EB] flex-shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-[#1A3A5C]">{el.descripcion}</span>
-                          <span className="text-sm font-semibold text-[#2563EB] tabular-nums flex-shrink-0">
-                            {fmtNum(el.subtotal)} {el.unidad}
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-400 mt-0.5">
-                          {[
-                            el.largo != null ? `L: ${fmtNum(el.largo)}` : null,
-                            el.ancho != null ? `A: ${fmtNum(el.ancho)}` : null,
-                            el.alto != null ? `H: ${fmtNum(el.alto)}` : null,
-                            el.cantidad != null ? `Cant: ${el.cantidad}` : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </div>
-                        {el.nota && (
-                          <p className="text-xs text-slate-400 italic mt-1">{el.nota}</p>
-                        )}
-                      </div>
-                    </label>
-                  ))
-                )}
-
-                {observacionesIA && (
-                  <div className="mt-3 px-3 py-2.5 rounded-[10px] bg-[#F0F7FF] border border-blue-100">
-                    <p className="text-xs text-slate-500">{observacionesIA}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-slate-200 flex-shrink-0">
-                <span className="text-xs text-slate-400">
-                  {seleccionados.size} de {elementosDetectados.length} seleccionados
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={cerrarPanelAnalisis}
-                    className="px-3 py-2 rounded-[8px] text-sm font-medium text-slate-500 hover:bg-slate-100 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={agregarElementosSeleccionados}
-                    disabled={seleccionados.size === 0}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-2 rounded-[8px] text-sm font-semibold transition-colors",
-                      seleccionados.size === 0
-                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                        : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-                    )}
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Agregar seleccionados a la planilla
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
