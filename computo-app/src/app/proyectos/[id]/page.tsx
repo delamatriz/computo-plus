@@ -70,6 +70,7 @@ import SeccionDocumentacionLlamado from "@/components/SeccionDocumentacionLlamad
 import { SelectorCapitulosEstandar, type CapituloSeleccionable } from "@/components/SelectorCapitulosEstandar";
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 import { NotaInfoIcono } from "@/components/NotaInfoIcono";
+import { nombreDesdeTexto, PREFIJO_NOMBRE_FORMULA } from "@/lib/nombreDesdeTexto";
 
 // SeccionMetrajesPresupuesto (vía SeccionPlanos/VisorPlano) importa react-pdf
 // (pdf.js), que revienta con "DOMMatrix is not defined" si su módulo se
@@ -3626,17 +3627,25 @@ export default function ProyectoPage() {
 
   // "Convertir en proyecto completo" — mismo patrón que habilitarEdicion:
   // un anteproyecto (creado desde Cálculo Rápido, sin capítulos todavía)
-  // pasa a EN_CURSO para señalar que ya se está desarrollando en serio.
+  // pasa a EN_CURSO para señalar que ya se está desarrollando en serio. Si
+  // todavía tiene el nombre de fórmula ("Anteproyecto — {tipo} en {zona}",
+  // anteproyectos creados antes de que el nombre saliera del texto) y hay
+  // texto del usuario, pasa a llamarse como ese texto. Un nombre que el
+  // usuario ya cambió a mano no se toca.
   const convertirEnProyectoCompleto = async () => {
     setConvirtiendoAnteproyecto(true);
     try {
+      const nombreDelTexto = nombreDesdeTexto(proyecto?.textoOriginalCalculoRapido);
+      const renombrar = !!nombreDelTexto && !!proyecto?.nombre.startsWith(PREFIJO_NOMBRE_FORMULA);
       const res = await fetch(`/api/proyectos/${proyectoId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: "EN_CURSO" }),
+        body: JSON.stringify({ estado: "EN_CURSO", ...(renombrar ? { nombre: nombreDelTexto } : {}) }),
       });
       if (!res.ok) throw new Error("No se pudo convertir el anteproyecto");
-      setProyecto((prev) => (prev ? { ...prev, estado: "EN_CURSO" } : prev));
+      setProyecto((prev) =>
+        prev ? { ...prev, estado: "EN_CURSO", ...(renombrar && nombreDelTexto ? { nombre: nombreDelTexto } : {}) } : prev
+      );
     } catch (err) {
       console.error("[convertirEnProyectoCompleto]", err);
     } finally {

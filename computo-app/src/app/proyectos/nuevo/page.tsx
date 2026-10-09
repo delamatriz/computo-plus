@@ -27,6 +27,7 @@ import {
   type ProgresoSubida,
 } from "@/lib/subirArchivosDelAsistente";
 import { reducirFotosParaIA, SUGERIR_MAX_FOTOS } from "@/lib/reducirFotosParaIA";
+import { nombreDesdeTexto } from "@/lib/nombreDesdeTexto";
 
 /* ─── Tipos ─────────────────────────────────────────────── */
 interface FormData {
@@ -238,6 +239,10 @@ function NuevoProyectoContent() {
     const descripcion = sessionStorage.getItem("calculoRapido_descripcion");
     if (descripcion) {
       set("trabajos", descripcion);
+      // "Iniciar proyecto completo": el nombre arranca con el texto que el
+      // usuario escribió en Cálculo Rápido (editable, como cualquier campo).
+      const nombre = nombreDesdeTexto(descripcion);
+      if (nombre) setForm((prev) => (prev.nombre.trim() ? prev : { ...prev, nombre }));
       sessionStorage.removeItem("calculoRapido_descripcion");
     }
 

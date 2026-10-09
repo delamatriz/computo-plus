@@ -20,6 +20,7 @@ import {
   Minimize2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { nombreDesdeTexto } from "@/lib/nombreDesdeTexto";
 
 /* ─── Datos de referencia ─────────────────────────────────── */
 const TIPOS_OBRA = [
@@ -398,7 +399,9 @@ export default function CalcularPage() {
       const tipoLabel = TIPOS_OBRA.find((t) => t.id === tipo)?.label ?? tipo;
       const zonaLabel = ZONAS.find((z) => z.id === zona)?.label ?? zona;
       const calidadLabel = CALIDADES.find((c) => c.id === calidad)?.label ?? calidad;
-      const nombre = `Anteproyecto — ${tipoLabel} en ${zonaLabel}`;
+      // El nombre sale del texto que escribió el usuario (60 caracteres
+      // como máximo); sin texto, la fórmula de siempre.
+      const nombre = nombreDesdeTexto(descripcion) ?? `Anteproyecto — ${tipoLabel} en ${zonaLabel}`;
 
       const resumenCalculoRapido = [
         `Estimación de Cálculo Rápido — ${new Date().toLocaleDateString("es-UY")}`,
