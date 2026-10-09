@@ -13,7 +13,8 @@ const NOMBRE_CAPITULO_VIEJO = "Seguridad y Trabajos en Altura";
 // use, no acá. Son solo la documentación/administrativo del Plan y Estudio
 // de Seguridad. "Estudio y Plan de Seguridad" reemplaza al subrubro 1.2.6 de
 // la Biblioteca (desactivado); la señalización y el vallado ya no se cargan
-// solos: quedan en la Biblioteca (1.2.3, 1.2.7) para agregarlos a mano.
+// solos: quedan en la Biblioteca (1.2.3 Cartelería y señalización, 1.3.5
+// Vallado peatonal) para agregarlos a mano.
 const DESCRIPCIONES_FIJAS = [
   "Estudio y Plan de Seguridad",
   "Memoria de instalación eléctrica de obra",
