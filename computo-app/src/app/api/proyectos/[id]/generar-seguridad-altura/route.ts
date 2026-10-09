@@ -6,14 +6,20 @@ import { generarCapituloSeguridad } from "@/lib/seguridadAltura";
  * Replanteo" de cada título con requierePlanSeguridad (creando ese capítulo si
  * falta). Idempotente. Es rápida y determinística (sin llamada a IA), por lo
  * que se resuelve antes de responder.
+ *
+ * Body opcional { tituloIds: string[] }: solo esos títulos (ver "Editar
+ * proyecto"). Sin body, todos los títulos con el plan tildado (wizard).
  */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: proyectoId } = await params;
-    await generarCapituloSeguridad(proyectoId);
+    const body = await req.json().catch(() => null);
+    const tituloIds: string[] | undefined =
+      Array.isArray(body?.tituloIds) && body.tituloIds.every((x: unknown) => typeof x === "string") ? body.tituloIds : undefined;
+    await generarCapituloSeguridad(proyectoId, tituloIds);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[POST /api/proyectos/[id]/generar-seguridad-altura]", err);

@@ -182,10 +182,18 @@ export default function EditarProyectoPage() {
         )
       );
 
-      const necesitaGenerarSeguridad = titulos.some((t) => t.requierePlanSeguridad);
-      if (necesitaGenerarSeguridad) {
+      // Los rubros del plan de seguridad se cargan solo en los títulos que
+      // pasan de NO tener el plan a tenerlo en este guardado. Si ya estaba
+      // tildado al abrir Editar, no se toca: no se suman rubros nuevos ni se
+      // reponen los que el usuario borró a mano.
+      const recienTildados = titulos
+        .filter((t) => t.requierePlanSeguridad && !titulosOriginalRef.current[t.id]?.requierePlanSeguridad)
+        .map((t) => t.id);
+      if (recienTildados.length > 0) {
         fetch(`/api/proyectos/${proyectoId}/generar-seguridad-altura`, {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tituloIds: recienTildados }),
         }).catch((err) => console.error("[editar proyecto] generar-seguridad-altura", err));
       }
 

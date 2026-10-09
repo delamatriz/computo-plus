@@ -11,11 +11,13 @@ const NOMBRE_CAPITULO_VIEJO = "Seguridad y Trabajos en Altura";
 // Rubros fijos, sin modalidad — la maquinaria puntual (andamios, grúa,
 // balancín, silleta) se carga en el Equipo del APU de cada rubro que la
 // use, no acá. Son solo la documentación/administrativo del Plan y Estudio
-// de Seguridad.
+// de Seguridad. "Estudio y Plan de Seguridad" reemplaza al subrubro 1.2.6 de
+// la Biblioteca (desactivado); la señalización y el vallado ya no se cargan
+// solos: quedan en la Biblioteca (1.2.3, 1.2.7) para agregarlos a mano.
 const DESCRIPCIONES_FIJAS = [
-  "Estudio y plan de seguridad",
+  "Estudio y Plan de Seguridad",
   "Memoria de instalación eléctrica de obra",
-  "Señalización y vallado perimetral de obra",
+  "Memoria de andamios",
 ];
 
 const norm = (s: string) => s.trim().toLowerCase();
@@ -32,8 +34,14 @@ function proximoCodigoRubro(codigos: string[]): number {
    estándar). Idempotente por título y por rubro: no duplica un capítulo ni un
    rubro que ya existe (se compara la descripción, sin distinguir mayúsculas),
    y uno ya generado no bloquea ni afecta a los demás títulos. Pensada para
-   ejecutarse luego de crear/editar el proyecto. ── */
-export async function generarCapituloSeguridad(proyectoId: string): Promise<void> {
+   ejecutarse luego de crear/editar el proyecto.
+
+   tituloIds (opcional): limita la carga a esos títulos. "Editar proyecto"
+   manda solo los que acaban de pasar de no tener el plan a tenerlo, así un
+   guardado sin cambiar el tilde no agrega rubros nuevos ni repone los que el
+   usuario borró a mano. Sin tituloIds (el wizard), todos los títulos con el
+   plan tildado. ── */
+export async function generarCapituloSeguridad(proyectoId: string, tituloIds?: string[]): Promise<void> {
   const proyecto = await db.proyecto.findUnique({
     where: { id: proyectoId },
     include: {
@@ -43,7 +51,9 @@ export async function generarCapituloSeguridad(proyectoId: string): Promise<void
   });
   if (!proyecto) return;
 
-  const titulosQueNecesitan = proyecto.titulos.filter((t) => t.requierePlanSeguridad);
+  const titulosQueNecesitan = proyecto.titulos.filter(
+    (t) => t.requierePlanSeguridad && (!tituloIds || tituloIds.includes(t.id))
+  );
   if (titulosQueNecesitan.length === 0) return;
 
   const catalogoImplantacion = await db.capituloCatalogo.findUnique({ where: { nombre: NOMBRE_IMPLANTACION } });
@@ -97,7 +107,7 @@ export async function generarCapituloSeguridad(proyectoId: string): Promise<void
           capituloId: implantacion.id,
           codigo: `R${String(n++).padStart(3, "0")}`,
           descripcion,
-          unidad: "gl",
+          unidad: "GL",
           cantidad: 1,
           precioUnit: 0,
         },
