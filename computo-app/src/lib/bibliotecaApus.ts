@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
+import { resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
 import { sumManoObra } from "@/lib/apu-calc";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
@@ -144,10 +145,7 @@ export async function resolverProporcionDesglose(
 
   let materialesTotal = 0;
   for (const m of subrubro.materiales) {
-    const precioMTOP = await db.precioMTOP.findFirst({
-      where: { descripcion: { contains: m.descripcion, mode: "insensitive" } },
-      orderBy: { id: "asc" },
-    });
+    const precioMTOP = await resolverPrecioMaterial(m.descripcion);
     materialesTotal += m.rendimiento * (precioMTOP?.precioUnitario ?? 0);
   }
 
@@ -161,9 +159,7 @@ export async function resolverProporcionDesglose(
 
   let equiposTotal = 0;
   for (const eq of subrubro.equipos) {
-    const precioEquipo = await db.precioEquipo.findFirst({
-      where: { descripcion: { contains: eq.descripcion, mode: "insensitive" } },
-    });
+    const precioEquipo = await resolverPrecioEquipo(eq.descripcion);
     equiposTotal += eq.rendimiento * (precioEquipo?.precioHora ?? 0);
   }
 

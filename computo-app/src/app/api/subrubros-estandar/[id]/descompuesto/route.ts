@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
 import { sumEquipos, sumManoObra, calcularPrecioUnitario } from "@/lib/apu-calc";
 
 // GET — descompuesto (APU) completo de un rubro del catálogo maestro, para
@@ -56,10 +57,7 @@ export async function GET(
     // Materiales — precio + gobernanza resuelta contra PrecioMTOP
     const materiales = await Promise.all(
       apuEstandar.materiales.map(async (m) => {
-        const precioMTOP = await db.precioMTOP.findFirst({
-          where: { descripcion: { contains: m.descripcion, mode: "insensitive" } },
-          orderBy: { id: "asc" },
-        });
+        const precioMTOP = await resolverPrecioMaterial(m.descripcion);
         const precioUnit = precioMTOP?.precioUnitario ?? 0;
         return {
           id: m.id,
@@ -106,9 +104,7 @@ export async function GET(
     // Equipos — costo/hora resuelto contra PrecioEquipo por descripción
     const equipos = await Promise.all(
       apuEstandar.equipos.map(async (eq) => {
-        const precioEquipo = await db.precioEquipo.findFirst({
-          where: { descripcion: { contains: eq.descripcion, mode: "insensitive" } },
-        });
+        const precioEquipo = await resolverPrecioEquipo(eq.descripcion);
         const costoUnit = precioEquipo?.precioHora ?? 0;
         return {
           id: eq.id,

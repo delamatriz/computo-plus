@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
 import { calcularPrecioUnitario, sumarAportesPatronalesPct } from "@/lib/apu-calc";
 import { costoDirectoUnitario } from "@/lib/costoAgregado";
 
@@ -100,10 +101,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
 
   for (let i = 0; i < apuEstandar.materiales.length; i++) {
     const m = apuEstandar.materiales[i];
-    const precioMTOP = await db.precioMTOP.findFirst({
-      where: { descripcion: { contains: m.descripcion, mode: "insensitive" } },
-      orderBy: { id: "asc" },
-    });
+    const precioMTOP = await resolverPrecioMaterial(m.descripcion);
     const precioUnit = precioMTOP?.precioUnitario ?? 0;
 
     await db.materialAPU.create({
@@ -126,9 +124,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
   const equipoIdMap = new Map<string, string>();
   for (let i = 0; i < apuEstandar.equipos.length; i++) {
     const eq = apuEstandar.equipos[i];
-    const precioEquipo = await db.precioEquipo.findFirst({
-      where: { descripcion: { contains: eq.descripcion, mode: "insensitive" } },
-    });
+    const precioEquipo = await resolverPrecioEquipo(eq.descripcion);
     const costoUnit = precioEquipo?.precioHora ?? 0;
 
     const creado = await db.equipoAPU.create({

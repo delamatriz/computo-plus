@@ -15,6 +15,7 @@
 // sin tocar este archivo cuando cambie el convenio el año que viene.
 
 import { db } from "@/lib/db";
+import { coincidenciasPrecioMaterial } from "@/lib/resolverPrecioInsumo";
 import { sumEquipos, sumManoObra, calcularPrecioUnitario, montoAportesPatronales } from "@/lib/apu-calc";
 import type { MaterialAPU, ManoObraAPU, EquipoAPU, APU, PrecioMTOP } from "@/generated/prisma/client";
 
@@ -25,11 +26,10 @@ import type { MaterialAPU, ManoObraAPU, EquipoAPU, APU, PrecioMTOP } from "@/gen
 // tomando la primera, mismo criterio de siempre) como el chequeo de
 // ambigüedad post-importación (api/precios-mtop/importar/route.ts, que
 // necesita saber si hay 2+) puedan usar la misma consulta sin duplicarla.
+// El orden es el de resolverPrecioInsumo.ts (descripción exacta primero), así
+// la primera coincidencia es la misma que usa la Biblioteca.
 export async function buscarCoincidenciasPorTexto(descripcion: string): Promise<PrecioMTOP[]> {
-  return db.precioMTOP.findMany({
-    where: { descripcion: { contains: descripcion, mode: "insensitive" } },
-    orderBy: { id: "asc" },
-  });
+  return coincidenciasPrecioMaterial(descripcion);
 }
 
 type RubroConAPU = {
