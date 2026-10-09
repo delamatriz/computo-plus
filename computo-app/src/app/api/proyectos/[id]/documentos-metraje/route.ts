@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { subirArchivoABlob, eliminarArchivosDeBlob } from "@/lib/blob";
 
 const CATEGORIAS_VALIDAS = ["PLANO", "FOTO", "DETALLE"];
-const TIPOS_VALIDOS = ["PDF", "IMAGEN", "DWG"];
+const TIPOS_VALIDOS = ["PDF", "IMAGEN", "DWG", "WORD"];
 
 // Documentación para metrar — Etapa 1 (UI_UX_REDESIGN.md 2quinquies). El
 // listado NO trae el campo `archivo` (URL de Vercel Blob) para que la
@@ -63,7 +63,7 @@ export async function POST(
       return NextResponse.json({ error: "categoria debe ser PLANO, FOTO o DETALLE" }, { status: 400 });
     }
     if (!TIPOS_VALIDOS.includes(body.tipoArchivo)) {
-      return NextResponse.json({ error: "tipoArchivo debe ser PDF, IMAGEN o DWG" }, { status: 400 });
+      return NextResponse.json({ error: "tipoArchivo debe ser PDF, IMAGEN, DWG o WORD" }, { status: 400 });
     }
 
     let url: string;

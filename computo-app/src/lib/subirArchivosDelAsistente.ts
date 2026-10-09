@@ -1,6 +1,6 @@
 // Sube a "Documentación para metrar" (DocumentoMetraje) los archivos que se
 // cargaron en el paso 1 del asistente de Nuevo proyecto: las fotos de
-// relevamiento (categoría FOTO) y los PDF/DWG (categoría PLANO). Antes se
+// relevamiento (categoría FOTO) y los PDF/Word (categoría PLANO). Antes se
 // capturaban pero se perdían al crear el proyecto.
 //
 // Usa EXACTAMENTE el mismo mecanismo que el cargador de la pantalla de
@@ -96,8 +96,8 @@ export function armarArchivosDelAsistente(
 
   documentos.forEach((d) => {
     const tipo = detectarTipoArchivo(d);
-    if (tipo !== "PDF" && tipo !== "DWG") {
-      descartados.push({ nombre: d.name, motivo: "formato no admitido (PDF o DWG)" });
+    if (tipo !== "PDF" && tipo !== "WORD") {
+      descartados.push({ nombre: d.name, motivo: "formato no admitido (PDF o Word)" });
       return;
     }
     if (d.size > MAX_ARCHIVO_BYTES) {

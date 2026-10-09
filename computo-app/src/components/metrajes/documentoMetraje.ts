@@ -30,7 +30,13 @@ export const MAX_ARCHIVO_BYTES = MAX_ARCHIVO_MB * 1024 * 1024;
 // metadata/tipo de archivo, sin parseo de capas — soporte real fuera de
 // alcance (ver sección 6 "Fuera de alcance — fase futura").
 export type CategoriaDocumento = "PLANO" | "FOTO" | "DETALLE";
-export type TipoArchivoDocumento = "PDF" | "IMAGEN" | "DWG";
+export type TipoArchivoDocumento = "PDF" | "IMAGEN" | "DWG" | "WORD";
+
+// Tipos que se guardan y se descargan pero no tienen vista previa en el
+// Visor (ni zoom ni herramientas de medición).
+export function sinVistaPrevia(tipo: TipoArchivoDocumento): boolean {
+  return tipo === "DWG" || tipo === "WORD";
+}
 
 export const CATEGORIAS: {
   value: CategoriaDocumento;
@@ -42,9 +48,9 @@ export const CATEGORIAS: {
   {
     value: "PLANO",
     label: "Planos y documentos",
-    accept: "application/pdf,image/*,.dwg",
-    tiposPermitidos: ["PDF", "IMAGEN", "DWG"],
-    ayuda: "PDF, imagen o DWG (sin vista previa para DWG).",
+    accept: "application/pdf,image/*,.dwg,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    tiposPermitidos: ["PDF", "IMAGEN", "DWG", "WORD"],
+    ayuda: "PDF, imagen, DWG o Word (sin vista previa para DWG ni Word).",
   },
   {
     value: "FOTO",
@@ -72,7 +78,16 @@ export function labelCategoria(categoria: CategoriaDocumento): string {
 export function detectarTipoArchivo(file: File): TipoArchivoDocumento | null {
   if (file.type === "application/pdf") return "PDF";
   if (file.type.startsWith("image/")) return "IMAGEN";
-  if (file.name.toLowerCase().endsWith(".dwg")) return "DWG";
+  const nombre = file.name.toLowerCase();
+  if (nombre.endsWith(".dwg")) return "DWG";
+  if (
+    nombre.endsWith(".doc") ||
+    nombre.endsWith(".docx") ||
+    file.type === "application/msword" ||
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    return "WORD";
+  }
   return null;
 }
 

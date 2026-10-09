@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { obtenerArchivoCacheado } from "@/lib/archivoCache";
-import { PDF_OPTIONS, parsearEscala, type DocumentoDetalle, type DocumentoResumen, type MedicionDocumento, type Anotacion } from "./documentoMetraje";
+import { PDF_OPTIONS, parsearEscala, sinVistaPrevia, type DocumentoDetalle, type DocumentoResumen, type MedicionDocumento, type Anotacion } from "./documentoMetraje";
 import "@/lib/pdfjsSetup";
 
 function iconoPorTipo(tipoArchivo: DocumentoResumen["tipoArchivo"]) {
@@ -59,7 +59,7 @@ function useArchivoBlob(doc: DocumentoDetalle | null) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!doc || doc.tipoArchivo === "DWG") {
+    if (!doc || sinVistaPrevia(doc.tipoArchivo)) {
       setCargando(false);
       return;
     }
@@ -111,7 +111,7 @@ function SinVistaPrevia({ doc }: { doc: DocumentoDetalle }) {
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
       <FileGenerico className="w-10 h-10 text-slate-300" />
       <p className="text-sm text-slate-500 max-w-xs">
-        Sin vista previa disponible para archivos DWG todavía.
+        Sin vista previa disponible para archivos {doc.tipoArchivo === "WORD" ? "Word" : "DWG"} todavía.
       </p>
       <a
         href={doc.archivo}
@@ -2101,7 +2101,7 @@ La fila de la Planilla no se borra: para eso está la X de la fila.`)) {
   };
 
   useEffect(() => {
-    if (doc.tipoArchivo === "DWG") {
+    if (sinVistaPrevia(doc.tipoArchivo)) {
       onControlesZoomListos(null);
       return;
     }
@@ -2123,7 +2123,7 @@ La fila de la Planilla no se borra: para eso está la X de la fila.`)) {
   // cambia, o se cierra el documento) se maneja aparte para no limpiar
   // y volver a setear en cada cambio.
   useEffect(() => {
-    if (doc.tipoArchivo === "DWG") {
+    if (sinVistaPrevia(doc.tipoArchivo)) {
       onControlesMedicionListos(null);
       return;
     }
@@ -2155,7 +2155,7 @@ La fila de la Planilla no se borra: para eso está la X de la fila.`)) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (doc.tipoArchivo === "DWG") return <SinVistaPrevia doc={doc} />;
+  if (sinVistaPrevia(doc.tipoArchivo)) return <SinVistaPrevia doc={doc} />;
 
   // Cartelito EN VIVO de las herramientas de medición: lo que mide lo que
   // se está dibujando, incluido el tramo hasta el cursor. null si no hay
@@ -3044,7 +3044,7 @@ function VentanaFlotante({
         </button>
       </div>
       <div className="flex-1 min-h-0 relative bg-slate-100 overflow-auto flex items-center justify-center p-2">
-        {doc.tipoArchivo === "DWG" ? (
+        {sinVistaPrevia(doc.tipoArchivo) ? (
           <SinVistaPrevia doc={doc} />
         ) : (
           <>

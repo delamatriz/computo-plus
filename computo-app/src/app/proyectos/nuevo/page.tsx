@@ -96,6 +96,10 @@ interface FotoProyecto {
 const MAX_FOTOS = 10;
 const MAX_DOCS = 5;
 
+// Capítulos que "Sugerir capítulos" prende siempre, además de los que
+// devuelva la IA (ver sugerirCapitulos).
+const CAPITULOS_SIEMPRE_SUGERIDOS = ["Implantación y Replanteo", "Limpieza y Retiro de Obra"];
+
 /* ─── Datos de referencia ─────────────────────────────── */
 const TIPOS_OBRA = [
   { id: "REPARACIONES", label: "Reparaciones" },
@@ -320,7 +324,7 @@ function NuevoProyectoContent() {
     set("fotos", copia);
   };
 
-  /* Documentos PDF/DWG */
+  /* Documentos PDF/Word */
   const agregarDocumentos = (files: FileList | null) => {
     if (!files) return;
     const nuevos = Array.from(files).slice(0, MAX_DOCS - form.documentos.length);
@@ -387,7 +391,7 @@ function NuevoProyectoContent() {
   const sugerirNFotos = Math.min(form.fotos.length, SUGERIR_MAX_FOTOS);
   const hayDatosParaSugerir = sugerirConArea || sugerirConTrabajos || sugerirConOtros || sugerirNFotos > 0;
   // "Se basa en": solo lo que realmente está cargado — es lo que viaja.
-  // PDF y DWG nunca se mandan, por eso no figuran.
+  // PDF y Word nunca se mandan, por eso no figuran.
   const baseDeLaSugerencia = (() => {
     const partes = ["tipo de obra"];
     if (sugerirConArea) partes.push("área");
@@ -418,7 +422,16 @@ function NuevoProyectoContent() {
       if (!res.ok || !Array.isArray(data?.capitulos) || data.capitulos.length === 0) {
         throw new Error(data?.error ?? `status ${res.status}`);
       }
-      const nombres: string[] = data.capitulos;
+      // Implantación y Replanteo y Limpieza y Retiro de Obra van en toda obra:
+      // se prenden siempre, sugiera lo que sugiera la IA (el usuario los
+      // puede apagar a mano).
+      const devueltos: string[] = data.capitulos;
+      const nombres = [
+        ...devueltos,
+        ...CAPITULOS_SIEMPRE_SUGERIDOS.filter(
+          (f) => !devueltos.some((n) => n.trim().toLowerCase() === f.toLowerCase())
+        ),
+      ];
       const buscados = new Set(nombres.map((n) => n.trim().toLowerCase()));
 
       // SOLO prende: los sugeridos que estaban apagados pasan a prendidos; ni
@@ -570,7 +583,7 @@ function NuevoProyectoContent() {
         }).catch((err) => console.error("[proyectos/nuevo] generar-seguridad-altura", err));
       }
 
-      // Fotos (FOTO) y PDF/DWG (PLANO) del paso 1 → "Documentación para metrar".
+      // Fotos (FOTO) y PDF/Word (PLANO) del paso 1 → "Documentación para metrar".
       // El proyecto ya existe: un problema de subida NUNCA lo deshace. Si algún
       // archivo falla, se avisa y se deja ir al proyecto con un botón.
       const { archivos, descartados } = armarArchivosDelAsistente(form.fotos, form.documentos);
@@ -888,11 +901,11 @@ function NuevoProyectoContent() {
                   )}
                 </Field>
 
-                <Field label="Documentos (PDF / DWG)">
+                <Field label="Documentos (PDF / Word)">
                   <input
                     ref={docsInputRef}
                     type="file"
-                    accept=".pdf,.dwg,application/pdf"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     multiple
                     className="hidden"
                     onChange={(e) => {
@@ -919,7 +932,7 @@ function NuevoProyectoContent() {
                   </button>
 
                   <p className="text-xs text-slate-400 mt-1.5">
-                    PDF o DWG, hasta {MAX_DOCS}. Se guardan en Documentación para metrar.
+                    PDF o Word (.doc, .docx), hasta {MAX_DOCS}. Se guardan en Documentación para metrar.
                   </p>
 
                   {form.documentos.length > 0 && (
