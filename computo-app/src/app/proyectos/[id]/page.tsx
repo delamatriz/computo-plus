@@ -71,6 +71,7 @@ import { SelectorCapitulosEstandar, type CapituloSeleccionable } from "@/compone
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 import { NotaInfoIcono } from "@/components/NotaInfoIcono";
 import { nombreDesdeTexto, PREFIJO_NOMBRE_FORMULA } from "@/lib/nombreDesdeTexto";
+import { capitalizarDescripcion } from "@/lib/capitalizarDescripcion";
 
 // SeccionMetrajesPresupuesto (vía SeccionPlanos/VisorPlano) importa react-pdf
 // (pdf.js), que revienta con "DOMMatrix is not defined" si su módulo se
@@ -845,10 +846,14 @@ function precioDesdeSubrubro(sub: SubrubroEstandar, moneda: string): number {
   return parseFloat(precio.toFixed(2));
 }
 
-/** "DEMOLICIÓN DE LOSA" → "Demolición de losa" */
+/**
+ * "DEMOLICIÓN DE LOSA" → "Demolición de losa", respetando siglas (PVC, DVH,
+ * EPP…), unidades, medidas y marcas — misma regla que la Biblioteca (ver
+ * lib/capitalizarDescripcion.ts). Antes pasaba todo a minúscula salvo la
+ * primera letra y mostraba "pvc", "dvh".
+ */
 function toTitleCase(texto: string): string {
-  const minusculas = texto.toLocaleLowerCase("es");
-  return minusculas.charAt(0).toUpperCase() + minusculas.slice(1);
+  return capitalizarDescripcion(texto);
 }
 
 /**
