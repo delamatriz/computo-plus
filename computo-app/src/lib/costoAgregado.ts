@@ -59,6 +59,9 @@ export interface CostoDirectoAgregadoResultado {
   // calcularMOTotal() en lib/calculos.ts.
   metodo: "apu" | "estimado";
   rubrosSinApu: number;
+  // Ids de esos rubros, en el orden en que se recorren — para listarlos (ver
+  // aviso de TarjetaCostoDirecto). Mismo criterio que rubrosSinApu.
+  idsRubrosSinApu: string[];
 }
 
 // Costo Directo agregado del proyecto — recorre capítulos → rubros → APU,
@@ -71,6 +74,7 @@ export function calcularCostoDirectoAgregado(
 ): CostoDirectoAgregadoResultado {
   let total = 0;
   let rubrosSinApu = 0;
+  const idsRubrosSinApu: string[] = [];
 
   for (const cap of capitulos) {
     for (const rubro of cap.rubros) {
@@ -81,11 +85,12 @@ export function calcularCostoDirectoAgregado(
       } else {
         total += (rubro.precioUnit ?? 0) * cantidad;
         rubrosSinApu++;
+        idsRubrosSinApu.push(rubro.id);
       }
     }
   }
 
-  return { total, metodo: rubrosSinApu > 0 ? "estimado" : "apu", rubrosSinApu };
+  return { total, metodo: rubrosSinApu > 0 ? "estimado" : "apu", rubrosSinApu, idsRubrosSinApu };
 }
 
 // Utilidad agregada del proyecto — la Utilidad de cada rubro es

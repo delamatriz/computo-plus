@@ -3531,6 +3531,32 @@ export default function ProyectoPage() {
   // títulos con contenido; en los 5 proyectos reales no cambia nada (todos
   // los que tienen 2+ títulos ya tenían 2+ con capítulos).
   const modoMultiTitulo = titulos.length >= 2;
+
+  // Rubros sin APU con su ubicación, para el panel del aviso ámbar de Costo
+  // Directo. Mismos rubros que cuenta calcularCostoDirectoAgregado, en el
+  // orden en que aparecen en el presupuesto (por título y capítulo). Con un
+  // solo título (el caso simple) la ubicación es solo el capítulo.
+  const rubrosSinApuDetalle = (() => {
+    const sinApu = new Set(costoDirectoAgregado.idsRubrosSinApu);
+    if (sinApu.size === 0) return [];
+    const nombreTitulo = new Map(titulos.map((t) => [t.id, t.nombre]));
+    const ordenTitulo = new Map(titulos.map((t) => [t.id, t.orden]));
+    const caps = modoMultiTitulo
+      ? [...capitulos].sort((a, b) => (ordenTitulo.get(a.tituloId ?? "") ?? 0) - (ordenTitulo.get(b.tituloId ?? "") ?? 0))
+      : capitulos;
+    return caps.flatMap((cap) =>
+      cap.rubros
+        .filter((r) => sinApu.has(r.id))
+        .map((r) => ({
+          id: r.id,
+          ubicacion: [
+            ...(modoMultiTitulo ? [nombreTitulo.get(cap.tituloId ?? "") ?? "Sin título"] : []),
+            cap.nombre,
+          ],
+          nombre: toTitleCase(r.descripcion) || "Rubro sin nombre",
+        }))
+    );
+  })();
   const capitulosConSubtotal = capitulos.map((c) => ({
     id: c.id,
     nombre: c.nombre,
@@ -5645,6 +5671,7 @@ export default function ProyectoPage() {
           costoDirecto={costoDirectoAgregado.total}
           metodoCostoDirecto={costoDirectoAgregado.metodo}
           rubrosSinApu={costoDirectoAgregado.rubrosSinApu}
+          rubrosSinApuDetalle={rubrosSinApuDetalle}
         />
 
         <SeccionGastosGeneralesUtilidades

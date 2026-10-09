@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, Layers } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, ChevronDown, Layers } from "lucide-react";
 import { RESERVA_COLA_TABLA } from "@/lib/layoutTablaPresupuesto";
 
 function fmtMoneda(v: number, moneda: string): string {
@@ -68,11 +69,19 @@ function TarjetaSuelta({
 // rubro). "Gastos Generales y Beneficio" (componente aparte, con su propio
 // desglose colapsable) va justo después de esta, y antes de
 // TarjetaCostoTotalPrecioFinal — ver proyectos/[id]/page.tsx.
+export interface RubroSinApuDetalle {
+  id: string;
+  /** Título (solo con 2+ títulos) y capítulo. */
+  ubicacion: string[];
+  nombre: string;
+}
+
 export function TarjetaCostoDirecto({
   moneda,
   costoDirecto,
   metodoCostoDirecto,
   rubrosSinApu,
+  rubrosSinApuDetalle,
 }: {
   moneda: string;
   costoDirecto: number;
@@ -81,32 +90,75 @@ export function TarjetaCostoDirecto({
   // completo como Costo Directo, sin poder separar cuánto sería Utilidad.
   metodoCostoDirecto: "apu" | "estimado";
   rubrosSinApu: number;
+  /** Los mismos rubros que cuenta rubrosSinApu, con su ubicación. */
+  rubrosSinApuDetalle: RubroSinApuDetalle[];
 }) {
+  // Panel del aviso ámbar: se abre al tocarlo y se cierra al tocar afuera,
+  // con Esc o tocando el aviso otra vez.
+  const [panelAbierto, setPanelAbierto] = useState(false);
+  const contenedorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!panelAbierto) return;
+    const alTocar = (e: MouseEvent) => {
+      if (!contenedorRef.current?.contains(e.target as Node)) setPanelAbierto(false);
+    };
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPanelAbierto(false);
+    };
+    document.addEventListener("mousedown", alTocar);
+    document.addEventListener("keydown", alTeclear);
+    return () => {
+      document.removeEventListener("mousedown", alTocar);
+      document.removeEventListener("keydown", alTeclear);
+    };
+  }, [panelAbierto]);
+
   return (
     <div className="flex flex-col gap-2 mt-2">
       {metodoCostoDirecto === "estimado" && (
-        <div className="group relative flex items-start gap-2 rounded-[8px] bg-amber-50 border border-amber-200 px-3 py-2">
-          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-700">
-            {rubrosSinApu} rubro{rubrosSinApu !== 1 ? "s" : ""} sin Análisis de Precio Unitario — se usó su precio
-            cargado a mano como Costo Directo completo, sin poder separar cuánto de eso sería Utilidad.
-          </p>
-          {/* Tooltip oscuro (mismo patrón group/group-hover que "Agregar
-              título"): explica qué es un rubro sin APU y cómo completarlo.
-              Cada afirmación está verificada en el código — entra en Costo
-              Directo y totales (calcularCostoDirectoAgregado), no lo toca
-              "Actualizar por fórmula paramétrica" (queda como sinDesglose en
-              aplicar-precios-vigentes) ni "Aplicar X% a rubros existentes"
-              (propagar-utilidad saltea los rubros sin APU), pero SÍ lo
-              ajusta "Actualizar por ICCV" (aplica el factor a todos los
-              precioUnit). Singular/plural según rubrosSinApu. */}
-          <div className="pointer-events-none absolute left-0 top-full mt-2 hidden group-hover:block z-20 w-80 max-w-full">
-            <div className="rounded-[8px] bg-[#1A3A5C] text-white text-xs leading-relaxed px-3 py-2 shadow-lg">
-              {rubrosSinApu === 1
-                ? "1 rubro sin análisis de precio unitario (APU). Tiene el precio cargado a mano, sin desglose de materiales y mano de obra. Entra igual en el total, pero no se actualiza con la fórmula paramétrica ni con el % de Utilidad general (el ajuste por ICCV sí lo toma). Para completarlo, abrí el rubro y cargá su APU."
-                : `${rubrosSinApu} rubros sin análisis de precio unitario (APU). Tienen el precio cargado a mano, sin desglose de materiales y mano de obra. Entran igual en el total, pero no se actualizan con la fórmula paramétrica ni con el % de Utilidad general (el ajuste por ICCV sí los toma). Para completarlos, abrí cada rubro y cargá su APU.`}
+        <div ref={contenedorRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setPanelAbierto((v) => !v)}
+            aria-expanded={panelAbierto}
+            className="w-full flex items-start gap-2 rounded-[8px] bg-amber-50 border border-amber-200 px-3 py-2 text-left hover:bg-amber-100/70 transition-colors"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="flex-1 text-xs text-amber-700">
+              {rubrosSinApu} rubro{rubrosSinApu !== 1 ? "s" : ""} sin Análisis de Precio Unitario — se usó su precio
+              cargado a mano como Costo Directo completo, sin poder separar cuánto de eso sería Utilidad.
+            </p>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5 transition-transform ${panelAbierto ? "rotate-180" : ""}`}
+            />
+          </button>
+          {/* Panel: la explicación (cada afirmación verificada en el código —
+              entra en Costo Directo y totales, calcularCostoDirectoAgregado;
+              no lo toca "Actualizar por fórmula paramétrica", queda como
+              sinDesglose en aplicar-precios-vigentes; ni "Aplicar X% a
+              rubros existentes", propagar-utilidad saltea los rubros sin APU;
+              SÍ lo ajusta "Actualizar por ICCV", que aplica el factor a todos
+              los precioUnit) y después la lista de rubros con su ubicación. */}
+          {panelAbierto && (
+            <div className="absolute left-0 top-full mt-2 z-20 w-[26rem] max-w-full rounded-[10px] border border-slate-200 bg-white shadow-lg">
+              <p className="px-4 pt-3 pb-3 text-xs leading-relaxed text-slate-600 border-b border-slate-100">
+                {rubrosSinApu === 1
+                  ? "Este rubro tiene el precio cargado a mano, sin desglose de materiales y mano de obra. Entra igual en el total, pero no se actualiza con la fórmula paramétrica ni con el % de Utilidad general (el ajuste por ICCV sí lo toma). Para completarlo, abrí el rubro y cargá su APU."
+                  : "Estos rubros tienen el precio cargado a mano, sin desglose de materiales y mano de obra. Entran igual en el total, pero no se actualizan con la fórmula paramétrica ni con el % de Utilidad general (el ajuste por ICCV sí los toma). Para completarlos, abrí cada rubro y cargá su APU."}
+              </p>
+              <p className="px-4 pt-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                {rubrosSinApu === 1 ? "Rubro sin APU" : `Rubros sin APU (${rubrosSinApu})`}
+              </p>
+              <ul className="max-h-64 overflow-y-auto px-4 pb-3 space-y-1.5">
+                {rubrosSinApuDetalle.map((r) => (
+                  <li key={r.id} className="text-xs leading-snug">
+                    <span className="text-slate-400">{r.ubicacion.join(" › ")} › </span>
+                    <span className="font-medium text-slate-700">{r.nombre}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
+          )}
         </div>
       )}
       {/* Mismo peso tipográfico que el header de "Gastos Generales y
