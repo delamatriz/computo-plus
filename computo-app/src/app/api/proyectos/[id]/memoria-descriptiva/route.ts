@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { requerirProyecto } from "@/lib/sesion";
 
 const client = new Anthropic();
 
@@ -20,6 +21,8 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
 
     const proyecto = await db.proyecto.findUnique({
       where: { id: proyectoId },
@@ -134,6 +137,8 @@ export async function PUT(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const { texto } = await req.json();
 
     if (typeof texto !== "string") {

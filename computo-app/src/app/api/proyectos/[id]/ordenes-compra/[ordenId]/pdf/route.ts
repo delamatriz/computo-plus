@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { OrdenCompraPDF } from "@/components/OrdenCompraPDF";
 import React from "react";
+import { requerirProyecto } from "@/lib/sesion";
 
 type Membrete = "empresa" | "proyecto";
 const MEMBRETES_VALIDOS: Membrete[] = ["empresa", "proyecto"];
@@ -16,6 +17,8 @@ export async function GET(
 ) {
   try {
     const { id, ordenId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const membreteParam = req.nextUrl.searchParams.get("membrete");
     const membrete: Membrete = MEMBRETES_VALIDOS.includes(membreteParam as Membrete)
       ? (membreteParam as Membrete)
@@ -30,7 +33,7 @@ export async function GET(
         where: { id },
         select: { nombre: true, cliente: true, clienteRazonSocial: true },
       }),
-      db.empresa.findFirst({ select: { nombre: true } }),
+      db.empresa.findUnique({ where: { id: acceso.empresaId }, select: { nombre: true } }),
       db.ordenCompra.findMany({
         where: { proyectoId: id },
         select: { id: true, createdAt: true },

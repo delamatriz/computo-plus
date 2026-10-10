@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { unidadPorDimensiones, contarCargados, calcularDesvinculacion } from "@/lib/recalculoUnidadFila";
+import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
 
 // DELETE — borra una marca de medición (corrección de un trazo mal hecho,
 // ver /mediciones/route.ts para GET+POST). Valida que la medición
@@ -28,7 +29,11 @@ export async function DELETE(
   context: { params: Promise<{ id: string; docId: string; medicionId: string }> }
 ) {
   try {
-    const { docId, medicionId } = await context.params;
+    const { id: proyectoId, docId, medicionId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: proyectoId }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
 
     const medicion = await db.medicionDocumento.findUnique({
       where: { id: medicionId },

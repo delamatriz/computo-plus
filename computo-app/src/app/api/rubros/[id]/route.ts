@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirRubro } from "@/lib/sesion";
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -21,6 +22,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirRubro(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     if (await proyectoFinalizado(id)) {
       return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });
@@ -72,6 +75,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirRubro(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     if (await proyectoFinalizado(id)) {
       return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });

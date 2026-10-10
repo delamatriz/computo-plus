@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 // GET — lista el personal del proyecto, con la categoría laboral
 // vinculada (nombre + jornal, para mostrar en la pantalla). Trae
@@ -8,6 +9,8 @@ import { db } from "@/lib/db";
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const personal = await db.personalObra.findMany({
       where: { proyectoId: id },
       include: { categoriaLaboral: true },
@@ -25,6 +28,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const {
       nombre,

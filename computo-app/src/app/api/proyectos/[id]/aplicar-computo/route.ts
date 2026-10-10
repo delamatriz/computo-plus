@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { subtotalFila, type ActualizacionComputo, type DesgloseDocumento } from "@/components/metrajes/metrajeFila";
+import { requerirProyecto } from "@/lib/sesion";
 
 // "Aplicar al presupuesto" — botón único en la cabecera de la Planilla de
 // cómputo (ver diseño confirmado). Alcance a nivel de PROYECTO, no de
@@ -85,6 +86,8 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const confirmar = body?.confirmar === true;
 

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
 import { mejorCoincidencia, type CandidatoImportacion } from "@/lib/similitudDescripcion";
 import { buscarCoincidenciasPorTexto } from "@/lib/recalcularPrecioRubro";
+import { requerirSesion } from "@/lib/sesion";
 
 interface AmbiguoDetectado {
   materialAPUId: string;
@@ -55,6 +56,8 @@ function esFilaValida(f: unknown): f is FilaImportacion {
 // recalcula la clasificación acá, nunca confía en la del cliente, para
 // que los datos que se escriben sean siempre los que decidió el server.
 export async function POST(req: NextRequest) {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const body = await req.json().catch(() => null);
     const proveedor = typeof body?.proveedor === "string" ? body.proveedor.trim() : "";
@@ -166,8 +169,10 @@ export async function POST(req: NextRequest) {
     // recorrer (4 materiales sin vínculo en toda la base al momento de
     // escribir esto) — se corre siempre, sincrónico, en esta misma
     // request.
+    // Solo materiales de proyectos de la empresa del usuario: la lista de
+    // precios es compartida, pero el aviso habla de SUS proyectos.
     const materialesSinVinculo = await db.materialAPU.findMany({
-      where: { precioMTOPId: null },
+      where: { precioMTOPId: null, apu: { rubro: { capitulo: { proyecto: { empresaId: sesion.empresaId } } } } },
       select: {
         id: true,
         descripcion: true,

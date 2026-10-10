@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { calcularMOTotal } from "@/lib/calculos";
 import { LEYES_SOCIALES_DEFAULTS_FRACCION } from "@/lib/aportesPatronales";
 import { normalizarTipoCaja } from "@/lib/cajaProfesionales";
+import { requerirProyecto } from "@/lib/sesion";
 
 // Los cinco fondos patronales (y los dos personales informativos) se pasan explícitos al crear (en vez de depender
 // del @default de schema.prisma): así un proyecto nuevo nace siempre con los
@@ -16,6 +17,8 @@ export async function GET(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
 
     let leyesSociales = await db.leyesSociales.findUnique({ where: { proyectoId } });
 
@@ -40,6 +43,8 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const { total: montoImponibleMO, metodo } = await calcularMOTotal(proyectoId);
 
     const leyesSociales = await db.leyesSociales.upsert({
@@ -62,6 +67,8 @@ export async function PUT(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json();
 
     const campos = {

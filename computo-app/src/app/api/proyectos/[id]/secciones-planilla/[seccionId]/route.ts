@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 async function seccionDelProyecto(proyectoId: string, seccionId: string) {
   const seccion = await db.seccionPlanilla.findUnique({ where: { id: seccionId }, select: { proyectoId: true } });
@@ -15,6 +16,8 @@ export async function PATCH(
 ) {
   try {
     const { id, seccionId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => null);
     if (typeof body?.nombre !== "string") {
       return NextResponse.json({ error: "Se esperaba { nombre: string }" }, { status: 400 });
@@ -38,6 +41,8 @@ export async function DELETE(
 ) {
   try {
     const { id, seccionId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     if (!(await seccionDelProyecto(id, seccionId))) {
       return NextResponse.json({ error: "Sección no encontrada" }, { status: 404 });
     }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
 
 // DELETE — borra una anotación (corrección de un trazo/texto mal
 // puesto), mismo criterio que .../mediciones/[medicionId].
@@ -8,7 +9,11 @@ export async function DELETE(
   context: { params: Promise<{ id: string; docId: string; anotacionId: string }> }
 ) {
   try {
-    const { docId, anotacionId } = await context.params;
+    const { id: proyectoId, docId, anotacionId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: proyectoId }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
 
     const anotacion = await db.anotacion.findUnique({
       where: { id: anotacionId },
@@ -37,7 +42,11 @@ export async function PATCH(
   context: { params: Promise<{ id: string; docId: string; anotacionId: string }> }
 ) {
   try {
-    const { docId, anotacionId } = await context.params;
+    const { id: proyectoId, docId, anotacionId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: proyectoId }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
     const body = await req.json().catch(() => null);
 
     const anotacion = await db.anotacion.findUnique({

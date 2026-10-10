@@ -5,6 +5,7 @@ import { LiquidacionFinalPDF } from "@/components/LiquidacionFinalPDF";
 import { calcularTotalCertificadoAgregado, calcularCruceCertificacion } from "@/lib/totalCertificadoAgregado";
 import { INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
 import React from "react";
+import { requerirProyecto } from "@/lib/sesion";
 
 function calcularTotalLiquidado(presupuestoOriginal: number, ajustes: { monto: number; tipo: string }[]): number {
   const sumaAdicionales = ajustes.filter((a) => a.tipo === "Adicional").reduce((s, a) => s + a.monto, 0);
@@ -21,6 +22,8 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const [proyecto, liquidacion, certificaciones] = await Promise.all([
       db.proyecto.findUnique({

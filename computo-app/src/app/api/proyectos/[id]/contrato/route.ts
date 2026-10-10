@@ -7,6 +7,7 @@ import {
   calcularUtilidadAgregada,
   type ApuParaCosto,
 } from "@/lib/costoAgregado";
+import { requerirProyecto } from "@/lib/sesion";
 
 // Precio Final sugerido para prellenar el monto del contrato — misma
 // fórmula que "Precio Final" en proyectos/[id]/page.tsx (Costo Directo
@@ -74,6 +75,8 @@ async function calcularPrecioFinalSugerido(proyectoId: string): Promise<number |
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const proyecto = await db.proyecto.findUnique({
       where: { id },
@@ -125,6 +128,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { domicilioComitente, fechaFirma, monto, moneda } = body as {
       domicilioComitente?: string;
@@ -165,6 +170,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { domicilioComitente, fechaFirma, monto, moneda } = body as {
       domicilioComitente?: string;

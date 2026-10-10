@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirTitulo } from "@/lib/sesion";
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -13,6 +14,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirTitulo(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const titulo = await db.titulo.findUnique({
       where: { id },
@@ -55,6 +58,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirTitulo(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const titulo = await db.titulo.findUnique({
       where: { id },

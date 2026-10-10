@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { ActaCierrePDF } from "@/components/ActaCierrePDF";
 import React from "react";
+import { requerirProyecto } from "@/lib/sesion";
 
 // GET — genera el PDF imprimible del Acta de Cierre y Recepción de
 // Obra, para firmar en papel en el momento de la recepción (sin
@@ -16,6 +17,8 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const [proyecto, acta] = await Promise.all([
       db.proyecto.findUnique({

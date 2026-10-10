@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 // Secciones opcionales de la Planilla de cómputo — a nivel de PROYECTO,
 // igual que el listado de filas (ver GET /api/proyectos/[id]/filas-metraje
@@ -13,6 +14,8 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const secciones = await db.seccionPlanilla.findMany({
       where: { proyectoId: id },
       orderBy: [{ orden: "asc" }, { createdAt: "asc" }],
@@ -32,6 +35,8 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const nombre = typeof body?.nombre === "string" && body.nombre.trim() ? body.nombre.trim() : "Nueva sección";
 

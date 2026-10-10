@@ -9,6 +9,7 @@ import {
   costoDirectoUnitario,
   type ApuParaCosto,
 } from "@/lib/costoAgregado";
+import { requerirProyecto } from "@/lib/sesion";
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -41,6 +42,8 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => null);
     const dryRun = body?.dryRun === true;
     const confirmarContrato = body?.confirmarContrato === true;

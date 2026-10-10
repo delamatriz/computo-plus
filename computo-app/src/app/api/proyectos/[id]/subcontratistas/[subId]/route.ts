@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, capitulosSonDelProyecto } from "@/lib/sesion";
 
 const ESTADOS_VALIDOS = ["En negociación", "Contratado", "En obra", "Finalizado", "Cancelado"];
 
@@ -11,7 +12,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string; subId: string }> }
 ) {
   try {
-    const { subId } = await context.params;
+    const { id, subId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const {
       empresa,
@@ -51,9 +54,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
     }
 
-    const existente = await db.subcontratista.findUnique({ where: { id: subId } });
+    const existente = await db.subcontratista.findFirst({ where: { id: subId, proyectoId: id } });
     if (!existente) {
       return NextResponse.json({ error: "Subcontratista no encontrado" }, { status: 404 });
+    }
+    if (!(await capitulosSonDelProyecto(capituloIds ?? [], id))) {
+      return NextResponse.json({ error: "Hay capítulos que no son de este proyecto" }, { status: 400 });
     }
 
     const subcontratista = await db.subcontratista.update({

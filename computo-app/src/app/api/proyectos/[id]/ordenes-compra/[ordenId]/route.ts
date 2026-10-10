@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, capitulosSonDelProyecto } from "@/lib/sesion";
 
 const ESTADOS_VALIDOS = ["Pedido", "En camino", "Recibido", "Cancelado"];
 
@@ -12,7 +13,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string; ordenId: string }> }
 ) {
   try {
-    const { ordenId } = await context.params;
+    const { id, ordenId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const {
       proveedor,
@@ -47,7 +50,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
     }
 
-    const existente = await db.ordenCompra.findUnique({ where: { id: ordenId } });
+    const existente = await db.ordenCompra.findFirst({ where: { id: ordenId, proyectoId: id } });
     if (!existente) {
       return NextResponse.json({ error: "Orden no encontrada" }, { status: 404 });
     }
@@ -55,6 +58,9 @@ export async function PATCH(
     // Si la orden tiene ítems, el monto es derivado — no lo pisamos
     // con lo que venga en el body de esta edición general (proveedor,
     // estado, fechas, etc.); solo los endpoints de ítems lo recalculan.
+    if (!(await capitulosSonDelProyecto(capituloIds ?? [], id))) {
+      return NextResponse.json({ error: "Hay capítulos que no son de este proyecto" }, { status: 400 });
+    }
     const cantidadItems = await db.itemOrdenCompra.count({ where: { ordenCompraId: ordenId } });
 
     const orden = await db.ordenCompra.update({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 // "Entregar" — congela precioCongelado = precioUnit en TODOS los rubros del
 // proyecto y pasa estado a FINALIZADO (solo lectura hasta "Habilitar
@@ -12,6 +13,8 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const proyecto = await db.proyecto.findUnique({ where: { id }, select: { id: true } });
     if (!proyecto) {

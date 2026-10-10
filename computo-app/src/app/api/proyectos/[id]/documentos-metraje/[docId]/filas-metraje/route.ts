@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rubroCompatibleConFila } from "@/components/metrajes/metrajeFila";
+import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
 
 // POST — crea una fila de la Planilla de cómputo para este documento
 // (manual, generada por IA, o puente de una medición recién dibujada —
@@ -15,6 +16,10 @@ export async function POST(
 ) {
   try {
     const { id, docId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: id }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
     const body = await req.json().catch(() => null);
 
     if (typeof body?.descripcion !== "string") {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { eliminarArchivosDeBlob } from "@/lib/blob";
+import { requerirProyecto } from "@/lib/sesion";
 
 // DELETE — borra un documento individual del contrato (no el contrato
 // en sí, ver route.ts del padre — ese no tiene DELETE a propósito).
@@ -11,9 +12,11 @@ export async function DELETE(
   context: { params: Promise<{ id: string; docId: string }> }
 ) {
   try {
-    const { docId } = await context.params;
+    const { id, docId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
-    const documento = await db.documentoContrato.findUnique({ where: { id: docId } });
+    const documento = await db.documentoContrato.findFirst({ where: { id: docId, contratoObra: { proyectoId: id } } });
     if (!documento) {
       return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
     }

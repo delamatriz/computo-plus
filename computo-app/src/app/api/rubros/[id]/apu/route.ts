@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sumarAportesPatronalesPct } from "@/lib/apu-calc";
+import { requerirRubro } from "@/lib/sesion";
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -47,6 +48,8 @@ export async function PUT(
 ) {
   try {
     const { id: rubroId } = await params;
+    const acceso = await requerirRubro(rubroId);
+    if (acceso instanceof NextResponse) return acceso;
 
     if (await proyectoFinalizado(rubroId)) {
       return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });
@@ -239,6 +242,8 @@ export async function PATCH(
 ) {
   try {
     const { id: rubroId } = await params;
+    const acceso = await requerirRubro(rubroId);
+    if (acceso instanceof NextResponse) return acceso;
 
     if (await proyectoFinalizado(rubroId)) {
       return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });
@@ -293,6 +298,8 @@ export async function GET(
 ) {
   try {
     const { id: rubroId } = await params;
+    const acceso = await requerirRubro(rubroId);
+    if (acceso instanceof NextResponse) return acceso;
     const apu = await db.aPU.findUnique({
       where: { rubroId },
       include: {

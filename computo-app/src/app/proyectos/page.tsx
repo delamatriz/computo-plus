@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
+import { sesionActual } from "@/lib/sesion";
+import { redirect } from "next/navigation";
 
 // La lista de proyectos se consulta en cada request — no se debe cachear
 // como contenido estático, ya que cambia cada vez que se crea un proyecto.
@@ -20,7 +22,12 @@ const ESTADO_CLASSES: Record<string, string> = {
 };
 
 export default async function ProyectosPage() {
+  // Solo los proyectos de la empresa del usuario (tenant). El proxy ya
+  // exige sesión; esto es por si se llega igual sin ella.
+  const sesion = await sesionActual();
+  if (!sesion) redirect("/login");
   const proyectos = await db.proyecto.findMany({
+    where: { empresaId: sesion.empresaId },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { capitulos: true, titulos: true } } },
   });

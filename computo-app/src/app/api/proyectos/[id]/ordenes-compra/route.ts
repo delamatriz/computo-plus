@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, capitulosSonDelProyecto } from "@/lib/sesion";
 
 const ESTADOS_VALIDOS = ["Pedido", "En camino", "Recibido", "Cancelado"];
 
@@ -8,6 +9,8 @@ const ESTADOS_VALIDOS = ["Pedido", "En camino", "Recibido", "Cancelado"];
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const ordenes = await db.ordenCompra.findMany({
       where: { proyectoId: id },
       include: {
@@ -27,6 +30,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const {
       proveedor,
@@ -64,6 +69,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const proyecto = await db.proyecto.findUnique({ where: { id }, select: { id: true } });
     if (!proyecto) {
       return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+    }
+
+    if (!(await capitulosSonDelProyecto(capituloIds ?? [], id))) {
+      return NextResponse.json({ error: "Hay capítulos que no son de este proyecto" }, { status: 400 });
     }
 
     const orden = await db.ordenCompra.create({

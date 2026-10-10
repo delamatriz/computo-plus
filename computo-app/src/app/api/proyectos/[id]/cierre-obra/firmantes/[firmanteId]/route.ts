@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 const ROLES_VALIDOS = ["Director de obra", "Comitente", "Contratista", "Otro"];
 
@@ -9,7 +10,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string; firmanteId: string }> }
 ) {
   try {
-    const { firmanteId } = await context.params;
+    const { id, firmanteId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { nombre, rol, firmado } = body as {
       nombre?: string;
@@ -24,7 +27,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
     }
 
-    const existente = await db.firmante.findUnique({ where: { id: firmanteId } });
+    const existente = await db.firmante.findFirst({ where: { id: firmanteId, actaCierre: { proyectoId: id } } });
     if (!existente) {
       return NextResponse.json({ error: "Firmante no encontrado" }, { status: 404 });
     }
@@ -51,8 +54,10 @@ export async function DELETE(
   context: { params: Promise<{ id: string; firmanteId: string }> }
 ) {
   try {
-    const { firmanteId } = await context.params;
-    const existente = await db.firmante.findUnique({ where: { id: firmanteId } });
+    const { id, firmanteId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
+    const existente = await db.firmante.findFirst({ where: { id: firmanteId, actaCierre: { proyectoId: id } } });
     if (!existente) {
       return NextResponse.json({ error: "Firmante no encontrado" }, { status: 404 });
     }

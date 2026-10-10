@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 const ESTADOS_VALIDOS = ["Pendiente", "En trámite", "Aprobado", "Rechazado"];
 
@@ -11,7 +12,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string; tramiteId: string }> }
 ) {
   try {
-    const { tramiteId } = await context.params;
+    const { id, tramiteId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { nombre, organismo, estado, fecha, observaciones } = body as {
       nombre?: string;
@@ -28,7 +31,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
     }
 
-    const existente = await db.tramiteLegal.findUnique({ where: { id: tramiteId } });
+    const existente = await db.tramiteLegal.findFirst({ where: { id: tramiteId, proyectoId: id } });
     if (!existente) {
       return NextResponse.json({ error: "Trámite no encontrado" }, { status: 404 });
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recalcularMontoOrden } from "@/lib/ordenCompra";
+import { requerirProyecto } from "@/lib/sesion";
 
 // POST — agrega un ítem de línea a una orden de compra (elegido del
 // Cómputo Global de Materiales, o "ítem libre"). Recalcula
@@ -10,7 +11,9 @@ export async function POST(
   context: { params: Promise<{ id: string; ordenId: string }> }
 ) {
   try {
-    const { ordenId } = await context.params;
+    const { id, ordenId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { descripcion, unidad, cantidad, precioUnit } = body as {
       descripcion?: string;
@@ -29,7 +32,7 @@ export async function POST(
       return NextResponse.json({ error: "Cantidad inválida" }, { status: 400 });
     }
 
-    const orden = await db.ordenCompra.findUnique({ where: { id: ordenId } });
+    const orden = await db.ordenCompra.findFirst({ where: { id: ordenId, proyectoId: id } });
     if (!orden) {
       return NextResponse.json({ error: "Orden no encontrada" }, { status: 404 });
     }

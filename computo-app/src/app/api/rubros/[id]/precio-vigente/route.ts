@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calcularPrecioVigenteRubro } from "@/lib/recalcularPrecioRubro";
+import { requerirRubro } from "@/lib/sesion";
 
 // Solo lectura — precio pactado (guardado) vs. precio vigente (recomputado
 // contra PrecioMTOP/CategoriaLaboral), para el modal de "actualizar vs.
@@ -10,6 +11,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirRubro(id);
+    if (acceso instanceof NextResponse) return acceso;
     const resultado = await calcularPrecioVigenteRubro(id);
     if (!resultado) {
       return NextResponse.json({ error: "Rubro sin descompuesto" }, { status: 404 });

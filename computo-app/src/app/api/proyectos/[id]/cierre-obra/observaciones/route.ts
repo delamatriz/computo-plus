@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, rubrosSonDelProyecto } from "@/lib/sesion";
 
 const ESTADOS_VALIDOS = ["Aprobado sin observaciones", "Con observaciones pendientes"];
 
@@ -7,6 +8,8 @@ const ESTADOS_VALIDOS = ["Aprobado sin observaciones", "Con observaciones pendie
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { rubroId, observacion, estado } = body as {
       rubroId?: string;
@@ -24,6 +27,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
     }
 
+    if (!(await rubrosSonDelProyecto([rubroId], id))) {
+      return NextResponse.json({ error: "El rubro no es de este proyecto" }, { status: 400 });
+    }
     const acta = await db.actaCierre.findUnique({ where: { proyectoId: id } });
     if (!acta) {
       return NextResponse.json({ error: "Este proyecto todavía no tiene acta de cierre" }, { status: 404 });

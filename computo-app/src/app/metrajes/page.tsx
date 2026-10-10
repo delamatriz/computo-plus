@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Ruler } from "lucide-react";
+import { sesionActual } from "@/lib/sesion";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,12 @@ export default async function MetrajesPage({
   // mandaba siempre al proyecto más viejo de la base sin importar de
   // dónde vino el usuario. Se valida que el id realmente exista (no
   // confiar ciegamente en un query param) antes de redirigir.
+  const sesion = await sesionActual();
+  if (!sesion) redirect("/login");
   const { from } = await searchParams;
   if (from) {
-    const proyectoOrigen = await db.proyecto.findUnique({
-      where: { id: from },
+    const proyectoOrigen = await db.proyecto.findFirst({
+      where: { id: from, empresaId: sesion.empresaId },
       select: { id: true },
     });
     if (proyectoOrigen) {
@@ -32,6 +35,7 @@ export default async function MetrajesPage({
   // último recurso para no dejar la pantalla vacía. Ya no es el
   // comportamiento principal.
   const proyectoActivo = await db.proyecto.findFirst({
+    where: { empresaId: sesion.empresaId },
     orderBy: { createdAt: "asc" },
   });
 
@@ -40,6 +44,7 @@ export default async function MetrajesPage({
   }
 
   const proyectos = await db.proyecto.findMany({
+    where: { empresaId: sesion.empresaId },
     orderBy: { createdAt: "desc" },
   });
 

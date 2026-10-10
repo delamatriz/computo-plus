@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
 
 // Anotaciones libres sobre un plano — herramientas de ANOTACIÓN (no de
 // medición), ver comentario en prisma/schema.prisma. Igual que
@@ -30,7 +31,11 @@ export async function GET(
   context: { params: Promise<{ id: string; docId: string }> }
 ) {
   try {
-    const { docId } = await context.params;
+    const { id: proyectoId, docId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: proyectoId }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
 
     const documento = await db.documentoMetraje.findUnique({ where: { id: docId }, select: { id: true } });
     if (!documento) {
@@ -55,7 +60,11 @@ export async function POST(
   context: { params: Promise<{ id: string; docId: string }> }
 ) {
   try {
-    const { docId } = await context.params;
+    const { id: proyectoId, docId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: proyectoId }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
     const body = await req.json().catch(() => null);
 
     if (body?.tipo !== "TRAZO" && body?.tipo !== "RECTA" && body?.tipo !== "TEXTO") {

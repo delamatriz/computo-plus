@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, rubrosSonDelProyecto } from "@/lib/sesion";
 
 // GET — lista las entradas de la bitácora del proyecto, más reciente
 // primero (numero desc — no fecha, porque pueden convivir varias
@@ -10,6 +11,8 @@ import { db } from "@/lib/db";
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const entradas = await db.entradaBitacora.findMany({
       where: { proyectoId: id },
       include: {
@@ -35,6 +38,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const {
       fecha,
@@ -74,6 +79,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       orderBy: { numero: "desc" },
     });
     const numero = (ultima?.numero ?? 0) + 1;
+
+    if (!(await rubrosSonDelProyecto(rubroIds ?? [], id))) {
+      return NextResponse.json({ error: "Hay rubros que no son de este proyecto" }, { status: 400 });
+    }
 
     const entrada = await db.entradaBitacora.create({
       data: {

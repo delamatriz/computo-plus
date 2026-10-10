@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 export async function PUT(
   req: NextRequest,
@@ -7,6 +8,8 @@ export async function PUT(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const { texto } = await req.json();
 
     if (typeof texto !== "string") {

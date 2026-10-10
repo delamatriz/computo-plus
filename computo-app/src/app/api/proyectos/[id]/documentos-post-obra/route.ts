@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { subirArchivoABlob } from "@/lib/blob";
+import { requerirProyecto } from "@/lib/sesion";
 
 const CATEGORIAS_VALIDAS = ["Manual de uso", "Plano As-Built", "Certificado de garantía", "Otro"];
 
@@ -10,6 +11,8 @@ const CATEGORIAS_VALIDAS = ["Manual de uso", "Plano As-Built", "Certificado de g
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const documentos = await db.documentoPostObra.findMany({
       where: { proyectoId: id },
       orderBy: { createdAt: "asc" },
@@ -27,6 +30,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { nombre, categoria, archivo, nombreArchivoOriginal } = body as {
       nombre?: string;

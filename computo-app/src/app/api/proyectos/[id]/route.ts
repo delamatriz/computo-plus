@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { eliminarArchivosDeBlob } from "@/lib/blob";
+import { requerirProyecto } from "@/lib/sesion";
 
 // Incluye todas las relaciones necesarias para la página del proyecto
 const PROYECTO_INCLUDE = {
@@ -38,6 +39,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     // Poll liviano: solo el estado de generación de rubros, sin capítulos/rubros/APUs
     if (req.nextUrl.searchParams.get("light") === "1") {
@@ -97,6 +100,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const urls = await urlsBlobDelProyecto(id);
     await eliminarArchivosDeBlob(urls);
     await db.proyecto.delete({ where: { id } });
@@ -113,6 +118,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json();
 
     // Imprevistos %: null (= 0%) o un número finito entre 0 y 100. Cualquier

@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSesion } from "@/lib/sesion";
 
-async function getOrCreateEmpresa() {
-  const existente = await db.empresa.findFirst();
-  if (existente) return existente;
-  return db.empresa.create({ data: { nombre: "Mi Empresa", rut: "000000000000" } });
-}
-
+// La empresa es la del usuario logueado (tenant). Siempre existe: el
+// usuario no puede crearse sin empresa (User.empresaId es obligatorio).
 export async function GET() {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
-    const empresa = await getOrCreateEmpresa();
+    const empresa = await db.empresa.findUnique({ where: { id: sesion.empresaId } });
+    if (!empresa) return NextResponse.json({ error: "Empresa no encontrada" }, { status: 404 });
     return NextResponse.json(empresa);
   } catch (err) {
     console.error("[GET /api/empresa/perfil]", err);
@@ -18,9 +18,10 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const body = await request.json();
-    const empresa = await getOrCreateEmpresa();
 
     const data: {
       nombre?: string;
@@ -45,7 +46,7 @@ export async function PATCH(request: Request) {
     if (body.logo !== undefined) data.logo = body.logo || null;
 
     const actualizada = await db.empresa.update({
-      where: { id: empresa.id },
+      where: { id: sesion.empresaId },
       data,
     });
     return NextResponse.json(actualizada);

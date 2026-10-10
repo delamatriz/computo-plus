@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 const ESTADOS_VALIDOS = ["Pendiente", "En trámite", "Aprobado", "Rechazado"];
 
@@ -7,6 +8,8 @@ const ESTADOS_VALIDOS = ["Pendiente", "En trámite", "Aprobado", "Rechazado"];
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const tramites = await db.tramiteLegal.findMany({
       where: { proyectoId: id },
       orderBy: { createdAt: "asc" },
@@ -22,6 +25,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { nombre, organismo, estado, fecha, observaciones } = body as {
       nombre?: string;

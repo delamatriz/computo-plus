@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { obtenerStreamDeBlob } from "@/lib/blob";
+import { requerirProyecto } from "@/lib/sesion";
 
 // Proxy del archivo — mismo patrón exacto que
 // .../contrato/documentos/[docId]/archivo y
@@ -11,10 +12,12 @@ export async function GET(
   context: { params: Promise<{ id: string; docId: string }> }
 ) {
   try {
-    const { docId } = await context.params;
+    const { id, docId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
-    const documento = await db.documentoPostObra.findUnique({
-      where: { id: docId },
+    const documento = await db.documentoPostObra.findFirst({
+      where: { id: docId, proyectoId: id },
       select: { urlBlob: true, tipoArchivo: true, nombreArchivoOriginal: true },
     });
     if (!documento) {

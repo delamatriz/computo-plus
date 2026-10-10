@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 // POST — "Agrupar por rubro": una sección por cada rubro con filas
 // vinculadas (nombre = nombre del rubro) y cada fila vinculada pasa a la
@@ -23,6 +24,8 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const vinculadas = await db.filaMetraje.findMany({
       where: { documento: { proyectoId: id }, rubroId: { not: null } },

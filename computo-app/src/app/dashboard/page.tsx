@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
 import GraficoProyectosPorMes from "@/components/dashboard/GraficoProyectosPorMes";
+import { sesionActual } from "@/lib/sesion";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -58,8 +60,13 @@ function fmtMoneda(n: number, moneda: string): string {
 }
 
 export default async function DashboardPage() {
+  // Solo los proyectos de la empresa del usuario (tenant). El proxy ya
+  // exige sesión; esto es por si se llega igual sin ella.
+  const sesion = await sesionActual();
+  if (!sesion) redirect("/login");
   const [proyectos, materialesPendientes] = await Promise.all([
     db.proyecto.findMany({
+      where: { empresaId: sesion.empresaId },
       orderBy: { createdAt: "desc" },
       include: {
         _count: { select: { capitulos: true } },

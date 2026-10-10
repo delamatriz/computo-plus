@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 export async function DELETE(
   req: NextRequest,
@@ -7,6 +8,8 @@ export async function DELETE(
 ) {
   try {
     const { id: proyectoId, docId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
 
     const doc = await db.documentoLlamado.findUnique({ where: { id: docId } });
     if (!doc || doc.proyectoId !== proyectoId) {

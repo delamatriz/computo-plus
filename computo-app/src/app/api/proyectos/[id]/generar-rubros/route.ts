@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { generarRubrosAutomaticos, type CapituloConMonto } from "@/lib/rubrosAutomaticos";
+import { requerirProyecto } from "@/lib/sesion";
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -26,6 +27,8 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
 
     const proyecto = await db.proyecto.findUnique({ where: { id: proyectoId }, select: { estado: true } });
     if (!proyecto) {

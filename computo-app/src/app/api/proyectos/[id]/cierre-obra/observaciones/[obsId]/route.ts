@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, rubrosSonDelProyecto } from "@/lib/sesion";
 
 const ESTADOS_VALIDOS = ["Aprobado sin observaciones", "Con observaciones pendientes"];
 
@@ -9,7 +10,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string; obsId: string }> }
 ) {
   try {
-    const { obsId } = await context.params;
+    const { id, obsId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { rubroId, observacion, estado } = body as {
       rubroId?: string;
@@ -27,9 +30,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
     }
 
-    const existente = await db.observacionCierreRubro.findUnique({ where: { id: obsId } });
+    const existente = await db.observacionCierreRubro.findFirst({ where: { id: obsId, actaCierre: { proyectoId: id } } });
     if (!existente) {
       return NextResponse.json({ error: "Observación no encontrada" }, { status: 404 });
+    }
+    if (!(await rubrosSonDelProyecto([rubroId], id))) {
+      return NextResponse.json({ error: "El rubro no es de este proyecto" }, { status: 400 });
     }
 
     const actualizada = await db.observacionCierreRubro.update({
@@ -55,8 +61,10 @@ export async function DELETE(
   context: { params: Promise<{ id: string; obsId: string }> }
 ) {
   try {
-    const { obsId } = await context.params;
-    const existente = await db.observacionCierreRubro.findUnique({ where: { id: obsId } });
+    const { id, obsId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
+    const existente = await db.observacionCierreRubro.findFirst({ where: { id: obsId, actaCierre: { proyectoId: id } } });
     if (!existente) {
       return NextResponse.json({ error: "Observación no encontrada" }, { status: 404 });
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { calcularPrecioVigenteRubro } from "@/lib/recalcularPrecioRubro";
+import { requerirSesion } from "@/lib/sesion";
 
 // Dry-run masivo — recorre TODOS los proyectos con al menos un rubro con
 // precioCongelado (ya "Entregados" alguna vez), recalcula cada uno contra
@@ -14,9 +15,11 @@ import { calcularPrecioVigenteRubro } from "@/lib/recalcularPrecioRubro";
 // proyectos/[id]/page.tsx). Se informa para que la pantalla de revisión
 // pueda avisar antes de que el apply falle rubro por rubro.
 export async function GET() {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const proyectos = await db.proyecto.findMany({
-      where: { capitulos: { some: { rubros: { some: { precioCongelado: { not: null } } } } } },
+      where: { empresaId: sesion.empresaId, capitulos: { some: { rubros: { some: { precioCongelado: { not: null } } } } } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

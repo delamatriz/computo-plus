@@ -8,6 +8,7 @@ import {
 } from "@/lib/costoAgregado";
 import { calcularTotalCertificadoAgregado, calcularCruceCertificacion } from "@/lib/totalCertificadoAgregado";
 import { INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
+import { requerirProyecto } from "@/lib/sesion";
 
 // Presupuesto Original = Costo Total del presupuesto (Costo Directo +
 // Costos Indirectos + Utilidad, SIN IVA) — mismo "Costo Total" que ya
@@ -97,6 +98,8 @@ function calcularTotalLiquidado(presupuestoOriginal: number, ajustes: { monto: n
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const proyecto = await db.proyecto.findUnique({ where: { id }, select: { id: true, moneda: true } });
     if (!proyecto) {
@@ -144,6 +147,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { fechaLiquidacion, observaciones } = body as { fechaLiquidacion?: string; observaciones?: string };
 
@@ -183,6 +188,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { fechaLiquidacion, observaciones } = body as { fechaLiquidacion?: string; observaciones?: string };
 

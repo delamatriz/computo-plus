@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 const INCLUDE_COMPLETO = {
   observaciones: {
@@ -15,6 +16,8 @@ const INCLUDE_COMPLETO = {
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const acta = await db.actaCierre.findUnique({
       where: { proyectoId: id },
       include: INCLUDE_COMPLETO,
@@ -31,6 +34,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { fechaCierre, observacionesGenerales } = body as {
       fechaCierre?: string;
@@ -67,6 +72,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { fechaCierre, observacionesGenerales } = body as {
       fechaCierre?: string;

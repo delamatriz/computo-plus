@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generarCapituloSeguridad } from "@/lib/seguridadAltura";
+import { requerirProyecto } from "@/lib/sesion";
 
 /**
  * Carga los 3 rubros del Plan y Estudio de Seguridad dentro de "Implantación y
@@ -16,6 +17,8 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => null);
     const tituloIds: string[] | undefined =
       Array.isArray(body?.tituloIds) && body.tituloIds.every((x: unknown) => typeof x === "string") ? body.tituloIds : undefined;

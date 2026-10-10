@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirCapitulo } from "@/lib/sesion";
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -21,6 +22,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirCapitulo(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     if (await proyectoFinalizado(id)) {
       return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });
@@ -32,6 +35,10 @@ export async function PATCH(
     // título, ver schema.prisma) — este PATCH permite REASIGNAR a otro
     // título real, nunca desasignar. Un tituloId vacío/falsy en el body
     // se ignora en vez de intentar guardar null (rechazado por Postgres).
+    if (body.tituloId) {
+      const titulo = await db.titulo.findFirst({ where: { id: body.tituloId, proyectoId: acceso.proyectoId }, select: { id: true } });
+      if (!titulo) return NextResponse.json({ error: "El título no es de este proyecto" }, { status: 400 });
+    }
     const capitulo = await db.capitulo.update({
       where: { id },
       data: {
@@ -63,6 +70,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirCapitulo(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     if (await proyectoFinalizado(id)) {
       return NextResponse.json({ error: "proyecto_finalizado", mensaje: MENSAJE_PROYECTO_FINALIZADO }, { status: 403 });

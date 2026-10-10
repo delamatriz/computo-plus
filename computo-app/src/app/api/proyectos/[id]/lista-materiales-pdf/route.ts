@@ -3,10 +3,13 @@ import { db } from "@/lib/db";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { ListaMaterialesPDF, FilaMaterialPDF } from "@/components/ListaMaterialesPDF";
 import React from "react";
+import { requerirProyecto } from "@/lib/sesion";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const proyecto = await db.proyecto.findUnique({
       where: { id },

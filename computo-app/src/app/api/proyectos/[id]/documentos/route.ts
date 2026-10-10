@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 export async function GET(
   req: NextRequest,
@@ -7,6 +8,8 @@ export async function GET(
 ) {
   try {
     const { id: proyectoId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
 
     const documentos = await db.documentoLlamado.findMany({
       where: { proyectoId },
@@ -26,6 +29,8 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => null);
 
     if (!body?.nombreArchivo || !body?.url || !body?.etiqueta) {

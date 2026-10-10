@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolverVinculoAjuste, INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
+import { requerirProyecto } from "@/lib/sesion";
 
 const TIPOS_VALIDOS = ["Adicional", "Descuento"];
 
@@ -11,6 +12,8 @@ export async function PATCH(
 ) {
   try {
     const { id, ajusteId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { concepto, monto, tipo, ordenCompraId, subcontratistaId } = body as {
       concepto?: string;
@@ -30,7 +33,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Tipo inválido" }, { status: 400 });
     }
 
-    const existente = await db.ajusteLiquidacion.findUnique({ where: { id: ajusteId } });
+    const existente = await db.ajusteLiquidacion.findFirst({ where: { id: ajusteId, liquidacionFinal: { proyectoId: id } } });
     if (!existente) {
       return NextResponse.json({ error: "Ajuste no encontrado" }, { status: 404 });
     }
@@ -65,8 +68,10 @@ export async function DELETE(
   context: { params: Promise<{ id: string; ajusteId: string }> }
 ) {
   try {
-    const { ajusteId } = await context.params;
-    const existente = await db.ajusteLiquidacion.findUnique({ where: { id: ajusteId } });
+    const { id, ajusteId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
+    const existente = await db.ajusteLiquidacion.findFirst({ where: { id: ajusteId, liquidacionFinal: { proyectoId: id } } });
     if (!existente) {
       return NextResponse.json({ error: "Ajuste no encontrado" }, { status: 404 });
     }

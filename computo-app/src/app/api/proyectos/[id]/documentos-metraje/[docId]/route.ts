@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { eliminarArchivosDeBlob, urlProxyDocumentoMetraje } from "@/lib/blob";
+import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
 
 // El campo `archivo` en la base guarda la URL real (privada) de Vercel
 // Blob — no servible directo por el browser. Antes de responder al cliente
@@ -18,6 +19,10 @@ export async function GET(
 ) {
   try {
     const { id: proyectoId, docId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: proyectoId }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
 
     const documento = await db.documentoMetraje.findUnique({ where: { id: docId } });
     if (!documento) {
@@ -41,6 +46,10 @@ export async function PATCH(
 ) {
   try {
     const { id: proyectoId, docId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: proyectoId }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
     const body = await req.json().catch(() => null);
 
     if (
@@ -92,7 +101,11 @@ export async function DELETE(
   context: { params: Promise<{ id: string; docId: string }> }
 ) {
   try {
-    const { docId } = await context.params;
+    const { id: proyectoId, docId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: proyectoId }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
 
     const documento = await db.documentoMetraje.findUnique({
       where: { id: docId },

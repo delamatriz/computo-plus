@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 const TIPOS_VALIDOS = ["Ingreso", "Egreso"];
 
@@ -10,7 +11,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string; movId: string }> }
 ) {
   try {
-    const { movId } = await context.params;
+    const { id, movId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { tipo, fecha, concepto, monto, moneda } = body as {
       tipo?: string;
@@ -33,7 +36,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
     }
 
-    const existente = await db.movimientoCaja.findUnique({ where: { id: movId } });
+    const existente = await db.movimientoCaja.findFirst({ where: { id: movId, proyectoId: id } });
     if (!existente) {
       return NextResponse.json({ error: "Movimiento no encontrado" }, { status: 404 });
     }

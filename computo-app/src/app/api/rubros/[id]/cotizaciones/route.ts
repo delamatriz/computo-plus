@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirRubro } from "@/lib/sesion";
 
 export async function GET(
   _req: NextRequest,
@@ -7,6 +8,8 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirRubro(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const cotizaciones = await db.cotizacionProveedor.findMany({
       where: { rubroId: id },
@@ -26,6 +29,8 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirRubro(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => null);
 
     if (!body) {

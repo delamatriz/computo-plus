@@ -5,12 +5,15 @@ import { PresupuestoPDF, ProyectoConCapitulos, ModoPDF } from "@/components/Pres
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada, type ApuParaCosto } from "@/lib/costoAgregado";
 import { calcularDiasObra } from "@/lib/diasObra";
 import React from "react";
+import { requerirProyecto } from "@/lib/sesion";
 
 const MODOS_VALIDOS: ModoPDF[] = ["cerrado", "abierto", "interno"];
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const modoParam = req.nextUrl.searchParams.get("modo");
     const modo: ModoPDF = MODOS_VALIDOS.includes(modoParam as ModoPDF) ? (modoParam as ModoPDF) : "abierto";

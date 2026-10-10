@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clonarApuAlRubro, ProyectoFinalizadoError } from "@/lib/clonarApu";
+import { requerirRubro } from "@/lib/sesion";
 
 // POST — clona el APUEstandar de un subrubro de biblioteca al APU real de un rubro
 export async function POST(
@@ -13,6 +14,8 @@ export async function POST(
     if (!rubroId) {
       return NextResponse.json({ error: "Falta rubroId" }, { status: 400 });
     }
+    const acceso = await requerirRubro(rubroId);
+    if (acceso instanceof NextResponse) return acceso;
 
     const resultado = await clonarApuAlRubro(subrubroId, rubroId);
     return NextResponse.json(resultado);

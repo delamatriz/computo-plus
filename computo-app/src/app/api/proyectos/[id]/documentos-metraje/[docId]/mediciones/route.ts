@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, hijoNoEncontrado, rubrosSonDelProyecto } from "@/lib/sesion";
 
 // Marcas de medición sobre un plano — Etapa 3 de "Metrajes con plano"
 // (UI_UX_REDESIGN.md sección 6, Modo A manual). Tres tipos hoy: "LINEA"
@@ -19,7 +20,11 @@ export async function GET(
   context: { params: Promise<{ id: string; docId: string }> }
 ) {
   try {
-    const { docId } = await context.params;
+    const { id: proyectoId, docId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: proyectoId }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
 
     const documento = await db.documentoMetraje.findUnique({ where: { id: docId }, select: { id: true } });
     if (!documento) {
@@ -72,7 +77,11 @@ export async function POST(
   context: { params: Promise<{ id: string; docId: string }> }
 ) {
   try {
-    const { docId } = await context.params;
+    const { id: proyectoId, docId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
+    const docOk = await db.documentoMetraje.findFirst({ where: { id: docId, proyectoId: proyectoId }, select: { id: true } });
+    if (!docOk) return hijoNoEncontrado("Documento no encontrado");
     const body = await req.json().catch(() => null);
     const tipo =
       body?.tipo === "AREA" ? "AREA" : body?.tipo === "PUNTO" ? "PUNTO" : body?.tipo === "POLILINEA" ? "POLILINEA" : "LINEA";
@@ -88,6 +97,10 @@ export async function POST(
       descripcion: (body.descripcion as string).trim(),
       rubroId: (body.rubroId as string | null | undefined) || null,
     };
+
+    if (!(await rubrosSonDelProyecto([datosComunes.rubroId], proyectoId))) {
+      return NextResponse.json({ error: "El rubro no es de este proyecto" }, { status: 400 });
+    }
 
     const documento = await db.documentoMetraje.findUnique({
       where: { id: docId },

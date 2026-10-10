@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolverVinculoAjuste, INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
+import { requerirProyecto } from "@/lib/sesion";
 
 const TIPOS_VALIDOS = ["Adicional", "Descuento"];
 
@@ -8,6 +9,8 @@ const TIPOS_VALIDOS = ["Adicional", "Descuento"];
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { concepto, monto, tipo, ordenCompraId, subcontratistaId } = body as {
       concepto?: string;

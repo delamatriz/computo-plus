@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aplicarPrecioVigenteRubro, calcularPrecioVigenteRubro } from "@/lib/recalcularPrecioRubro";
+import { requerirSesion, requerirProyecto } from "@/lib/sesion";
 
 interface RubroSinDesglose {
   rubroId: string;
@@ -29,9 +30,15 @@ interface RubroSinDesglose {
 // el lote — mismo guard 403 que POST /api/rubros/[id]/actualizar-precio-vigente,
 // reportado por rubro.
 export async function POST(req: NextRequest) {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const body = await req.json().catch(() => null);
     const proyectoId: string | undefined = typeof body?.proyectoId === "string" ? body.proyectoId : undefined;
+    if (proyectoId) {
+      const acceso = await requerirProyecto(proyectoId);
+      if (acceso instanceof NextResponse) return acceso;
+    }
     const dryRun = body?.dryRun === true;
 
     let rubroIds: string[];
@@ -60,8 +67,9 @@ export async function POST(req: NextRequest) {
 
     for (const rubroId of rubroIds) {
       try {
-        const rubro = await db.rubro.findUnique({
-          where: { id: rubroId },
+        // Solo rubros de la empresa del usuario: uno ajeno cae en "Rubro no encontrado".
+        const rubro = await db.rubro.findFirst({
+          where: { id: rubroId, capitulo: { proyecto: { empresaId: sesion.empresaId } } },
           select: {
             codigo: true,
             descripcion: true,

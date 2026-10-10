@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
+import { requerirProyecto } from "@/lib/sesion";
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -11,6 +12,8 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
 
     const proyecto = await db.proyecto.findUnique({ where: { id: proyectoId }, select: { estado: true } });
     if (proyecto?.estado === "FINALIZADO") {
@@ -43,6 +46,10 @@ export async function POST(
     const tituloId = body.tituloId ?? tituloDefault?.id;
     if (!tituloId) {
       return NextResponse.json({ error: "El proyecto no tiene ningún título" }, { status: 500 });
+    }
+    if (body.tituloId) {
+      const titulo = await db.titulo.findFirst({ where: { id: body.tituloId, proyectoId }, select: { id: true } });
+      if (!titulo) return NextResponse.json({ error: "El título no es de este proyecto" }, { status: 400 });
     }
 
     const capitulo = await db.capitulo.create({

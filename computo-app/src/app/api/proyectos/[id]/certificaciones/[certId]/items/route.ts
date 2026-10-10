@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, hijoNoEncontrado, rubrosSonDelProyecto } from "@/lib/sesion";
 
 interface ItemInput {
   rubroId: string;
@@ -12,7 +13,11 @@ export async function PUT(
   context: { params: Promise<{ id: string; certId: string }> }
 ) {
   try {
-    const { certId } = await context.params;
+    const { id, certId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
+    const certOk = await db.certificacion.findFirst({ where: { id: certId, proyectoId: id }, select: { id: true } });
+    if (!certOk) return hijoNoEncontrado("Certificación no encontrada");
     const body = await req.json().catch(() => null);
 
     if (!Array.isArray(body)) {
@@ -20,6 +25,9 @@ export async function PUT(
     }
 
     const items = body as ItemInput[];
+    if (!(await rubrosSonDelProyecto(items.map((it) => it.rubroId), id))) {
+      return NextResponse.json({ error: "Hay rubros que no son de este proyecto" }, { status: 400 });
+    }
 
     await db.$transaction(
       items.map((it) =>

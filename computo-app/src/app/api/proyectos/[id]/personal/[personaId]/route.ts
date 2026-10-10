@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 // PATCH — edita una persona, incluido activo/inactivo. Sin DELETE a
 // propósito, mismo criterio que Bitácora: el personal no se borra, se
@@ -9,7 +10,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string; personaId: string }> }
 ) {
   try {
-    const { personaId } = await context.params;
+    const { id, personaId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const {
       nombre,
@@ -34,7 +37,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Falta categoriaLaboralId" }, { status: 400 });
     }
 
-    const existente = await db.personalObra.findUnique({ where: { id: personaId } });
+    const existente = await db.personalObra.findFirst({ where: { id: personaId, proyectoId: id } });
     if (!existente) {
       return NextResponse.json({ error: "Persona no encontrada" }, { status: 404 });
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aplicarPrecioVigenteRubro } from "@/lib/recalcularPrecioRubro";
+import { requerirRubro } from "@/lib/sesion";
 
 // "Actualizar al precio vigente" — elegido en el modal de un rubro con
 // precio pactado. Mismo guard que el resto de las escrituras de rubro: un
@@ -12,6 +13,8 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const acceso = await requerirRubro(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const rubro = await db.rubro.findUnique({
       where: { id },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { costoDirectoUnitario } from "@/lib/costoAgregado";
 import { calcularPrecioUnitario } from "@/lib/apu-calc";
+import { requerirProyecto } from "@/lib/sesion";
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -35,6 +36,8 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => null);
     const utilidadPct = typeof body?.utilidadPct === "number" ? body.utilidadPct : null;
     const dryRun = body?.dryRun === true;

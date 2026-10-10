@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, rubrosSonDelProyecto } from "@/lib/sesion";
 
 // PATCH — edita una entrada existente: reemplaza los campos de texto y
 // el set completo de rubros vinculados. Sin DELETE de entrada completa
@@ -12,7 +13,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string; entradaId: string }> }
 ) {
   try {
-    const { entradaId } = await context.params;
+    const { id, entradaId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const {
       fecha,
@@ -42,9 +45,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Falta clima" }, { status: 400 });
     }
 
-    const existente = await db.entradaBitacora.findUnique({ where: { id: entradaId } });
+    const existente = await db.entradaBitacora.findFirst({ where: { id: entradaId, proyectoId: id } });
     if (!existente) {
       return NextResponse.json({ error: "Entrada no encontrada" }, { status: 404 });
+    }
+    if (!(await rubrosSonDelProyecto(rubroIds ?? [], id))) {
+      return NextResponse.json({ error: "Hay rubros que no son de este proyecto" }, { status: 400 });
     }
 
     // deleteMany + create anidados en el mismo update — reemplazo atómico

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { subirArchivoABlob, eliminarArchivosDeBlob } from "@/lib/blob";
+import { requerirProyecto } from "@/lib/sesion";
 
 const CATEGORIAS_VALIDAS = ["PLANO", "FOTO", "DETALLE"];
 const TIPOS_VALIDOS = ["PDF", "IMAGEN", "DWG", "WORD"];
@@ -33,6 +34,8 @@ export async function GET(
 ) {
   try {
     const { id: proyectoId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const categoria = req.nextUrl.searchParams.get("categoria");
     if (categoria && !CATEGORIAS_VALIDAS.includes(categoria)) {
       return NextResponse.json({ error: "categoria debe ser PLANO, FOTO o DETALLE" }, { status: 400 });
@@ -51,6 +54,8 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await context.params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => null);
 
     if (!body?.categoria || !body?.nombre?.trim() || !body?.tipoArchivo || !body?.archivo || !body?.nombreArchivoOriginal) {

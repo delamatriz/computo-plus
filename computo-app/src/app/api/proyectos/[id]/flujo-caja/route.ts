@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 const TIPOS_VALIDOS = ["Ingreso", "Egreso"];
 
@@ -10,6 +11,8 @@ const TIPOS_VALIDOS = ["Ingreso", "Egreso"];
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const movimientos = await db.movimientoCaja.findMany({
       where: { proyectoId: id },
       orderBy: [{ fecha: "asc" }, { createdAt: "asc" }],
@@ -25,6 +28,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { tipo, fecha, concepto, monto, moneda } = body as {
       tipo?: string;

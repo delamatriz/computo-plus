@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 const ROLES_VALIDOS = ["Director de obra", "Comitente", "Contratista", "Otro"];
 
@@ -7,6 +8,8 @@ const ROLES_VALIDOS = ["Director de obra", "Comitente", "Contratista", "Otro"];
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { nombre, rol, firmado } = body as {
       nombre?: string;

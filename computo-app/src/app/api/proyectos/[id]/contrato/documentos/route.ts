@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { subirArchivoABlob } from "@/lib/blob";
+import { requerirProyecto } from "@/lib/sesion";
 
 // POST — sube un documento/anexo nuevo al contrato del proyecto.
 // Mismo patrón exacto que DocumentoMetraje: el cliente manda el
@@ -10,6 +11,8 @@ import { subirArchivoABlob } from "@/lib/blob";
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const { nombre, archivo, nombreArchivoOriginal } = body as {
       nombre?: string;

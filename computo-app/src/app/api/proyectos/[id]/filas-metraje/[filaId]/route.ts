@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rubroCompatibleConFila } from "@/components/metrajes/metrajeFila";
 import { unidadPorDimensiones, contarCargados, calcularDesvinculacion } from "@/lib/recalculoUnidadFila";
+import { requerirProyecto } from "@/lib/sesion";
 
 const CAMPOS_NUMERICOS = ["largo", "ancho", "alto", "cantidad"] as const;
 
@@ -33,6 +34,8 @@ export async function PATCH(
 ) {
   try {
     const { id, filaId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return NextResponse.json({ error: "Body inválido" }, { status: 400 });
@@ -254,6 +257,8 @@ export async function DELETE(
 ) {
   try {
     const { id, filaId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const fila = await db.filaMetraje.findUnique({
       where: { id: filaId },

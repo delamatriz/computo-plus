@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
+import { requerirSesion } from "@/lib/sesion";
 
 export async function GET() {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const proyectos = await db.proyecto.findMany({
+      where: { empresaId: sesion.empresaId },
       orderBy: { createdAt: "desc" },
       include: { capitulos: true },
     });
@@ -16,6 +20,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const body = await req.json();
     const {
@@ -47,14 +53,6 @@ export async function POST(req: NextRequest) {
 
     if (!nombre || !String(nombre).trim()) {
       return NextResponse.json({ error: "El nombre del proyecto es obligatorio" }, { status: 400 });
-    }
-
-    // Buscar o crear la empresa por defecto
-    let empresa = await db.empresa.findFirst();
-    if (!empresa) {
-      empresa = await db.empresa.create({
-        data: { nombre: "Mi Empresa", rut: "000000000000" },
-      });
     }
 
     type CapituloEntrada = { nombre: string; codigo?: string; color?: string; orden: number };
@@ -161,7 +159,8 @@ export async function POST(req: NextRequest) {
           notasPresupuesto: notasPresupuesto || null,
           resumenCalculoRapido: resumenCalculoRapido || null,
           textoOriginalCalculoRapido: textoOriginalCalculoRapido || null,
-          empresaId: empresa.id,
+          // El proyecto es de la empresa del usuario logueado (tenant).
+          empresaId: sesion.empresaId,
         },
       });
 

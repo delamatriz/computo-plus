@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
 
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string; certId: string }> }
 ) {
   try {
-    const { certId } = await context.params;
+    const { id, certId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
+    const certOk = await db.certificacion.findFirst({ where: { id: certId, proyectoId: id }, select: { id: true } });
+    if (!certOk) return hijoNoEncontrado("Certificación no encontrada");
     const certificacion = await db.certificacion.findUnique({
       where: { id: certId },
       include: {
@@ -34,7 +39,11 @@ export async function PUT(
   context: { params: Promise<{ id: string; certId: string }> }
 ) {
   try {
-    const { certId } = await context.params;
+    const { id, certId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
+    const certOk = await db.certificacion.findFirst({ where: { id: certId, proyectoId: id }, select: { id: true } });
+    if (!certOk) return hijoNoEncontrado("Certificación no encontrada");
     const body = await req.json().catch(() => ({}));
     const { nombre, fecha, observaciones } = body as {
       nombre?: string;
@@ -64,7 +73,11 @@ export async function DELETE(
   context: { params: Promise<{ id: string; certId: string }> }
 ) {
   try {
-    const { certId } = await context.params;
+    const { id, certId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
+    const certOk = await db.certificacion.findFirst({ where: { id: certId, proyectoId: id }, select: { id: true } });
+    if (!certOk) return hijoNoEncontrado("Certificación no encontrada");
     await db.certificacion.delete({ where: { id: certId } });
     return NextResponse.json({ ok: true });
   } catch (err) {

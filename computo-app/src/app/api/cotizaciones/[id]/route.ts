@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirCotizacion } from "@/lib/sesion";
 
 export async function PUT(
   req: NextRequest,
@@ -7,6 +8,8 @@ export async function PUT(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirCotizacion(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => null);
 
     if (!body) {
@@ -38,6 +41,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirCotizacion(id);
+    if (acceso instanceof NextResponse) return acceso;
     await db.cotizacionProveedor.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {

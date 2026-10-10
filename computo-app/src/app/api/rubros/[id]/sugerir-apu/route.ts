@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generarApuParaRubro } from "@/lib/apu";
+import { requerirRubro } from "@/lib/sesion";
 
 export async function POST(
   req: NextRequest,
@@ -7,6 +8,8 @@ export async function POST(
 ) {
   try {
     const { id: rubroId } = await params;
+    const acceso = await requerirRubro(rubroId);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json();
     const { descripcion, unidad, capitulo, tipoObra } = body as {
       descripcion: string;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 // Filas de la Planilla de cómputo — a diferencia de mediciones/anotaciones
 // (que se listan por documento, porque se dibujan sobre UN plano puntual),
@@ -17,6 +18,8 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
 
     const filas = await db.filaMetraje.findMany({
       where: { documento: { proyectoId: id } },

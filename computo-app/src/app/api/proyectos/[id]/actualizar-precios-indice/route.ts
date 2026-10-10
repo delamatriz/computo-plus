@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 function totalRubro(r: { cantidad: number; precioUnit: number }): number {
   return r.cantidad * r.precioUnit;
@@ -38,6 +39,8 @@ export async function POST(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const { fechaBase } = await req.json();
 
     if (typeof fechaBase !== "string" || !fechaBase) {
@@ -125,6 +128,8 @@ export async function PUT(
 ) {
   try {
     const { id: proyectoId } = await params;
+    const acceso = await requerirProyecto(proyectoId);
+    if (acceso instanceof NextResponse) return acceso;
     const { factor } = await req.json();
 
     if (typeof factor !== "number" || !Number.isFinite(factor) || factor <= 0) {

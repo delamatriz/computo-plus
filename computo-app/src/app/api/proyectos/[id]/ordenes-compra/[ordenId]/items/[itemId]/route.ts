@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { recalcularMontoOrden } from "@/lib/ordenCompra";
+import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
 
 async function ordenConItems(ordenId: string) {
   return db.ordenCompra.findUnique({
@@ -19,7 +20,11 @@ export async function PATCH(
   context: { params: Promise<{ id: string; ordenId: string; itemId: string }> }
 ) {
   try {
-    const { ordenId, itemId } = await context.params;
+    const { id, ordenId, itemId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
+    const ordenOk = await db.ordenCompra.findFirst({ where: { id: ordenId, proyectoId: id }, select: { id: true } });
+    if (!ordenOk) return hijoNoEncontrado("Orden no encontrada");
     const body = await req.json().catch(() => ({}));
     const { descripcion, unidad, cantidad, precioUnit } = body as {
       descripcion?: string;
@@ -70,7 +75,11 @@ export async function DELETE(
   context: { params: Promise<{ id: string; ordenId: string; itemId: string }> }
 ) {
   try {
-    const { ordenId, itemId } = await context.params;
+    const { id, ordenId, itemId } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
+    const ordenOk = await db.ordenCompra.findFirst({ where: { id: ordenId, proyectoId: id }, select: { id: true } });
+    if (!ordenOk) return hijoNoEncontrado("Orden no encontrada");
 
     const existente = await db.itemOrdenCompra.findUnique({ where: { id: itemId } });
     if (!existente || existente.ordenCompraId !== ordenId) {

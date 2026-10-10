@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirProyecto } from "@/lib/sesion";
 
 // POST { ids: string[] } — nuevo orden de las secciones (flechas subir/bajar
 // en la Planilla). Tiene que traer exactamente las secciones del proyecto:
@@ -10,6 +11,8 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
+    const acceso = await requerirProyecto(id);
+    if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => null);
     const ids: unknown = body?.ids;
     if (!Array.isArray(ids) || !ids.every((x) => typeof x === "string")) {
