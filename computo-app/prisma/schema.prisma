@@ -20,6 +20,26 @@ model Empresa {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   proyectos Proyecto[]
+
+  // Multi-tenant Fase 1 (oct-2026): cada empresa es un tenant.
+  // slug identifica al tenant (ej. "delamatriz"); entra opcional porque la
+  // tabla ya tiene filas — el seed lo completa y en un paso aparte pasa a
+  // obligatorio. plan: nivel de suscripción.
+  slug      String?    @unique
+  plan      String     @default("basico")
+  users     User[]
+}
+
+// Usuario de una empresa (tenant). Sin auth todavía (Fase 1): solo el modelo.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  nombre       String
+  rol          String   @default("ADMIN")
+  empresaId    String
+  empresa      Empresa  @relation(fields: [empresaId], references: [id])
+  creadoEn     DateTime @default(now())
 }
 
 model Proyecto {
