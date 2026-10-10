@@ -10,9 +10,9 @@
 
 export const PALETA = {
   // Encabezado de la tabla ("PRESUPUESTO" + "Agregar título") — azul profundo
-  encabezadoFondo: "#1A3A5C",
+  encabezadoFondo: "#4A7FA8",
   encabezadoTexto: "#FFFFFF",
-  encabezadoAccion: "text-[#D6E4F0] hover:text-white",
+  encabezadoAccion: "text-white hover:text-white/80",
 
   // Títulos — azul hielo
   tituloFondo: "#D6E4F0",
