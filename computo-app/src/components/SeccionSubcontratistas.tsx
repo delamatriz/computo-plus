@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from "react";
 import { Handshake, ChevronDown, ChevronRight, Plus, Pencil, X, Phone, Mail, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { PALETA } from "@/lib/paletaPresupuesto";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_ESTADO = ["En negociación", "Contratado", "En obra", "Finalizado", "Cancelado"] as const;
@@ -218,11 +219,11 @@ export default function SeccionSubcontratistas({ proyectoId }: Props) {
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
       <button
         onClick={abrirSeccion}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left group"
+        className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left group ${PALETA.capituloFila}`}
       >
         <div className="flex items-center gap-2.5">
-          <Handshake className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Subcontratistas y Gremios</h2>
+          <Handshake className="w-4 h-4 text-[#1D4435]" />
+          <h2 className="text-sm font-bold text-[#1D4435] uppercase tracking-wide">Subcontratistas y Gremios</h2>
         </div>
         <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
           {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}

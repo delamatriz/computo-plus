@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { BookMarked, ChevronDown, ChevronRight, Plus, Trash2, FileText, Image as ImageIcon, File as FileIcon, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { PALETA } from "@/lib/paletaPresupuesto";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const CATEGORIAS = ["Manual de uso", "Plano As-Built", "Certificado de garantía", "Otro"] as const;
@@ -112,11 +113,11 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
       <button
         onClick={abrirSeccion}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left group"
+        className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left group ${PALETA.capituloFila}`}
       >
         <div className="flex items-center gap-2.5">
-          <BookMarked className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Manuales y Planos As-Built</h2>
+          <BookMarked className="w-4 h-4 text-[#1D4435]" />
+          <h2 className="text-sm font-bold text-[#1D4435] uppercase tracking-wide">Manuales y Planos As-Built</h2>
         </div>
         <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
           {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ChevronDown, Layers } from "lucide-react";
 import { RESERVA_COLA_TABLA } from "@/lib/layoutTablaPresupuesto";
+import { PALETA } from "@/lib/paletaPresupuesto";
 
 function fmtMoneda(v: number, moneda: string): string {
   if (!v) return "—";
@@ -44,10 +45,14 @@ function TarjetaSuelta({
 }) {
   if (destacado) {
     return (
-      <div className="bg-white border-2 border-[#1A3A5C] rounded-lg px-5 py-4 flex justify-between items-center">
-        <span className="text-sm font-bold uppercase tracking-wide text-[#2563EB]">{label}</span>
+      // Total del presupuesto — azul medio de la paleta (ver PALETA).
+      <div
+        className="border-2 rounded-lg px-5 py-4 flex justify-between items-center"
+        style={{ background: PALETA.totalFondo, borderColor: PALETA.totalFondo, color: PALETA.totalTexto }}
+      >
+        <span className="text-sm font-bold uppercase tracking-wide">{label}</span>
         <div className="flex items-center gap-3">
-          <span className="text-lg font-bold text-[#2563EB]">{fmtMoneda(monto, moneda)}</span>
+          <span className="text-lg font-bold">{fmtMoneda(monto, moneda)}</span>
           <EspaciadorChevron />
         </div>
       </div>

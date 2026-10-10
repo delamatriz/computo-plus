@@ -5,6 +5,7 @@ import { ChevronRight, ChevronDown, FileText, Download } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { descargarExcelMateriales, type FilaMaterialGlobal } from "@/lib/materialesGlobales";
+import { PALETA } from "@/lib/paletaPresupuesto";
 
 function fmtMon(v: number): string {
   return Math.round(v).toLocaleString("es-UY");
@@ -24,7 +25,7 @@ export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNom
 
   return (
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+      <div className={`px-5 py-3 border-b border-slate-200 flex items-center justify-between ${PALETA.capituloFila}`}>
         <button
           onClick={() => setExpandido((p) => !p)}
           className="flex items-center gap-2.5 min-w-0 text-left group"
@@ -32,7 +33,7 @@ export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNom
           <span className="text-slate-400 group-hover:text-slate-600 transition-colors flex-shrink-0">
             {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </span>
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
+          <h2 className="text-sm font-bold text-[#1D4435] uppercase tracking-wide">
             Cómputo global de materiales
           </h2>
         </button>

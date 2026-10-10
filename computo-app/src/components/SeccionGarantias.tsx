@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, ChevronDown, ChevronRight, Landmark } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { PALETA } from "@/lib/paletaPresupuesto";
 
 interface Props {
   fielCumplimiento: string;
@@ -138,11 +139,11 @@ export default function SeccionGarantias({
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
       <button
         onClick={() => setExpandido((p) => !p)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left group"
+        className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left group ${PALETA.capituloFila}`}
       >
         <div className="flex items-center gap-2.5">
-          <ShieldCheck className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Garantías</h2>
+          <ShieldCheck className="w-4 h-4 text-[#1D4435]" />
+          <h2 className="text-sm font-bold text-[#1D4435] uppercase tracking-wide">Garantías</h2>
         </div>
         <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
           {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}

@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState, useCallback, useMemo } from "react";
 import { ClipboardList, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Camera, X, ImagePlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { PALETA } from "@/lib/paletaPresupuesto";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface RubroResumen {
@@ -418,11 +419,11 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
       {/* Header colapsable */}
       <button
         onClick={() => setExpandido((p) => !p)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left group"
+        className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left group ${PALETA.capituloFila}`}
       >
         <div className="flex items-center gap-2.5">
-          <ClipboardList className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Certificaciones</h2>
+          <ClipboardList className="w-4 h-4 text-[#1D4435]" />
+          <h2 className="text-sm font-bold text-[#1D4435] uppercase tracking-wide">Certificaciones</h2>
         </div>
         <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
           {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}

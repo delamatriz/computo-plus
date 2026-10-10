@@ -14,6 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { PALETA } from "@/lib/paletaPresupuesto";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface RubroCronograma {
@@ -790,11 +791,11 @@ export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
       {/* Header colapsable */}
       <button
         onClick={() => setExpandido((p) => !p)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left group"
+        className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left group ${PALETA.capituloFila}`}
       >
         <div className="flex items-center gap-2.5">
-          <CalendarDays className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Cronograma</h2>
+          <CalendarDays className="w-4 h-4 text-[#1D4435]" />
+          <h2 className="text-sm font-bold text-[#1D4435] uppercase tracking-wide">Cronograma</h2>
         </div>
         <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
           {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}

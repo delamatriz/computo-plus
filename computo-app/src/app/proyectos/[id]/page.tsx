@@ -72,6 +72,7 @@ import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerifi
 import { NotaInfoIcono } from "@/components/NotaInfoIcono";
 import { nombreDesdeTexto, PREFIJO_NOMBRE_FORMULA } from "@/lib/nombreDesdeTexto";
 import { capitalizarDescripcion } from "@/lib/capitalizarDescripcion";
+import { PALETA } from "@/lib/paletaPresupuesto";
 
 // SeccionMetrajesPresupuesto (vía SeccionPlanos/VisorPlano) importa react-pdf
 // (pdf.js), que revienta con "DOMMatrix is not defined" si su módulo se
@@ -637,13 +638,21 @@ function BloqueGestionObra({
 }) {
   return (
     <div className="mt-10 first:mt-6">
-      <div className="flex items-center gap-2.5">
-        <span className="w-6 h-6 rounded-full bg-[#1A3A5C] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-          {numero}
-        </span>
-        <h2 className="text-base font-bold text-[#1A3A5C]">{titulo}</h2>
+      {/* Banda azul hielo — mismo nivel que un Título del presupuesto (ver
+          PALETA); las tarjetas de adentro llevan el verde salvia de un
+          capítulo. */}
+      <div
+        className="rounded-[12px] border px-4 py-3"
+        style={{ background: PALETA.tituloFondo, borderColor: PALETA.tituloBorde }}
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="w-6 h-6 rounded-full bg-[#1A3A5C] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+            {numero}
+          </span>
+          <h2 className="text-base font-bold" style={{ color: PALETA.tituloTexto }}>{titulo}</h2>
+        </div>
+        <p className={cn("text-xs pl-[34px]", PALETA.tituloTextoSecundario)}>{subtitulo}</p>
       </div>
-      <p className="text-xs text-slate-400 pl-[34px]">{subtitulo}</p>
       {children}
     </div>
   );
@@ -4607,7 +4616,7 @@ export default function ProyectoPage() {
     const totalCap = totalCapitulo(cap);
 
     return (
-      <div key={cap.id} className="border-b border-slate-300 last:border-0">
+      <div key={cap.id} className={cn("border-b last:border-0", PALETA.capituloBordeClase)}>
 
         {/* Fila del capítulo — antes era un solo <button> (no se puede anidar
             el input de nombre ni el botón de borrar dentro de otro botón),
@@ -4621,11 +4630,11 @@ export default function ProyectoPage() {
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") toggleCapituloConSubrubros(cap);
           }}
-          className="w-full grid items-center px-5 py-3 hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+          className={cn("w-full grid items-center px-5 py-3 transition-colors text-left group cursor-pointer", PALETA.capituloFila)}
           style={{ gridTemplateColumns: GRID_CAPITULO }}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: "#2563EB" }}>
+            <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: PALETA.capituloTexto }}>
               {codigoMostrado}
             </span>
             {/* min-w-[64px] en vez de min-w-0 — con el <select> de reasignación
@@ -4641,10 +4650,13 @@ export default function ProyectoPage() {
               onChange={(e) => actualizarNombreCapitulo(cap.id, e.target.value)}
               onClick={(e) => e.stopPropagation()}
               disabled={soloLectura}
-              className="flex-1 min-w-[64px] text-sm font-semibold text-[#1A3A5C] bg-transparent truncate focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 disabled:text-slate-400 disabled:cursor-default"
+              className={cn(
+                "flex-1 min-w-[64px] text-sm font-semibold bg-transparent truncate focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 disabled:text-slate-400 disabled:cursor-default",
+                PALETA.capituloTextoClase
+              )}
             />
             {cap.rubros.length > 0 && (
-              <span className="text-[11px] text-slate-400 flex-shrink-0">
+              <span className={cn("text-[11px] flex-shrink-0", PALETA.capituloTextoSecundario)}>
                 {cap.rubros.length} rubro{cap.rubros.length !== 1 ? "s" : ""}
               </span>
             )}
@@ -4668,12 +4680,12 @@ export default function ProyectoPage() {
             )}
           </div>
           <div className="px-2 text-right">
-            <span className="text-sm font-bold tabular-nums" style={{ color: totalCap > 0 ? "#2563EB" : "#CBD5E1" }}>
+            <span className="text-sm font-bold tabular-nums" style={{ color: totalCap > 0 ? PALETA.capituloTexto : "#CBD5E1" }}>
               {totalCap > 0 ? fmtMoneda(totalCap, moneda) : "—"}
             </span>
           </div>
           <div className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
-            <span className="text-xs font-medium tabular-nums text-slate-400 whitespace-nowrap">
+            <span className={cn("text-xs font-medium tabular-nums whitespace-nowrap", PALETA.capituloTextoSecundario)}>
               {fmtPct(pctIncidencia(totalCap, totalGeneral))}
             </span>
           </div>
@@ -4793,15 +4805,14 @@ export default function ProyectoPage() {
                       <div
                         key={rubro.id}
                         className={cn(
-                          "group grid items-center hover:bg-blue-50/20 transition-colors px-5",
-                          rubroIdx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white"
+                          "group grid items-center hover:bg-blue-50/20 transition-colors px-5 bg-white"
                         )}
                         style={{ height: 28, borderBottom: "1px solid #F1F5F9", gridTemplateColumns: GRID_RUBRO }}
                       >
                         {/* Botón APU + número */}
                         <div
                           className="flex items-center justify-end gap-1 pr-1"
-                          style={stickyIcono(rubroIdx % 2 === 1 ? "#F8FAFC" : "#FFFFFF")}
+                          style={stickyIcono(PALETA.rubroFondo)}
                         >
                           <button
                             onClick={() => setDrawerRubroId(rubro.id)}
@@ -4824,7 +4835,7 @@ export default function ProyectoPage() {
                         {/* Descripción + badge APU */}
                         <div
                           className="px-2 min-w-0 flex items-center gap-1.5"
-                          style={stickyDescripcion(rubroIdx % 2 === 1 ? "#F8FAFC" : "#FFFFFF")}
+                          style={stickyDescripcion(PALETA.rubroFondo)}
                         >
                           <input
                             type="text"
@@ -5016,17 +5027,17 @@ export default function ProyectoPage() {
                 </div>
 
                 {/* Subtotal — mismo GRID_RUBRO; la etiqueta ocupa las columnas de icono+descripción+unidad+cantidad+precio */}
-                <div className="grid items-center bg-slate-50 border-t border-slate-200 px-5" style={{ height: 26, gridTemplateColumns: GRID_RUBRO }}>
+                <div className={cn("grid items-center border-t px-5", PALETA.subtotalFila)} style={{ height: 26, gridTemplateColumns: GRID_RUBRO }}>
                   <div
-                    className="pl-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
-                    style={{ gridColumn: "span 5", ...stickyIcono("#F8FAFC") }}
+                    className={cn("pl-1 text-[11px] font-semibold uppercase tracking-wider", PALETA.subtotalTextoClase)}
+                    style={{ gridColumn: "span 5", ...stickyIcono(PALETA.subtotalFondo) }}
                   >
                     Subtotal {cap.nombre}
                   </div>
-                  <div className="px-2 text-sm font-bold tabular-nums text-right text-[#2563EB]">
+                  <div className={cn("px-2 text-sm font-bold tabular-nums text-right", PALETA.subtotalTextoClase)}>
                     {fmtMoneda(totalCap, moneda)}
                   </div>
-                  <div className="px-2 text-xs font-bold tabular-nums text-right text-[#2563EB] whitespace-nowrap">
+                  <div className={cn("px-2 text-xs font-bold tabular-nums text-right whitespace-nowrap", PALETA.subtotalTextoClase)}>
                     {fmtPct(pctIncidencia(totalCap, totalGeneral))}
                   </div>
                   <div />
@@ -5517,8 +5528,8 @@ export default function ProyectoPage() {
             return (
               <div
                 key={titulo.id}
-                className="border-b-2 border-slate-200 last:border-0"
-                style={{ borderLeft: `4px solid ${titulo.color ?? "#2563EB"}` }}
+                className="border-b last:border-0"
+                style={{ borderLeft: `4px solid ${titulo.color ?? "#2563EB"}`, borderBottomColor: PALETA.tituloBorde }}
               >
                 <div
                   role="button"
@@ -5540,8 +5551,8 @@ export default function ProyectoPage() {
                       return next;
                     });
                   }}
-                  className="w-full grid items-center px-5 py-3 bg-slate-100 hover:bg-slate-200/70 transition-colors text-left group cursor-pointer"
-                  style={{ gridTemplateColumns: GRID_CAPITULO }}
+                  className={cn("w-full grid items-center px-5 py-3 transition-colors text-left group cursor-pointer", PALETA.tituloFila)}
+                  style={{ gridTemplateColumns: GRID_CAPITULO, borderBottom: `1px solid ${PALETA.tituloBorde}` }}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: titulo.color ?? "#2563EB" }}>
@@ -5557,7 +5568,7 @@ export default function ProyectoPage() {
                     <span className="flex-1 min-w-[64px] text-sm font-bold text-[#1A3A5C] truncate uppercase tracking-wide">
                       {titulo.nombre}
                     </span>
-                    <span className="text-[11px] text-slate-400 flex-shrink-0">
+                    <span className={cn("text-[11px] flex-shrink-0", PALETA.tituloTextoSecundario)}>
                       {capsDelTitulo.length} capítulo{capsDelTitulo.length !== 1 ? "s" : ""}
                     </span>
                   </div>
@@ -5567,7 +5578,7 @@ export default function ProyectoPage() {
                     </span>
                   </div>
                   <div className="px-2 text-right" title="% de incidencia sobre el Total General del proyecto">
-                    <span className="text-xs font-medium tabular-nums text-slate-400 whitespace-nowrap">
+                    <span className={cn("text-xs font-medium tabular-nums whitespace-nowrap", PALETA.tituloTextoSecundario)}>
                       {fmtPct(pctIncidencia(totalTitulo, totalGeneral))}
                     </span>
                   </div>
