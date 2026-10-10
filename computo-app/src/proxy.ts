@@ -1,7 +1,8 @@
 // Protección de rutas (Multi-tenant Fase 2, oct-2026). En Next 16 la
 // convención `middleware` pasó a llamarse `proxy` (corre en Node.js).
 //
-// Toda la app pide sesión, salvo /login y /api/auth/* (NextAuth). Sin sesión:
+// Toda la app pide sesión, salvo la landing ("/", que tiene el modal de
+// login), /login (fallback) y /api/auth/* (NextAuth). Sin sesión:
 //   - páginas → redirige a /login?callbackUrl=<la página pedida>
 //   - /api/*  → 401 JSON (un fetch no puede seguir un redirect a una página
 //     de login; con el 401 el cliente sabe qué pasó)
@@ -10,7 +11,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const PUBLICAS = ["/login"];
+const PUBLICAS = ["/", "/login"];
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
