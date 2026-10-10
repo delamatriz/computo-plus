@@ -9,6 +9,11 @@
 // sticky, bordes laterales).
 
 export const PALETA = {
+  // Encabezado de la tabla ("PRESUPUESTO" + "Agregar título") — azul profundo
+  encabezadoFondo: "#1A3A5C",
+  encabezadoTexto: "#FFFFFF",
+  encabezadoAccion: "text-[#D6E4F0] hover:text-white",
+
   // Títulos — azul hielo
   tituloFondo: "#D6E4F0",
   tituloTexto: "#1A3A5C",

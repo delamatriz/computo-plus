@@ -5455,8 +5455,11 @@ export default function ProyectoPage() {
               con el "+ Agregar capítulo" del final de la lista de cada
               título (o de toda la lista en la vista plana), mismo estilo
               que "+ Agregar rubro" — ya no hay un botón global arriba. */}
-          <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-200">
-            <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Presupuesto</span>
+          <div
+            className="flex items-center justify-between gap-3 px-5 py-3"
+            style={{ background: PALETA.encabezadoFondo, color: PALETA.encabezadoTexto }}
+          >
+            <span className="text-sm font-bold uppercase tracking-wide">Presupuesto</span>
             {!soloLectura && (
               <div className="flex items-center gap-4">
                 {/* Tooltip oscuro — mismo patrón visual que TooltipBarra en
@@ -5472,7 +5475,7 @@ export default function ProyectoPage() {
                 <div className="group relative flex-shrink-0">
                   <button
                     onClick={() => setMostrarModalTitulo(true)}
-                    className="flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                    className={cn("flex items-center gap-1.5 whitespace-nowrap text-xs font-medium transition-colors", PALETA.encabezadoAccion)}
                   >
                     <Plus className="w-3.5 h-3.5 flex-shrink-0" /> Agregar título
                   </button>
