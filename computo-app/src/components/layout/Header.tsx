@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { Bell, HelpCircle, ChevronDown, Menu, LogOut, Gauge } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -83,12 +84,9 @@ interface Notificaciones {
   hayNovedades: boolean;
 }
 
-// La app es mono-tenant y hoy no tiene sistema de autenticación (sin
-// modelo User, sin sesión, sin login) — la única "cuenta" que existe es
-// la fila única de Empresa en la base. El dropdown de usuario refleja
-// eso: "Mi cuenta" muestra los datos reales de esa Empresa (vía el
-// mismo GET /api/empresa/perfil que ya usa /configuracion) en vez de
-// inventar un usuario que no existe.
+// El dropdown de usuario muestra los datos de la Empresa (vía el mismo
+// GET /api/empresa/perfil que ya usa /configuracion). Hay login con
+// NextAuth (oct-2026), pero la app sigue teniendo una sola Empresa.
 interface EmpresaHeader {
   nombre: string;
   email: string | null;
@@ -96,7 +94,6 @@ interface EmpresaHeader {
 
 export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [ayudaOpen, setAyudaOpen] = useState(false);
@@ -141,13 +138,11 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
       .map((p) => p[0]?.toUpperCase())
       .join("") || "EM";
 
-  // Cerrar sesión — no hay sesión real que destruir (ver comentario de
-  // arriba), así que en vez de simular un logout que no existe, este
-  // botón navega a la landing. Cuando exista auth de verdad, acá va la
-  // llamada real a signOut().
+  // Cerrar sesión — borra la cookie de sesión de NextAuth y vuelve a la
+  // landing ("/"), que es pública y tiene el modal de login.
   const cerrarSesion = () => {
     setUserMenuOpen(false);
-    router.push("/inicio");
+    void signOut({ callbackUrl: "/" });
   };
 
   const isHome = pathname === "/inicio";
@@ -443,8 +438,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                   <p className="mt-1.5 text-sm font-medium text-text-primary">Plan: Empresa</p>
                 </div>
 
-                {/* Cerrar sesión — ver comentario de cerrarSesion() arriba:
-                    no hay sesión real que destruir todavía. */}
+                {/* Cerrar sesión — ver cerrarSesion() arriba. */}
                 <button
                   onClick={cerrarSesion}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-text-secondary hover:bg-bg-base transition-colors"
