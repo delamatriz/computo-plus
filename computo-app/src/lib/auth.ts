@@ -7,13 +7,14 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { esRol, type Rol } from "@/lib/roles";
 
 declare module "next-auth" {
   interface User {
     id: string;
     email: string;
     nombre: string;
-    rol: string;
+    rol: Rol;
     empresaId: string;
   }
   interface Session {
@@ -21,7 +22,7 @@ declare module "next-auth" {
       id: string;
       email: string;
       nombre: string;
-      rol: string;
+      rol: Rol;
       empresaId: string;
     };
   }
@@ -32,7 +33,7 @@ declare module "next-auth/jwt" {
     id: string;
     email: string;
     nombre: string;
-    rol: string;
+    rol: Rol;
     empresaId: string;
   }
 }
@@ -58,7 +59,9 @@ export const authOptions: NextAuthOptions = {
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
 
-        return { id: user.id, email: user.email, nombre: user.nombre, rol: user.rol, empresaId: user.empresaId };
+        // Un rol desconocido en la base (no debería pasar) entra con el mínimo.
+        const rol: Rol = esRol(user.rol) ? user.rol : "USUARIO";
+        return { id: user.id, email: user.email, nombre: user.nombre, rol, empresaId: user.empresaId };
       },
     }),
   ],

@@ -18,12 +18,13 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import type { Rol } from "@/lib/roles";
 
 export type SesionUsuario = {
   id: string;
   email: string;
   nombre: string;
-  rol: string;
+  rol: Rol;
   empresaId: string;
 };
 
@@ -119,4 +120,24 @@ export async function capitulosSonDelProyecto(capituloIds: (string | null | unde
   if (ids.length === 0) return true;
   const n = await db.capitulo.count({ where: { id: { in: ids }, proyectoId } });
   return n === ids.length;
+}
+
+/**
+ * true si el usuario de la sesión es SUPERADMIN. El rol se lee de la base y
+ * no del JWT: el token guarda el rol del momento del login, y un cambio de
+ * rol (subir o bajar privilegios) tiene que valer en el acto.
+ */
+export async function esSuperadmin(sesion: SesionUsuario): Promise<boolean> {
+  const user = await db.user.findUnique({ where: { id: sesion.id }, select: { rol: true } });
+  return user?.rol === "SUPERADMIN";
+}
+
+/** Sesión + rol SUPERADMIN (panel /admin). Sin sesión → 401; otro rol → 403. */
+export async function requerirSuperadmin(): Promise<SesionUsuario | NextResponse> {
+  const sesion = await sesionActual();
+  if (!sesion) return noAutenticado();
+  if (!(await esSuperadmin(sesion))) {
+    return NextResponse.json({ error: "Solo un SUPERADMIN puede hacer esto" }, { status: 403 });
+  }
+  return { ...sesion, rol: "SUPERADMIN" };
 }

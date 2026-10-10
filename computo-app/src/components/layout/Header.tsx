@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
-import { Bell, HelpCircle, ChevronDown, Menu, LogOut, Gauge } from "lucide-react";
+import { getSession, signOut } from "next-auth/react";
+import { Bell, HelpCircle, ChevronDown, Menu, LogOut, Gauge, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -100,6 +100,15 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const [preguntaAbierta, setPreguntaAbierta] = useState<number | null>(null);
   const [empresa, setEmpresa] = useState<EmpresaHeader | null>(null);
   const [notificaciones, setNotificaciones] = useState<Notificaciones | null>(null);
+  // Solo muestra el acceso al panel /admin; quien decide es el servidor
+  // (la página y las /api/admin/* leen el rol de la base).
+  const [esSuperadmin, setEsSuperadmin] = useState(false);
+
+  useEffect(() => {
+    getSession()
+      .then((s) => setEsSuperadmin(s?.user?.rol === "SUPERADMIN"))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelado = false;
@@ -437,6 +446,17 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                   </div>
                   <p className="mt-1.5 text-sm font-medium text-text-primary">Plan: Empresa</p>
                 </div>
+
+                {esSuperadmin && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-text-secondary hover:bg-bg-base transition-colors border-b border-border"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    Administración
+                  </Link>
+                )}
 
                 {/* Cerrar sesión — ver cerrarSesion() arriba. */}
                 <button
