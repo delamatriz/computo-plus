@@ -2150,6 +2150,80 @@ material único). Script:
   replicando la lógica exacta de `clonar-apu` — **0 códigos en $0**.
   Tanda 5 (Pinturas) cerrada por completo.
 
+## Multi-tenant + login (10/10/2026)
+
+**✅ COMPLETADO** — la app pasó de mono-empresa sin login a multi-tenant
+con autenticación. Seis commits, en este orden:
+
+- **Fase 1 — modelo de datos** (`9eec345`): `Empresa` suma `slug`
+  (único, opcional por ahora), `plan` (default `"basico"`) y `users`;
+  modelo nuevo `User` (email único, `passwordHash`, `nombre`, `rol`,
+  `empresaId`). Aplicado con `prisma db push`, sin pérdida de datos.
+  `prisma/seed.ts` reescrito (el viejo era de la época de SQLite):
+  idempotente, dry-run por defecto y `--apply`. Le puso slug
+  `delamatriz` a la empresa existente «DE LA MATRIZ» (sin renombrarla)
+  y crea el primer usuario `luis@delamatriz.com`; la contraseña inicial
+  sale de `SEED_ADMIN_PASSWORD` en `.env.local`, nunca del archivo. Los
+  12 proyectos ya tenían `empresaId`.
+- **Login con NextAuth 4** (`eed7749`): credenciales (email +
+  contraseña con bcrypt) contra `User`, sesión JWT con `id`, `email`,
+  `nombre`, `rol` y `empresaId`. Config en `src/lib/auth.ts`, página
+  `/login`. **`src/proxy.ts`** (en Next 16 la convención `middleware`
+  pasó a llamarse `proxy`): toda la app pide sesión salvo `/`, `/login`
+  y `/api/auth/*`; páginas sin sesión → `/login?callbackUrl=…`, `/api/*`
+  sin sesión → 401 JSON. En Render se cargaron `NEXTAUTH_SECRET` y
+  `NEXTAUTH_URL=https://computo-plus.onrender.com`.
+- **Modal de login en la landing** (`2fcb2ce`): «Entrar» abre el
+  formulario sobre la foto de obra (overlay 50%); con sesión va directo
+  a `/inicio`. `/login` queda como fallback del proxy. Formulario
+  compartido en `src/components/FormularioLogin.tsx`.
+- **Cerrar sesión** (`1b7874e`): el botón del dropdown de usuario ahora
+  llama a `signOut()` y vuelve a `/` (antes solo navegaba, no había
+  sesión real).
+- **Filtrado por empresa en toda la API** (`63ab3f6`, 92 archivos):
+  helper `src/lib/sesion.ts` (`requerirProyecto/Rubro/Capitulo/Titulo/
+  Cotizacion`): sin sesión → 401, dato de otra empresa → 404 (no 403,
+  para no revelar que existe). Cubre `/api/proyectos` (listado y alta
+  con `empresaId` de la sesión), las 73 rutas de `/api/proyectos/[id]/…`
+  (incluido que cada hijo — entrada de bitácora, certificación,
+  documento, orden, fila — sea del proyecto de la URL), los ids que
+  llegan en el body (rubros, capítulos, títulos), `rubros/[id]/*`,
+  `capitulos/[id]/*`, `titulos/[id]`, `cotizaciones/[id]`, clonado de
+  APU, aplicación masiva de precios vigentes y el aviso MTOP.
+  `/api/empresa/perfil` devuelve la empresa de la sesión. Las páginas
+  `/dashboard`, `/proyectos` y `/metrajes` (leían la base directo)
+  también filtran. Verificado en local con una empresa de prueba B
+  (borrada después): A y B solo ven lo suyo, 16 intentos de B sobre
+  datos de A → 404, vincular un rubro ajeno → 400.
+- **Panel `/admin` para SUPERADMIN** (`983b583`): alta de empresas
+  (nombre, slug, plan `basico`/`profesional`/`enterprise`, RUT opcional
+  → si queda vacío se guarda `PENDIENTE-<slug>`, porque `Empresa.rut` es
+  obligatorio y único) y de usuarios (rol `ADMIN`/`USUARIO`; crear un
+  SUPERADMIN sigue siendo manual en la base). `src/lib/roles.ts` tipa
+  roles y planes sin tocar el schema. `requerirSuperadmin()` lee el rol
+  de la base en cada pedido (no del JWT), así un cambio de rol vale en
+  el acto; sin sesión → 401, otro rol → 403. Acceso «Administración» en
+  el dropdown de usuario (depende del JWT: aparece tras volver a
+  loguearse). `luis@delamatriz.com` pasó a **SUPERADMIN** en la base.
+
+Estado de deploy: hasta `63ab3f6` en producción; `983b583` (panel
+`/admin`) commiteado, pendiente de push.
+
+**Pendientes del multi-tenant:**
+- [ ] Decidir qué pasa con los **catálogos compartidos** (precios MTOP,
+      equipos, categorías laborales/jornales, configuración, índice ICCV,
+      biblioteca de subrubros/APU estándar, catálogo de capítulos,
+      sugerencias): hoy no tienen `empresaId` y cualquier empresa puede
+      editarlos, afectando a todas. Opciones: dejarlos compartidos con
+      edición solo para SUPERADMIN, o agregarles `empresaId` (cambio de
+      schema). Esas 30 rutas hoy solo exigen sesión vía el proxy.
+- [ ] Cambiar la contraseña inicial de `luis@delamatriz.com` (no hay
+      pantalla para eso todavía — script o pantalla de perfil).
+- [ ] Pasar `Empresa.slug` a obligatorio (todas las empresas ya lo
+      tienen).
+- [ ] Panel `/admin`: edición/baja de empresas y usuarios, reseteo de
+      contraseña (hoy solo alta).
+
 ## Pendientes técnicos
 
 ### Bug de sincronización: Rubro.precioUnit desactualizado vs. APU
