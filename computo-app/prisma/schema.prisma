@@ -28,6 +28,8 @@ model Empresa {
   slug      String?    @unique
   plan      String     @default("basico")
   users     User[]
+  sugerencias   Sugerencia[]
+  logsConsumoIA LogConsumoIA[]
 }
 
 // Usuario de una empresa (tenant). Sin auth todavía (Fase 1): solo el modelo.
@@ -872,6 +874,8 @@ model Sugerencia {
   id        String   @id @default(cuid())
   mensaje   String   @db.Text
   resuelta  Boolean  @default(false)
+  empresaId String?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
   createdAt DateTime @default(now())
 }
 
@@ -1472,6 +1476,8 @@ model LogConsumoIA {
   // esto es para poder correlacionar tokens con cantidad de búsquedas.
   pasos        Int      @default(1)
   createdAt    DateTime @default(now())
+  empresaId    String?
+  empresa      Empresa? @relation(fields: [empresaId], references: [id])
 }
 
 // Valores mensuales del ICCV (Índice de Costo de la Construcción de

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 async function getOrCreateConfiguracion() {
   const existente = await db.configuracion.findFirst();
@@ -19,6 +20,10 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
+    // Configuracion es global (convenio SUNCA de todas las empresas): solo
+    // SUPERADMIN la edita.
+    const acceso = await requerirSuperadmin();
+    if (acceso instanceof NextResponse) return acceso;
     const body = await request.json();
     const config = await getOrCreateConfiguracion();
 

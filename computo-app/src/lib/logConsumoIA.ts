@@ -11,6 +11,8 @@ interface DatosLogConsumoIA {
   // internos por stop_reason "pause_turn" (ver iccv/verificar-precio-
   // mercado, los dos únicos casos con retry hoy).
   pasos?: number;
+  // Empresa (tenant) de la sesión que disparó la llamada.
+  empresaId?: string | null;
 }
 
 // Registra el consumo de tokens de una llamada a la API de Claude — se
@@ -28,6 +30,7 @@ export async function registrarLogConsumoIA(datos: DatosLogConsumoIA): Promise<v
         inputTokens: datos.inputTokens,
         outputTokens: datos.outputTokens,
         pasos: datos.pasos ?? 1,
+        empresaId: datos.empresaId ?? null,
       },
     });
   } catch (err) {

@@ -8,6 +8,7 @@ interface Sugerencia {
   mensaje: string;
   resuelta: boolean;
   createdAt: string;
+  empresaNombre?: string | null;
 }
 
 function fmtFecha(iso: string): string {

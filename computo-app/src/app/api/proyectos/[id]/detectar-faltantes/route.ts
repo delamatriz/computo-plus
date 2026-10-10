@@ -123,6 +123,7 @@ provistos como referencia.`,
 
     void registrarLogConsumoIA({
       funcion: "detectar-faltantes",
+      empresaId: acceso.empresaId,
       proyectoId,
       inputTokens: message.usage.input_tokens ?? 0,
       outputTokens: message.usage.output_tokens ?? 0,

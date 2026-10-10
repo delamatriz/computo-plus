@@ -107,6 +107,7 @@ oraciones corridas, no como listas con viñetas.`,
 
     void registrarLogConsumoIA({
       funcion: "memoria-descriptiva",
+      empresaId: acceso.empresaId,
       proyectoId,
       inputTokens: message.usage.input_tokens ?? 0,
       outputTokens: message.usage.output_tokens ?? 0,
