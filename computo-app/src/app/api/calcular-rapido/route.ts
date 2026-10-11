@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
     // real (materiales + mano de obra + equipos), no solo el precio final.
     // Vacío si la descripción no matchea ningún capítulo con biblioteca —
     // ese es el fallback esperado (obra atípica), no un error.
+    // TODO: buscar también en SubrubroEmpresa (biblioteca personal de la empresa).
     const subrubrosBiblioteca = await buscarSubrubrosPorCapitulos(capitulosBiblioteca.map((c) => c.id));
     const tablaBiblioteca = formatearSubrubrosParaPrompt(subrubrosBiblioteca);
 

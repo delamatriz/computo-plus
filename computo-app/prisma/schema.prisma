@@ -31,6 +31,7 @@ model Empresa {
   sugerencias   Sugerencia[]
   logsConsumoIA LogConsumoIA[]
   configuracionEmpresa ConfiguracionEmpresa?
+  subrubrosEmpresa SubrubroEmpresa[]
 }
 
 // Usuario de una empresa (tenant). Sin auth todavía (Fase 1): solo el modelo.
@@ -1530,4 +1531,95 @@ model ConfiguracionEmpresa {
   monedaDefault     String   @default("UYU")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+// Biblioteca personal de rubros por empresa (Fase 2 del módulo biblioteca,
+// oct-2026). Separada de la biblioteca global (SubrubroEstandar, solo
+// SUPERADMIN): cada empresa guarda acá sus propios rubros reutilizables desde
+// "Guardar en mi biblioteca" (POST /api/rubros/[id]/guardar-en-mi-biblioteca).
+// A diferencia de la global, cada línea guarda su precio fijo del momento
+// (snapshot del APU del proyecto); los campos *Referencia guardan el precio
+// de catálogo de ese mismo momento cuando la línea estaba vinculada.
+model SubrubroEmpresa {
+  id            String       @id @default(uuid())
+  empresaId     String
+  empresa       Empresa      @relation(fields: [empresaId], references: [id])
+  nombre        String
+  unidad        String
+  precioUY      Float
+  descripcion   String?
+  origen        String       @default("manual")
+  codigo        String?
+  notasInternas String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  apus          APUEmpresa[]
+
+  @@index([empresaId])
+}
+
+model APUEmpresa {
+  id              String               @id @default(uuid())
+  subrubroId      String
+  subrubro        SubrubroEmpresa      @relation(fields: [subrubroId], references: [id], onDelete: Cascade)
+  empresaId       String
+  materiales      MaterialAPUEmpresa[]
+  equipos         EquipoAPUEmpresa[]
+  manoObra        ManoObraAPUEmpresa[]
+  costoMateriales Float                @default(0)
+  costoEquipos    Float                @default(0)
+  costoManoObra   Float                @default(0)
+  costoTotal      Float                @default(0)
+  gastosGeneralesPct  Float   @default(0)
+  utilidadPct         Float   @default(10)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+}
+
+model MaterialAPUEmpresa {
+  id               String     @id @default(uuid())
+  apuId            String
+  apu              APUEmpresa @relation(fields: [apuId], references: [id], onDelete: Cascade)
+  descripcion      String
+  unidad           String
+  cantidad         Float
+  precioUnit       Float
+  precioTotal      Float
+  precioMTOPId     String?
+  precioReferencia Float?
+
+  @@index([apuId])
+}
+
+model EquipoAPUEmpresa {
+  id              String     @id @default(uuid())
+  apuId           String
+  apu             APUEmpresa @relation(fields: [apuId], references: [id], onDelete: Cascade)
+  descripcion     String
+  unidad          String
+  cantidad        Float
+  costoUnit       Float
+  costoTotal      Float
+  costoReferencia Float?
+  manoObra ManoObraAPUEmpresa[]
+
+  @@index([apuId])
+}
+
+model ManoObraAPUEmpresa {
+  id                   String     @id @default(uuid())
+  apuId                String
+  apu                  APUEmpresa @relation(fields: [apuId], references: [id], onDelete: Cascade)
+  descripcion          String
+  categoria            String
+  cantidad             Float
+  jornal               Float
+  costoTotal           Float
+  aportesPatronalesPct Float      @default(0)
+  jornalReferencia     Float?
+  jornadasHoras Float?
+  equipoId      String?
+  equipo        EquipoAPUEmpresa? @relation(fields: [equipoId], references: [id])
+
+  @@index([apuId])
 }

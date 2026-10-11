@@ -23,6 +23,7 @@ import {
   Lock,
   LockOpen,
   Clock,
+  Bookmark,
   BookmarkPlus,
   BookmarkCheck,
   type LucideIcon,
@@ -3187,11 +3188,13 @@ export default function ProyectoPage() {
   // es la copia de este componente, no compartida.
   const [categoriasLaborales, setCategoriasLaborales] = useState<CategoriaLaboral[]>([]);
   const [drawerRubroId, setDrawerRubroId] = useState<string | null>(null);
-  // "Guardar en biblioteca" (solo SUPERADMIN): estado del botón por rubro.
-  // null del hook (cargando) cuenta como "no": el botón no aparece hasta confirmar.
+  // "Guardar en biblioteca" (global, solo SUPERADMIN) y "Guardar en mi
+  // biblioteca" (de la empresa, todos): estado del botón por rubro, con clave
+  // `${destino}:${rubroId}`. null del hook (cargando) cuenta como "no": el
+  // botón global no aparece hasta confirmar.
   const esSuperadmin = useSuperadmin() === true;
-  // "guardado" lleva la lista de insumos que quedaron con precio fijo (sin
-  // vínculo al catálogo) — vacía = todo sigue al catálogo.
+  // "guardado" lleva la lista de insumos que quedaron sin vínculo al
+  // catálogo — vacía = todo vinculado.
   const [estadoBiblioteca, setEstadoBiblioteca] = useState<Record<string, "guardando" | { sinVinculo: string[] }>>({});
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -4356,16 +4359,20 @@ export default function ProyectoPage() {
     );
   }, []);
 
-  // Copia el rubro + su APU a la biblioteca global (SubrubroEstandar). Si ya
-  // estaba (409 ya_existe) se marca igual como guardado. Los insumos sin
-  // vínculo al catálogo se guardan con precio fijo y vuelven en la respuesta
-  // (el ícono queda ámbar con la lista). Los errores se muestran con
-  // window.alert, mismo patrón que el resto de esta pantalla.
-  const guardarRubroEnBiblioteca = useCallback(async (rubroId: string) => {
-    setEstadoBiblioteca((prev) => ({ ...prev, [rubroId]: "guardando" }));
+  // Copia el rubro + su APU a la biblioteca global (SubrubroEstandar,
+  // destino "global") o a la biblioteca personal de la empresa
+  // (SubrubroEmpresa, destino "empresa"). Si ya estaba (409 ya_existe) se
+  // marca igual como guardado. Los insumos sin vínculo al catálogo vuelven en
+  // la respuesta (el ícono queda ámbar con la lista). Los errores se muestran
+  // con window.alert, mismo patrón que el resto de esta pantalla.
+  const guardarRubroEnBiblioteca = useCallback(async (rubroId: string, destino: "global" | "empresa") => {
+    const clave = `${destino}:${rubroId}`;
+    const nombreBiblioteca = destino === "global" ? "la biblioteca" : "tu biblioteca";
+    setEstadoBiblioteca((prev) => ({ ...prev, [clave]: "guardando" }));
     let sinVinculo: string[] | null = null;
     try {
-      const res = await fetch(`/api/rubros/${rubroId}/guardar-en-biblioteca`, { method: "POST" });
+      const ruta = destino === "global" ? "guardar-en-biblioteca" : "guardar-en-mi-biblioteca";
+      const res = await fetch(`/api/rubros/${rubroId}/${ruta}`, { method: "POST" });
       const data = await res.json().catch(() => null);
       if (res.ok) {
         sinVinculo = [
@@ -4376,19 +4383,52 @@ export default function ProyectoPage() {
       } else if (data?.error === "ya_existe") {
         sinVinculo = [];
       } else {
-        window.alert(data?.mensaje ?? "No se pudo guardar el rubro en la biblioteca.");
+        window.alert(data?.mensaje ?? `No se pudo guardar el rubro en ${nombreBiblioteca}.`);
       }
     } catch (err) {
       console.error("[guardarRubroEnBiblioteca]", err);
-      window.alert("No se pudo guardar el rubro en la biblioteca.");
+      window.alert(`No se pudo guardar el rubro en ${nombreBiblioteca}.`);
     }
     setEstadoBiblioteca((prev) => {
       const siguiente = { ...prev };
-      if (sinVinculo) siguiente[rubroId] = { sinVinculo };
-      else delete siguiente[rubroId];
+      if (sinVinculo) siguiente[clave] = { sinVinculo };
+      else delete siguiente[clave];
       return siguiente;
     });
   }, []);
+
+  // Botón de guardado por rubro (spinner mientras guarda; verde = guardado
+  // con todo vinculado, ámbar = guardado con insumos sin vínculo).
+  const botonGuardarEnBiblioteca = (rubroId: string, destino: "global" | "empresa") => {
+    const estado = estadoBiblioteca[`${destino}:${rubroId}`];
+    const nombreBiblioteca = destino === "global" ? "biblioteca" : "mi biblioteca";
+    const Icono = destino === "global" ? BookmarkPlus : Bookmark;
+    if (typeof estado === "object") {
+      return (
+        <span
+          title={
+            estado.sinVinculo.length === 0
+              ? `Guardado en ${nombreBiblioteca}`
+              : `Guardado en ${nombreBiblioteca} con materiales sin precio de catálogo: ${estado.sinVinculo.join(", ")}`
+          }
+          className={cn("flex items-center justify-center", estado.sinVinculo.length === 0 ? "text-emerald-600" : "text-amber-500")}
+        >
+          {destino === "global" ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5 fill-current" />}
+        </span>
+      );
+    }
+    return (
+      <button
+        onClick={() => guardarRubroEnBiblioteca(rubroId, destino)}
+        disabled={estado === "guardando"}
+        title={`Guardar en ${nombreBiblioteca}`}
+        aria-label={`Guardar en ${nombreBiblioteca}`}
+        className="flex items-center justify-center text-slate-400 hover:text-blue-600 transition-colors disabled:cursor-wait"
+      >
+        {estado === "guardando" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Icono className="w-3.5 h-3.5" />}
+      </button>
+    );
+  };
 
   // Edición inline del nombre de capítulo — mismo patrón que actualizarRubro:
   // update optimista + debounce 800ms + PATCH. No persiste si queda vacío.
@@ -5088,37 +5128,11 @@ export default function ProyectoPage() {
                           )}
                         </div>
                         <div className="flex items-center justify-center">
-                          {esSuperadmin && !rubro.id.startsWith("temp-") && (
-                            typeof estadoBiblioteca[rubro.id] === "object" ? (
-                              (() => {
-                                const { sinVinculo } = estadoBiblioteca[rubro.id] as { sinVinculo: string[] };
-                                return (
-                                  <span
-                                    title={
-                                      sinVinculo.length === 0
-                                        ? "Guardado en biblioteca"
-                                        : `Guardado con materiales sin precio de catálogo: ${sinVinculo.join(", ")}`
-                                    }
-                                    className={cn("flex items-center justify-center", sinVinculo.length === 0 ? "text-emerald-600" : "text-amber-500")}
-                                  >
-                                    <BookmarkCheck className="w-4 h-4" />
-                                  </span>
-                                );
-                              })()
-                            ) : (
-                              <button
-                                onClick={() => guardarRubroEnBiblioteca(rubro.id)}
-                                disabled={estadoBiblioteca[rubro.id] === "guardando"}
-                                title="Guardar en biblioteca"
-                                className="flex items-center justify-center text-slate-400 hover:text-blue-600 transition-colors disabled:cursor-wait"
-                              >
-                                {estadoBiblioteca[rubro.id] === "guardando" ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <BookmarkPlus className="w-4 h-4" />
-                                )}
-                              </button>
-                            )
+                          {!rubro.id.startsWith("temp-") && (
+                            <>
+                              {botonGuardarEnBiblioteca(rubro.id, "empresa")}
+                              {esSuperadmin && botonGuardarEnBiblioteca(rubro.id, "global")}
+                            </>
                           )}
                         </div>
                       </div>
