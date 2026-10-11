@@ -32,6 +32,25 @@ model Empresa {
   logsConsumoIA LogConsumoIA[]
   configuracionEmpresa ConfiguracionEmpresa?
   subrubrosEmpresa SubrubroEmpresa[]
+
+  // Registro público + prueba gratis (oct-2026). Las empresas dadas de alta
+  // desde /admin (y las anteriores a esto) son ACTIVA; las que nacen del
+  // registro público arrancan en PRUEBA con vencimiento y cupos (valores en
+  // src/lib/config-prueba.ts). origen: el ?o= de la portada ("instagram",
+  // "mail", "demo"…), null si no vino.
+  estado                 EstadoEmpresa @default(PRUEBA)
+  fechaVencimientoPrueba DateTime?
+  origen                 String?
+  cupoCalculosRapidos    Int           @default(3)
+  cupoProyectosIA        Int           @default(1)
+  consumoFunciones       ConsumoFuncionesAsistidas[]
+}
+
+enum EstadoEmpresa {
+  PRUEBA
+  ACTIVA
+  VENCIDA
+  DESACTIVADA
 }
 
 // Usuario de una empresa (tenant). Sin auth todavía (Fase 1): solo el modelo.
@@ -44,6 +63,10 @@ model User {
   empresaId    String
   empresa      Empresa  @relation(fields: [empresaId], references: [id])
   creadoEn     DateTime @default(now())
+  // Registro público (oct-2026): el usuario recién se crea después de
+  // verificar el mail, así que en la práctica nace en true. Los usuarios
+  // anteriores y los de /admin también quedan en true.
+  emailVerificado Boolean @default(false)
 }
 
 model Proyecto {
@@ -1622,4 +1645,44 @@ model ManoObraAPUEmpresa {
   equipo        EquipoAPUEmpresa? @relation(fields: [equipoId], references: [id])
 
   @@index([apuId])
+}
+
+// Registro público en curso (oct-2026): /registro → /verificar → /bienvenida.
+// El User y la Empresa recién se crean en /bienvenida, así que hasta ahí la
+// contraseña elegida vive acá (passwordHash). codigo y token se guardan
+// hasheados (SHA-256), nunca en claro. token es de un solo uso: después de
+// verificar autoriza completar /bienvenida (cookie httpOnly); después de
+// completar se reemplaza por el token de ingreso automático, que se consume
+// al iniciar sesión (y ahí se borra la fila). Una fila por email: un registro
+// nuevo con el mismo email reemplaza al anterior.
+model VerificacionPendiente {
+  id           String    @id @default(uuid())
+  email        String
+  codigo       String
+  intentos     Int       @default(0)
+  reenvios     Int       @default(0)
+  ultimoEnvio  DateTime  @default(now())
+  venceEn      DateTime
+  createdAt    DateTime  @default(now())
+  passwordHash String
+  verificadoEn DateTime?
+  token        String?   @unique
+  tokenVenceEn DateTime?
+  userId       String?
+
+  @@index([email])
+}
+
+// Consumo de funciones asistidas de una empresa (cupos de la prueba gratis).
+// Se inserta ANTES de llamar al servicio, en la misma transacción que chequea
+// el cupo — no confundir con LogConsumoIA (costos, fire-and-forget).
+model ConsumoFuncionesAsistidas {
+  id         String   @id @default(uuid())
+  empresaId  String
+  empresa    Empresa  @relation(fields: [empresaId], references: [id])
+  tipo       String   // "calculo_rapido" | "proyecto_ia"
+  proyectoId String?
+  createdAt  DateTime @default(now())
+
+  @@index([empresaId, tipo])
 }

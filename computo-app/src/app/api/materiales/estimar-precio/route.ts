@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
+import { bloquearSiEsPrueba } from "@/lib/acceso";
 
 const client = new Anthropic();
 
@@ -11,6 +12,9 @@ const client = new Anthropic();
 export async function POST(req: NextRequest) {
   const sesion = await requerirSesion();
   if (sesion instanceof NextResponse) return sesion;
+  // No disponible en la prueba gratis (no descuenta cupo: directamente no se ofrece).
+  const bloqueo = await bloquearSiEsPrueba(sesion);
+  if (bloqueo) return bloqueo;
 
   try {
     const { descripcion, unidad } = await req.json();

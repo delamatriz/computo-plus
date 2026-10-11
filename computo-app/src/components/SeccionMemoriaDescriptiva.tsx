@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Sparkles, ChevronDown, ChevronRight, RefreshCw, Loader2, FileText, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { esBloqueoDeCuenta, esErrorAcceso, type ErrorAcceso } from "@/lib/accesoCliente";
+import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
 
 interface Props {
   proyectoId: string;
@@ -68,16 +70,24 @@ export default function SeccionMemoriaDescriptiva({ proyectoId, proyectoNombre, 
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Cupo de la prueba gratis / prueba vencida: aviso con contacto, no error.
+  const [avisoAcceso, setAvisoAcceso] = useState<ErrorAcceso | null>(null);
   const [confirmandoRegenerar, setConfirmandoRegenerar] = useState(false);
 
   async function generar() {
     setGenerando(true);
     setError(null);
+    setAvisoAcceso(null);
     setConfirmandoRegenerar(false);
     try {
       const res = await fetch(`/api/proyectos/${proyectoId}/memoria-descriptiva`, { method: "POST" });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (esErrorAcceso(data)) {
+        // Prueba vencida / cuenta bloqueada: lo avisa AvisoCuentaBloqueada (global).
+        if (!esBloqueoDeCuenta(data)) setAvisoAcceso(data);
+        return;
+      }
+      if (!res.ok || !data) throw new Error();
       setTexto(data.memoriaDescriptiva ?? "");
     } catch {
       setError("No se pudo generar la memoria del presupuesto. Probá de nuevo.");
@@ -151,6 +161,7 @@ ${cuerpo}
           >
             <div className="px-5 py-5" style={{ background: "#F8FAFC" }}>
               {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+              {avisoAcceso && <AvisoAcceso mensaje={avisoAcceso.mensaje} contacto={avisoAcceso.contacto} className="mb-3" />}
 
               {!texto ? (
                 <div className="text-center py-8">

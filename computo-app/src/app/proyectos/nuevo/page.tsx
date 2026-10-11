@@ -28,6 +28,9 @@ import {
 } from "@/lib/subirArchivosDelAsistente";
 import { reducirFotosParaIA, SUGERIR_MAX_FOTOS } from "@/lib/reducirFotosParaIA";
 import { nombreDesdeTexto } from "@/lib/nombreDesdeTexto";
+import { esBloqueoDeCuenta, esErrorAcceso, useEstadoCuenta, type ErrorAcceso } from "@/lib/accesoCliente";
+import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
+import { mensajeCupoProyectoAsistido } from "@/lib/config-prueba";
 
 /* ─── Tipos ─────────────────────────────────────────────── */
 interface FormData {
@@ -163,6 +166,13 @@ function NuevoProyectoContent() {
   // marcó, para la etiqueta "Sugerido" del selector.
   const [sugiriendo, setSugiriendo] = useState(false);
   const [mensajeSugerencia, setMensajeSugerencia] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
+  // Prueba gratis: sugerir capítulos no está disponible, y los rubros
+  // sugeridos al crear solo van en el proyecto asistido (lo decide el servidor).
+  const { cuenta } = useEstadoCuenta();
+  const [avisoSugerencia, setAvisoSugerencia] = useState<ErrorAcceso | null>(null);
+  const enPrueba = cuenta?.estado === "PRUEBA";
+  const cupoAsistido = enPrueba ? cuenta.cupos.proyectoAsistido : null;
+  const sinProyectoAsistido = !!cupoAsistido && cupoAsistido.limite !== null && cupoAsistido.usado >= cupoAsistido.limite;
   const [sugeridos, setSugeridos] = useState<Set<string>>(new Set());
   // Fetch propio (además del que hace SelectorCapitulosEstandar internamente)
   // — lo sigue necesitando cargarSugeridos() más abajo, que precarga la
@@ -424,6 +434,11 @@ function NuevoProyectoContent() {
         }),
       });
       const data = await res.json().catch(() => null);
+      if (esErrorAcceso(data)) {
+        // Prueba vencida / cuenta bloqueada: lo avisa AvisoCuentaBloqueada (global).
+        if (!esBloqueoDeCuenta(data)) setAvisoSugerencia(data);
+        return;
+      }
       if (!res.ok || !Array.isArray(data?.capitulos) || data.capitulos.length === 0) {
         throw new Error(data?.error ?? `status ${res.status}`);
       }
@@ -1147,7 +1162,13 @@ function NuevoProyectoContent() {
                   aparece si el proyecto viene de Cálculo Rápido (ahí ya se
                   resolvieron). Sin datos aparte del tipo de obra queda
                   deshabilitado. Una llamada por clic, sin reintentos. */}
-              {!vieneDeCalculoRapido && (
+              {!vieneDeCalculoRapido && (enPrueba || avisoSugerencia) && (
+                <AvisoAcceso
+                  mensaje={avisoSugerencia?.mensaje ?? "Sugerir capítulos no está disponible en la prueba gratis. Elegilos a mano en la Lista estándar, o escribinos para activarlo."}
+                  contacto={avisoSugerencia?.contacto ?? cuenta!.contacto}
+                />
+              )}
+              {!vieneDeCalculoRapido && !enPrueba && !avisoSugerencia && (
                 <div className="rounded-[16px] border border-slate-200 bg-white p-4 space-y-2.5">
                   <button
                     type="button"
@@ -1245,6 +1266,15 @@ function NuevoProyectoContent() {
                 <h2 className="text-lg font-bold text-[#1A3A5C]">Confirmar y crear</h2>
                 <p className="text-sm text-slate-400">Revisá los datos antes de crear el proyecto</p>
               </div>
+
+              {/* Desde Cálculo Rápido los rubros se clonan de la biblioteca
+                  (no usan el proyecto asistido de la prueba). */}
+              {!vieneDeCalculoRapido && sinProyectoAsistido && cuenta && (
+                <AvisoAcceso
+                  mensaje={`Este proyecto se crea sin rubros sugeridos automáticamente. ${mensajeCupoProyectoAsistido(cupoAsistido!.limite!)}`}
+                  contacto={cuenta.contacto}
+                />
+              )}
 
               {/* Resumen de datos — agrupado igual que los pasos 1 y 2:
                   Datos del cliente primero, Detalles (clasificación +

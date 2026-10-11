@@ -85,7 +85,7 @@ export default function RevisionPreciosPage() {
       </Link>
       <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Cola de Revisión — Precios de Materiales</h1>
       <p className="text-slate-500 mb-8">
-        Materiales que necesitan intervención manual — sin precio de referencia, o con una sugerencia de la IA
+        Materiales que necesitan intervención manual — sin precio de referencia, o con una sugerencia automática
         pendiente de confirmar.
       </p>
 
@@ -211,12 +211,12 @@ function SeccionARevisar({
         Precio sugerido a revisar ({materiales.length})
       </h2>
       <p className="text-sm text-slate-500 mb-4">
-        La IA encontró un precio distinto al guardado (o no encontró nada) — revisá y elegí qué hacer.
+        La búsqueda automática encontró un precio distinto al guardado (o no encontró nada) — revisá y elegí qué hacer.
       </p>
 
       {materiales.length === 0 ? (
         <p className="text-sm text-slate-400 bg-white rounded-xl border border-slate-200 px-4 py-6 text-center">
-          No hay sugerencias de la IA pendientes de revisar.
+          No hay sugerencias automáticas pendientes de revisar.
         </p>
       ) : (
         <div className="space-y-3">

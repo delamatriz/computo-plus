@@ -252,7 +252,7 @@ export default function EditarProyectoPage() {
           <textarea
             value={form.trabajos}
             onChange={(e) => set("trabajos", e.target.value)}
-            placeholder="Describí los trabajos a realizar. La IA usará esta descripción para sugerir rubros."
+            placeholder="Describí los trabajos a realizar. Esta descripción se usa para sugerir rubros."
             rows={4}
             className={inputCls}
           />

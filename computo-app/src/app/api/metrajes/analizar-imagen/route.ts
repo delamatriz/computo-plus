@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
+import { bloquearSiEsPrueba } from "@/lib/acceso";
 
 const client = new Anthropic();
 
@@ -69,6 +70,9 @@ async function imageBlockDesdeFoto(foto: string, origin: string): Promise<ImageB
 export async function POST(request: NextRequest) {
   const sesion = await requerirSesion();
   if (sesion instanceof NextResponse) return sesion;
+  // No disponible en la prueba gratis (no descuenta cupo: directamente no se ofrece).
+  const bloqueo = await bloquearSiEsPrueba(sesion);
+  if (bloqueo) return bloqueo;
 
   try {
     const { fotos, contexto } = await request.json();

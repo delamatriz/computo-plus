@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { nombreDesdeTexto } from "@/lib/nombreDesdeTexto";
+import { esBloqueoDeCuenta, esErrorAcceso, useEstadoCuenta, type ErrorAcceso } from "@/lib/accesoCliente";
+import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
+import { mensajeCupoCalculoRapido } from "@/lib/config-prueba";
 
 /* ─── Datos de referencia ─────────────────────────────────── */
 const TIPOS_OBRA = [
@@ -219,6 +222,11 @@ export default function CalcularPage() {
   const [calculandoIA, setCalculandoIA] = useState(false);
   const [resultadoIA, setResultadoIA]   = useState<ResultadoIA | null>(null);
   const [errorIA, setErrorIA]           = useState<string | null>(null);
+  // Cupo de la prueba gratis (lo decide el servidor; acá solo se avisa).
+  const { cuenta, recargar: recargarCuenta } = useEstadoCuenta();
+  const [avisoAcceso, setAvisoAcceso] = useState<ErrorAcceso | null>(null);
+  const cupoCalculo = cuenta?.estado === "PRUEBA" ? cuenta.cupos.calculoRapido : null;
+  const cupoAgotado = !!cupoCalculo && cupoCalculo.limite !== null && cupoCalculo.usado >= cupoCalculo.limite;
   const [mostrarCalculadora, setMostrarCalculadora] = useState(false);
 
   const [fotos, setFotos] = useState<FotoSeleccionada[]>([]);
@@ -353,6 +361,7 @@ export default function CalcularPage() {
     if (!descripcion.trim() || calculandoIA) return;
     setCalculandoIA(true);
     setErrorIA(null);
+    setAvisoAcceso(null);
     try {
       const fotosBase64 = await Promise.all(
         fotos.map(async (f) => ({
@@ -365,11 +374,16 @@ export default function CalcularPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ descripcion, tipo, zona, calidad, moneda, fotos: fotosBase64 }),
       });
-      if (!res.ok) throw new Error("error");
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      const data = await res.json().catch(() => null);
+      if (esErrorAcceso(data)) {
+        // Prueba vencida / cuenta bloqueada: lo avisa AvisoCuentaBloqueada (global).
+        if (!esBloqueoDeCuenta(data)) setAvisoAcceso(data);
+        return;
+      }
+      if (!res.ok || !data || data.error) throw new Error(data?.error ?? "error");
       setConfirmoEstimacionLibre(false);
       setResultadoIA(data);
+      recargarCuenta();
     } catch {
       setErrorIA("No pudimos calcular la estimación. Probá de nuevo.");
     } finally {
@@ -768,15 +782,15 @@ export default function CalcularPage() {
               <div>
                 <button
                   onClick={calcularEstimacion}
-                  disabled={!descripcion.trim() || calculandoIA}
+                  disabled={!descripcion.trim() || calculandoIA || cupoAgotado}
                   className={cn(
                     "flex items-center justify-center gap-2 w-full py-3 rounded-[12px] font-semibold text-sm transition-colors",
-                    !descripcion.trim() || calculandoIA
+                    !descripcion.trim() || calculandoIA || cupoAgotado
                       ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                       : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                   )}
                   style={
-                    descripcion.trim() && !calculandoIA
+                    descripcion.trim() && !calculandoIA && !cupoAgotado
                       ? { boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.3)" }
                       : undefined
                   }
@@ -796,6 +810,23 @@ export default function CalcularPage() {
 
                 {errorIA && (
                   <p className="text-xs text-red-500 mt-2">{errorIA}</p>
+                )}
+                {avisoAcceso ? (
+                  <AvisoAcceso mensaje={avisoAcceso.mensaje} contacto={avisoAcceso.contacto} className="mt-3" />
+                ) : cupoAgotado && cuenta ? (
+                  <AvisoAcceso
+                    mensaje={mensajeCupoCalculoRapido(cupoCalculo!.limite!)}
+                    contacto={cuenta.contacto}
+                    className="mt-3"
+                  />
+                ) : (
+                  cupoCalculo &&
+                  cupoCalculo.limite !== null && (
+                    <p className="text-xs text-text-muted mt-2 text-center">
+                      Prueba gratis: te {cupoCalculo.limite - cupoCalculo.usado === 1 ? "queda 1" : `quedan ${cupoCalculo.limite - cupoCalculo.usado}`} de{" "}
+                      {cupoCalculo.limite} Cálculos Rápidos.
+                    </p>
+                  )
                 )}
               </div>
             )}
@@ -819,7 +850,7 @@ export default function CalcularPage() {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-medium text-[#2563EB]"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                Estimación generada por IA — verificá antes de presupuestar
+                Estimación automática — verificá antes de presupuestar
               </motion.div>
             )}
 
@@ -977,7 +1008,7 @@ export default function CalcularPage() {
               >
                 <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-amber-800 leading-relaxed">
-                  <span className="font-semibold">La mayor parte de esta estimación es cálculo libre de la IA</span>, sin verificación contra precios reales de la biblioteca — usala con mayor cautela como referencia.
+                  <span className="font-semibold">La mayor parte de esta estimación es cálculo libre</span>, sin verificación contra precios reales de la biblioteca — usala con mayor cautela como referencia.
                 </p>
               </motion.div>
             )}
@@ -1041,7 +1072,7 @@ export default function CalcularPage() {
                                 </span>
                                 {c.origen === "biblioteca" && (
                                   <span
-                                    title="Precio real de la biblioteca de subrubros, no estimación libre de la IA"
+                                    title="Precio real de la biblioteca de subrubros, no estimación libre"
                                     className="flex-shrink-0 text-[9px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-200 rounded px-1 leading-4"
                                   >
                                     real
@@ -1221,7 +1252,7 @@ export default function CalcularPage() {
                       className="mt-0.5 w-4 h-4 flex-shrink-0 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]"
                     />
                     <span className="text-xs text-text-secondary leading-relaxed">
-                      Entiendo que esta estimación es mayormente cálculo libre de la IA, sin verificar contra la biblioteca real de precios, y voy a revisarla antes de usarla como referencia.
+                      Entiendo que esta estimación es mayormente cálculo libre, sin verificar contra la biblioteca real de precios, y voy a revisarla antes de usarla como referencia.
                     </span>
                   </label>
                 )}
@@ -1288,7 +1319,7 @@ export default function CalcularPage() {
                 {resultadoIA && (
                   <>
                     <p className="text-[11px] text-text-muted leading-relaxed text-center">
-                      &quot;Iniciar proyecto completo&quot; crea el proyecto con capítulos y rubros ya estimados por IA, listo para ajustar. &quot;Guardar como anteproyecto&quot; guarda esta estimación como referencia rápida (sin capítulos ni rubros) — podés convertirlo en proyecto completo más adelante, cargando los rubros a mano.
+                      &quot;Iniciar proyecto completo&quot; crea el proyecto con capítulos y rubros ya estimados, listo para ajustar. &quot;Guardar como anteproyecto&quot; guarda esta estimación como referencia rápida (sin capítulos ni rubros) — podés convertirlo en proyecto completo más adelante, cargando los rubros a mano.
                     </p>
                     <button
                       type="button"

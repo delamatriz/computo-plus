@@ -15,6 +15,12 @@
 //      y un POST real a la biblioteca de subrubros no deja nada escrito.
 //   6. Notas de diseño (no son pruebas HTTP): márgenes y moneda viven en el
 //      Proyecto, no en Configuracion global.
+//   7. (Registro público) Prueba gratis y estado de la empresa, cambiando el
+//      estado de la empresa B en la base: cupo de Cálculo Rápido agotado,
+//      funciones sin proyecto bloqueadas en prueba, cupo de proyecto asistido
+//      (sobre proyectos vacíos de B: generar-rubros no llega a llamar al
+//      servicio), prueba vencida en solo lectura, empresa desactivada y email
+//      sin verificar. Ninguno de estos casos llama al servicio asistido.
 // Al final borra todo lo que creó (en un finally, aunque algo falle).
 //
 // Seguridad sobre datos reales (DATABASE_URL apunta a producción):
@@ -153,6 +159,9 @@ async function correrCaso(cliente: Cliente, caso: Caso): Promise<Resultado> {
 // ─── Limpieza ─────────────────────────────────────────────────────────────
 
 async function borrarEmpresaDePrueba(empresaId: string) {
+  await db.consumoFuncionesAsistidas.deleteMany({ where: { empresaId } });
+  await db.capitulo.deleteMany({ where: { proyecto: { empresaId } } });
+  await db.proyecto.deleteMany({ where: { empresaId } });
   await db.sugerencia.deleteMany({ where: { empresaId } });
   await db.logConsumoIA.deleteMany({ where: { empresaId } });
   await db.user.deleteMany({ where: { empresaId } });
@@ -291,7 +300,7 @@ async function main() {
   console.log(`Rubro ajeno: ${rubro?.id ?? "— (sin rubros, se saltean esos casos)"}`);
   console.log(`Sugerencia ajena: ${sugerencia?.id ?? "— (no hay, se saltea)"}`);
   console.log(`Proyectos ajenos totales (para el chequeo de listado): ${idsAjenos.length}`);
-  console.log(`Casos de 404/403: ${casos.length} + 5 chequeos de datos propios/listados`);
+  console.log(`Casos de 404/403: ${casos.length} + 5 chequeos de datos propios/listados + 12 de prueba gratis y estado`);
 
   if (!APLICAR) {
     for (const c of casos) console.log(`  ${c.grupo.padEnd(18)} ${c.metodo.padEnd(6)} ${c.ruta}  → espera ${c.esperado}`);
@@ -313,7 +322,8 @@ async function main() {
   const password = randomBytes(24).toString("base64url");
 
   const empresa = await db.empresa.create({
-    data: { nombre: `AUDITORÍA ${marca}`, slug, rut: `AUDIT-${marca}`, plan: "basico" },
+    // ACTIVA: los casos 1-6 no tienen que chocar con la prueba gratis (el 7 la arma a mano).
+    data: { nombre: `AUDITORÍA ${marca}`, slug, rut: `AUDIT-${marca}`, plan: "basico", estado: "ACTIVA" },
   });
   console.log(`\nEmpresa de prueba creada: ${empresa.nombre} (${empresa.id})`);
 
@@ -321,7 +331,7 @@ async function main() {
   let inconclusos = 0;
   try {
     await db.user.create({
-      data: { email, nombre: "Usuario auditoría", rol: "ADMIN", empresaId: empresa.id, passwordHash: await bcrypt.hash(password, 10) },
+      data: { email, nombre: "Usuario auditoría", rol: "ADMIN", empresaId: empresa.id, passwordHash: await bcrypt.hash(password, 10), emailVerificado: true },
     });
 
     const cliente = new Cliente();
@@ -360,6 +370,70 @@ async function main() {
     const escritos = await db.subrubroEstandar.count({ where: { descripcion: { startsWith: MARCA_SUBRUBRO } } });
     extra.push({ nombre: "POST a la biblioteca global no dejó ningún subrubro escrito", ok: escritos === 0, detalle: escritos === 0 ? "0 en la base" : `${escritos} ENCONTRADOS — la biblioteca global no está protegida` });
 
+    // Prueba gratis y estado de la empresa (cambia el estado de B en la base).
+    const prueba: { nombre: string; ok: boolean; detalle: string }[] = [];
+    const codigo = async (res: Response) => ((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? "—";
+    const enUnMes = new Date(Date.now() + 30 * 86_400_000);
+    await db.empresa.update({ where: { id: empresa.id }, data: { estado: "PRUEBA", fechaVencimientoPrueba: enUnMes, cupoCalculosRapidos: 0, cupoProyectosIA: 1 } });
+
+    let r = await cliente.pedir("POST", "/api/calcular-rapido", { descripcion: "auditoría" });
+    let c = await codigo(r);
+    prueba.push({ nombre: "Cálculo Rápido con cupo agotado → 403 CUPO_AGOTADO", ok: r.status === 403 && c === "CUPO_AGOTADO", detalle: `${r.status} ${c}` });
+    for (const ruta of ["/api/materiales/estimar-precio", "/api/sugerir-capitulos", "/api/metrajes/sugerir", "/api/metrajes/analizar-imagen"]) {
+      r = await cliente.pedir("POST", ruta, { descripcion: "auditoría" });
+      c = await codigo(r);
+      prueba.push({ nombre: `${ruta} en prueba → 403 NO_DISPONIBLE_EN_PRUEBA`, ok: r.status === 403 && c === "NO_DISPONIBLE_EN_PRUEBA", detalle: `${r.status} ${c}` });
+    }
+
+    const [pA, pB] = await Promise.all([
+      db.proyecto.create({ data: { nombre: `AUDITORÍA A ${marca}`, empresaId: empresa.id }, select: { id: true } }),
+      db.proyecto.create({ data: { nombre: `AUDITORÍA B ${marca}`, empresaId: empresa.id }, select: { id: true } }),
+    ]);
+    const r1 = await cliente.pedir("POST", `/api/proyectos/${pA.id}/generar-rubros`, {});
+    const r2 = await cliente.pedir("POST", `/api/proyectos/${pA.id}/generar-rubros`, {});
+    const consumosA = await db.consumoFuncionesAsistidas.count({ where: { empresaId: empresa.id, tipo: "proyecto_ia", proyectoId: pA.id } });
+    prueba.push({ nombre: "Proyecto asistido: 2 usos en el mismo proyecto pasan y cuentan 1 sola vez", ok: r1.status === 202 && r2.status === 202 && consumosA === 1, detalle: `${r1.status}/${r2.status}, consumos: ${consumosA}` });
+    r = await cliente.pedir("POST", `/api/proyectos/${pB.id}/generar-rubros`, {});
+    c = await codigo(r);
+    prueba.push({ nombre: "Proyecto asistido en OTRO proyecto con el cupo usado → 403 CUPO_AGOTADO", ok: r.status === 403 && c === "CUPO_AGOTADO", detalle: `${r.status} ${c}` });
+    r = await cliente.pedir("POST", `/api/proyectos/${pB.id}/generar-rubros`, { capitulosConMontos: [{ nombre: "Albañilería", monto: 1 }] });
+    prueba.push({ nombre: "generar-rubros desde Cálculo Rápido no usa el cupo de proyecto", ok: r.status === 202, detalle: `${r.status}` });
+
+    const estadoRes = await cliente.pedir("GET", "/api/cuenta/estado");
+    const estadoJson = (await estadoRes.json().catch(() => null)) as {
+      estado?: string;
+      diasRestantes?: number;
+      cupos?: { proyectoAsistido?: { usado: number; limite: number } };
+    } | null;
+    prueba.push({
+      nombre: "GET /api/cuenta/estado refleja la prueba (30 días, proyecto asistido 1/1)",
+      ok: estadoRes.status === 200 && estadoJson?.estado === "PRUEBA" && estadoJson.diasRestantes === 30 && estadoJson.cupos?.proyectoAsistido?.usado === 1,
+      detalle: `${estadoRes.status} ${estadoJson?.estado} ${estadoJson?.diasRestantes} días, proyecto ${estadoJson?.cupos?.proyectoAsistido?.usado}/${estadoJson?.cupos?.proyectoAsistido?.limite}`,
+    });
+
+    // Vencida: sigue en PRUEBA en la base pero con la fecha pasada.
+    await db.empresa.update({ where: { id: empresa.id }, data: { fechaVencimientoPrueba: new Date(Date.now() - 60_000) } });
+    const lectura = await cliente.pedir("GET", "/api/empresa/perfil");
+    r = await cliente.pedir("PATCH", "/api/configuracion-empresa", { margenEmpresa: 0.38 });
+    c = await codigo(r);
+    const persistido = (await db.empresa.findUnique({ where: { id: empresa.id }, select: { estado: true } }))?.estado;
+    prueba.push({
+      nombre: "Prueba vencida: lectura 200, escritura 403 PRUEBA_VENCIDA, estado pasa a VENCIDA",
+      ok: lectura.status === 200 && r.status === 403 && c === "PRUEBA_VENCIDA" && persistido === "VENCIDA",
+      detalle: `GET ${lectura.status}, PATCH ${r.status} ${c}, estado ${persistido}`,
+    });
+
+    await db.empresa.update({ where: { id: empresa.id }, data: { estado: "DESACTIVADA" } });
+    r = await cliente.pedir("GET", "/api/empresa/perfil");
+    c = await codigo(r);
+    prueba.push({ nombre: "Empresa desactivada → 403 EMPRESA_DESACTIVADA (también lectura)", ok: r.status === 403 && c === "EMPRESA_DESACTIVADA", detalle: `${r.status} ${c}` });
+
+    await db.empresa.update({ where: { id: empresa.id }, data: { estado: "ACTIVA" } });
+    await db.user.update({ where: { email }, data: { emailVerificado: false } });
+    r = await cliente.pedir("GET", "/api/empresa/perfil");
+    c = await codigo(r);
+    prueba.push({ nombre: "Email sin verificar → 401 EMAIL_NO_VERIFICADO", ok: r.status === 401 && c === "EMAIL_NO_VERIFICADO", detalle: `${r.status} ${c}` });
+
     // Reporte.
     let grupo = "";
     for (const r of resultados) {
@@ -372,15 +446,17 @@ async function main() {
     }
     console.log("\nDatos propios y listados");
     for (const e of extra) console.log(`  ${e.ok ? "✓" : "✗"} ${e.nombre} — ${e.detalle}`);
+    console.log("\nPrueba gratis y estado de la empresa");
+    for (const e of prueba) console.log(`  ${e.ok ? "✓" : "✗"} ${e.nombre} — ${e.detalle}`);
 
     console.log("\nNotas de diseño (no son pruebas HTTP, no cuentan en el resumen)");
     console.log("  ℹ Configuracion.margenEmpresa / margenImprevistos / monedaDefault no se leen en ningún cálculo:");
     console.log("    el presupuesto usa Proyecto.imprevistosPct / gastosGeneralesPctDefault y proyecto.moneda");
     console.log("    (ver schema.prisma, comentario junto a imprevistosPct). Sin riesgo de contaminación entre empresas.");
 
-    fallas = resultados.filter((r) => r.estado === "FALLA").length + extra.filter((e) => !e.ok).length;
+    fallas = resultados.filter((r) => r.estado === "FALLA").length + extra.filter((e) => !e.ok).length + prueba.filter((e) => !e.ok).length;
     inconclusos = resultados.filter((r) => r.estado === "INCONCLUSO").length;
-    const total = resultados.length + extra.length;
+    const total = resultados.length + extra.length + prueba.length;
     console.log(`\nResumen: ${total - fallas - inconclusos}/${total} OK, ${fallas} fallas, ${inconclusos} inconclusos.`);
   } finally {
     const fuga = await db.subrubroEstandar.deleteMany({ where: { descripcion: { startsWith: MARCA_SUBRUBRO } } });

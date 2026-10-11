@@ -428,7 +428,7 @@ export default function SeccionCategoriasLaborales() {
               className="inline-flex items-center gap-2 bg-[#1A3A5C] text-white text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-[#15304c] disabled:opacity-60 transition-colors"
             >
               <Sparkles className="w-4 h-4" />
-              {extrayendo ? "Extrayendo jornales..." : "Extraer jornales con IA"}
+              {extrayendo ? "Extrayendo jornales..." : "Extraer jornales automáticamente"}
             </button>
           </div>
 

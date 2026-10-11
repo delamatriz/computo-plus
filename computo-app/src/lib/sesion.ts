@@ -13,11 +13,18 @@
 // Los hijos de un proyecto (entradas de bitácora, ítems de una orden, etc.)
 // se validan en cada ruta filtrando también por el proyecto, ej.
 //   db.entradaBitacora.findFirst({ where: { id: entradaId, proyectoId } })
+//
+// Registro público (oct-2026): además del JWT, cada pedido lee de la base el
+// usuario y su empresa (ver lib/acceso.ts): email sin verificar → 401
+// EMAIL_NO_VERIFICADO; empresa DESACTIVADA → 403 EMPRESA_DESACTIVADA. Una
+// empresa VENCIDA sí pasa acá (lectura); su bloqueo de escritura está en
+// src/proxy.ts.
 
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { estadoAccesoUsuario, respuestaAcceso } from "@/lib/acceso";
 import type { Rol } from "@/lib/roles";
 
 export type SesionUsuario = {
@@ -31,22 +38,37 @@ export type SesionUsuario = {
 const noAutenticado = () => NextResponse.json({ error: "No autenticado" }, { status: 401 });
 const noEncontrado = (mensaje: string) => NextResponse.json({ error: mensaje }, { status: 404 });
 
-export async function sesionActual(): Promise<SesionUsuario | null> {
+/**
+ * Sesión del pedido validada contra la base: usuario existente, email
+ * verificado y empresa no desactivada. empresaId sale de la base (no del
+ * JWT). Si no pasa, devuelve la respuesta 401/403 lista para retornar.
+ */
+async function resolverSesion(): Promise<SesionUsuario | NextResponse> {
   const session = await getServerSession(authOptions);
   const user = session?.user;
-  if (!user?.id || !user.empresaId) return null;
-  return user;
+  if (!user?.id || !user.empresaId) return noAutenticado();
+  const acceso = await estadoAccesoUsuario(user.id);
+  if (!acceso) return noAutenticado();
+  if (!acceso.emailVerificado) return respuestaAcceso("EMAIL_NO_VERIFICADO", user.email);
+  if (acceso.estado === "DESACTIVADA") return respuestaAcceso("EMPRESA_DESACTIVADA", user.email);
+  return { ...user, empresaId: acceso.empresaId };
 }
 
-/** Sesión obligatoria. Devuelve el usuario o un 401 listo para retornar. */
+/** Sesión válida o null (páginas de servidor: con null redirigen a /login). */
+export async function sesionActual(): Promise<SesionUsuario | null> {
+  const sesion = await resolverSesion();
+  return sesion instanceof NextResponse ? null : sesion;
+}
+
+/** Sesión obligatoria. Devuelve el usuario o la respuesta 401/403 lista para retornar. */
 export async function requerirSesion(): Promise<SesionUsuario | NextResponse> {
-  return (await sesionActual()) ?? noAutenticado();
+  return resolverSesion();
 }
 
 /** Sesión + que el proyecto sea de la empresa del usuario (si no, 404). */
 export async function requerirProyecto(proyectoId: string): Promise<SesionUsuario | NextResponse> {
-  const sesion = await sesionActual();
-  if (!sesion) return noAutenticado();
+  const sesion = await resolverSesion();
+  if (sesion instanceof NextResponse) return sesion;
   const proyecto = await db.proyecto.findFirst({
     where: { id: proyectoId, empresaId: sesion.empresaId },
     select: { id: true },
@@ -56,8 +78,8 @@ export async function requerirProyecto(proyectoId: string): Promise<SesionUsuari
 
 /** Igual que requerirProyecto, partiendo de un rubro. Devuelve también el proyectoId. */
 export async function requerirRubro(rubroId: string): Promise<(SesionUsuario & { proyectoId: string }) | NextResponse> {
-  const sesion = await sesionActual();
-  if (!sesion) return noAutenticado();
+  const sesion = await resolverSesion();
+  if (sesion instanceof NextResponse) return sesion;
   const rubro = await db.rubro.findFirst({
     where: { id: rubroId, capitulo: { proyecto: { empresaId: sesion.empresaId } } },
     select: { capitulo: { select: { proyectoId: true } } },
@@ -67,8 +89,8 @@ export async function requerirRubro(rubroId: string): Promise<(SesionUsuario & {
 
 /** Igual que requerirProyecto, partiendo de un capítulo. */
 export async function requerirCapitulo(capituloId: string): Promise<(SesionUsuario & { proyectoId: string }) | NextResponse> {
-  const sesion = await sesionActual();
-  if (!sesion) return noAutenticado();
+  const sesion = await resolverSesion();
+  if (sesion instanceof NextResponse) return sesion;
   const capitulo = await db.capitulo.findFirst({
     where: { id: capituloId, proyecto: { empresaId: sesion.empresaId } },
     select: { proyectoId: true },
@@ -78,8 +100,8 @@ export async function requerirCapitulo(capituloId: string): Promise<(SesionUsuar
 
 /** Igual que requerirProyecto, partiendo de un título. */
 export async function requerirTitulo(tituloId: string): Promise<(SesionUsuario & { proyectoId: string }) | NextResponse> {
-  const sesion = await sesionActual();
-  if (!sesion) return noAutenticado();
+  const sesion = await resolverSesion();
+  if (sesion instanceof NextResponse) return sesion;
   const titulo = await db.titulo.findFirst({
     where: { id: tituloId, proyecto: { empresaId: sesion.empresaId } },
     select: { proyectoId: true },
@@ -89,8 +111,8 @@ export async function requerirTitulo(tituloId: string): Promise<(SesionUsuario &
 
 /** Igual que requerirProyecto, partiendo de una cotización de proveedor. */
 export async function requerirCotizacion(cotizacionId: string): Promise<(SesionUsuario & { proyectoId: string }) | NextResponse> {
-  const sesion = await sesionActual();
-  if (!sesion) return noAutenticado();
+  const sesion = await resolverSesion();
+  if (sesion instanceof NextResponse) return sesion;
   const cot = await db.cotizacionProveedor.findFirst({
     where: { id: cotizacionId, rubro: { capitulo: { proyecto: { empresaId: sesion.empresaId } } } },
     select: { rubro: { select: { capitulo: { select: { proyectoId: true } } } } },
@@ -134,8 +156,8 @@ export async function esSuperadmin(sesion: SesionUsuario): Promise<boolean> {
 
 /** Sesión + rol SUPERADMIN (panel /admin). Sin sesión → 401; otro rol → 403. */
 export async function requerirSuperadmin(): Promise<SesionUsuario | NextResponse> {
-  const sesion = await sesionActual();
-  if (!sesion) return noAutenticado();
+  const sesion = await resolverSesion();
+  if (sesion instanceof NextResponse) return sesion;
   if (!(await esSuperadmin(sesion))) {
     return NextResponse.json({ error: "Solo un SUPERADMIN puede hacer esto" }, { status: 403 });
   }

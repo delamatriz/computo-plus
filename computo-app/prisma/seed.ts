@@ -52,7 +52,7 @@ async function main() {
       else empresa = { ...sinSlug[0], slug: SLUG };
     } else if (total === 0) {
       console.log(`→ No hay empresas: se crea «${NOMBRE_SI_SE_CREA}» con slug "${SLUG}".`);
-      if (aplicar) empresa = await db.empresa.create({ data: { nombre: NOMBRE_SI_SE_CREA, rut: "000000000000", slug: SLUG } });
+      if (aplicar) empresa = await db.empresa.create({ data: { nombre: NOMBRE_SI_SE_CREA, rut: "000000000000", slug: SLUG, estado: "ACTIVA" } });
     } else {
       throw new Error(`Hay ${sinSlug.length} empresas sin slug (de ${total}) — no se sabe cuál es "${SLUG}". No se escribe nada.`);
     }
@@ -83,7 +83,7 @@ async function main() {
       const u = await db.user.upsert({
         where: { email: ADMIN.email },
         update: {},
-        create: { ...ADMIN, passwordHash, empresaId: empresa.id },
+        create: { ...ADMIN, passwordHash, empresaId: empresa.id, emailVerificado: true },
       });
       console.log(`  Creado: ${u.id}`);
     }

@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
+import { bloquearSiEsPrueba } from "@/lib/acceso";
 
 // Sugiere, desde el paso 3 del asistente de Nuevo proyecto, qué capítulos de la
 // Lista estándar conviene prender según lo que se cargó en el paso 1: tipo de
@@ -35,6 +36,9 @@ const MAX_FOTOS = 5;
 export async function POST(request: NextRequest) {
   const sesion = await requerirSesion();
   if (sesion instanceof NextResponse) return sesion;
+  // No disponible en la prueba gratis (no descuenta cupo: directamente no se ofrece).
+  const bloqueo = await bloquearSiEsPrueba(sesion);
+  if (bloqueo) return bloqueo;
 
   try {
     const { tipo, area, trabajos, otrosDatos, fotos } = await request.json();

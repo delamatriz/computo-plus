@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
 import { CalculadoraFlotante } from "@/components/CalculadoraFlotante";
+import { AvisoCuentaBloqueada } from "@/components/acceso/AvisoCuentaBloqueada";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className="h-full font-sans antialiased bg-bg-base text-text-primary">
         {children}
         <CalculadoraFlotante />
+        <AvisoCuentaBloqueada />
       </body>
     </html>
   );

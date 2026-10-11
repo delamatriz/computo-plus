@@ -4,6 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Loader2 } from "lucide-react";
+import { whatsappContacto } from "@/lib/config-prueba";
+
+// Errores con código que tira authorize() en lib/auth.ts.
+const MENSAJES_ERROR: Record<string, string> = {
+  EMPRESA_DESACTIVADA: "Tu cuenta está desactivada. Escribinos para reactivarla.",
+  EMAIL_NO_VERIFICADO: "Tenés que verificar tu email antes de entrar.",
+};
 
 // Formulario de login por credenciales (NextAuth). Lo usan el modal de la
 // landing (flujo principal) y la página /login (fallback, adonde redirige el
@@ -13,16 +20,19 @@ export function FormularioLogin({ destino }: { destino: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [conContacto, setConContacto] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setConContacto(false);
     setEnviando(true);
     try {
       const res = await signIn("credentials", { email, password, redirect: false });
       if (!res || res.error) {
-        setError("Email o contraseña incorrectos");
+        setError(MENSAJES_ERROR[res?.error ?? ""] ?? "Email o contraseña incorrectos");
+        setConContacto(res?.error === "EMPRESA_DESACTIVADA");
         setEnviando(false);
         return;
       }
@@ -71,6 +81,14 @@ export function FormularioLogin({ destino }: { destino: string }) {
       {error && (
         <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
           {error}
+          {conContacto && (
+            <>
+              {" "}
+              <a href={whatsappContacto(email.trim())} target="_blank" rel="noopener noreferrer" className="font-semibold underline">
+                Escribinos por WhatsApp
+              </a>
+            </>
+          )}
         </p>
       )}
 

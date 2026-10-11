@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { consumirFuncionAsistida } from "@/lib/acceso";
 import { generarRubrosAutomaticos, type CapituloConMonto } from "@/lib/rubrosAutomaticos";
 import { requerirProyecto } from "@/lib/sesion";
 
@@ -47,6 +48,14 @@ export async function POST(
     )
       ? body.capitulosConMontos
       : undefined;
+
+    // Desde Cálculo Rápido se clonan subrubros de la biblioteca (sin servicio
+    // asistido, ya contado en ese cupo); sin desglose, los rubros los sugiere
+    // el servicio → cuenta como proyecto asistido de la prueba.
+    if (!capitulosConMontos?.length) {
+      const consumo = await consumirFuncionAsistida(acceso, "proyecto_ia", proyectoId);
+      if (consumo instanceof NextResponse) return consumo;
+    }
 
     generarRubrosAutomaticos(proyectoId, capitulosConMontos).catch((err) =>
       console.error("[POST /api/proyectos/[id]/generar-rubros]", err)

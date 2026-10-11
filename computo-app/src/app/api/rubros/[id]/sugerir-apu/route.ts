@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generarApuParaRubro } from "@/lib/apu";
 import { requerirRubro } from "@/lib/sesion";
+import { consumirFuncionAsistida } from "@/lib/acceso";
 
 export async function POST(
   req: NextRequest,
@@ -21,6 +22,9 @@ export async function POST(
     if (!descripcion?.trim()) {
       return NextResponse.json({ error: "Descripción requerida" }, { status: 400 });
     }
+
+    const consumo = await consumirFuncionAsistida(acceso, "proyecto_ia", acceso.proyectoId);
+    if (consumo instanceof NextResponse) return consumo;
 
     const apu = await generarApuParaRubro(rubroId, { descripcion, unidad, capitulo, tipoObra }, "manual");
 

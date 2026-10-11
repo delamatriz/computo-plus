@@ -5,6 +5,7 @@ import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, formatearSu
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
 import { requerirSesion } from "@/lib/sesion";
+import { consumirFuncionAsistida, devolverConsumo } from "@/lib/acceso";
 
 const client = new Anthropic();
 
@@ -15,7 +16,11 @@ const TIPOS_LABEL: Record<string, string> = {
 
 export async function POST(request: NextRequest) {
   const sesion = await requerirSesion();
-  const empresaIdLog = sesion instanceof NextResponse ? null : sesion.empresaId;
+  if (sesion instanceof NextResponse) return sesion;
+  const empresaIdLog = sesion.empresaId;
+  // Cupo de la prueba gratis: se registra antes de llamar al servicio y se
+  // devuelve si algo falla (un error no gasta cupo).
+  let consumoId: string | null = null;
 
   try {
     const { descripcion, tipo, zona, calidad, moneda, fotos } = await request.json();
@@ -23,6 +28,10 @@ export async function POST(request: NextRequest) {
     if (!descripcion?.trim()) {
       return NextResponse.json({ error: "sin_descripcion" }, { status: 400 });
     }
+
+    const consumo = await consumirFuncionAsistida(sesion, "calculo_rapido");
+    if (consumo instanceof NextResponse) return consumo;
+    consumoId = consumo.consumoId;
 
     const tipoLabel = TIPOS_LABEL[tipo] ?? tipo;
     const monedaLabel = moneda === "UYU" ? "pesos uruguayos" : "dólares americanos (usar TC 42.5)";
@@ -91,7 +100,7 @@ Devolvé un JSON con esta estructura exacta:
       "codigoSubrubro": string | null
     }
   ],
-  "advertencia": "Materiales y mano de obra: estimación de la IA según tu descripción. Gastos Generales, Beneficio e IVA se calculan de forma simple sobre esa estimación, no son una cotización. Para mayor exactitud desarrollá un proyecto completo."
+  "advertencia": "Materiales y mano de obra: estimación automática según tu descripción. Gastos Generales, Beneficio e IVA se calculan de forma simple sobre esa estimación, no son una cotización. Para mayor exactitud desarrollá un proyecto completo."
 }
 
 ${
@@ -261,6 +270,7 @@ Reglas:
     return NextResponse.json(resultado);
   } catch (err) {
     console.error("[calcular-rapido]", err);
+    await devolverConsumo(consumoId);
     return NextResponse.json(
       { error: "Error al calcular la estimación" },
       { status: 500 }

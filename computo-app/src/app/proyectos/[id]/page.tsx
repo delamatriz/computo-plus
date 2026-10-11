@@ -77,6 +77,19 @@ import { NotaInfoIcono } from "@/components/NotaInfoIcono";
 import { nombreDesdeTexto, PREFIJO_NOMBRE_FORMULA } from "@/lib/nombreDesdeTexto";
 import { capitalizarDescripcion } from "@/lib/capitalizarDescripcion";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import { esBloqueoDeCuenta, esErrorAcceso, type ErrorAcceso } from "@/lib/accesoCliente";
+import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
+
+// JSON de una función asistida: null si falló; si el motivo es el cupo de la
+// prueba o una función no disponible, se lo pasa a onAcceso para avisarlo en
+// pantalla en vez de fallar en silencio.
+async function jsonAsistido<T>(r: Response, onAcceso: (e: ErrorAcceso) => void): Promise<T | null> {
+  const data = await r.json().catch(() => null);
+  if (r.ok) return data as T;
+  // Prueba vencida / cuenta bloqueada: lo avisa AvisoCuentaBloqueada (global).
+  if (esErrorAcceso(data) && !esBloqueoDeCuenta(data)) onAcceso(data);
+  return null;
+}
 
 // SeccionMetrajesPresupuesto (vía SeccionPlanos/VisorPlano) importa react-pdf
 // (pdf.js), que revienta con "DOMMatrix is not defined" si su módulo se
@@ -1700,6 +1713,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const [precioEditId, setPrecioEditId] = useState<string | null>(null);
   // Material cuyo precio se está estimando con IA (loading del botón "Estimar")
   const [estimandoPrecioId, setEstimandoPrecioId] = useState<string | null>(null);
+  const [avisoAcceso, setAvisoAcceso] = useState<ErrorAcceso | null>(null);
   // Fila de mano de obra cuyo jornal de referencia está siendo editado — mientras tanto se muestra el texto crudo tipeado, no formateado (ver EdicionNumerica)
   const [jornalRefEnFoco, setJornalRefEnFoco] = useState<EdicionNumerica>(null);
   // Fila de equipo cuyo precio unitario está siendo editado — mismo criterio
@@ -1895,8 +1909,9 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ descripcion: m.descripcion, unidad: m.unidad }),
       });
-      if (!res.ok) throw new Error("Error al estimar precio");
-      const { precio } = await res.json();
+      const data = await jsonAsistido<{ precio: number }>(res, setAvisoAcceso);
+      if (!data) throw new Error("Error al estimar precio");
+      const { precio } = data;
       setMat(apu.materiales.map((mat) => mat.id !== m.id ? mat : {
         ...mat,
         precioUnit: precio,
@@ -2150,6 +2165,9 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
 
         {/* Cuerpo scrollable */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          {avisoAcceso && (
+            <AvisoAcceso mensaje={avisoAcceso.mensaje} contacto={avisoAcceso.contacto} onCerrar={() => setAvisoAcceso(null)} />
+          )}
 
           {/* Trabajo en altura */}
           <div>
@@ -3196,6 +3214,9 @@ export default function ProyectoPage() {
   // "guardado" lleva la lista de insumos que quedaron sin vínculo al
   // catálogo — vacía = todo vinculado.
   const [estadoBiblioteca, setEstadoBiblioteca] = useState<Record<string, "guardando" | { sinVinculo: string[] }>>({});
+  // Sugerencias automáticas de descompuesto no disponibles (cupo de la prueba
+  // gratis usado en otro proyecto, prueba vencida…): aviso arriba del presupuesto.
+  const [avisoAsistencia, setAvisoAsistencia] = useState<ErrorAcceso | null>(null);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [leyesSociales, setLeyesSociales] = useState<LeyesSocialesData | null>(null);
@@ -3886,7 +3907,7 @@ export default function ProyectoPage() {
             tipoObra: proyecto?.tipo ?? "",
           }),
         })
-          .then((r) => (r.ok ? r.json() : null))
+          .then((r) => jsonAsistido<{ materiales: MaterialSugerido[]; manoObra: { categoria: string; rendimiento: number; jornal: number }[]; precioUnitarioEstimado: number }>(r, setAvisoAsistencia))
           .then((data) => {
             if (!data) return;
             const nuevoAPU: APU = {
@@ -4189,7 +4210,7 @@ export default function ProyectoPage() {
             tipoObra: proyecto?.tipo ?? "",
           }),
         })
-          .then((r) => (r.ok ? r.json() : null))
+          .then((r) => jsonAsistido<{ materiales: MaterialSugerido[]; manoObra: { categoria: string; rendimiento: number; jornal: number }[]; precioUnitarioEstimado: number }>(r, setAvisoAsistencia))
           .then((data) => {
             if (!data) return;
             const nuevoAPU: APU = {
@@ -4591,12 +4612,12 @@ export default function ProyectoPage() {
           tipoObra: proyecto?.tipo ?? "",
         }),
       });
-      if (!res.ok) return;
-      const data = await res.json() as {
+      const data = await jsonAsistido<{
         materiales: MaterialSugerido[];
         manoObra: { categoria: string; rendimiento: number; jornal: number }[];
         precioUnitarioEstimado: number;
-      };
+      }>(res, setAvisoAsistencia);
+      if (!data) return;
 
       // Construir objeto APU compatible con el estado local
       const nuevoAPU: APU = {
@@ -5562,6 +5583,10 @@ export default function ProyectoPage() {
           proyectoId={proyectoActivo.id}
           documentacionLlamado={<SeccionDocumentacionLlamado proyectoId={proyectoActivo.id} />}
         />
+
+        {avisoAsistencia && (
+          <AvisoAcceso mensaje={avisoAsistencia.mensaje} contacto={avisoAsistencia.contacto} onCerrar={() => setAvisoAsistencia(null)} />
+        )}
 
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 

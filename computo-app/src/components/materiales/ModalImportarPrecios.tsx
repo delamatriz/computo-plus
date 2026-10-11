@@ -595,7 +595,7 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
                       </span>
                     </label>
                     <p className="text-xs text-slate-400 mt-1">
-                      Una IA lee el PDF y arma la lista — revisá el resultado antes de confirmar, sobre todo las filas
+                      El sistema lee el PDF y arma la lista — revisá el resultado antes de confirmar, sobre todo las filas
                       de confianza media o baja.
                     </p>
                   </div>
@@ -614,12 +614,12 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
                         <Sparkles className="w-4 h-4" />
                       )}
                       {extrayendoPDF
-                        ? "Leyendo PDF con IA..."
+                        ? "Leyendo el PDF..."
                         : cargandoPreview
                         ? "Clasificando..."
                         : filasBasePDF
                         ? "Volver a clasificar con este proveedor"
-                        : "Extraer con IA"}
+                        : "Extraer del PDF"}
                     </button>
                   )}
                 </>

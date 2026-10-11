@@ -58,7 +58,9 @@ export async function POST(req: NextRequest) {
     }
 
     const empresa = await db.empresa.create({
-      data: { nombre, slug, plan, rut: rutFinal },
+      // Alta manual de un cliente: ACTIVA, sin prueba ni cupos (el registro
+      // público es el que crea empresas en PRUEBA).
+      data: { nombre, slug, plan, rut: rutFinal, estado: "ACTIVA" },
       select: { id: true, nombre: true, slug: true, plan: true, rut: true, createdAt: true, _count: { select: { users: true, proyectos: true } } },
     });
     return NextResponse.json({ empresa }, { status: 201 });

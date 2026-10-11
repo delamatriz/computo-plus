@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { getSession, signOut } from "next-auth/react";
 import { Bell, HelpCircle, ChevronDown, Menu, LogOut, Gauge, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEstadoCuenta } from "@/lib/accesoCliente";
+import { AvisoPrueba } from "@/components/acceso/AvisoPrueba";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -74,7 +76,7 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     pregunta: "¿Cómo creo un rubro nuevo que no está en la biblioteca?",
     tipo: "respuesta",
     respuesta:
-      "No hay un botón para \"agregar a la biblioteca\" — simplemente cargá el rubro dentro de un proyecto, generá su APU con el asistente de IA, y aplicá el precio. Ese subrubro queda guardado automáticamente en la biblioteca para tus próximos proyectos.",
+      "Cargá el rubro dentro de un proyecto, armá su descompuesto (APU) —a mano o con la sugerencia automática— y aplicá el precio. Después guardalo con el marcador «Guardar en mi biblioteca» de la fila del rubro: queda en Mi biblioteca para tus próximos proyectos.",
   },
 ];
 
@@ -103,6 +105,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   // Solo muestra el acceso al panel /admin; quien decide es el servidor
   // (la página y las /api/admin/* leen el rol de la base).
   const [esSuperadmin, setEsSuperadmin] = useState(false);
+  const { cuenta } = useEstadoCuenta();
 
   useEffect(() => {
     getSession()
@@ -160,6 +163,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
     new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
 
   return (
+    <>
     <header
       className={cn(
         "h-16 flex items-center justify-between px-3 md:px-6 border-b border-border bg-bg-card gap-2",
@@ -221,6 +225,9 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
 
       {/* Acciones derecha */}
       <div className="flex items-center gap-2">
+        <div className="hidden lg:flex">
+          <AvisoPrueba cuenta={cuenta} />
+        </div>
         <div className="relative">
           <button
             onClick={() => setNotifOpen(!notifOpen)}
@@ -472,5 +479,10 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
         </div>
       </div>
     </header>
+    {/* Debajo de lg el header no tiene lugar para el chip → franja debajo. */}
+    <div className="lg:hidden">
+      <AvisoPrueba cuenta={cuenta} variante="barra" />
+    </div>
+    </>
   );
 }

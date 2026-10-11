@@ -58,7 +58,8 @@ export async function POST(req: NextRequest) {
     }
 
     const usuario = await db.user.create({
-      data: { nombre, email, rol, empresaId, passwordHash: await bcrypt.hash(password, 12) },
+      // Lo da de alta un SUPERADMIN con un email que ya conoce: sin verificación.
+      data: { nombre, email, rol, empresaId, passwordHash: await bcrypt.hash(password, 12), emailVerificado: true },
       select: SELECT_USUARIO,
     });
     return NextResponse.json({ usuario }, { status: 201 });

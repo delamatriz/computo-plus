@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Sparkles, ChevronDown, ChevronRight, Plus, Check, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { esBloqueoDeCuenta, esErrorAcceso, type ErrorAcceso } from "@/lib/accesoCliente";
+import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface MaterialSugerido {
@@ -58,6 +60,8 @@ export default function SeccionPartidasFaltantes({ proyectoId, moneda, capitulos
   const [expandido, setExpandido] = useState(false);
   const [analizando, setAnalizando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Cupo de la prueba gratis / prueba vencida: aviso con contacto, no error.
+  const [avisoAcceso, setAvisoAcceso] = useState<ErrorAcceso | null>(null);
   const [faltantes, setFaltantes] = useState<PartidaFaltante[] | null>(null);
   const [agregandoIdx, setAgregandoIdx] = useState<number | null>(null);
   const [agregados, setAgregados] = useState<Set<number>>(new Set());
@@ -65,10 +69,16 @@ export default function SeccionPartidasFaltantes({ proyectoId, moneda, capitulos
   async function analizar() {
     setAnalizando(true);
     setError(null);
+    setAvisoAcceso(null);
     try {
       const res = await fetch(`/api/proyectos/${proyectoId}/detectar-faltantes`, { method: "POST" });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (esErrorAcceso(data)) {
+        // Prueba vencida / cuenta bloqueada: lo avisa AvisoCuentaBloqueada (global).
+        if (!esBloqueoDeCuenta(data)) setAvisoAcceso(data);
+        return;
+      }
+      if (!res.ok || !data) throw new Error();
       setFaltantes(Array.isArray(data.faltantes) ? data.faltantes : []);
       setAgregados(new Set());
     } catch {
@@ -176,7 +186,7 @@ export default function SeccionPartidasFaltantes({ proyectoId, moneda, capitulos
             <div className="px-5 py-5" style={{ background: "#F8FAFC" }}>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <p className="text-xs text-slate-500 max-w-md">
-                  La IA analiza tu presupuesto y te sugiere rubros que probablemente
+                  El sistema analiza tu presupuesto y te sugiere rubros que probablemente
                   faltan, con APU y precios estimados listos para agregar.
                 </p>
                 <button
@@ -190,6 +200,7 @@ export default function SeccionPartidasFaltantes({ proyectoId, moneda, capitulos
               </div>
 
               {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+              {avisoAcceso && <AvisoAcceso mensaje={avisoAcceso.mensaje} contacto={avisoAcceso.contacto} className="mb-3" />}
 
               {faltantes !== null && faltantes.length === 0 && !error && (
                 <p className="text-xs text-slate-400 italic">

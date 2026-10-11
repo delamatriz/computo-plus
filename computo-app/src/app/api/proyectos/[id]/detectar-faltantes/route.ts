@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirProyecto } from "@/lib/sesion";
+import { consumirFuncionAsistida } from "@/lib/acceso";
 
 const client = new Anthropic();
 
@@ -42,6 +43,9 @@ export async function POST(
     if (!proyecto) {
       return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
     }
+
+    const consumo = await consumirFuncionAsistida(acceso, "proyecto_ia", proyectoId);
+    if (consumo instanceof NextResponse) return consumo;
 
     const [categorias, preciosMTOP] = await Promise.all([
       db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),
