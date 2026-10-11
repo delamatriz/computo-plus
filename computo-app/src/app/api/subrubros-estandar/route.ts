@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 import { requerirSuperadmin } from "@/lib/sesion";
+import { redondearPrecio } from "@/lib/apu-calc";
 
 export async function GET(req: NextRequest) {
   const capituloId = req.nextUrl.searchParams.get("capituloId")?.trim();
@@ -53,7 +54,9 @@ export async function POST(req: NextRequest) {
   if (authCheck instanceof NextResponse) return authCheck;
 
   try {
-    const { descripcion, unidad, capitulo, precioUY } = await req.json();
+    const { descripcion, unidad, capitulo, precioUY: precioUYRecibido } = await req.json();
+    // Llega del cliente ya multiplicado por TC si el rubro era en USD.
+    const precioUY = typeof precioUYRecibido === "number" ? redondearPrecio(precioUYRecibido) : precioUYRecibido;
 
     if (!descripcion?.trim() || !unidad?.trim() || !capitulo?.trim() || precioUY == null) {
       return NextResponse.json({ error: "Faltan campos" }, { status: 400 });

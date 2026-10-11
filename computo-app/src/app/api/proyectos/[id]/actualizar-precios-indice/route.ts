@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirProyecto } from "@/lib/sesion";
+import { redondearPrecio } from "@/lib/apu-calc";
 
 function totalRubro(r: { cantidad: number; precioUnit: number }): number {
   return r.cantidad * r.precioUnit;
@@ -145,7 +146,7 @@ export async function PUT(
       for (const rubro of cap.rubros) {
         await db.rubro.update({
           where: { id: rubro.id },
-          data: { precioUnit: rubro.precioUnit * factor },
+          data: { precioUnit: redondearPrecio(rubro.precioUnit * factor) },
         });
       }
     }

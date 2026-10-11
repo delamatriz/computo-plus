@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sumarAportesPatronalesPct } from "@/lib/apu-calc";
+import { redondearPrecio, sumarAportesPatronalesPct } from "@/lib/apu-calc";
 import { requerirRubro } from "@/lib/sesion";
 
 const MENSAJE_PROYECTO_FINALIZADO =
@@ -174,7 +174,7 @@ export async function PUT(
         descripcion:  m.descripcion  ?? "",
         unidad:       m.unidad       ?? "",
         rendimiento:  m.rendimiento  ?? 0,
-        precioUnit:   m.precioUnit   ?? 0,
+        precioUnit:   redondearPrecio(m.precioUnit ?? 0),
         orden:        i,
         // Se recrea todo el APU en cada autosave — sin esto, el motivo
         // clonado de la biblioteca se perdía apenas el usuario tocaba
@@ -197,7 +197,7 @@ export async function PUT(
               descripcion:          c.descripcion          ?? "",
               unidad:               c.unidad               ?? "",
               rendimientoPorUnidad: c.rendimientoPorUnidad ?? 0,
-              precioUnit:           c.precioUnit           ?? 0,
+              precioUnit:           redondearPrecio(c.precioUnit ?? 0),
               orden:                j,
             }))
           : []
@@ -225,9 +225,9 @@ export async function PUT(
           descripcion:     eq.descripcion     ?? "",
           unidad:          eq.unidad          ?? "",
           rendimiento:     eq.rendimiento     ?? 0,
-          costoUnit:       eq.costoUnit       ?? 0,
+          costoUnit:       redondearPrecio(eq.costoUnit ?? 0),
           modoCosteo:      eq.modoCosteo      ?? "ALQUILADO",
-          costoUnitPropio: eq.costoUnitPropio ?? null,
+          costoUnitPropio: eq.costoUnitPropio == null ? null : redondearPrecio(eq.costoUnitPropio),
           orden:           i,
           motivoVerificacion: eq.motivoVerificacion ?? null,
         };

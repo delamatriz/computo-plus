@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { NOTA_PRECIO_FIJO_BIBLIOTECA, precioConRespaldo, resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
-import { calcularPrecioUnitario, sumarAportesPatronalesPct } from "@/lib/apu-calc";
+import { calcularPrecioUnitario, redondearPrecio, sumarAportesPatronalesPct } from "@/lib/apu-calc";
 import { costoDirectoUnitario } from "@/lib/costoAgregado";
 
 // Mismo guard que PUT /api/rubros/[id]/apu y
@@ -112,7 +112,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
         descripcion: m.descripcion,
         unidad: m.unidad,
         rendimiento: m.rendimiento,
-        precioUnit,
+        precioUnit: redondearPrecio(precioUnit),
         orden: i,
         ...(esFijo
           ? { notaProcedencia: NOTA_PRECIO_FIJO_BIBLIOTECA }
@@ -139,7 +139,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
         descripcion: eq.descripcion,
         unidad: eq.unidad,
         rendimiento: eq.rendimiento,
-        costoUnit,
+        costoUnit: redondearPrecio(costoUnit),
         orden: i,
         motivoVerificacion: precioEquipo || esFijo ? null : "sin_costo_referencia",
       },
@@ -171,7 +171,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
 
   // Fórmula canónica única — ver costoDirectoUnitario en lib/costoAgregado.ts.
   const costoDirecto = costoDirectoUnitario(apuCompleto!);
-  const precioUnit = calcularPrecioUnitario(costoDirecto, apuCompleto!.utilidadPct);
+  const precioUnit = redondearPrecio(calcularPrecioUnitario(costoDirecto, apuCompleto!.utilidadPct));
 
   const rubro = await db.rubro.update({
     where: { id: rubroId },

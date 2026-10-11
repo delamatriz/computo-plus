@@ -60,6 +60,14 @@ export function sumManoObra(manoObra: ManoObraCalc[], equipos: EquipoCalc[]): nu
 // rubro, pasó a ser un monto agregado a nivel proyecto (ver
 // costoAgregado.ts). precioUnit de cada rubro es, desde este cambio,
 // exclusivamente Costo Directo × (1 + Utilidad%).
+// Todo precio que se guarda en la base va con 2 decimales — los cálculos de
+// coma flotante dejan colas como 49097.390451515996. Math.round, no
+// toFixed() (devuelve string). Solo precios: los porcentajes (Aportes
+// Patronales 6,4191, Utilidad) NO se redondean acá.
+export function redondearPrecio(valor: number): number {
+  return Math.round(valor * 100) / 100;
+}
+
 export function calcularPrecioUnitario(
   costoDirecto: number,
   utilidadPct: number

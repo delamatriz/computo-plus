@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { calcularPrecioUnitario, costoUnitEfectivo } from "@/lib/apu-calc";
+import { calcularPrecioUnitario, costoUnitEfectivo, redondearPrecio } from "@/lib/apu-calc";
 import { costoDirectoUnitario } from "@/lib/costoAgregado";
 import { precioConRespaldo, resolverPrecioEquipo, resolverPrecioMaterial } from "@/lib/resolverPrecioInsumo";
 import { requerirRubro, requerirSuperadmin } from "@/lib/sesion";
@@ -95,7 +95,7 @@ export async function POST(
         // vinculado— a la MISMA fila (si no, el clon tomaría otro material).
         const sigueCatalogo = !!resuelto && resuelto.precioUnitario > 0 && (!vinculado || resuelto.id === vinculado.id);
         if (!sigueCatalogo) materialesSinVinculo.push(m.descripcion);
-        const precioReferencia = sigueCatalogo ? null : m.precioUnit;
+        const precioReferencia = sigueCatalogo ? null : redondearPrecio(m.precioUnit);
         return {
           descripcion: sigueCatalogo ? descripcionBiblioteca : m.descripcion,
           unidad: m.unidad,
@@ -110,7 +110,7 @@ export async function POST(
         const resuelto = await resolverPrecioEquipo(eq.descripcion);
         const sigueCatalogo = !!resuelto && resuelto.precioHora > 0;
         if (!sigueCatalogo) equiposSinVinculo.push(eq.descripcion);
-        const costoReferencia = sigueCatalogo ? null : costoUnitEfectivo(eq);
+        const costoReferencia = sigueCatalogo ? null : redondearPrecio(costoUnitEfectivo(eq));
         return {
           id: eq.id,
           descripcion: eq.descripcion,
@@ -126,7 +126,7 @@ export async function POST(
       const jornal = categorias.find((c) => normalizar(c.nombre) === normalizar(mo.categoria))?.jornal ?? 0;
       const sigueCatalogo = jornal > 0;
       if (!sigueCatalogo) manoObraSinVinculo.push(mo.categoria);
-      const jornalReferencia = sigueCatalogo ? null : mo.jornalRef;
+      const jornalReferencia = sigueCatalogo ? null : redondearPrecio(mo.jornalRef);
       return {
         categoria: mo.categoria,
         jornadaHs: mo.jornadaHs,

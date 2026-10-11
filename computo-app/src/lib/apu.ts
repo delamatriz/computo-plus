@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 import { buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, type SubrubroConApu } from "@/lib/bibliotecaApus";
-import { sumManoObra, calcularPrecioUnitario, sumarAportesPatronalesPct, montoAportesPatronales } from "@/lib/apu-calc";
+import { sumManoObra, calcularPrecioUnitario, redondearPrecio, sumarAportesPatronalesPct, montoAportesPatronales } from "@/lib/apu-calc";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { coincidenciasPrecioMaterial } from "@/lib/resolverPrecioInsumo";
 import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
@@ -40,7 +40,7 @@ async function vincularMaterialesAlCatalogo(
         descripcion: m.descripcion ?? "",
         unidad: m.unidad ?? "",
         rendimiento: m.rendimiento ?? 0,
-        precioUnit: m.precioUnit ?? 0,
+        precioUnit: redondearPrecio(m.precioUnit ?? 0),
         precioMTOPId: null,
       };
       if (!base.descripcion.trim()) return base;
@@ -261,7 +261,7 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
     materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0) +
     sumMO +
     montoAportesPatronales(sumMO, aportesPatronalesPct);
-  const precioUnitarioEstimado = calcularPrecioUnitario(costoDirecto, utilidadPct);
+  const precioUnitarioEstimado = redondearPrecio(calcularPrecioUnitario(costoDirecto, utilidadPct));
 
   const apu: ApuGenerado = {
     materiales,

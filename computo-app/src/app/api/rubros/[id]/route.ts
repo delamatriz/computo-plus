@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirRubro } from "@/lib/sesion";
+import { redondearPrecio } from "@/lib/apu-calc";
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -43,7 +44,7 @@ export async function PATCH(
         // no es el que dejó el último cómputo y tiene que avisar antes
         // de pisarlo (ver POST /api/proyectos/[id]/aplicar-computo).
         ...(body.cantidad    !== undefined && { cantidad: body.cantidad ?? 0, cantidadOrigen: "MANUAL" }),
-        ...(body.precioUnit  !== undefined && { precioUnit:  body.precioUnit ?? 0 }),
+        ...(body.precioUnit  !== undefined && { precioUnit:  typeof body.precioUnit === "number" ? redondearPrecio(body.precioUnit) : body.precioUnit ?? 0 }),
         ...(body.trabajoEnAltura !== undefined && { trabajoEnAltura: !!body.trabajoEnAltura }),
         // Cronograma a nivel rubro — mismo patrón que PATCH
         // /api/capitulos/[id] (vacío/null limpia la fecha propia,

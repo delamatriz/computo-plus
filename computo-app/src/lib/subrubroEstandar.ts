@@ -1,4 +1,5 @@
 import type { PrismaClient, Prisma } from "@/generated/prisma/client";
+import { redondearPrecio } from "@/lib/apu-calc";
 
 export type SubrubroEstandarInput = {
   codigo: string;
@@ -65,7 +66,7 @@ export async function crearSubrubroEstandar(
     codigo: input.codigo,
     descripcion: input.descripcion,
     unidad: input.unidad,
-    precioUY: input.precioUY,
+    precioUY: redondearPrecio(input.precioUY),
     fechaBase: input.fechaBase,
     aportesSociales: input.aportesSociales,
     origen: input.origen,
