@@ -296,6 +296,39 @@ interface InsumoAPU {
   fechaUltimaVerificacion?: string | null;
 }
 
+// Material tal como lo devuelve /api/rubros/[id]/sugerir-apu (MaterialGenerado
+// en lib/apu.ts): los campos de catálogo vienen solo si la IA eligió un
+// material que coincide exacto con un PrecioMTOP.
+interface MaterialSugerido {
+  descripcion: string;
+  unidad: string;
+  rendimiento: number;
+  precioUnit: number;
+  precioMTOPId?: string | null;
+  proveedor?: string | null;
+  notaProcedencia?: string | null;
+  motivoVerificacion?: string | null;
+  fechaUltimaVerificacion?: string | null;
+}
+
+// Material sugerido por IA → estado local del APU. Conserva el vínculo con el
+// catálogo: si se perdiera acá, el primer autosave (PUT del APU, que guarda
+// precioMTOPId ?? null) lo borraría de la base.
+function insumoDesdeSugerencia(m: MaterialSugerido, i: number): InsumoAPU {
+  return {
+    id: `ai-mat-${i}`,
+    descripcion: m.descripcion,
+    unidad: m.unidad,
+    rendimiento: m.rendimiento,
+    precioUnit: m.precioUnit,
+    precioMTOPId: m.precioMTOPId ?? null,
+    proveedor: m.proveedor ?? null,
+    notaProcedencia: m.notaProcedencia ?? null,
+    motivoVerificacion: m.motivoVerificacion ?? null,
+    fechaUltimaVerificacion: m.fechaUltimaVerificacion ?? null,
+  };
+}
+
 interface PrecioMTOPResult {
   id: string;
   codigo: string;
@@ -3856,13 +3889,7 @@ export default function ProyectoPage() {
               utilidadPct: 10,
               aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra: 0.30,
-              materiales: data.materiales.map((m: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }, i: number) => ({
-                id: `ai-mat-${i}`,
-                descripcion: m.descripcion,
-                unidad: m.unidad,
-                rendimiento: m.rendimiento,
-                precioUnit: m.precioUnit,
-              })),
+              materiales: (data.materiales as MaterialSugerido[]).map(insumoDesdeSugerencia),
               manoObra: data.manoObra.map((mo: { categoria: string; rendimiento: number; jornal: number }, i: number) => ({
                 id: `ai-mo-${i}`,
                 categoria: mo.categoria,
@@ -4165,13 +4192,7 @@ export default function ProyectoPage() {
               utilidadPct: 10,
               aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
               porcentajePiedra: 0.30,
-              materiales: data.materiales.map((m: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }, i: number) => ({
-                id: `ai-mat-${i}`,
-                descripcion: m.descripcion,
-                unidad: m.unidad,
-                rendimiento: m.rendimiento,
-                precioUnit: m.precioUnit,
-              })),
+              materiales: (data.materiales as MaterialSugerido[]).map(insumoDesdeSugerencia),
               manoObra: data.manoObra.map((mo: { categoria: string; rendimiento: number; jornal: number }, i: number) => ({
                 id: `ai-mo-${i}`,
                 categoria: mo.categoria,
@@ -4527,7 +4548,7 @@ export default function ProyectoPage() {
       });
       if (!res.ok) return;
       const data = await res.json() as {
-        materiales: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }[];
+        materiales: MaterialSugerido[];
         manoObra: { categoria: string; rendimiento: number; jornal: number }[];
         precioUnitarioEstimado: number;
       };
@@ -4538,13 +4559,7 @@ export default function ProyectoPage() {
         utilidadPct: 10,
         aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
         porcentajePiedra: 0.30,
-        materiales: data.materiales.map((m, i) => ({
-          id: `ai-mat-${i}`,
-          descripcion: m.descripcion,
-          unidad: m.unidad,
-          rendimiento: m.rendimiento,
-          precioUnit: m.precioUnit,
-        })),
+        materiales: data.materiales.map(insumoDesdeSugerencia),
         manoObra: data.manoObra.map((mo, i) => ({
           id: `ai-mo-${i}`,
           categoria: mo.categoria,

@@ -4,11 +4,65 @@ import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 import { buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, type SubrubroConApu } from "@/lib/bibliotecaApus";
 import { sumManoObra, calcularPrecioUnitario, sumarAportesPatronalesPct, montoAportesPatronales } from "@/lib/apu-calc";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { coincidenciasPrecioMaterial } from "@/lib/resolverPrecioInsumo";
+
+const normalizar = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+
+// Material tal como se guarda y se devuelve al cliente. Los campos de
+// catálogo solo vienen cuando la descripción de la IA coincide EXACTO con
+// un PrecioMTOP (ver vincularMaterialesAlCatalogo).
+export interface MaterialGenerado {
+  descripcion: string;
+  unidad: string;
+  rendimiento: number;
+  precioUnit: number;
+  precioMTOPId?: string | null;
+  proveedor?: string | null;
+  notaProcedencia?: string | null;
+  motivoVerificacion?: string | null;
+  fechaUltimaVerificacion?: Date | null;
+}
+
+// Vincula cada material que devolvió la IA con su fila de PrecioMTOP, si la
+// descripción coincide exacto (sin distinguir mayúsculas ni espacios de más).
+// La fila se elige con el mismo resolver que usa clonar-apu
+// (coincidenciasPrecioMaterial: exacta primero), así el vínculo apunta a la
+// misma fila que va a resolver después "Guardar en biblioteca" o un clon.
+// Con vínculo, el precio pasa a ser el del catálogo (si es > 0) en vez del
+// que estimó la IA. Sin coincidencia exacta queda sin vínculo, como antes.
+async function vincularMaterialesAlCatalogo(
+  materiales: { descripcion?: string; unidad?: string; rendimiento?: number; precioUnit?: number }[]
+): Promise<MaterialGenerado[]> {
+  return Promise.all(
+    materiales.map(async (m) => {
+      const base: MaterialGenerado = {
+        descripcion: m.descripcion ?? "",
+        unidad: m.unidad ?? "",
+        rendimiento: m.rendimiento ?? 0,
+        precioUnit: m.precioUnit ?? 0,
+        precioMTOPId: null,
+      };
+      if (!base.descripcion.trim()) return base;
+      const [primera] = await coincidenciasPrecioMaterial(base.descripcion);
+      if (!primera || normalizar(primera.descripcion) !== normalizar(base.descripcion)) return base;
+      return {
+        ...base,
+        descripcion: primera.descripcion,
+        precioUnit: primera.precioUnitario > 0 ? primera.precioUnitario : base.precioUnit,
+        precioMTOPId: primera.id,
+        proveedor: primera.proveedor,
+        notaProcedencia: primera.notaProcedencia,
+        motivoVerificacion: primera.motivoVerificacion,
+        fechaUltimaVerificacion: primera.fechaUltimaVerificacion,
+      };
+    })
+  );
+}
 
 const client = new Anthropic();
 
 interface ApuGenerado {
-  materiales: { descripcion: string; unidad: string; rendimiento: number; precioUnit: number }[];
+  materiales: MaterialGenerado[];
   manoObra: { categoria: string; rendimiento: number; jornal: number }[];
   // Calculado server-side con calcularPrecioUnitario() sobre el costo
   // directo real de materiales/mano de obra que la IA generó, más
@@ -161,7 +215,7 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
   if (!match) throw new Error("Respuesta inválida del modelo");
 
   const apuBruto = JSON.parse(match[0]) as {
-    materiales: ApuGenerado["materiales"];
+    materiales: { descripcion?: string; unidad?: string; rendimiento?: number; precioUnit?: number }[];
     manoObra: ApuGenerado["manoObra"];
     origen?: string;
     subrubroCodigoBase?: string | null;
@@ -189,6 +243,10 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
     ? apuExistente.aportesPatronalesPct
     : sumarAportesPatronalesPct(proyectoDefaults?.leyesSociales);
 
+  // Antes de calcular el precio: los materiales que coinciden con el
+  // catálogo toman su precio real y su vínculo (precioMTOPId).
+  const materiales = await vincularMaterialesAlCatalogo(apuBruto.materiales ?? []);
+
   // precioUnitarioEstimado se calcula acá, NUNCA se toma de lo que reporte
   // la IA — mismo patrón que clonar-apu/route.ts. Este flujo no genera
   // equipos, así que el costo directo es solo materiales + mano de obra.
@@ -197,13 +255,13 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
     []
   );
   const costoDirecto =
-    apuBruto.materiales.reduce((s, m) => s + (m.rendimiento ?? 0) * (m.precioUnit ?? 0), 0) +
+    materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0) +
     sumMO +
     montoAportesPatronales(sumMO, aportesPatronalesPct);
   const precioUnitarioEstimado = calcularPrecioUnitario(costoDirecto, utilidadPct);
 
   const apu: ApuGenerado = {
-    materiales: apuBruto.materiales,
+    materiales,
     manoObra: apuBruto.manoObra,
     precioUnitarioEstimado,
     origen: apuBruto.origen === "biblioteca" && subrubroBase ? "biblioteca" : "estimado",
@@ -217,17 +275,21 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
   const apuId = apuRecord.id;
 
   await db.materialAPU.deleteMany({ where: { apuId } });
-  for (let i = 0; i < apu.materiales.length; i++) {
-    const m = apu.materiales[i];
-    await db.materialAPU.create({
-      data: {
+  if (apu.materiales.length > 0) {
+    await db.materialAPU.createMany({
+      data: apu.materiales.map((m, i) => ({
         apuId,
-        descripcion: m.descripcion ?? "",
-        unidad: m.unidad ?? "",
-        rendimiento: m.rendimiento ?? 0,
-        precioUnit: m.precioUnit ?? 0,
+        descripcion: m.descripcion,
+        unidad: m.unidad,
+        rendimiento: m.rendimiento,
+        precioUnit: m.precioUnit,
         orden: i,
-      },
+        precioMTOPId: m.precioMTOPId ?? null,
+        proveedor: m.proveedor ?? null,
+        notaProcedencia: m.notaProcedencia ?? null,
+        motivoVerificacion: m.motivoVerificacion ?? null,
+        fechaUltimaVerificacion: m.fechaUltimaVerificacion ?? null,
+      })),
     });
   }
 
