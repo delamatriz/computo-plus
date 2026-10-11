@@ -23,9 +23,12 @@ import {
   Lock,
   LockOpen,
   Clock,
+  BookmarkPlus,
+  BookmarkCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario, montoAportesPatronales, sumarAportesPatronalesPct, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/apu-calc";
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
@@ -3151,6 +3154,10 @@ export default function ProyectoPage() {
   // es la copia de este componente, no compartida.
   const [categoriasLaborales, setCategoriasLaborales] = useState<CategoriaLaboral[]>([]);
   const [drawerRubroId, setDrawerRubroId] = useState<string | null>(null);
+  // "Guardar en biblioteca" (solo SUPERADMIN): estado del botón por rubro.
+  // null del hook (cargando) cuenta como "no": el botón no aparece hasta confirmar.
+  const esSuperadmin = useSuperadmin() === true;
+  const [estadoBiblioteca, setEstadoBiblioteca] = useState<Record<string, "guardando" | "guardado">>({});
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [leyesSociales, setLeyesSociales] = useState<LeyesSocialesData | null>(null);
@@ -4326,6 +4333,37 @@ export default function ProyectoPage() {
     );
   }, []);
 
+  // Copia el rubro + su APU a la biblioteca global (SubrubroEstandar). Si ya
+  // estaba (409 ya_existe) se marca igual como guardado. Si algún insumo
+  // quedaría en $0 al clonar (422), el servidor no guarda nada y devuelve la
+  // lista — se muestra con window.alert, mismo patrón que el resto de los
+  // errores de esta pantalla.
+  const guardarRubroEnBiblioteca = useCallback(async (rubroId: string) => {
+    setEstadoBiblioteca((prev) => ({ ...prev, [rubroId]: "guardando" }));
+    let guardado = false;
+    try {
+      const res = await fetch(`/api/rubros/${rubroId}/guardar-en-biblioteca`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (res.ok || data?.error === "ya_existe") {
+        guardado = true;
+      } else {
+        const detalle = Array.isArray(data?.problemas)
+          ? "\n\n" + data.problemas.map((p: { descripcion: string; motivo: string }) => `• ${p.descripcion}: ${p.motivo}`).join("\n")
+          : "";
+        window.alert((data?.mensaje ?? "No se pudo guardar el rubro en la biblioteca.") + detalle);
+      }
+    } catch (err) {
+      console.error("[guardarRubroEnBiblioteca]", err);
+      window.alert("No se pudo guardar el rubro en la biblioteca.");
+    }
+    setEstadoBiblioteca((prev) => {
+      const siguiente = { ...prev };
+      if (guardado) siguiente[rubroId] = "guardado";
+      else delete siguiente[rubroId];
+      return siguiente;
+    });
+  }, []);
+
   // Edición inline del nombre de capítulo — mismo patrón que actualizarRubro:
   // update optimista + debounce 800ms + PATCH. No persiste si queda vacío.
   const actualizarNombreCapitulo = useCallback((capId: string, nombre: string) => {
@@ -5029,7 +5067,28 @@ export default function ProyectoPage() {
                             </button>
                           )}
                         </div>
-                        <div />
+                        <div className="flex items-center justify-center">
+                          {esSuperadmin && !rubro.id.startsWith("temp-") && (
+                            estadoBiblioteca[rubro.id] === "guardado" ? (
+                              <span title="Guardado en biblioteca" className="flex items-center justify-center text-emerald-600">
+                                <BookmarkCheck className="w-4 h-4" />
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => guardarRubroEnBiblioteca(rubro.id)}
+                                disabled={estadoBiblioteca[rubro.id] === "guardando"}
+                                title="Guardar en biblioteca"
+                                className="flex items-center justify-center text-slate-400 hover:text-blue-600 transition-colors disabled:cursor-wait"
+                              >
+                                {estadoBiblioteca[rubro.id] === "guardando" ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <BookmarkPlus className="w-4 h-4" />
+                                )}
+                              </button>
+                            )
+                          )}
+                        </div>
                       </div>
                     );
                   })}
