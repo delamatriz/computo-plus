@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
 
     void registrarLogConsumoIA({
       funcion: "extraer-pdf",
+      empresaId: sesionOrError.empresaId,
       inputTokens: message.usage.input_tokens ?? 0,
       outputTokens: message.usage.output_tokens ?? 0,
     });

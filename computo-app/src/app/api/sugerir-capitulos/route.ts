@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { requerirSesion } from "@/lib/sesion";
 
 // Sugiere, desde el paso 3 del asistente de Nuevo proyecto, qué capítulos de la
 // Lista estándar conviene prender según lo que se cargó en el paso 1: tipo de
@@ -32,6 +33,9 @@ type ImageMediaType = (typeof MEDIA_TYPES)[number];
 const MAX_FOTOS = 5;
 
 export async function POST(request: NextRequest) {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
+
   try {
     const { tipo, area, trabajos, otrosDatos, fotos } = await request.json();
 
@@ -95,6 +99,7 @@ Respondé SOLO con JSON válido, sin texto adicional: { "capitulos": ["nombre1",
 
     void registrarLogConsumoIA({
       funcion: "sugerir-capitulos",
+      empresaId: sesion.empresaId,
       inputTokens: response.usage.input_tokens ?? 0,
       outputTokens: response.usage.output_tokens ?? 0,
     });

@@ -33,7 +33,9 @@ export interface SubrubroConApu {
  * caso es el fallback esperado, no un error.
  */
 export async function clasificarCapitulosBiblioteca(
-  descripcion: string
+  descripcion: string,
+  // Empresa de la sesión, solo para el log de consumo de IA.
+  empresaId: string | null = null
 ): Promise<{ id: string; nombre: string }[]> {
   if (!descripcion?.trim()) return [];
 
@@ -61,6 +63,7 @@ Respondé SOLO con JSON: { "capitulos": ["nombre1", "nombre2", ...] }. Si la des
     });
     void registrarLogConsumoIA({
       funcion: "calcular-rapido-clasificar",
+      empresaId,
       inputTokens: response.usage.input_tokens ?? 0,
       outputTokens: response.usage.output_tokens ?? 0,
     });

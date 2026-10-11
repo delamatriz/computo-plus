@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const resultado = await verificarPrecioMTOP(codigo, true);
+        const resultado = await verificarPrecioMTOP(codigo, true, sesionOrError.empresaId);
         resultados.push(resultado);
       } catch (err) {
         resultados.push({

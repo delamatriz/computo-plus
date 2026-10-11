@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const [categorias, preciosMTOP, capitulosBiblioteca] = await Promise.all([
       db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),
       db.precioMTOP.findMany({ take: 50, orderBy: { descripcion: "asc" } }),
-      clasificarCapitulosBiblioteca(descripcion),
+      clasificarCapitulosBiblioteca(descripcion, empresaIdLog),
     ]);
 
     // Subrubros reales de la biblioteca SAU para los capítulos que matchean

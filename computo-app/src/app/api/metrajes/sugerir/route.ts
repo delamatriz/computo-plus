@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { requerirSesion } from "@/lib/sesion";
 
 const client = new Anthropic();
 
 const SYSTEM_PROMPT = `Eres un asistente experto en cómputo métrico de construcción para Uruguay. El usuario te describe un elemento a medir. Extraé las dimensiones, calculá la cantidad (subtotal = largo × ancho × alto × cantidad, omitiendo las dimensiones que no apliquen), y devolvé JSON estructurado. Si el input es ambiguo, poné el campo 'nota' con una aclaración breve. Responde SOLO con JSON, sin texto adicional ni markdown.`;
 
 export async function POST(request: NextRequest) {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
+
   try {
     const { descripcion } = await request.json();
 
@@ -40,6 +44,7 @@ Devolvé un JSON con esta estructura exacta:
 
     void registrarLogConsumoIA({
       funcion: "metrajes-sugerir",
+      empresaId: sesion.empresaId,
       inputTokens: message.usage.input_tokens ?? 0,
       outputTokens: message.usage.output_tokens ?? 0,
     });

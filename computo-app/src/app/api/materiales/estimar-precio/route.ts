@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { requerirSesion } from "@/lib/sesion";
 
 const client = new Anthropic();
 
@@ -8,6 +9,9 @@ const client = new Anthropic();
 // que no tiene precio cargado ni match en PrecioMTOP. Usado por el botón
 // "Estimar" en la columna P. unit. de la tabla de Materiales del APU.
 export async function POST(req: NextRequest) {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
+
   try {
     const { descripcion, unidad } = await req.json();
 
@@ -26,6 +30,7 @@ export async function POST(req: NextRequest) {
 
     void registrarLogConsumoIA({
       funcion: "estimar-precio-material",
+      empresaId: sesion.empresaId,
       inputTokens: message.usage.input_tokens ?? 0,
       outputTokens: message.usage.output_tokens ?? 0,
     });

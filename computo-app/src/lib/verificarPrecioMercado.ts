@@ -69,7 +69,8 @@ async function consultarPrecio(
   proveedor: string,
   nombreProducto: string,
   unidadReferencia: string,
-  precioReferencia: number
+  precioReferencia: number,
+  empresaId: string | null
 ): Promise<ResultadoModelo> {
   const prompt = `Proveedor: ${proveedor}
 Producto ya conocido: ${nombreProducto}
@@ -112,6 +113,7 @@ Buscá el precio actual de este producto en este proveedor. Si el proveedor lo v
   // tokens ya ocurrió aunque la respuesta termine siendo inválida.
   void registrarLogConsumoIA({
     funcion: "verificar-precio-mercado",
+    empresaId,
     inputTokens: inputTokensAcumulado,
     outputTokens: outputTokensAcumulado,
     pasos,
@@ -221,7 +223,9 @@ async function escribirResultado(codigo: string, resultado: ResultadoVerificacio
 // update final — el botón de la UI siempre llama con escribir=true (el
 // diseño confirmado no tiene gate de confirmación aparte, cada tanda se
 // aplica sola, ver SeccionActualizacionDatos.tsx).
-export async function verificarPrecioMTOP(codigo: string, escribir = true): Promise<ResultadoVerificacionPrecio> {
+// empresaId: empresa de la sesión que dispara la verificación, solo para el
+// log de consumo de IA.
+export async function verificarPrecioMTOP(codigo: string, escribir = true, empresaId: string | null = null): Promise<ResultadoVerificacionPrecio> {
   // findFirst en vez de findUnique — codigo dejó de ser único por sí solo
   // (ver escribirResultado más abajo).
   const item = await db.precioMTOP.findFirst({ where: { codigo } });
@@ -233,7 +237,7 @@ export async function verificarPrecioMTOP(codigo: string, escribir = true): Prom
 
   let resultado: ResultadoModelo;
   try {
-    resultado = await consultarPrecio(item.proveedor!, item.nombreProducto ?? item.descripcion, item.unidad, item.precioUnitario);
+    resultado = await consultarPrecio(item.proveedor!, item.nombreProducto ?? item.descripcion, item.unidad, item.precioUnitario, empresaId);
   } catch (err) {
     const salida: ResultadoVerificacionPrecio = {
       ...base,

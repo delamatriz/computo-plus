@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { requerirSesion } from "@/lib/sesion";
 
 const client = new Anthropic();
 
@@ -66,6 +67,9 @@ async function imageBlockDesdeFoto(foto: string, origin: string): Promise<ImageB
 }
 
 export async function POST(request: NextRequest) {
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
+
   try {
     const { fotos, contexto } = await request.json();
 
@@ -93,6 +97,7 @@ export async function POST(request: NextRequest) {
 
     void registrarLogConsumoIA({
       funcion: "metrajes-analizar-imagen",
+      empresaId: sesion.empresaId,
       inputTokens: message.usage.input_tokens ?? 0,
       outputTokens: message.usage.output_tokens ?? 0,
     });
