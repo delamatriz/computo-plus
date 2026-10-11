@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 // PATCH — corrige el precio de un material del catálogo por id exacto.
 // A diferencia del PATCH por descripción en ../route.ts (necesario desde
@@ -21,6 +22,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ codigo: string }> }
 ) {
+  const sesionOrError = await requerirSuperadmin();
+  if (sesionOrError instanceof NextResponse) return sesionOrError;
+
   try {
     const { codigo: id } = await params;
     const body = await req.json().catch(() => null);

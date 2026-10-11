@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 export async function GET() {
   try {
@@ -22,6 +23,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const sesionOrError = await requerirSuperadmin();
+  if (sesionOrError instanceof NextResponse) return sesionOrError;
+
   try {
     const { nombre } = await req.json();
 

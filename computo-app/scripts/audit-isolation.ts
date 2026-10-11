@@ -1,7 +1,8 @@
 // Auditoría HTTP de aislamiento multi-tenant (oct-2026).
 //
 // Crea una empresa de prueba ("B", slug audit-<timestamp>) con un usuario de
-// rol USUARIO, inicia sesión con NextAuth por HTTP contra el dev server y
+// rol ADMIN (el rol más alto de un cliente), inicia sesión con NextAuth por
+// HTTP contra el dev server y
 // verifica que:
 //   1. Sobre datos de OTRAS empresas (proyectos, rubros, sugerencias) recibe
 //      404 JSON — nunca los datos, nunca un 200.
@@ -9,6 +10,11 @@
 //   3. Lo propio funciona: /api/empresa/perfil y /api/configuracion-empresa
 //      devuelven la empresa B, y un PATCH de configuración no toca a las demás.
 //   4. Las rutas solo-SUPERADMIN devuelven 403.
+//   5. (Fase 2) Las escrituras sobre catálogos globales (precios MTOP,
+//      convenio SUNCA, precios de mercado, capítulos estándar) devuelven 403,
+//      y un POST real a la biblioteca de subrubros no deja nada escrito.
+//   6. Notas de diseño (no son pruebas HTTP): márgenes y moneda viven en el
+//      Proyecto, no en Configuracion global.
 // Al final borra todo lo que creó (en un finally, aunque algo falle).
 //
 // Seguridad sobre datos reales (DATABASE_URL apunta a producción):
@@ -18,8 +24,11 @@
 //  - Quedan afuera los GET que crean filas de forma perezosa
 //    (leyes-sociales): si el aislamiento fallara, escribirían en un proyecto
 //    real.
-//  - Las rutas SUPERADMIN se prueban con body vacío: el 403 sale antes de
-//    leer el body.
+//  - Las rutas SUPERADMIN y de catálogo se prueban con body vacío: el 403
+//    sale antes de leer el body. Única excepción, a propósito: el POST a
+//    /api/subrubros-estandar lleva un body real marcado "[AUDIT]" para poder
+//    comprobar en la base que no se escribió; si se llegara a escribir, se
+//    borra en el finally.
 //  - La contraseña del usuario de prueba es aleatoria y nunca se imprime.
 //
 // Un 404 HTML (no JSON) es el 404 genérico de Next cuando el dev server
@@ -49,6 +58,7 @@ const LIMPIAR = process.argv.includes("--limpiar");
 const BASE = (process.argv.find((a) => a.startsWith("--base="))?.slice(7) ?? "http://localhost:3001").replace(/\/$/, "");
 const PREFIJO_SLUG = "audit-";
 const TIMEOUT_MS = 120_000; // primera compilación de una ruta en dev puede tardar
+const MARCA_SUBRUBRO = "[AUDIT] test rubro";
 
 type Esperado = 403 | 404;
 interface Caso {
@@ -241,6 +251,31 @@ async function armarCasos(empresaPropiaId: string | null) {
     casos.push({ grupo: "Solo SUPERADMIN", metodo, ruta, esperado: 403, body: metodo === "GET" || metodo === "DELETE" ? undefined : {} });
   }
 
+  // Fase 2 — escritura sobre catálogos globales.
+  const CATALOGO: [Caso["metodo"], string][] = [
+    ["PATCH", "/api/precios-mtop"],
+    ["PATCH", "/api/precios-mtop/audit-codigo-inexistente"],
+    ["POST", "/api/precios-mtop/importar"],
+    ["POST", "/api/precios-mtop/extraer-pdf"],
+    ["POST", "/api/precios-mtop/audit-codigo-inexistente/resolver"],
+    ["POST", "/api/configuracion/convenio-imagen"],
+    ["POST", "/api/configuracion/convenio-pdf"],
+    ["POST", "/api/configuracion/precios-mercado/evento-resumen"],
+    ["POST", "/api/configuracion/precios-mercado/procesar-tanda"],
+    ["POST", "/api/capitulos-estandar"],
+  ];
+  for (const [metodo, ruta] of CATALOGO) {
+    casos.push({ grupo: "Catálogo global", metodo, ruta, esperado: 403, body: {} });
+  }
+  // Body real (ver encabezado): el chequeo de la base confirma que no se escribió.
+  casos.push({
+    grupo: "Biblioteca global",
+    metodo: "POST",
+    ruta: "/api/subrubros-estandar",
+    esperado: 403,
+    body: { descripcion: `${MARCA_SUBRUBRO} ${Date.now()}`, unidad: "m²", capitulo: "TEST", precioUY: 100 },
+  });
+
   return { proyecto, rubro, sugerencia, idsAjenos, casos };
 }
 
@@ -256,11 +291,11 @@ async function main() {
   console.log(`Rubro ajeno: ${rubro?.id ?? "— (sin rubros, se saltean esos casos)"}`);
   console.log(`Sugerencia ajena: ${sugerencia?.id ?? "— (no hay, se saltea)"}`);
   console.log(`Proyectos ajenos totales (para el chequeo de listado): ${idsAjenos.length}`);
-  console.log(`Casos de 404/403: ${casos.length} + 4 chequeos de datos propios/listados`);
+  console.log(`Casos de 404/403: ${casos.length} + 5 chequeos de datos propios/listados`);
 
   if (!APLICAR) {
     for (const c of casos) console.log(`  ${c.grupo.padEnd(18)} ${c.metodo.padEnd(6)} ${c.ruta}  → espera ${c.esperado}`);
-    console.log("\nDry-run: se crearía una empresa audit-<timestamp> + un usuario USUARIO, y se borrarían al final.");
+    console.log("\nDry-run: se crearía una empresa audit-<timestamp> + un usuario ADMIN, y se borrarían al final.");
     console.log("Correr con --apply (con el dev server prendido) para ejecutar la auditoría.");
     return;
   }
@@ -286,12 +321,12 @@ async function main() {
   let inconclusos = 0;
   try {
     await db.user.create({
-      data: { email, nombre: "Usuario auditoría", rol: "USUARIO", empresaId: empresa.id, passwordHash: await bcrypt.hash(password, 10) },
+      data: { email, nombre: "Usuario auditoría", rol: "ADMIN", empresaId: empresa.id, passwordHash: await bcrypt.hash(password, 10) },
     });
 
     const cliente = new Cliente();
     await cliente.login(email, password);
-    console.log("Login OK como usuario de prueba (rol USUARIO).\n");
+    console.log("Login OK como usuario de prueba (rol ADMIN, empresa B).\n");
 
     const resultados: Resultado[] = [];
     for (const caso of casos) resultados.push(await correrCaso(cliente, caso));
@@ -322,6 +357,9 @@ async function main() {
     const intactas = JSON.stringify(otrasAntes) === JSON.stringify(otrasDespues);
     extra.push({ nombre: "PATCH /api/configuracion-empresa solo toca la empresa B", ok: cfg.status === 200 && cfgJson?.empresaId === empresa.id && cfgJson?.margenEmpresa === 0.37 && intactas, detalle: `status ${cfg.status}, otras empresas intactas: ${intactas}` });
 
+    const escritos = await db.subrubroEstandar.count({ where: { descripcion: { startsWith: MARCA_SUBRUBRO } } });
+    extra.push({ nombre: "POST a la biblioteca global no dejó ningún subrubro escrito", ok: escritos === 0, detalle: escritos === 0 ? "0 en la base" : `${escritos} ENCONTRADOS — la biblioteca global no está protegida` });
+
     // Reporte.
     let grupo = "";
     for (const r of resultados) {
@@ -335,11 +373,18 @@ async function main() {
     console.log("\nDatos propios y listados");
     for (const e of extra) console.log(`  ${e.ok ? "✓" : "✗"} ${e.nombre} — ${e.detalle}`);
 
+    console.log("\nNotas de diseño (no son pruebas HTTP, no cuentan en el resumen)");
+    console.log("  ℹ Configuracion.margenEmpresa / margenImprevistos / monedaDefault no se leen en ningún cálculo:");
+    console.log("    el presupuesto usa Proyecto.imprevistosPct / gastosGeneralesPctDefault y proyecto.moneda");
+    console.log("    (ver schema.prisma, comentario junto a imprevistosPct). Sin riesgo de contaminación entre empresas.");
+
     fallas = resultados.filter((r) => r.estado === "FALLA").length + extra.filter((e) => !e.ok).length;
     inconclusos = resultados.filter((r) => r.estado === "INCONCLUSO").length;
     const total = resultados.length + extra.length;
     console.log(`\nResumen: ${total - fallas - inconclusos}/${total} OK, ${fallas} fallas, ${inconclusos} inconclusos.`);
   } finally {
+    const fuga = await db.subrubroEstandar.deleteMany({ where: { descripcion: { startsWith: MARCA_SUBRUBRO } } });
+    if (fuga.count > 0) console.log(`⚠ Se borraron ${fuga.count} subrubros "${MARCA_SUBRUBRO}" que se llegaron a escribir.`);
     await borrarEmpresaDePrueba(empresa.id);
     console.log(`Empresa de prueba ${slug} borrada (con su usuario, sugerencias y configuración).`);
   }

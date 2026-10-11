@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { eliminarArchivosDeBlob, obtenerStreamDeBlob, subirArchivoABlob } from "@/lib/blob";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 async function getOrCreateConfiguracion() {
   const existente = await db.configuracion.findFirst();
@@ -16,6 +17,9 @@ async function getOrCreateConfiguracion() {
 // del caller, vía el PATCH existente de /api/configuracion (no se escribe
 // acá, para no duplicar el punto de escritura de Configuracion).
 export async function POST(req: NextRequest) {
+  const sesionOrError = await requerirSuperadmin();
+  if (sesionOrError instanceof NextResponse) return sesionOrError;
+
   try {
     const { imagen } = await req.json();
     if (!imagen || typeof imagen !== "string") {

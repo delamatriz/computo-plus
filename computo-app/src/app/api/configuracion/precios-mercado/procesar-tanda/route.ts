@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verificarPrecioMTOP, type ResultadoVerificacionPrecio } from "@/lib/verificarPrecioMercado";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 const TAMANO_TANDA_MAXIMO = 8; // margen sobre las tandas de 4 que arma el cliente — evita que un body manual dispare una corrida larga por request
 
@@ -11,6 +12,9 @@ const TAMANO_TANDA_MAXIMO = 8; // margen sobre las tandas de 4 que arma el clien
 // lib/verificarPrecioMercado.ts). Devuelve un resultado por código,
 // apenas termine toda la tanda (unos pocos minutos como mucho).
 export async function POST(req: NextRequest) {
+  const sesionOrError = await requerirSuperadmin();
+  if (sesionOrError instanceof NextResponse) return sesionOrError;
+
   try {
     const body = await req.json().catch(() => ({}));
     const codigos: unknown = body?.codigos;

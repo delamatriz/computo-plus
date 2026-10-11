@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 /** Normaliza tildes para que "hormigon" también encuentre "Hormigón" */
 function normalizar(s: string): string {
@@ -163,6 +164,9 @@ export async function GET(req: NextRequest) {
 // resolver. Sin precioMTOPId (material agregado a mano, o de los pocos sin
 // vínculo del backfill), sigue el matching por texto de siempre.
 export async function PATCH(req: NextRequest) {
+  const sesionOrError = await requerirSuperadmin();
+  if (sesionOrError instanceof NextResponse) return sesionOrError;
+
   try {
     const body = await req.json();
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 type AccionResolucion = "aceptar" | "mantener" | "manual";
 const ACCIONES_VALIDAS: AccionResolucion[] = ["aceptar", "mantener", "manual"];
@@ -24,6 +25,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ codigo: string }> }
 ) {
+  const sesionOrError = await requerirSuperadmin();
+  if (sesionOrError instanceof NextResponse) return sesionOrError;
+
   try {
     const { codigo } = await params;
     const body = await req.json().catch(() => ({}));

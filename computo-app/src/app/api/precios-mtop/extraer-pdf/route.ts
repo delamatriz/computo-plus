@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 const client = new Anthropic();
 
@@ -59,6 +60,9 @@ interface ItemExtraido {
 }
 
 export async function POST(request: NextRequest) {
+  const sesionOrError = await requerirSuperadmin();
+  if (sesionOrError instanceof NextResponse) return sesionOrError;
+
   try {
     const { archivo } = await request.json();
 

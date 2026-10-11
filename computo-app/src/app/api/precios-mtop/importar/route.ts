@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
 import { mejorCoincidencia, type CandidatoImportacion } from "@/lib/similitudDescripcion";
 import { buscarCoincidenciasPorTexto } from "@/lib/recalcularPrecioRubro";
-import { requerirSesion } from "@/lib/sesion";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 interface AmbiguoDetectado {
   materialAPUId: string;
@@ -56,7 +56,7 @@ function esFilaValida(f: unknown): f is FilaImportacion {
 // recalcula la clasificación acá, nunca confía en la del cliente, para
 // que los datos que se escriben sean siempre los que decidió el server.
 export async function POST(req: NextRequest) {
-  const sesion = await requerirSesion();
+  const sesion = await requerirSuperadmin();
   if (sesion instanceof NextResponse) return sesion;
   try {
     const body = await req.json().catch(() => null);

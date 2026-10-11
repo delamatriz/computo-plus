@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 // Evento B — la corrida de "Buscar precios actualizados" vive entera del
 // lado del cliente (tandas disparadas desde el navegador, ver
@@ -9,6 +10,9 @@ import { db } from "@/lib/db";
 // tiene calculado — no se recalcula nada acá, se confía en el conteo que
 // ya se le mostró al usuario en pantalla.
 export async function POST(req: NextRequest) {
+  const sesionOrError = await requerirSuperadmin();
+  if (sesionOrError instanceof NextResponse) return sesionOrError;
+
   try {
     const body = await req.json().catch(() => ({}));
     const { actualizados, pendientesRevision, restantes } = body ?? {};

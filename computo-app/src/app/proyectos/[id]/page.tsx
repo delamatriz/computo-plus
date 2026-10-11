@@ -873,6 +873,11 @@ function toTitleCase(texto: string): string {
 function guardarEnBibliotecaGlobal(descripcion: string, unidad: string, capitulo: string, precioUnit: number, moneda: string) {
   if (!descripcion.trim() || !unidad.trim() || !capitulo.trim() || !precioUnit) return;
   const precioUY = moneda === "USD" ? precioUnit * TCU : precioUnit;
+  // SEGURIDAD: POST /api/subrubros-estandar requiere SUPERADMIN (Fase 1, Patch D).
+  // Para usuarios normales el servidor devuelve 403; como acá no se mira la
+  // respuesta, pasa sin efecto (el .catch() solo atrapa errores de red).
+  // El rubro sigue existiendo en el proyecto — solo no se copia a la biblioteca global.
+  // Comportamiento intencional: la biblioteca global es SUPERADMIN-only.
   fetch("/api/subrubros-estandar", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1808,6 +1813,10 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   // badge volvería a mostrar "Pendiente" apenas se recarga.
   const sincronizarPrecioMTOP = async (m: InsumoAPU) => {
     if (!m.descripcion.trim() || m.precioUnit <= 0) return;
+    // SEGURIDAD: PATCH /api/precios-mtop requiere SUPERADMIN (Fase 2) — el
+    // catálogo es global, un precio corregido acá lo verían todas las
+    // empresas. Para usuarios normales da 403 y el `!res.ok` de abajo lo
+    // ignora: el APU conserva su precio, el catálogo no se toca.
     try {
       const res = await fetch("/api/precios-mtop", {
         method: "PATCH",

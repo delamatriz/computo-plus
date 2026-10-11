@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { eliminarArchivosDeBlob, obtenerStreamDeBlob, subirArchivoABlob } from "@/lib/blob";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 async function getOrCreateConfiguracion() {
   const existente = await db.configuracion.findFirst();
@@ -14,6 +15,9 @@ async function getOrCreateConfiguracion() {
 // documento de consulta/descarga, se guarda de una sola vez al elegir
 // el archivo.
 export async function POST(req: NextRequest) {
+  const sesionOrError = await requerirSuperadmin();
+  if (sesionOrError instanceof NextResponse) return sesionOrError;
+
   try {
     const { archivo } = await req.json();
     if (!archivo || typeof archivo !== "string") {
