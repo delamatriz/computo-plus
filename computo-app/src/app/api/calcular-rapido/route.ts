@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, resolverProporcionDesglose } from "@/lib/bibliotecaApus";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
 import { requerirSesion } from "@/lib/sesion";
 
 const client = new Anthropic();
@@ -28,7 +29,10 @@ export async function POST(request: NextRequest) {
 
     const [categorias, preciosMTOP, capitulosBiblioteca] = await Promise.all([
       db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),
-      db.precioMTOP.findMany({ take: 50, orderBy: { descripcion: "asc" } }),
+      // Materiales base + los relevantes para la descripción de la obra
+      // (antes: los primeros 50 alfabéticos, recortados a 30) — ver
+      // lib/materialesParaPrompt.ts.
+      materialesParaPrompt(descripcion),
       clasificarCapitulosBiblioteca(descripcion, empresaIdLog),
     ]);
 
@@ -45,7 +49,6 @@ export async function POST(request: NextRequest) {
       .join("\n");
 
     const tablaMateriales = preciosMTOP
-      .slice(0, 30)
       .map((p) => `${p.descripcion}: ${p.precioUnitario} UYU/${p.unidad}`)
       .join("\n");
 

@@ -5,6 +5,7 @@ import { buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, type Subrubr
 import { sumManoObra, calcularPrecioUnitario, sumarAportesPatronalesPct, montoAportesPatronales } from "@/lib/apu-calc";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { coincidenciasPrecioMaterial } from "@/lib/resolverPrecioInsumo";
+import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
 
 const normalizar = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
 
@@ -127,7 +128,9 @@ export async function generarApuParaRubro(
     }),
     db.aPU.findUnique({ where: { rubroId } }),
     db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),
-    db.precioMTOP.findMany({ take: 50, orderBy: { descripcion: "asc" } }),
+    // Materiales base + los relevantes para ESTE rubro (antes: los primeros
+    // 50 alfabéticos) — ver lib/materialesParaPrompt.ts.
+    materialesParaPrompt(descripcion),
     // Mismo resolver ya usado al crear un capítulo real (Fase 2, Etapa 5) —
     // undefined si el nombre no matchea ningún CapituloCatalogo (alias
     // ambiguo o inexistente). Sin esto no hay dónde buscar subrubros reales
@@ -164,7 +167,7 @@ Tipo de obra: ${tipoObra || "—"}
 JORNALES SUNCA VIGENTES (Uruguay 2025):
 ${tablaJornales}
 
-PRECIOS DE REFERENCIA MTOP (Lista Nº599, Nov 2025, en UYU):
+MATERIALES DEL CATÁLOGO (precios de referencia en UYU — Lista MTOP y proveedores):
 ${tablaMateriales}
 ${
   tablaBiblioteca
@@ -188,7 +191,7 @@ Reglas:
 - "rendimiento" en materiales = cantidad de material por unidad de rubro (ej: 0.35 m³ de arena por m² de revoque).
 - "rendimiento" en mano de obra = unidades de rubro producidas por jornada de 8hs (ej: 12 m² de revoque por jornada).
 - No calcules ni devuelvas ningún precio unitario final — eso lo calcula el sistema a partir de los materiales y mano de obra que devuelvas.
-- Usá precios MTOP cuando el material coincida. Para mano de obra, usá la categoría SUNCA más adecuada.
+- Si un material de la lista del catálogo sirve, usalo copiando su descripción EXACTA, letra por letra (sin abreviar ni reformular) y con su precio. Solo si ninguno sirve, describí uno propio. Para mano de obra, usá la categoría SUNCA más adecuada.
 - Si usaste como base alguno de los SUBRUBROS REALES DE BIBLIOTECA de arriba (aunque hayas ajustado cantidades a la escala de este rubro), marcá "origen": "biblioteca" y poné en "subrubroCodigoBase" el código entre corchetes de ese subrubro (ej. "1.1"). Si no había ninguno aplicable y generaste todo con tu criterio, marcá "origen": "estimado" y "subrubroCodigoBase": null.
 - Respondé SOLO con JSON válido, sin texto adicional ni markdown.`;
 
