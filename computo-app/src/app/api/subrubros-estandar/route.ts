@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 export async function GET(req: NextRequest) {
   const capituloId = req.nextUrl.searchParams.get("capituloId")?.trim();
@@ -48,6 +49,9 @@ export async function GET(req: NextRequest) {
  * No sobreescribe si ya existe uno con la misma descripción en el mismo capítulo.
  */
 export async function POST(req: NextRequest) {
+  const authCheck = await requerirSuperadmin();
+  if (authCheck instanceof NextResponse) return authCheck;
+
   try {
     const { descripcion, unidad, capitulo, precioUY } = await req.json();
 

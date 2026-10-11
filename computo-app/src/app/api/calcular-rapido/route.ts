@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, resolverProporcionDesglose } from "@/lib/bibliotecaApus";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { requerirSesion } from "@/lib/sesion";
 
 const client = new Anthropic();
 
@@ -12,6 +13,9 @@ const TIPOS_LABEL: Record<string, string> = {
 };
 
 export async function POST(request: NextRequest) {
+  const sesion = await requerirSesion();
+  const empresaIdLog = sesion instanceof NextResponse ? null : sesion.empresaId;
+
   try {
     const { descripcion, tipo, zona, calidad, moneda, fotos } = await request.json();
 
@@ -148,6 +152,7 @@ Reglas:
 
     void registrarLogConsumoIA({
       funcion: "calcular-rapido",
+      empresaId: empresaIdLog,
       inputTokens: message.usage.input_tokens ?? 0,
       outputTokens: message.usage.output_tokens ?? 0,
     });

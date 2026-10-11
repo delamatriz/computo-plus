@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 const VARIANTES_VALIDAS = ["publica", "privada"] as const;
 
@@ -14,6 +15,9 @@ export async function GET() {
 // cargar el mismo mes/variante corrige el valor en vez de duplicar la
 // fila (Luis puede haberse equivocado al tipear).
 export async function POST(req: NextRequest) {
+  const authCheck = await requerirSuperadmin();
+  if (authCheck instanceof NextResponse) return authCheck;
+
   try {
     const { mes, variante, valor } = await req.json();
 

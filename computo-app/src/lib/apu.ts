@@ -57,6 +57,7 @@ export async function generarApuParaRubro(
             proyecto: {
               select: {
                 id: true,
+                empresaId: true,
                 utilidadPctDefault: true,
                 leyesSociales: {
                   select: {
@@ -150,6 +151,7 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
   void registrarLogConsumoIA({
     funcion: `sugerir-apu:${origen}`,
     proyectoId: rubro?.capitulo.proyecto.id ?? null,
+    empresaId: rubro?.capitulo.proyecto.empresaId ?? null,
     inputTokens: message.usage.input_tokens ?? 0,
     outputTokens: message.usage.output_tokens ?? 0,
   });

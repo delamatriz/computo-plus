@@ -30,6 +30,7 @@ model Empresa {
   users     User[]
   sugerencias   Sugerencia[]
   logsConsumoIA LogConsumoIA[]
+  configuracionEmpresa ConfiguracionEmpresa?
 }
 
 // Usuario de una empresa (tenant). Sin auth todavía (Fase 1): solo el modelo.
@@ -1503,4 +1504,19 @@ model IndiceICCVMensual {
   updatedAt DateTime @updatedAt
 
   @@unique([mes, variante])
+}
+
+// Multi-tenant Fase 1 (oct-2026) — configuración propia de cada empresa
+// (márgenes y moneda). Configuracion sigue siendo global (convenio SUNCA,
+// jornal base, IVA). Se crea perezosamente con los defaults — ver
+// obtenerConfigEmpresa() en src/lib/configuracionEmpresa.ts.
+model ConfiguracionEmpresa {
+  id                String   @id @default(cuid())
+  empresaId         String   @unique
+  empresa           Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  margenEmpresa     Float    @default(0.20)
+  margenImprevistos Float    @default(0.05)
+  monedaDefault     String   @default("UYU")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

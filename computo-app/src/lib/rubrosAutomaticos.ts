@@ -291,6 +291,7 @@ Respondé SOLO con JSON:
     void registrarLogConsumoIA({
       funcion: "generar-rubros",
       proyectoId,
+      empresaId: proyecto.empresaId ?? null,
       inputTokens: message.usage.input_tokens ?? 0,
       outputTokens: message.usage.output_tokens ?? 0,
     });

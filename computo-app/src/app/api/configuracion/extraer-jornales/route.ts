@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 const client = new Anthropic();
 
@@ -83,6 +84,9 @@ function esRomanoValido(valor: unknown): valor is Romano {
 }
 
 export async function POST(request: NextRequest) {
+  const sesion = await requerirSuperadmin();
+  if (sesion instanceof NextResponse) return sesion;
+
   try {
     // "archivo" en vez de "imagen" (nombre viejo del campo) — ahora puede
     // ser también un PDF, ver parseDataUrl. Único caller es
@@ -128,6 +132,7 @@ export async function POST(request: NextRequest) {
 
     void registrarLogConsumoIA({
       funcion: "extraer-jornales",
+      empresaId: sesion.empresaId,
       inputTokens: message.usage.input_tokens ?? 0,
       outputTokens: message.usage.output_tokens ?? 0,
     });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 export async function GET() {
   try {
@@ -14,6 +15,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  const authCheck = await requerirSuperadmin();
+  if (authCheck instanceof NextResponse) return authCheck;
+
   try {
     const body = await request.json();
     const cambios: { id: string; jornal: number }[] = body.categorias;
