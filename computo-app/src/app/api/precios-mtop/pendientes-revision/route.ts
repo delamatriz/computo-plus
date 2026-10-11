@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 // Cola de Revisión (Etapa 4, FEAT-AI-006) — separa los requiereVerificacion=true
 // en las dos UX distintas que no se mezclan (ver diseño): "sin_precio_referencia"
 // nunca tuvo precio (solo se puede cargar a mano); cualquier otro motivo trae
 // contexto de una verificación real (o simulada) para revisar con las 3 acciones
 // de POST /api/precios-mtop/[codigo]/resolver.
+// Solo SUPERADMIN: es la cola interna de trabajo sobre el catálogo global.
 export async function GET() {
+  const sesionOrError = await requerirSuperadmin();
+  if (sesionOrError instanceof NextResponse) return sesionOrError;
+
   try {
     const pendientes = await db.precioMTOP.findMany({
       where: { requiereVerificacion: true },
