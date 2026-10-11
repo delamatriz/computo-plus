@@ -3190,7 +3190,9 @@ export default function ProyectoPage() {
   // "Guardar en biblioteca" (solo SUPERADMIN): estado del botón por rubro.
   // null del hook (cargando) cuenta como "no": el botón no aparece hasta confirmar.
   const esSuperadmin = useSuperadmin() === true;
-  const [estadoBiblioteca, setEstadoBiblioteca] = useState<Record<string, "guardando" | "guardado">>({});
+  // "guardado" lleva la lista de insumos que quedaron con precio fijo (sin
+  // vínculo al catálogo) — vacía = todo sigue al catálogo.
+  const [estadoBiblioteca, setEstadoBiblioteca] = useState<Record<string, "guardando" | { sinVinculo: string[] }>>({});
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [leyesSociales, setLeyesSociales] = useState<LeyesSocialesData | null>(null);
@@ -4355,23 +4357,26 @@ export default function ProyectoPage() {
   }, []);
 
   // Copia el rubro + su APU a la biblioteca global (SubrubroEstandar). Si ya
-  // estaba (409 ya_existe) se marca igual como guardado. Si algún insumo
-  // quedaría en $0 al clonar (422), el servidor no guarda nada y devuelve la
-  // lista — se muestra con window.alert, mismo patrón que el resto de los
-  // errores de esta pantalla.
+  // estaba (409 ya_existe) se marca igual como guardado. Los insumos sin
+  // vínculo al catálogo se guardan con precio fijo y vuelven en la respuesta
+  // (el ícono queda ámbar con la lista). Los errores se muestran con
+  // window.alert, mismo patrón que el resto de esta pantalla.
   const guardarRubroEnBiblioteca = useCallback(async (rubroId: string) => {
     setEstadoBiblioteca((prev) => ({ ...prev, [rubroId]: "guardando" }));
-    let guardado = false;
+    let sinVinculo: string[] | null = null;
     try {
       const res = await fetch(`/api/rubros/${rubroId}/guardar-en-biblioteca`, { method: "POST" });
       const data = await res.json().catch(() => null);
-      if (res.ok || data?.error === "ya_existe") {
-        guardado = true;
+      if (res.ok) {
+        sinVinculo = [
+          ...(data?.materialesSinVinculo ?? []),
+          ...(data?.equiposSinVinculo ?? []),
+          ...(data?.manoObraSinVinculo ?? []),
+        ];
+      } else if (data?.error === "ya_existe") {
+        sinVinculo = [];
       } else {
-        const detalle = Array.isArray(data?.problemas)
-          ? "\n\n" + data.problemas.map((p: { descripcion: string; motivo: string }) => `• ${p.descripcion}: ${p.motivo}`).join("\n")
-          : "";
-        window.alert((data?.mensaje ?? "No se pudo guardar el rubro en la biblioteca.") + detalle);
+        window.alert(data?.mensaje ?? "No se pudo guardar el rubro en la biblioteca.");
       }
     } catch (err) {
       console.error("[guardarRubroEnBiblioteca]", err);
@@ -4379,7 +4384,7 @@ export default function ProyectoPage() {
     }
     setEstadoBiblioteca((prev) => {
       const siguiente = { ...prev };
-      if (guardado) siguiente[rubroId] = "guardado";
+      if (sinVinculo) siguiente[rubroId] = { sinVinculo };
       else delete siguiente[rubroId];
       return siguiente;
     });
@@ -5084,10 +5089,22 @@ export default function ProyectoPage() {
                         </div>
                         <div className="flex items-center justify-center">
                           {esSuperadmin && !rubro.id.startsWith("temp-") && (
-                            estadoBiblioteca[rubro.id] === "guardado" ? (
-                              <span title="Guardado en biblioteca" className="flex items-center justify-center text-emerald-600">
-                                <BookmarkCheck className="w-4 h-4" />
-                              </span>
+                            typeof estadoBiblioteca[rubro.id] === "object" ? (
+                              (() => {
+                                const { sinVinculo } = estadoBiblioteca[rubro.id] as { sinVinculo: string[] };
+                                return (
+                                  <span
+                                    title={
+                                      sinVinculo.length === 0
+                                        ? "Guardado en biblioteca"
+                                        : `Guardado con materiales sin precio de catálogo: ${sinVinculo.join(", ")}`
+                                    }
+                                    className={cn("flex items-center justify-center", sinVinculo.length === 0 ? "text-emerald-600" : "text-amber-500")}
+                                  >
+                                    <BookmarkCheck className="w-4 h-4" />
+                                  </span>
+                                );
+                              })()
                             ) : (
                               <button
                                 onClick={() => guardarRubroEnBiblioteca(rubro.id)}

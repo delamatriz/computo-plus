@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
+import { NOTA_PRECIO_FIJO_BIBLIOTECA, precioConRespaldo, resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
 import { calcularPrecioUnitario, sumarAportesPatronalesPct } from "@/lib/apu-calc";
 import { costoDirectoUnitario } from "@/lib/costoAgregado";
 
@@ -102,7 +102,9 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
   for (let i = 0; i < apuEstandar.materiales.length; i++) {
     const m = apuEstandar.materiales[i];
     const precioMTOP = await resolverPrecioMaterial(m.descripcion);
-    const precioUnit = precioMTOP?.precioUnitario ?? 0;
+    // Catálogo primero; si no resuelve, el precio fijo con que se guardó la
+    // línea en la biblioteca (ver precioConRespaldo).
+    const { precio: precioUnit, esFijo } = precioConRespaldo(precioMTOP?.precioUnitario, m.precioReferencia);
 
     await db.materialAPU.create({
       data: {
@@ -112,11 +114,15 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
         rendimiento: m.rendimiento,
         precioUnit,
         orden: i,
-        motivoVerificacion: precioMTOP?.motivoVerificacion ?? null,
-        proveedor: precioMTOP?.proveedor ?? null,
-        notaProcedencia: precioMTOP?.notaProcedencia ?? null,
-        fechaUltimaVerificacion: precioMTOP?.fechaUltimaVerificacion ?? null,
-        precioMTOPId: precioMTOP?.id ?? null,
+        ...(esFijo
+          ? { notaProcedencia: NOTA_PRECIO_FIJO_BIBLIOTECA }
+          : {
+              motivoVerificacion: precioMTOP?.motivoVerificacion ?? null,
+              proveedor: precioMTOP?.proveedor ?? null,
+              notaProcedencia: precioMTOP?.notaProcedencia ?? null,
+              fechaUltimaVerificacion: precioMTOP?.fechaUltimaVerificacion ?? null,
+              precioMTOPId: precioMTOP?.id ?? null,
+            }),
       },
     });
   }
@@ -125,7 +131,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
   for (let i = 0; i < apuEstandar.equipos.length; i++) {
     const eq = apuEstandar.equipos[i];
     const precioEquipo = await resolverPrecioEquipo(eq.descripcion);
-    const costoUnit = precioEquipo?.precioHora ?? 0;
+    const { precio: costoUnit, esFijo } = precioConRespaldo(precioEquipo?.precioHora, eq.costoReferencia);
 
     const creado = await db.equipoAPU.create({
       data: {
@@ -135,7 +141,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
         rendimiento: eq.rendimiento,
         costoUnit,
         orden: i,
-        motivoVerificacion: precioEquipo ? null : "sin_costo_referencia",
+        motivoVerificacion: precioEquipo || esFijo ? null : "sin_costo_referencia",
       },
     });
     equipoIdMap.set(eq.id, creado.id);
@@ -149,7 +155,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
         categoria: mo.categoria,
         jornadaHs: mo.jornadaHs,
         rendimiento: mo.rendimiento,
-        jornalRef: jornalPorNombre(mo.categoria),
+        jornalRef: precioConRespaldo(jornalPorNombre(mo.categoria), mo.jornalReferencia).precio,
         orden: i,
         equipoRelacionadoId: mo.equipoRelacionadoId
           ? equipoIdMap.get(mo.equipoRelacionadoId) ?? null

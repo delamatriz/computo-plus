@@ -45,3 +45,21 @@ export async function resolverPrecioEquipo(descripcion: string): Promise<PrecioE
   const filas = await db.precioEquipo.findMany({ where: { descripcion: { contains: buscada, mode: "insensitive" } } });
   return ordenarCoincidencias(buscada, filas)[0] ?? null;
 }
+
+// Precio de una línea de APU estándar de la Biblioteca: el del catálogo si
+// resuelve con precio > 0; si no, el precio fijo de respaldo que se guardó
+// con la línea (MaterialAPUEstandar.precioReferencia, EquipoAPUEstandar.
+// costoReferencia, ManoObraAPUEstandar.jornalReferencia — ver "Guardar en
+// biblioteca"); si tampoco hay, el del catálogo tal cual (o 0). `esFijo`
+// indica que se usó el respaldo, para marcarlo "Pendiente de verificar".
+export const NOTA_PRECIO_FIJO_BIBLIOTECA =
+  "Precio fijo guardado desde un proyecto — sin vínculo al catálogo, no se actualiza solo";
+
+export function precioConRespaldo(
+  precioCatalogo: number | null | undefined,
+  respaldo: number | null | undefined
+): { precio: number; esFijo: boolean } {
+  if (precioCatalogo != null && precioCatalogo > 0) return { precio: precioCatalogo, esFijo: false };
+  if (respaldo != null && respaldo > 0) return { precio: respaldo, esFijo: true };
+  return { precio: precioCatalogo ?? 0, esFijo: false };
+}

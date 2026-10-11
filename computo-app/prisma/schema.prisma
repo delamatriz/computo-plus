@@ -1332,6 +1332,11 @@ model MaterialAPUEstandar {
   descripcion String
   unidad      String
   rendimiento Float
+  // Precio fijo de respaldo (oct-2026, "Guardar en biblioteca"): solo para
+  // materiales sin vínculo al catálogo al copiar un rubro de proyecto. Al
+  // clonar manda PrecioMTOP si resuelve con precio > 0; si no, este valor
+  // (no se actualiza con el catálogo). null = sin respaldo, como siempre.
+  precioReferencia Float?
   apuId       String
   apu         APUEstandar @relation(fields: [apuId], references: [id], onDelete: Cascade)
 }
@@ -1341,6 +1346,9 @@ model ManoObraAPUEstandar {
   categoria   String
   jornadaHs   Float       @default(8)
   rendimiento Float
+  // Jornal fijo de respaldo — mismo criterio que MaterialAPUEstandar.precioReferencia,
+  // para categorías que no existen en CategoriaLaboral.
+  jornalReferencia Float?
   apuId       String
   apu         APUEstandar @relation(fields: [apuId], references: [id], onDelete: Cascade)
 
@@ -1355,6 +1363,9 @@ model EquipoAPUEstandar {
   descripcion String
   unidad      String
   rendimiento Float
+  // Costo fijo de respaldo — mismo criterio que MaterialAPUEstandar.precioReferencia,
+  // para equipos sin PrecioEquipo.
+  costoReferencia Float?
   apuId       String
   apu         APUEstandar @relation(fields: [apuId], references: [id], onDelete: Cascade)
   manoObraRelacionada ManoObraAPUEstandar[] @relation("ArmadoDeEquipoEstandar")

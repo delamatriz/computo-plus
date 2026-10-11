@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
+import { NOTA_PRECIO_FIJO_BIBLIOTECA, precioConRespaldo, resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
 import { sumEquipos, sumManoObra, calcularPrecioUnitario } from "@/lib/apu-calc";
 
 // GET — descompuesto (APU) completo de un rubro del catálogo maestro, para
@@ -58,7 +58,7 @@ export async function GET(
     const materiales = await Promise.all(
       apuEstandar.materiales.map(async (m) => {
         const precioMTOP = await resolverPrecioMaterial(m.descripcion);
-        const precioUnit = precioMTOP?.precioUnitario ?? 0;
+        const { precio: precioUnit, esFijo } = precioConRespaldo(precioMTOP?.precioUnitario, m.precioReferencia);
         return {
           id: m.id,
           descripcion: m.descripcion,
@@ -66,7 +66,19 @@ export async function GET(
           rendimiento: m.rendimiento,
           precioUnit,
           subtotal: m.rendimiento * precioUnit,
-          fuente: precioMTOP
+          // Precio fijo de respaldo → "Pendiente de verificar" (nota de
+          // procedencia sin fecha de verificación), no "verificado".
+          fuente: esFijo
+            ? {
+                proveedor: null,
+                notaProcedencia: NOTA_PRECIO_FIJO_BIBLIOTECA,
+                nombreProducto: null,
+                urlReferencia: null,
+                fechaUltimaVerificacion: null,
+                requiereVerificacion: false,
+                motivoVerificacion: null,
+              }
+            : precioMTOP
             ? {
                 proveedor: precioMTOP.proveedor,
                 notaProcedencia: precioMTOP.notaProcedencia,
@@ -89,7 +101,7 @@ export async function GET(
       )?.jornal ?? 0;
 
     const manoObra = apuEstandar.manoObra.map((mo) => {
-      const jornalRef = jornalPorNombre(mo.categoria);
+      const jornalRef = precioConRespaldo(jornalPorNombre(mo.categoria), mo.jornalReferencia).precio;
       return {
         id: mo.id,
         categoria: mo.categoria,
@@ -105,7 +117,7 @@ export async function GET(
     const equipos = await Promise.all(
       apuEstandar.equipos.map(async (eq) => {
         const precioEquipo = await resolverPrecioEquipo(eq.descripcion);
-        const costoUnit = precioEquipo?.precioHora ?? 0;
+        const costoUnit = precioConRespaldo(precioEquipo?.precioHora, eq.costoReferencia).precio;
         return {
           id: eq.id,
           descripcion: eq.descripcion,

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
-import { resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
+import { precioConRespaldo, resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
 import { sumManoObra } from "@/lib/apu-calc";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
@@ -12,9 +12,10 @@ export interface SubrubroConApu {
   descripcion: string;
   unidad: string;
   precioUY: number;
-  materiales: { descripcion: string; unidad: string; rendimiento: number }[];
-  manoObra: { categoria: string; rendimiento: number; jornadaHs: number }[];
-  equipos: { descripcion: string; unidad: string; rendimiento: number }[];
+  // *Referencia: precio fijo de respaldo (ver precioConRespaldo en resolverPrecioInsumo.ts).
+  materiales: { descripcion: string; unidad: string; rendimiento: number; precioReferencia: number | null }[];
+  manoObra: { categoria: string; rendimiento: number; jornadaHs: number; jornalReferencia: number | null }[];
+  equipos: { descripcion: string; unidad: string; rendimiento: number; costoReferencia: number | null }[];
 }
 
 /**
@@ -98,9 +99,9 @@ export async function buscarSubrubrosPorCapitulos(capituloIds: string[]): Promis
       precioUY: true,
       apuEstandar: {
         select: {
-          materiales: { select: { descripcion: true, unidad: true, rendimiento: true } },
-          manoObra: { select: { categoria: true, rendimiento: true, jornadaHs: true } },
-          equipos: { select: { descripcion: true, unidad: true, rendimiento: true } },
+          materiales: { select: { descripcion: true, unidad: true, rendimiento: true, precioReferencia: true } },
+          manoObra: { select: { categoria: true, rendimiento: true, jornadaHs: true, jornalReferencia: true } },
+          equipos: { select: { descripcion: true, unidad: true, rendimiento: true, costoReferencia: true } },
         },
       },
     },
@@ -149,21 +150,21 @@ export async function resolverProporcionDesglose(
   let materialesTotal = 0;
   for (const m of subrubro.materiales) {
     const precioMTOP = await resolverPrecioMaterial(m.descripcion);
-    materialesTotal += m.rendimiento * (precioMTOP?.precioUnitario ?? 0);
+    materialesTotal += m.rendimiento * precioConRespaldo(precioMTOP?.precioUnitario, m.precioReferencia).precio;
   }
 
   const categoriasLaborales = await db.categoriaLaboral.findMany();
   const jornalPorNombre = (nombre: string) =>
     categoriasLaborales.find((c) => c.nombre.trim().toLowerCase() === nombre.trim().toLowerCase())?.jornal ?? 0;
   const manoObraTotal = sumManoObra(
-    subrubro.manoObra.map((mo) => ({ rendimiento: mo.rendimiento, jornalRef: jornalPorNombre(mo.categoria) })),
+    subrubro.manoObra.map((mo) => ({ rendimiento: mo.rendimiento, jornalRef: precioConRespaldo(jornalPorNombre(mo.categoria), mo.jornalReferencia).precio })),
     []
   );
 
   let equiposTotal = 0;
   for (const eq of subrubro.equipos) {
     const precioEquipo = await resolverPrecioEquipo(eq.descripcion);
-    equiposTotal += eq.rendimiento * (precioEquipo?.precioHora ?? 0);
+    equiposTotal += eq.rendimiento * precioConRespaldo(precioEquipo?.precioHora, eq.costoReferencia).precio;
   }
 
   return { materialesTotal, manoObraTotal, equiposTotal };
