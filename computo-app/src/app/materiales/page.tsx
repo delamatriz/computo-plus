@@ -8,15 +8,16 @@ import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerifi
 import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
 import SeccionActualizacionDatos from "@/components/materiales/SeccionActualizacionDatos";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
+import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
 
-// NOTA(multi-tenant): esta pantalla edita el catálogo/jornales
-// compartido, pero en el futuro multi-tenant cada empresa va a tener su
-// PROPIA copia editable aquí mismo (nace de una semilla de MTOP/SUNCA
-// oficial) — esta UI no necesita restricción de rol, es edición normal
-// por empresa. Lo que sí falta construir por separado es una pantalla
-// de admin para mantener la plantilla maestra y propagarla a empresas
-// existentes sin pisar sus cambios (ver Fase 3 del plan multi-tenant).
+// NOTA(multi-tenant): hoy el catálogo es global (compartido por todas las
+// empresas), así que editarlo, importar listas y buscar precios es solo
+// del SUPERADMIN (las APIs lo exigen desde la Fase 2; acá solo se ocultan
+// los controles). El resto ve el catálogo en modo lectura. En la Fase 3
+// cada empresa va a tener su PROPIA copia editable aquí mismo (nace de
+// una semilla de MTOP/SUNCA oficial), y hará falta una pantalla de admin
+// para mantener la plantilla maestra y propagarla sin pisar cambios.
 // Antes vivía como sección aparte en /configuracion — acá es solo un
 // filtro sobre el mismo catálogo y el mismo editor inline de siempre
 // (por id), no un segundo mecanismo de edición por código en batch
@@ -132,6 +133,8 @@ function MaterialesPageInner() {
   // leen una sola vez al montar: si el usuario despeja el buscador a mano
   // después, no queremos que un re-render los vuelva a imponer.
   const qInicial = useRef(searchParams.get("q")).current;
+  // null (cargando) cuenta como "no": sin flash de controles de edición.
+  const puedeEditar = useSuperadmin() === true;
 
   const [materiales, setMateriales] = useState<MaterialCatalogo[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -266,8 +269,13 @@ function MaterialesPageInner() {
           <p className="text-sm text-slate-400 mt-2 max-w-2xl">
             Este catálogo combina la Lista Oficial MTOP N°599 con materiales de mercado libre y listas importadas. El
             badge de cada fila indica si el precio está verificado, pendiente de verificar, o si falta cotizar. Usá
-            los filtros para encontrar rápido lo que necesitás revisar. ¿Tenés tu propia lista de precios? Subila
-            para complementar este catálogo — hacé clic en &quot;Importar lista de precios&quot;.
+            los filtros para encontrar rápido lo que necesitás revisar.
+            {puedeEditar && (
+              <>
+                {" "}¿Tenés tu propia lista de precios? Subila para complementar este catálogo — hacé clic en
+                &quot;Importar lista de precios&quot;.
+              </>
+            )}
           </p>
           {!cargando && (
             <p className="text-xs text-slate-400 mt-1.5">
@@ -275,13 +283,15 @@ function MaterialesPageInner() {
             </p>
           )}
         </div>
-        <button
-          onClick={() => setModalImportarAbierto(true)}
-          className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition-colors"
-        >
-          <Upload className="w-4 h-4" />
-          Importar lista de precios
-        </button>
+        {puedeEditar && (
+          <button
+            onClick={() => setModalImportarAbierto(true)}
+            className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition-colors"
+          >
+            <Upload className="w-4 h-4" />
+            Importar lista de precios
+          </button>
+        )}
       </div>
 
       <div className="mb-8">
@@ -406,7 +416,9 @@ function MaterialesPageInner() {
                       </td>
                       <td className="px-4 py-2.5 text-slate-500">{m.unidad}</td>
                       <td className="px-4 py-2.5 text-right">
-                        {precioEditId === m.id ? (
+                        {!puedeEditar ? (
+                          <span className="tabular-nums font-medium text-slate-700">{fmtMon(m.precioUnitario)}</span>
+                        ) : precioEditId === m.id ? (
                           <input
                             type="text"
                             inputMode="decimal"
@@ -478,10 +490,10 @@ function MaterialesPageInner() {
           específico de este catálogo, sin cambios funcionales (ver
           NOTA(multi-tenant) en el propio componente). */}
       <div className="mt-8">
-        <SeccionActualizacionDatos />
+        <SeccionActualizacionDatos esSuperadmin={puedeEditar} />
       </div>
 
-      {modalImportarAbierto && (
+      {puedeEditar && modalImportarAbierto && (
         <ModalImportarPrecios
           proveedoresExistentes={proveedoresExistentes}
           onClose={() => setModalImportarAbierto(false)}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { List, Plus, X } from "lucide-react";
+import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
 
 // Extraído de proyectos/nuevo/page.tsx (paso 3 "Capítulos de la obra") para
@@ -108,6 +109,7 @@ export function SelectorCapitulosEstandar({
   nombresSugeridos: sugeridos = SIN_SUGERIDOS,
 }: Props) {
   const [capitulosEstandar, setCapitulosEstandar] = useState<CapituloEstandarItem[]>([]);
+  const esSuperadmin = useSuperadmin() === true;
 
   useEffect(() => {
     fetch("/api/capitulos-estandar")
@@ -134,8 +136,12 @@ export function SelectorCapitulosEstandar({
     }
   };
 
-  // Si el usuario escribe un capítulo nuevo (no está en la biblioteca), lo registra
+  // Si el usuario escribe un capítulo nuevo (no está en la biblioteca), lo registra.
+  // La biblioteca es global y POST /api/capitulos-estandar exige SUPERADMIN:
+  // para el resto no se llama (silencioso). El capítulo igual queda en la
+  // selección del proyecto — solo no se suma a la biblioteca.
   const registrarCapituloManual = async (nombre: string) => {
+    if (!esSuperadmin) return;
     const limpio = nombre.trim();
     if (!limpio) return;
     const yaExiste = capitulosEstandar.some((c) => c.nombre.toLowerCase() === limpio.toLowerCase());

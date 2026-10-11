@@ -1,16 +1,16 @@
 "use client";
 
-// NOTA(multi-tenant): esta pantalla edita el catálogo/jornales
-// compartido, pero en el futuro multi-tenant cada empresa va a tener su
-// PROPIA copia editable aquí mismo (nace de una semilla de MTOP/SUNCA
-// oficial) — esta UI no necesita restricción de rol, es edición normal
-// por empresa. Lo que sí falta construir por separado es una pantalla
-// de admin para mantener la plantilla maestra y propagarla a empresas
-// existentes sin pisar sus cambios (ver Fase 3 del plan multi-tenant).
+// NOTA(multi-tenant): los jornales son globales (compartidos por todas las
+// empresas), así que editarlos, subir el convenio y extraer con IA es solo
+// del SUPERADMIN — las APIs lo exigen; acá los controles se ocultan y la
+// tabla queda en modo lectura. En la Fase 3 cada empresa va a tener su
+// propia copia editable (nace de una semilla SUNCA oficial).
 
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ChevronDown, FileText, ImageUp, Sparkles } from "lucide-react";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
+import { AvisoSoloAdministrador, TEXTO_SOLO_ADMINISTRADOR } from "@/components/shared/AvisoSoloAdministrador";
+import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
 
 interface CategoriaLaboral {
@@ -80,6 +80,8 @@ function formatearJornal(n: number): string {
 // — movida a /mano-de-obra porque es contenido específico de ese dominio,
 // no de la empresa en general. Misma funcionalidad exacta, sin cambios.
 export default function SeccionCategoriasLaborales() {
+  // null (cargando) cuenta como "no": sin flash de controles de edición.
+  const puedeEditar = useSuperadmin() === true;
   const [categorias, setCategorias] = useState<CategoriaLaboral[]>([]);
   const [jornales, setJornales] = useState<Record<string, string>>({});
   const [fechaConvenio, setFechaConvenio] = useState<string>("");
@@ -379,6 +381,8 @@ export default function SeccionCategoriasLaborales() {
         </p>
       </div>
 
+      {!puedeEditar && <AvisoSoloAdministrador />}
+
       <p className="text-xs text-slate-400 mb-4 max-w-2xl">
         Esto actualiza la fuente de la que nacen los jornales al clonar un subrubro nuevo de la
         biblioteca o calcular Leyes Sociales en un proyecto nuevo — no modifica los rubros ya
@@ -392,15 +396,17 @@ export default function SeccionCategoriasLaborales() {
         className="hidden"
         onChange={manejarSeleccionImagen}
       />
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        className="inline-flex items-center gap-2 border border-slate-300 text-[#1E293B] text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-5"
-      >
-        <ImageUp className="w-4 h-4" />
-        Actualizar desde imagen o PDF del convenio
-      </button>
+      {puedeEditar && (
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="inline-flex items-center gap-2 border border-slate-300 text-[#1E293B] text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-5"
+        >
+          <ImageUp className="w-4 h-4" />
+          Actualizar desde imagen o PDF del convenio
+        </button>
+      )}
 
-      {imagenPreview && (
+      {puedeEditar && imagenPreview && (
         <div className="mb-5 border border-slate-200 rounded-lg p-4">
           {esPDF ? (
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 mb-3 text-sm text-slate-600">
@@ -509,7 +515,8 @@ export default function SeccionCategoriasLaborales() {
           type="date"
           value={fechaConvenio}
           onChange={(e) => setFechaConvenio(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+          readOnly={!puedeEditar}
+          className="read-only:bg-slate-50 read-only:text-slate-500 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
         />
       </div>
 
@@ -539,7 +546,8 @@ export default function SeccionCategoriasLaborales() {
                   onChange={(e) =>
                     setJornales((prev) => ({ ...prev, [c.id]: e.target.value }))
                   }
-                  className="w-32 border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                  readOnly={!puedeEditar}
+                  className="read-only:bg-slate-50 read-only:text-slate-500 w-32 border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
                 />
               </td>
             </tr>
@@ -550,8 +558,9 @@ export default function SeccionCategoriasLaborales() {
       <div className="flex items-center gap-3 mt-5">
         <button
           onClick={guardarCambios}
-          disabled={guardando}
-          className="bg-[#2563EB] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-60 transition-colors"
+          disabled={guardando || !puedeEditar}
+          title={puedeEditar ? undefined : TEXTO_SOLO_ADMINISTRADOR}
+          className="bg-[#2563EB] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {guardando ? "Guardando..." : "Guardar cambios"}
         </button>

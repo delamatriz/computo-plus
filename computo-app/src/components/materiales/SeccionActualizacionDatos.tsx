@@ -1,18 +1,17 @@
 "use client";
 
-// NOTA(multi-tenant): esta pantalla edita el catálogo/jornales
-// compartido, pero en el futuro multi-tenant cada empresa va a tener su
-// PROPIA copia editable aquí mismo (nace de una semilla de MTOP/SUNCA
-// oficial) — esta UI no necesita restricción de rol, es edición normal
-// por empresa. Lo que sí falta construir por separado es una pantalla
-// de admin para mantener la plantilla maestra y propagarla a empresas
-// existentes sin pisar sus cambios (ver Fase 3 del plan multi-tenant).
+// NOTA(multi-tenant): el catálogo de precios es global, así que buscar
+// precios actualizados (procesar-tanda / evento-resumen) es solo del
+// SUPERADMIN — las APIs lo exigen; acá solo se ocultan los botones y la
+// cola de revisión (`esSuperadmin`). El resto ve el estado en modo lectura.
+// En la Fase 3 cada empresa va a tener su propia copia editable del catálogo.
 // Antes vivía en /configuracion, movida a /materiales porque es
 // contenido específico de ese dominio.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Search, Square, Loader2, CheckCircle2, AlertTriangle, XCircle, Ban, RefreshCw } from "lucide-react";
+import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
 
 interface MaterialElegible {
   codigo: string;
@@ -58,7 +57,7 @@ const ACCION_INFO: Record<AccionVerificacion, { label: string; color: string; bg
   ya_no_elegible: { label: "Ya no elegible", color: "#64748B", bg: "#F1F5F9", Icon: Ban },
 };
 
-export default function SeccionActualizacionDatos() {
+export default function SeccionActualizacionDatos({ esSuperadmin }: { esSuperadmin: boolean }) {
   const [elegibles, setElegibles] = useState<MaterialElegible[] | null>(null);
   const [cargandoElegibles, setCargandoElegibles] = useState(true);
   const [resultados, setResultados] = useState<ResultadoVerificacionPrecio[]>([]);
@@ -175,9 +174,13 @@ export default function SeccionActualizacionDatos() {
         Verifica contra la web el precio actual de los materiales de &quot;retail directo&quot; (proveedor conocido) —
         actualiza solo si la variación es chica; si es grande o no se encuentra, queda marcado para revisión manual.
       </p>
-      <Link href="/configuracion/revision-precios" className="inline-block text-sm text-[#2563EB] hover:underline mb-4">
-        Ver cola de revisión →
-      </Link>
+      {esSuperadmin ? (
+        <Link href="/configuracion/revision-precios" className="inline-block text-sm text-[#2563EB] hover:underline mb-4">
+          Ver cola de revisión →
+        </Link>
+      ) : (
+        <div className="mb-2" />
+      )}
 
       {cargandoElegibles ? (
         <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
@@ -206,7 +209,9 @@ export default function SeccionActualizacionDatos() {
                 </>
               )}
             </p>
-            {!procesando ? (
+            {!esSuperadmin ? (
+              <AvisoSoloAdministrador />
+            ) : !procesando ? (
               <button
                 onClick={ejecutar}
                 disabled={pendientes.length === 0}

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, Loader2, AlertTriangle, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
+import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
+import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
 
 interface MaterialSinPrecio {
@@ -32,7 +34,11 @@ function fmtMoneda(n: number): string {
   return `$${n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+// La cola de revisión resuelve precios del catálogo global (POST .../resolver
+// exige SUPERADMIN). Para el resto la página muestra solo un aviso, y la cola
+// ni se pide: `cargar` corre recién cuando el hook confirma SUPERADMIN.
 export default function RevisionPreciosPage() {
+  const superadmin = useSuperadmin();
   const [sinPrecio, setSinPrecio] = useState<MaterialSinPrecio[]>([]);
   const [aRevisar, setARevisar] = useState<MaterialARevisar[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -55,8 +61,8 @@ export default function RevisionPreciosPage() {
   }, []);
 
   useEffect(() => {
-    cargar();
-  }, [cargar]);
+    if (superadmin === true) cargar();
+  }, [superadmin, cargar]);
 
   const resolver = useCallback(async (codigo: string, body: { accion: string; precioManual?: number }) => {
     const res = await fetch(`/api/precios-mtop/${codigo}/resolver`, {
@@ -83,7 +89,9 @@ export default function RevisionPreciosPage() {
         pendiente de confirmar.
       </p>
 
-      {cargando ? (
+      {superadmin === false ? (
+        <AvisoSoloAdministrador texto="Esta sección es solo para el administrador de CÓMPUTO+" />
+      ) : superadmin === null || cargando ? (
         <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
           <Loader2 className="w-4 h-4 animate-spin" /> Cargando…
         </div>

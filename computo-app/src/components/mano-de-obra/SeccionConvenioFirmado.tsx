@@ -2,12 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Download, FileText, Upload } from "lucide-react";
+import { useSuperadmin } from "@/hooks/useSuperadmin";
 
 // Tarjeta de consulta/descarga del PDF del convenio SUNCA firmado (Acta
 // de Acuerdo completa) — distinto de la foto usada para extraer
 // jornales con IA (esa vive en la sección de edición, más abajo). Sin
 // paso de revisión: se sube y queda, un documento de referencia simple.
+// Descargar es para todos; subir/reemplazar es solo del SUPERADMIN (el
+// convenio es global — POST .../convenio-pdf lo exige).
 export default function SeccionConvenioFirmado() {
+  // null (cargando) cuenta como "no": sin flash del botón de subir.
+  const puedeSubir = useSuperadmin() === true;
   const [tieneArchivo, setTieneArchivo] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [subiendo, setSubiendo] = useState(false);
@@ -90,21 +95,25 @@ export default function SeccionConvenioFirmado() {
 
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/pdf"
-        className="hidden"
-        onChange={subirArchivo}
-      />
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={subiendo}
-        className="inline-flex items-center gap-1.5 self-start text-xs font-medium text-slate-400 hover:text-slate-600 disabled:opacity-50 transition-colors mt-3"
-      >
-        <Upload className="w-3 h-3" />
-        {subiendo ? "Subiendo…" : tieneArchivo ? "Reemplazar PDF" : "Subir PDF"}
-      </button>
+      {puedeSubir && (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={subirArchivo}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={subiendo}
+            className="inline-flex items-center gap-1.5 self-start text-xs font-medium text-slate-400 hover:text-slate-600 disabled:opacity-50 transition-colors mt-3"
+          >
+            <Upload className="w-3 h-3" />
+            {subiendo ? "Subiendo…" : tieneArchivo ? "Reemplazar PDF" : "Subir PDF"}
+          </button>
+        </>
+      )}
     </div>
   );
 }

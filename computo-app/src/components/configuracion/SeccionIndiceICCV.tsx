@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { TrendingUp, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
+import { useSuperadmin } from "@/hooks/useSuperadmin";
 
 interface IndiceICCV {
   id: string;
@@ -23,7 +25,11 @@ const LABEL_VARIANTE: Record<string, string> = {
 // relevamiento). Luis carga acá los 2 valores del mes (público y privado)
 // una vez que el INE publica el boletín — el endpoint de actualización de
 // presupuesto pasa a leer de esta tabla, sin IA.
+// El índice es global: cargar y borrar es solo del SUPERADMIN (las APIs lo
+// exigen); el resto ve el historial en modo lectura.
 export default function SeccionIndiceICCV() {
+  // null (cargando) cuenta como "no": sin flash del formulario de carga.
+  const puedeEditar = useSuperadmin() === true;
   const [expandido, setExpandido] = useState(false);
   const [filas, setFilas] = useState<IndiceICCV[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -103,6 +109,12 @@ export default function SeccionIndiceICCV() {
             className="overflow-hidden border-t border-slate-200"
           >
             <div className="p-6">
+              {!puedeEditar && (
+                <div className="mb-2">
+                  <AvisoSoloAdministrador />
+                </div>
+              )}
+              {puedeEditar && (
               <div className="flex items-end gap-3 mb-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1.5">Mes</label>
@@ -143,6 +155,7 @@ export default function SeccionIndiceICCV() {
                   {guardando ? "Guardando..." : "Cargar"}
                 </button>
               </div>
+              )}
 
               {error && (
                 <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 mb-4 text-xs text-amber-800">
@@ -171,13 +184,15 @@ export default function SeccionIndiceICCV() {
                         <td className="py-2 text-slate-700">{LABEL_VARIANTE[f.variante] ?? f.variante}</td>
                         <td className="py-2 text-right font-medium text-slate-700">{f.valor}</td>
                         <td className="py-2 text-right">
-                          <button
-                            onClick={() => borrar(f.id)}
-                            className="text-slate-300 hover:text-red-500 transition-colors"
-                            title="Borrar"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {puedeEditar && (
+                            <button
+                              onClick={() => borrar(f.id)}
+                              className="text-slate-300 hover:text-red-500 transition-colors"
+                              title="Borrar"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
