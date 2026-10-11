@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sumarAportesPatronalesPct } from "@/lib/apu-calc";
@@ -19,6 +20,44 @@ async function proyectoFinalizado(rubroId: string): Promise<boolean> {
     select: { capitulo: { select: { proyecto: { select: { estado: true } } } } },
   });
   return rubro?.capitulo.proyecto.estado === "FINALIZADO";
+}
+
+// Forma de cada línea que manda el front (DrawerAPU) en el PUT. Todo
+// opcional: los defaults se resuelven al armar las filas.
+interface ComponenteEntrada {
+  descripcion?: string;
+  unidad?: string;
+  rendimientoPorUnidad?: number;
+  precioUnit?: number;
+}
+interface MaterialEntrada {
+  descripcion?: string;
+  unidad?: string;
+  rendimiento?: number;
+  precioUnit?: number;
+  motivoVerificacion?: string | null;
+  proveedor?: string | null;
+  notaProcedencia?: string | null;
+  fechaUltimaVerificacion?: string | null;
+  precioMTOPId?: string | null;
+  componentes?: ComponenteEntrada[];
+}
+interface EquipoEntrada {
+  id?: string;
+  descripcion?: string;
+  unidad?: string;
+  rendimiento?: number;
+  costoUnit?: number;
+  modoCosteo?: string;
+  costoUnitPropio?: number | null;
+  motivoVerificacion?: string | null;
+}
+interface ManoObraEntrada {
+  categoria?: string;
+  jornadaHs?: number;
+  rendimiento?: number;
+  jornalRef?: number;
+  equipoRelacionadoId?: string | null;
 }
 
 // PUT — reemplaza el APU completo del rubro (upsert + recrear hijos)
@@ -59,7 +98,10 @@ export async function PUT(
 
     // eslint-disable-next-line prefer-const
     let { utilidadPct, aportesPatronalesPct } = body;
-    const { porcentajePiedra = 0.30, dosificacion = null, utilidadFija = false, materiales = [], manoObra = [], equipos = [] } = body;
+    const { porcentajePiedra = 0.30, dosificacion = null, utilidadFija = false } = body;
+    const materiales: MaterialEntrada[] = Array.isArray(body.materiales) ? body.materiales : [];
+    const manoObra: ManoObraEntrada[] = Array.isArray(body.manoObra) ? body.manoObra : [];
+    const equipos: EquipoEntrada[] = Array.isArray(body.equipos) ? body.equipos : [];
 
     const apuCompleto = await db.$transaction(async (tx) => {
       // Lock explícito — ver comentario de la función. Se ignora el
@@ -120,49 +162,48 @@ export async function PUT(
 
       const apuId = apu.id;
 
-      // Recrear materiales + componentes
+      // Recrear materiales + componentes — en bloque (createMany), no una
+      // consulta por línea: con N creates sueltos, un APU de 30+ líneas
+      // pasaba el timeout de la transacción (P2028) y el autosave fallaba
+      // sin que el usuario se enterara. createMany no devuelve ids, así que
+      // se generan acá para poder colgar los componentes de su material.
       await tx.materialAPU.deleteMany({ where: { apuId } });
-      for (let i = 0; i < materiales.length; i++) {
-        const m = materiales[i];
-        const mat = await tx.materialAPU.create({
-          data: {
-            apuId,
-            descripcion:  m.descripcion  ?? "",
-            unidad:       m.unidad       ?? "",
-            rendimiento:  m.rendimiento  ?? 0,
-            precioUnit:   m.precioUnit   ?? 0,
-            orden:        i,
-            // Se recrea todo el APU en cada autosave — sin esto, el motivo
-            // clonado de la biblioteca se perdía apenas el usuario tocaba
-            // cualquier otro campo del APU (ver clonar-apu/route.ts). Mismo
-            // criterio para proveedor/fechaUltimaVerificacion (ver BadgeVerificacion).
-            motivoVerificacion: m.motivoVerificacion ?? null,
-            proveedor: m.proveedor ?? null,
-            notaProcedencia: m.notaProcedencia ?? null,
-            fechaUltimaVerificacion: m.fechaUltimaVerificacion ? new Date(m.fechaUltimaVerificacion) : null,
-            // Vínculo real con PrecioMTOP (ver agregarDesdeMTOP en
-            // proyectos/[id]/page.tsx) — antes de este campo, ni codigoMTOP
-            // ni precioMTOPOrig llegaban a persistirse acá, así que el
-            // vínculo con el catálogo se perdía apenas se recreaba el APU.
-            precioMTOPId: m.precioMTOPId ?? null,
-          },
-        });
-        if (Array.isArray(m.componentes)) {
-          for (let j = 0; j < m.componentes.length; j++) {
-            const c = m.componentes[j];
-            await tx.componenteAPU.create({
-              data: {
-                materialId:           mat.id,
-                descripcion:          c.descripcion          ?? "",
-                unidad:               c.unidad               ?? "",
-                rendimientoPorUnidad: c.rendimientoPorUnidad ?? 0,
-                precioUnit:           c.precioUnit           ?? 0,
-                orden:                j,
-              },
-            });
-          }
-        }
-      }
+      const materialesData = materiales.map((m, i) => ({
+        id: randomUUID(),
+        apuId,
+        descripcion:  m.descripcion  ?? "",
+        unidad:       m.unidad       ?? "",
+        rendimiento:  m.rendimiento  ?? 0,
+        precioUnit:   m.precioUnit   ?? 0,
+        orden:        i,
+        // Se recrea todo el APU en cada autosave — sin esto, el motivo
+        // clonado de la biblioteca se perdía apenas el usuario tocaba
+        // cualquier otro campo del APU (ver clonar-apu/route.ts). Mismo
+        // criterio para proveedor/fechaUltimaVerificacion (ver BadgeVerificacion).
+        motivoVerificacion: m.motivoVerificacion ?? null,
+        proveedor: m.proveedor ?? null,
+        notaProcedencia: m.notaProcedencia ?? null,
+        fechaUltimaVerificacion: m.fechaUltimaVerificacion ? new Date(m.fechaUltimaVerificacion) : null,
+        // Vínculo real con PrecioMTOP (ver agregarDesdeMTOP en
+        // proyectos/[id]/page.tsx) — antes de este campo, ni codigoMTOP
+        // ni precioMTOPOrig llegaban a persistirse acá, así que el
+        // vínculo con el catálogo se perdía apenas se recreaba el APU.
+        precioMTOPId: m.precioMTOPId ?? null,
+      }));
+      const componentesData = materiales.flatMap((m, i) =>
+        Array.isArray(m.componentes)
+          ? m.componentes.map((c, j) => ({
+              materialId:           materialesData[i].id,
+              descripcion:          c.descripcion          ?? "",
+              unidad:               c.unidad               ?? "",
+              rendimientoPorUnidad: c.rendimientoPorUnidad ?? 0,
+              precioUnit:           c.precioUnit           ?? 0,
+              orden:                j,
+            }))
+          : []
+      );
+      if (materialesData.length > 0) await tx.materialAPU.createMany({ data: materialesData });
+      if (componentesData.length > 0) await tx.componenteAPU.createMany({ data: componentesData });
 
       // Recrear mano de obra y equipos — se borran ambos primero (mano de obra
       // antes que equipos, por la FK equipoRelacionadoId) y se recrean en el
@@ -172,41 +213,39 @@ export async function PUT(
       await tx.manoObraAPU.deleteMany({ where: { apuId } });
       await tx.equipoAPU.deleteMany({ where: { apuId } });
 
+      // Mismo criterio en bloque: el id de cada equipo se genera acá y se
+      // mapea desde el id que mandó el front (puede ser temporal).
       const equipoIdMap = new Map<string, string>();
-      for (let i = 0; i < equipos.length; i++) {
-        const eq = equipos[i];
-        const creado = await tx.equipoAPU.create({
-          data: {
-            apuId,
-            descripcion:     eq.descripcion     ?? "",
-            unidad:          eq.unidad          ?? "",
-            rendimiento:     eq.rendimiento     ?? 0,
-            costoUnit:       eq.costoUnit       ?? 0,
-            modoCosteo:      eq.modoCosteo      ?? "ALQUILADO",
-            costoUnitPropio: eq.costoUnitPropio ?? null,
-            orden:           i,
-            motivoVerificacion: eq.motivoVerificacion ?? null,
-          },
-        });
-        if (eq.id) equipoIdMap.set(eq.id, creado.id);
-      }
+      const equiposData = equipos.map((eq, i) => {
+        const id = randomUUID();
+        if (eq.id) equipoIdMap.set(eq.id, id);
+        return {
+          id,
+          apuId,
+          descripcion:     eq.descripcion     ?? "",
+          unidad:          eq.unidad          ?? "",
+          rendimiento:     eq.rendimiento     ?? 0,
+          costoUnit:       eq.costoUnit       ?? 0,
+          modoCosteo:      eq.modoCosteo      ?? "ALQUILADO",
+          costoUnitPropio: eq.costoUnitPropio ?? null,
+          orden:           i,
+          motivoVerificacion: eq.motivoVerificacion ?? null,
+        };
+      });
+      if (equiposData.length > 0) await tx.equipoAPU.createMany({ data: equiposData });
 
-      for (let i = 0; i < manoObra.length; i++) {
-        const mo = manoObra[i];
-        await tx.manoObraAPU.create({
-          data: {
-            apuId,
-            categoria:   mo.categoria   ?? "",
-            jornadaHs:   mo.jornadaHs   ?? 8,
-            rendimiento: mo.rendimiento ?? 1,
-            jornalRef:   mo.jornalRef   ?? 0,
-            orden:       i,
-            equipoRelacionadoId: mo.equipoRelacionadoId
-              ? equipoIdMap.get(mo.equipoRelacionadoId) ?? null
-              : null,
-          },
-        });
-      }
+      const manoObraData = manoObra.map((mo, i) => ({
+        apuId,
+        categoria:   mo.categoria   ?? "",
+        jornadaHs:   mo.jornadaHs   ?? 8,
+        rendimiento: mo.rendimiento ?? 1,
+        jornalRef:   mo.jornalRef   ?? 0,
+        orden:       i,
+        equipoRelacionadoId: mo.equipoRelacionadoId
+          ? equipoIdMap.get(mo.equipoRelacionadoId) ?? null
+          : null,
+      }));
+      if (manoObraData.length > 0) await tx.manoObraAPU.createMany({ data: manoObraData });
 
       // Devolver APU completo
       return tx.aPU.findUnique({
@@ -220,6 +259,11 @@ export async function PUT(
           equipos:  { orderBy: { orden: "asc" } },
         },
       });
+    }, {
+      // Red de seguridad además del createMany: la base está en otra región
+      // que el dev local, y el lock FOR UPDATE puede esperar a otro PUT.
+      timeout: 15_000,
+      maxWait: 10_000,
     });
 
     return NextResponse.json(apuCompleto);
