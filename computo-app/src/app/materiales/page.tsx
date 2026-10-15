@@ -8,6 +8,7 @@ import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerifi
 import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
 import SeccionActualizacionDatos from "@/components/materiales/SeccionActualizacionDatos";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
+import { anclaDeFiltro, EVENTO_FILTRO_MATERIALES, type AnclaFiltroMateriales } from "@/lib/filtrosMateriales";
 import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
 
@@ -219,6 +220,33 @@ function MaterialesPageInner() {
   function esPendiente(m: MaterialCatalogo): boolean {
     return !!(m.proveedor || m.notaProcedencia) && !m.fechaUltimaVerificacion;
   }
+
+  // Deep-link desde la campanita: el ancla de la URL prende el filtro que
+  // corresponde, igual que si se lo hubiera tocado a mano — #a-revisar →
+  // "Pendiente de verificar", #sin-precio → "Sin precio". Sin ancla (o con
+  // otra) no se toca nada. El ancla no llega al servidor ni a
+  // useSearchParams, así que se lee en el cliente: al montar y cuando
+  // cambia estando ya en la página (por ejemplo, desde la propia campanita).
+  useEffect(() => {
+    const aplicar = (ancla: AnclaFiltroMateriales | null) => {
+      if (ancla === "a-revisar") {
+        setFiltroPendiente(true);
+        setFiltroSinPrecio(false);
+      } else if (ancla === "sin-precio") {
+        setFiltroSinPrecio(true);
+        setFiltroPendiente(false);
+      }
+    };
+    const delaUrl = () => aplicar(anclaDeFiltro(window.location.hash));
+    const delaCampanita = (e: Event) => aplicar((e as CustomEvent<AnclaFiltroMateriales>).detail);
+    delaUrl();
+    window.addEventListener("hashchange", delaUrl);
+    window.addEventListener(EVENTO_FILTRO_MATERIALES, delaCampanita);
+    return () => {
+      window.removeEventListener("hashchange", delaUrl);
+      window.removeEventListener(EVENTO_FILTRO_MATERIALES, delaCampanita);
+    };
+  }, []);
 
   // Deep-link desde "Pendiente de verificar" (ver qInicial arriba) — si
   // hay una coincidencia EXACTA de descripción que además está pendiente,

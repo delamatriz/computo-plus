@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { proyectoIdDesdeParams } from "@/lib/proyectoActual";
 
 const CLASE_DEFAULT =
   "inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#2563EB] transition-colors mb-4";
@@ -28,8 +29,7 @@ const CLASE_DEFAULT =
 // fallo queda el rótulo genérico.
 function BotonVolverAlProyectoInner({ className }: { className?: string }) {
   const searchParams = useSearchParams();
-  const from = searchParams.get("from");
-  const proyectoOrigenId = from === "proyecto" ? searchParams.get("proyectoId") : from;
+  const proyectoOrigenId = proyectoIdDesdeParams(searchParams);
 
   // El nombre se guarda junto con el id al que pertenece: si cambia el id,
   // el nombre viejo no se muestra ni un instante.

@@ -7,7 +7,8 @@ import { getSession, signOut } from "next-auth/react";
 import { Bell, HelpCircle, ChevronDown, Menu, LogOut, Gauge, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEstadoCuenta } from "@/lib/accesoCliente";
-import { conProyectoDeOrigen, proyectoIdDesdePath } from "@/lib/proyectoActual";
+import { conProyectoDeOrigen, proyectoIdDesdeParams, proyectoIdDesdePath } from "@/lib/proyectoActual";
+import { avisarFiltroMateriales } from "@/lib/filtrosMateriales";
 import { AvisoPrueba } from "@/components/acceso/AvisoPrueba";
 
 interface HeaderProps {
@@ -165,9 +166,23 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   // A dónde lleva cada pendiente: la cola de revisión resuelve precios del
   // catálogo global y es solo para el SUPERADMIN (a los demás les muestra un
   // aviso de acceso restringido); el resto va al catálogo de Materiales. Si
-  // el rol todavía no cargó, va a Materiales (sirve para todos).
+  // el rol todavía no cargó, va a Materiales (sirve para todos). El ancla
+  // viaja en los dos casos: en la cola ubica la sección y en Materiales
+  // prende el filtro correspondiente (ver el efecto de #a-revisar/#sin-precio
+  // en app/materiales/page.tsx).
+  // Estando en Materiales o en la cola de revisión no hay proyecto en la ruta:
+  // se toma de ?from= para no perderlo. Solo se llama con el panel abierto
+  // (después de hidratar), por eso puede leer window sin desfasar el HTML.
   const destinoPendiente = (ancla: "a-revisar" | "sin-precio") =>
-    conProyectoDeOrigen(esSuperadmin ? `/configuracion/revision-precios#${ancla}` : "/materiales", proyectoIdActual);
+    conProyectoDeOrigen(
+      `${esSuperadmin ? "/configuracion/revision-precios" : "/materiales"}#${ancla}`,
+      proyectoIdActual ?? proyectoIdDesdeParams(new URLSearchParams(window.location.search))
+    );
+  const alElegirPendiente = (ancla: "a-revisar" | "sin-precio") => {
+    setNotifOpen(false);
+    // Ya en Materiales no hay carga de página: se le avisa al catálogo.
+    if (!esSuperadmin && pathname === "/materiales") avisarFiltroMateriales(ancla);
+  };
 
   const fmtFecha = (iso: string) =>
     new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
@@ -288,7 +303,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                         <li>
                           <Link
                             href={destinoPendiente("a-revisar")}
-                            onClick={() => setNotifOpen(false)}
+                            onClick={() => alElegirPendiente("a-revisar")}
                             className="text-sm text-text-primary hover:text-brand-accent transition-colors"
                           >
                             {notificaciones.pendientes.requierenVerificacion} material{notificaciones.pendientes.requierenVerificacion !== 1 ? "es" : ""} requiere{notificaciones.pendientes.requierenVerificacion !== 1 ? "n" : ""} verificación
@@ -299,7 +314,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                         <li>
                           <Link
                             href={destinoPendiente("sin-precio")}
-                            onClick={() => setNotifOpen(false)}
+                            onClick={() => alElegirPendiente("sin-precio")}
                             className="text-sm text-text-primary hover:text-brand-accent transition-colors"
                           >
                             {notificaciones.pendientes.aCotizar} material{notificaciones.pendientes.aCotizar !== 1 ? "es" : ""} a cotizar
