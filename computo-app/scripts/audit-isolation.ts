@@ -258,6 +258,7 @@ async function armarCasos(empresaPropiaId: string | null) {
     ["GET", "/api/admin/usuarios"],
     ["PATCH", "/api/admin/empresas/audit-id-inexistente/estado"],
     ["GET", "/api/admin/eventos-admin"],
+    ["DELETE", "/api/admin/empresas/audit-id-inexistente"],
     ["PATCH", "/api/configuracion"],
     ["PATCH", "/api/categorias-laborales"],
     ["POST", "/api/configuracion/extraer-jornales"],
@@ -309,7 +310,7 @@ async function main() {
   console.log(`Rubro ajeno: ${rubro?.id ?? "— (sin rubros, se saltean esos casos)"}`);
   console.log(`Sugerencia ajena: ${sugerencia?.id ?? "— (no hay, se saltea)"}`);
   console.log(`Proyectos ajenos totales (para el chequeo de listado): ${idsAjenos.length}`);
-  console.log(`Casos de 404/403: ${casos.length} + 5 chequeos de datos propios/listados + 12 de prueba gratis y estado + 7 de clave de Anthropic y eventos`);
+  console.log(`Casos de 404/403: ${casos.length} + 5 chequeos de datos propios/listados + 12 de prueba gratis y estado + 8 de clave de Anthropic, eventos y limpieza`);
 
   if (!APLICAR) {
     for (const c of casos) console.log(`  ${c.grupo.padEnd(18)} ${c.metodo.padEnd(6)} ${c.ruta}  → espera ${c.esperado}`);
@@ -492,6 +493,14 @@ async function main() {
       nombre: "Tope: 400 de workspace → LIMITE_WORKSPACE_ALCANZADO; 429 de spend cap → LIMITE_ORG_ALCANZADO; 429 común → no es tope",
       ok: c400?.codigo === "LIMITE_WORKSPACE_ALCANZADO" && c429?.codigo === "LIMITE_ORG_ALCANZADO" && cNormal === null,
       detalle: `${c400?.codigo} / ${c429?.codigo} / ${cNormal === null ? "null" : cNormal.codigo}`,
+    });
+
+    // Limpieza automática: sin el secreto correcto nunca corre (ni con sesión de ADMIN).
+    const limpieza = await cliente.pedir("POST", "/api/admin/limpiar-pruebas-vencidas?simular=1", {}, { authorization: "Bearer secreto-incorrecto" });
+    claves.push({
+      nombre: "POST /api/admin/limpiar-pruebas-vencidas con secreto incorrecto → 401 (o 503 si falta CRON_SECRET)",
+      ok: limpieza.status === 401 || (limpieza.status === 503 && !process.env.CRON_SECRET),
+      detalle: `${limpieza.status}`,
     });
 
     // registrarEventoAdmin no mezcla empresas: dedup solo dentro de la misma empresa (y null aparte).

@@ -21,12 +21,15 @@ import { estadoAccesoUsuario, respuestaAcceso } from "@/lib/acceso";
 
 const PUBLICAS = ["/", "/login", "/registro", "/verificar", "/bienvenida", "/terminos", "/privacidad"];
 const PREFIJOS_PUBLICOS = ["/api/auth/", "/api/registro"];
+// Rutas de API sin sesión que se autorizan solas (Cron Job de Render con
+// Authorization: Bearer CRON_SECRET, ver la ruta).
+const API_CON_SECRETO = ["/api/admin/limpiar-pruebas-vencidas"];
 const METODOS_DE_ESCRITURA = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  if (PUBLICAS.includes(pathname) || PREFIJOS_PUBLICOS.some((p) => pathname.startsWith(p))) {
+  if (PUBLICAS.includes(pathname) || PREFIJOS_PUBLICOS.some((p) => pathname.startsWith(p)) || API_CON_SECRETO.includes(pathname)) {
     return NextResponse.next();
   }
 

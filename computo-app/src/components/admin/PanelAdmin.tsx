@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, Building2, Loader2, Plus, ShieldCheck, Users } from "lucide-react";
+import { Activity, AlertTriangle, Building2, Loader2, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import { PLANES, ROLES_ASIGNABLES, type Plan } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +48,8 @@ const ETIQUETA_EVENTO: Record<string, string> = {
   ORG_SPEND_LIMIT: "Tope de la organización",
   BILLING_ERROR: "Facturación de Anthropic",
   ANTHROPIC_KEY_PRUEBA_NO_CONFIGURADA: "Falta la clave de pruebas",
+  EMPRESA_ELIMINADA: "Empresa eliminada",
+  LIMPIEZA_AUTOMATICA: "Limpieza automática",
 };
 
 const fmtFecha = (iso: string) => new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
@@ -115,6 +117,11 @@ export function PanelAdmin() {
   const [eventos, setEventos] = useState<{ eventos: EventoAdmin[]; porTipo: { tipo: string; total: number }[] } | null>(null);
   const [cambiandoEstadoId, setCambiandoEstadoId] = useState<string | null>(null);
   const [errorEstado, setErrorEstado] = useState<string | null>(null);
+  // Modal de eliminación: hay que escribir el nombre exacto para habilitar el botón.
+  const [aEliminar, setAEliminar] = useState<EmpresaAdmin | null>(null);
+  const [confirmacion, setConfirmacion] = useState("");
+  const [eliminando, setEliminando] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
 
   // ── Form empresa ──
   const [eNombre, setENombre] = useState("");
@@ -150,6 +157,56 @@ export function PanelAdmin() {
       .then((data) => data && setEventos(data))
       .catch(() => {});
   }, []);
+
+  function abrirEliminar(emp: EmpresaAdmin) {
+    setAEliminar(emp);
+    setConfirmacion("");
+    setErrorEliminar(null);
+  }
+
+  function cerrarEliminar() {
+    if (eliminando) return;
+    setAEliminar(null);
+  }
+
+  const modalAbierto = !!aEliminar;
+  useEffect(() => {
+    if (!modalAbierto) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !eliminando) setAEliminar(null);
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [modalAbierto, eliminando]);
+
+  async function eliminarEmpresa() {
+    if (!aEliminar || confirmacion !== aEliminar.nombre) return;
+    setEliminando(true);
+    setErrorEliminar(null);
+    try {
+      const res = await fetch(`/api/admin/empresas/${aEliminar.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmacion }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErrorEliminar(data?.error ?? `Error ${res.status}`);
+      } else {
+        const id = aEliminar.id;
+        setEmpresas((prev) => prev?.filter((x) => x.id !== id) ?? prev);
+        setUsuarios((prev) => prev?.filter((u) => u.empresa.id !== id) ?? prev);
+        setAEliminar(null);
+        fetch("/api/admin/eventos-admin")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => d && setEventos(d))
+          .catch(() => {});
+      }
+    } catch {
+      setErrorEliminar("No se pudo conectar con el servidor");
+    }
+    setEliminando(false);
+  }
 
   async function cambiarEstado(emp: EmpresaAdmin, estado: (typeof ESTADOS_ELEGIBLES)[number]) {
     if (estado === emp.estado) return;
@@ -331,6 +388,15 @@ export function PanelAdmin() {
                     )}
                     {emp.origen && <span className="text-slate-400">· origen: {emp.origen}</span>}
                     <div className="ml-auto flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => abrirEliminar(emp)}
+                        title={`Eliminar ${emp.nombre}`}
+                        aria-label={`Eliminar ${emp.nombre}`}
+                        className="h-7 w-7 flex items-center justify-center rounded-md text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                       {cambiandoEstadoId === emp.id && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
                       <label htmlFor={`estado-${emp.id}`} className="sr-only">Estado de {emp.nombre}</label>
                       <select
@@ -478,6 +544,65 @@ export function PanelAdmin() {
           )}
         </section>
       </div>
+
+      {aEliminar && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-[rgba(10,20,35,0.5)]"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) cerrarEliminar();
+          }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="titulo-eliminar" className="w-full max-w-md bg-white rounded-xl shadow-2xl p-6">
+            <div className="flex items-start gap-3">
+              <span className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </span>
+              <div className="min-w-0">
+                <h2 id="titulo-eliminar" className="text-base font-semibold text-[#1E293B]">Eliminar empresa</h2>
+                <p className="text-sm text-slate-600 mt-1 leading-relaxed">
+                  Esta acción es irreversible. Se eliminarán todos los proyectos, usuarios y datos de{" "}
+                  <strong className="text-[#1E293B]">{aEliminar.nombre}</strong>.
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {aEliminar._count.users} usuario{aEliminar._count.users !== 1 ? "s" : ""} · {aEliminar._count.proyectos} proyecto
+                  {aEliminar._count.proyectos !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+            <label htmlFor="confirmar-eliminar" className="block text-xs font-semibold text-[#1A3A5C] mt-5 mb-1.5">
+              Escribí <span className="font-mono text-red-700">{aEliminar.nombre}</span> para confirmar
+            </label>
+            <input
+              id="confirmar-eliminar"
+              autoFocus
+              autoComplete="off"
+              className={INPUT}
+              value={confirmacion}
+              onChange={(e) => setConfirmacion(e.target.value)}
+            />
+            {errorEliminar && <div className="mt-3"><Aviso error={errorEliminar} exito={null} /></div>}
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                type="button"
+                onClick={cerrarEliminar}
+                disabled={eliminando}
+                className="h-9 px-4 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={eliminarEmpresa}
+                disabled={eliminando || confirmacion !== aEliminar.nombre}
+                className="h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+              >
+                {eliminando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Eliminar empresa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

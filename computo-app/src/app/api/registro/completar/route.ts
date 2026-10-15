@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { CUPO_CALCULOS_RAPIDOS, CUPO_PROYECTOS_ASISTIDOS, DIAS_PRUEBA, INGRESO_VIGENCIA_MIN } from "@/lib/config-prueba";
+import { enviarAvisoNuevaEmpresa } from "@/lib/mail";
 import { COOKIE_BIENVENIDA, generarSlugEmpresa, generarToken, hashear, sanitizarOrigen, sumarMinutos } from "@/lib/registro";
 
 const LARGO_MAXIMO = { nombre: 80, empresa: 120, rut: 20 };
@@ -112,6 +113,17 @@ export async function POST(req: NextRequest) {
       }
       throw err;
     }
+
+    // Aviso interno de la empresa nueva. Sin await: si el mail falla (o tarda),
+    // el usuario entra igual; el error queda en el log.
+    void enviarAvisoNuevaEmpresa({
+      empresa: nombreEmpresa,
+      usuario: nombre,
+      email: pendiente.email,
+      rut: rut || null,
+      registradaEn: ahora,
+      vencePrueba: new Date(ahora.getTime() + DIAS_PRUEBA * 24 * 60 * 60_000),
+    }).catch((err) => console.error("[POST /api/registro/completar] no se pudo enviar el aviso de empresa nueva", err));
 
     const res = NextResponse.json({ tokenIngreso }, { status: 201 });
     res.cookies.delete(COOKIE_BIENVENIDA);

@@ -30,6 +30,10 @@ model Empresa {
   users     User[]
   sugerencias   Sugerencia[]
   logsConsumoIA LogConsumoIA[]
+  // Borrar una empresa (/admin, o la limpieza automática de pruebas vencidas)
+  // borra en cascada usuarios, proyectos (y todo lo que cuelga de ellos),
+  // sugerencias, configuración, biblioteca propia y consumos de la prueba.
+  // LogConsumoIA y EventoAdmin quedan con empresaId en null (historial).
   configuracionEmpresa ConfiguracionEmpresa?
   subrubrosEmpresa SubrubroEmpresa[]
 
@@ -62,7 +66,7 @@ model User {
   nombre       String
   rol          String   @default("ADMIN")
   empresaId    String
-  empresa      Empresa  @relation(fields: [empresaId], references: [id])
+  empresa      Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   creadoEn     DateTime @default(now())
   // Registro público (oct-2026): el usuario recién se crea después de
   // verificar el mail, así que en la práctica nace en true. Los usuarios
@@ -100,7 +104,7 @@ model Proyecto {
   area        Float?
   direccion   String?
   empresaId   String?
-  empresa     Empresa?   @relation(fields: [empresaId], references: [id])
+  empresa     Empresa?   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   capitulos   Capitulo[]
   titulos     Titulo[]
   leyesSociales LeyesSociales?
@@ -901,7 +905,7 @@ model Sugerencia {
   mensaje   String   @db.Text
   resuelta  Boolean  @default(false)
   empresaId String?
-  empresa   Empresa? @relation(fields: [empresaId], references: [id])
+  empresa   Empresa? @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 }
 
@@ -1514,7 +1518,7 @@ model LogConsumoIA {
   pasos        Int      @default(1)
   createdAt    DateTime @default(now())
   empresaId    String?
-  empresa      Empresa? @relation(fields: [empresaId], references: [id])
+  empresa      Empresa? @relation(fields: [empresaId], references: [id], onDelete: SetNull)
 }
 
 // Valores mensuales del ICCV (Índice de Costo de la Construcción de
@@ -1567,7 +1571,7 @@ model ConfiguracionEmpresa {
 model SubrubroEmpresa {
   id            String       @id @default(uuid())
   empresaId     String
-  empresa       Empresa      @relation(fields: [empresaId], references: [id])
+  empresa       Empresa      @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   nombre        String
   unidad        String
   precioUY      Float
@@ -1680,7 +1684,7 @@ model VerificacionPendiente {
 model ConsumoFuncionesAsistidas {
   id         String   @id @default(uuid())
   empresaId  String
-  empresa    Empresa  @relation(fields: [empresaId], references: [id])
+  empresa    Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   tipo       String   // "calculo_rapido" | "proyecto_ia"
   proyectoId String?
   createdAt  DateTime @default(now())
@@ -1696,7 +1700,7 @@ model EventoAdmin {
   id        String   @id @default(uuid())
   tipo      String   // "WORKSPACE_SPEND_LIMIT" | "ORG_SPEND_LIMIT" | "BILLING_ERROR" | "ANTHROPIC_KEY_PRUEBA_NO_CONFIGURADA"
   empresaId String?
-  empresa   Empresa? @relation(fields: [empresaId], references: [id])
+  empresa   Empresa? @relation(fields: [empresaId], references: [id], onDelete: SetNull)
   funcion   String?  // función que lo disparó (mismo nombre que LogConsumoIA.funcion)
   detalle   String?
   createdAt DateTime @default(now())
