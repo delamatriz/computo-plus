@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje } from "@/lib/anthropic-client";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
-import { bloquearSiEsPrueba } from "@/lib/acceso";
+import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
 
-const client = new Anthropic();
 
 const SYSTEM_PROMPT = `Eres un asistente experto en cómputo métrico de construcción para Uruguay. El usuario te describe un elemento a medir. Extraé las dimensiones, calculá la cantidad (subtotal = largo × ancho × alto × cantidad, omitiendo las dimensiones que no apliquen), y devolvé JSON estructurado. Si el input es ambiguo, poné el campo 'nota' con una aclaración breve. Responde SOLO con JSON, sin texto adicional ni markdown.`;
 
@@ -22,7 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "sin_descripcion" }, { status: 400 });
     }
 
-    const message = await client.messages.create({
+    const message = await crearMensaje({ empresaId: sesion.empresaId, funcion: "metrajes-sugerir" }, {
       model: "claude-sonnet-4-6",
       max_tokens: 500,
       system: SYSTEM_PROMPT,
@@ -64,6 +63,8 @@ Devolvé un JSON con esta estructura exacta:
     return NextResponse.json(resultado);
   } catch (err) {
     console.error("[metrajes/sugerir]", err);
+    const noDisponible = respuestaFuncionNoDisponible(err, sesion.email);
+    if (noDisponible) return noDisponible;
     return NextResponse.json(
       { error: "Error al generar la fila" },
       { status: 500 }

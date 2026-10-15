@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje, ErrorFuncionNoDisponible } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirProyecto } from "@/lib/sesion";
-import { consumirFuncionAsistida } from "@/lib/acceso";
+import { consumirFuncionAsistida, devolverConsumo, respuestaFuncionNoDisponible } from "@/lib/acceso";
 
-const client = new Anthropic();
 
 const TIPOS_LABEL: Record<string, string> = {
   REPARACIONES: "Reparaciones",
@@ -20,10 +19,14 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Para el catch: contacto del usuario y cupo a devolver si el servicio no está disponible.
+  let emailContacto = "";
+  let consumoId: string | null = null;
   try {
     const { id: proyectoId } = await params;
     const acceso = await requerirProyecto(proyectoId);
     if (acceso instanceof NextResponse) return acceso;
+    emailContacto = acceso.email;
 
     const proyecto = await db.proyecto.findUnique({
       where: { id: proyectoId },
@@ -53,6 +56,7 @@ export async function POST(
 
     const consumo = await consumirFuncionAsistida(acceso, "proyecto_ia", proyectoId);
     if (consumo instanceof NextResponse) return consumo;
+    consumoId = consumo.consumoId;
 
     const tipoLabel = TIPOS_LABEL[proyecto.tipo] ?? proyecto.tipo;
 
@@ -89,7 +93,7 @@ ${presupuestoTexto || "(sin capítulos)"}
 
 Redactá la memoria descriptiva de este proyecto siguiendo el system prompt indicado.`;
 
-    const message = await client.messages.create({
+    const message = await crearMensaje({ empresaId: acceso.empresaId, funcion: "memoria-descriptiva" }, {
       model: "claude-sonnet-4-6",
       max_tokens: 4000,
       system: `Eres un arquitecto uruguayo redactando la memoria descriptiva de un
@@ -129,6 +133,9 @@ oraciones corridas, no como listas con viñetas.`,
     return NextResponse.json({ memoriaDescriptiva: texto });
   } catch (err) {
     console.error("[memoria-descriptiva POST]", err);
+    if (err instanceof ErrorFuncionNoDisponible) await devolverConsumo(consumoId);
+    const noDisponible = respuestaFuncionNoDisponible(err, emailContacto);
+    if (noDisponible) return noDisponible;
     return NextResponse.json(
       { error: "Error al generar la memoria descriptiva" },
       { status: 500 }

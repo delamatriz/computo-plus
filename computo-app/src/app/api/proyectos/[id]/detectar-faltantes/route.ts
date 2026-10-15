@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje, ErrorFuncionNoDisponible } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirProyecto } from "@/lib/sesion";
-import { consumirFuncionAsistida } from "@/lib/acceso";
+import { consumirFuncionAsistida, devolverConsumo, respuestaFuncionNoDisponible } from "@/lib/acceso";
 
-const client = new Anthropic();
 
 const TIPOS_LABEL: Record<string, string> = {
   REPARACIONES: "Reparaciones",
@@ -20,10 +19,14 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Para el catch: contacto del usuario y cupo a devolver si el servicio no está disponible.
+  let emailContacto = "";
+  let consumoId: string | null = null;
   try {
     const { id: proyectoId } = await params;
     const acceso = await requerirProyecto(proyectoId);
     if (acceso instanceof NextResponse) return acceso;
+    emailContacto = acceso.email;
 
     const proyecto = await db.proyecto.findUnique({
       where: { id: proyectoId },
@@ -46,6 +49,7 @@ export async function POST(
 
     const consumo = await consumirFuncionAsistida(acceso, "proyecto_ia", proyectoId);
     if (consumo instanceof NextResponse) return consumo;
+    consumoId = consumo.consumoId;
 
     const [categorias, preciosMTOP] = await Promise.all([
       db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),
@@ -110,7 +114,7 @@ Reglas:
 - "precioUnitarioEstimado" debe ser coherente con la suma de materiales (rendimiento × precioUnit) + mano de obra (jornal / rendimiento), con un margen razonable de gastos generales y utilidad.
 - Respondé SOLO con JSON válido, sin texto adicional ni markdown.`;
 
-    const message = await client.messages.create({
+    const message = await crearMensaje({ empresaId: acceso.empresaId, funcion: "detectar-faltantes" }, {
       model: "claude-sonnet-4-6",
       max_tokens: 8192,
       system: `Eres un arquitecto senior y presupuestador experto en construcción uruguaya.
@@ -143,6 +147,9 @@ provistos como referencia.`,
     return NextResponse.json(resultado);
   } catch (err) {
     console.error("[detectar-faltantes]", err);
+    if (err instanceof ErrorFuncionNoDisponible) await devolverConsumo(consumoId);
+    const noDisponible = respuestaFuncionNoDisponible(err, emailContacto);
+    if (noDisponible) return noDisponible;
     return NextResponse.json(
       { error: "Error al analizar el presupuesto" },
       { status: 500 }

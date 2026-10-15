@@ -7,7 +7,7 @@
 export const WHATSAPP_NUMERO = "59899372600";
 
 /** Días de prueba gratis desde que se completa el alta en /bienvenida. */
-export const DIAS_PRUEBA = 30;
+export const DIAS_PRUEBA = 14;
 
 /** Cupos de funciones asistidas de una empresa en PRUEBA. */
 export const CUPO_CALCULOS_RAPIDOS = 3;

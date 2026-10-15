@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje } from "@/lib/anthropic-client";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSuperadmin } from "@/lib/sesion";
+import { respuestaFuncionNoDisponible } from "@/lib/acceso";
 
-const client = new Anthropic();
 
 const ROMANOS_VALIDOS = [
   "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII",
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
             },
           };
 
-    const message = await client.messages.create({
+    const message = await crearMensaje({ empresaId: null, funcion: "extraer-jornales" }, {
       model: "claude-sonnet-4-6",
       max_tokens: 1500,
       system: SYSTEM_PROMPT,
@@ -212,6 +212,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("[configuracion/extraer-jornales]", err);
+    const noDisponible = respuestaFuncionNoDisponible(err, sesion.email);
+    if (noDisponible) return noDisponible;
     return NextResponse.json(
       { error: "lectura_incierta" },
       { status: 422 }

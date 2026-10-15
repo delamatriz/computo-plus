@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
 import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, resolverProporcionDesglose } from "@/lib/bibliotecaApus";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
 import { requerirSesion } from "@/lib/sesion";
-import { consumirFuncionAsistida, devolverConsumo } from "@/lib/acceso";
+import { consumirFuncionAsistida, devolverConsumo, respuestaFuncionNoDisponible } from "@/lib/acceso";
 
-const client = new Anthropic();
 
 const TIPOS_LABEL: Record<string, string> = {
   reparaciones: "Reparaciones",
@@ -144,7 +144,7 @@ Reglas:
       }
     }
 
-    const message = await client.messages.create({
+    const message = await crearMensaje({ empresaId: sesion.empresaId, funcion: "calcular-rapido" }, {
       model: "claude-sonnet-4-6",
       // 4096, no 1024: con la biblioteca real inyectada, la IA tiende a
       // devolver más capítulos (uno por subrubro real que aplica, en vez
@@ -271,6 +271,8 @@ Reglas:
   } catch (err) {
     console.error("[calcular-rapido]", err);
     await devolverConsumo(consumoId);
+    const noDisponible = respuestaFuncionNoDisponible(err, sesion.email);
+    if (noDisponible) return noDisponible;
     return NextResponse.json(
       { error: "Error al calcular la estimación" },
       { status: 500 }

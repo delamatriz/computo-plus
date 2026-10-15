@@ -1,10 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje, ErrorFuncionNoDisponible } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
 import { generarApuParaRubro } from "@/lib/apu";
 import { clonarApuAlRubro } from "@/lib/clonarApu";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
-const client = new Anthropic();
 
 interface RubroSugerido {
   // Número del capítulo en la lista numerada que se le pasa a la IA (ver
@@ -281,7 +280,7 @@ Respondé SOLO con JSON:
 
   let sugerencias: RubroSugerido[] = [];
   try {
-    const message = await client.messages.create({
+    const message = await crearMensaje({ empresaId: proyecto.empresaId ?? null, funcion: "generar-rubros" }, {
       model: "claude-sonnet-4-6",
       // 2-3 rubros por capítulo y por título: con varios títulos la lista
       // crece y 2000 tokens podía cortar el JSON (y sin JSON no hay rubros).
@@ -343,6 +342,9 @@ Respondé SOLO con JSON:
       );
     } catch (err) {
       console.error("[rubrosAutomaticos] error generando rubro", sugerido, err);
+      // Tope de gasto / clave de pruebas: los demás rubros fallarían igual
+      // (el EventoAdmin ya quedó registrado en crearMensaje).
+      if (err instanceof ErrorFuncionNoDisponible) break;
     }
   }
 }

@@ -44,6 +44,7 @@ model Empresa {
   cupoCalculosRapidos    Int           @default(3)
   cupoProyectosIA        Int           @default(1)
   consumoFunciones       ConsumoFuncionesAsistidas[]
+  eventosAdmin           EventoAdmin[]
 }
 
 enum EstadoEmpresa {
@@ -1685,4 +1686,21 @@ model ConsumoFuncionesAsistidas {
   createdAt  DateTime @default(now())
 
   @@index([empresaId, tipo])
+}
+
+// Eventos internos para el SUPERADMIN (/admin → Eventos del sistema): topes de
+// gasto de Anthropic alcanzados, clave de pruebas sin configurar, problemas de
+// facturación (ver lib/anthropic-client.ts y lib/eventos-admin.ts). No es
+// EventoSistema: ese es la campanita de notificaciones que ven todos.
+model EventoAdmin {
+  id        String   @id @default(uuid())
+  tipo      String   // "WORKSPACE_SPEND_LIMIT" | "ORG_SPEND_LIMIT" | "BILLING_ERROR" | "ANTHROPIC_KEY_PRUEBA_NO_CONFIGURADA"
+  empresaId String?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
+  funcion   String?  // función que lo disparó (mismo nombre que LogConsumoIA.funcion)
+  detalle   String?
+  createdAt DateTime @default(now())
+
+  @@index([tipo, createdAt])
+  @@index([empresaId])
 }

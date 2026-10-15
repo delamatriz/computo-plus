@@ -20,10 +20,10 @@
 //   Marca requiereVerificacion=true con el motivo correspondiente.
 
 import { db } from "@/lib/db";
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje } from "@/lib/anthropic-client";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
-const client = new Anthropic();
 
 const SYSTEM_PROMPT = `Eres un asistente que verifica precios de materiales de construcción en el
 mercado uruguayo. Se te da un proveedor, un nombre de producto ya conocido, y
@@ -79,7 +79,7 @@ Precio de referencia guardado: $${precioReferencia}/${unidadReferencia} (UYU)
 Buscá el precio actual de este producto en este proveedor. Si el proveedor lo vende en una unidad de venta distinta a "${unidadReferencia}" (por pieza, por bolsa, por litro, etc.), convertí tu respuesta a $/${unidadReferencia} antes de reportarla — usá el tamaño real del producto para la conversión y explicala en fuente_detalle.`;
 
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: prompt }];
-  let message = await client.messages.create({
+  let message = await crearMensaje({ empresaId: null, funcion: "verificar-precio-mercado" }, {
     model: "claude-sonnet-4-6",
     max_tokens: 2000,
     system: SYSTEM_PROMPT,
@@ -96,7 +96,7 @@ Buscá el precio actual de este producto en este proveedor. Si el proveedor lo v
   let intentos = 0;
   while (message.stop_reason === "pause_turn" && intentos < 5) {
     messages.push({ role: "assistant", content: message.content });
-    message = await client.messages.create({
+    message = await crearMensaje({ empresaId: null, funcion: "verificar-precio-mercado" }, {
       model: "claude-sonnet-4-6",
       max_tokens: 2000,
       system: SYSTEM_PROMPT,

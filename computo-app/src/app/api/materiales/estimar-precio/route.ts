@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje } from "@/lib/anthropic-client";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
-import { bloquearSiEsPrueba } from "@/lib/acceso";
+import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
 
-const client = new Anthropic();
 
 // POST — estima con IA el precio unitario (UYU) de un material de obra
 // que no tiene precio cargado ni match en PrecioMTOP. Usado por el botón
@@ -23,7 +22,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Falta descripcion" }, { status: 400 });
     }
 
-    const message = await client.messages.create({
+    const message = await crearMensaje({ empresaId: sesion.empresaId, funcion: "estimar-precio-material" }, {
       model: "claude-sonnet-4-6",
       max_tokens: 20,
       messages: [{
@@ -46,6 +45,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ precio: parseInt(match[0], 10) });
   } catch (err) {
     console.error("[POST /api/materiales/estimar-precio]", err);
+    const noDisponible = respuestaFuncionNoDisponible(err, sesion.email);
+    if (noDisponible) return noDisponible;
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }

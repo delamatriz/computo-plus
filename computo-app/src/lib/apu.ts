@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 import { buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, type SubrubroConApu } from "@/lib/bibliotecaApus";
@@ -60,7 +60,6 @@ async function vincularMaterialesAlCatalogo(
   );
 }
 
-const client = new Anthropic();
 
 interface ApuGenerado {
   materiales: MaterialGenerado[];
@@ -195,7 +194,7 @@ Reglas:
 - Si usaste como base alguno de los SUBRUBROS REALES DE BIBLIOTECA de arriba (aunque hayas ajustado cantidades a la escala de este rubro), marcá "origen": "biblioteca" y poné en "subrubroCodigoBase" el código entre corchetes de ese subrubro (ej. "1.1"). Si no había ninguno aplicable y generaste todo con tu criterio, marcá "origen": "estimado" y "subrubroCodigoBase": null.
 - Respondé SOLO con JSON válido, sin texto adicional ni markdown.`;
 
-  const message = await client.messages.create({
+  const message = await crearMensaje({ empresaId: rubro?.capitulo.proyecto.empresaId ?? null, funcion: `sugerir-apu:${origen}` }, {
     model: "claude-sonnet-4-6",
     max_tokens: 2048,
     system: `Sos un presupuestador experto en construcción uruguaya con 20 años de experiencia.

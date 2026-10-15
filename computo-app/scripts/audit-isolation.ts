@@ -21,6 +21,11 @@
 //      (sobre proyectos vacíos de B: generar-rubros no llega a llamar al
 //      servicio), prueba vencida en solo lectura, empresa desactivada y email
 //      sin verificar. Ninguno de estos casos llama al servicio asistido.
+//   8. Clave de Anthropic por estado: PRUEBA → ANTHROPIC_API_KEY_PRUEBA,
+//      ACTIVA / null → ANTHROPIC_API_KEY, PRUEBA sin la clave de pruebas →
+//      falla cerrado (y por HTTP, 503 sin detalles internos), clasificación
+//      de los topes de gasto y eventos del sistema separados por empresa.
+//      Tampoco llama a Anthropic.
 // Al final borra todo lo que creó (en un finally, aunque algo falle).
 //
 // Seguridad sobre datos reales (DATABASE_URL apunta a producción):
@@ -65,6 +70,7 @@ const BASE = (process.argv.find((a) => a.startsWith("--base="))?.slice(7) ?? "ht
 const PREFIJO_SLUG = "audit-";
 const TIMEOUT_MS = 120_000; // primera compilación de una ruta en dev puede tardar
 const MARCA_SUBRUBRO = "[AUDIT] test rubro";
+const MARCA_EVENTO = "audit-isolation";
 
 type Esperado = 403 | 404;
 interface Caso {
@@ -159,6 +165,7 @@ async function correrCaso(cliente: Cliente, caso: Caso): Promise<Resultado> {
 // ─── Limpieza ─────────────────────────────────────────────────────────────
 
 async function borrarEmpresaDePrueba(empresaId: string) {
+  await db.eventoAdmin.deleteMany({ where: { empresaId } });
   await db.consumoFuncionesAsistidas.deleteMany({ where: { empresaId } });
   await db.capitulo.deleteMany({ where: { proyecto: { empresaId } } });
   await db.proyecto.deleteMany({ where: { empresaId } });
@@ -249,6 +256,8 @@ async function armarCasos(empresaPropiaId: string | null) {
   const SUPER: [Caso["metodo"], string][] = [
     ["GET", "/api/admin/empresas"],
     ["GET", "/api/admin/usuarios"],
+    ["PATCH", "/api/admin/empresas/audit-id-inexistente/estado"],
+    ["GET", "/api/admin/eventos-admin"],
     ["PATCH", "/api/configuracion"],
     ["PATCH", "/api/categorias-laborales"],
     ["POST", "/api/configuracion/extraer-jornales"],
@@ -300,7 +309,7 @@ async function main() {
   console.log(`Rubro ajeno: ${rubro?.id ?? "— (sin rubros, se saltean esos casos)"}`);
   console.log(`Sugerencia ajena: ${sugerencia?.id ?? "— (no hay, se saltea)"}`);
   console.log(`Proyectos ajenos totales (para el chequeo de listado): ${idsAjenos.length}`);
-  console.log(`Casos de 404/403: ${casos.length} + 5 chequeos de datos propios/listados + 12 de prueba gratis y estado`);
+  console.log(`Casos de 404/403: ${casos.length} + 5 chequeos de datos propios/listados + 12 de prueba gratis y estado + 7 de clave de Anthropic y eventos`);
 
   if (!APLICAR) {
     for (const c of casos) console.log(`  ${c.grupo.padEnd(18)} ${c.metodo.padEnd(6)} ${c.ruta}  → espera ${c.esperado}`);
@@ -329,6 +338,7 @@ async function main() {
 
   let fallas = 0;
   let inconclusos = 0;
+  let empresaCId: string | null = null;
   try {
     await db.user.create({
       data: { email, nombre: "Usuario auditoría", rol: "ADMIN", empresaId: empresa.id, passwordHash: await bcrypt.hash(password, 10), emailVerificado: true },
@@ -411,6 +421,100 @@ async function main() {
       detalle: `${estadoRes.status} ${estadoJson?.estado} ${estadoJson?.diasRestantes} días, proyecto ${estadoJson?.cupos?.proyectoAsistido?.usado}/${estadoJson?.cupos?.proyectoAsistido?.limite}`,
     });
 
+    const claves: { nombre: string; ok: boolean; detalle: string }[] = [];
+    // Clave de Anthropic según el estado y eventos del sistema. Nada de esto
+    // llama a Anthropic: la clave elegida se mira en el cliente (apiKey), el
+    // tope se prueba con errores armados con el SDK, y el caso HTTP corre solo
+    // si el server NO tiene ANTHROPIC_API_KEY_PRUEBA (falla antes de salir a la red).
+    const ac = await import("../src/lib/anthropic-client");
+    const ev = await import("../src/lib/eventos-admin");
+    const { default: Anthropic } = await import("@anthropic-ai/sdk");
+    const clavePruebaReal = process.env.ANTHROPIC_API_KEY_PRUEBA;
+    const CLAVE_FALSA = "sk-audit-clave-de-pruebas";
+    const empresaAjena = await db.proyecto.findUnique({ where: { id: proyecto.id }, select: { empresa: { select: { id: true, estado: true } } } });
+    process.env.ANTHROPIC_API_KEY_PRUEBA = CLAVE_FALSA;
+    try {
+      const deB = await ac.clienteParaEmpresa(empresa.id); // B está en PRUEBA (bloque anterior)
+      claves.push({ nombre: "getAnthropicClient('PRUEBA') usa ANTHROPIC_API_KEY_PRUEBA", ok: ac.getAnthropicClient("PRUEBA").apiKey === CLAVE_FALSA, detalle: "clave de pruebas" });
+      const principal = ac.getAnthropicClient("ACTIVA").apiKey;
+      claves.push({
+        nombre: "getAnthropicClient('ACTIVA') y null usan ANTHROPIC_API_KEY (nunca la de pruebas)",
+        ok: !!principal && principal === process.env.ANTHROPIC_API_KEY && principal !== CLAVE_FALSA && ac.getAnthropicClient(null).apiKey === principal,
+        detalle: "clave principal",
+      });
+      if (empresaAjena?.empresa?.estado === "ACTIVA") {
+        const deAjena = await ac.clienteParaEmpresa(empresaAjena.empresa.id);
+        claves.push({
+          nombre: "clienteParaEmpresa: empresa B (PRUEBA) → pruebas, empresa ajena (ACTIVA) → principal",
+          ok: deB.apiKey === CLAVE_FALSA && deAjena.apiKey === principal,
+          detalle: `B=${deB.apiKey === CLAVE_FALSA ? "pruebas" : "principal"}, ajena=${deAjena.apiKey === principal ? "principal" : "pruebas"}`,
+        });
+      } else {
+        claves.push({ nombre: "clienteParaEmpresa: empresa B (PRUEBA) → pruebas", ok: deB.apiKey === CLAVE_FALSA, detalle: "(la empresa ajena no está ACTIVA: solo se chequea B)" });
+      }
+      delete process.env.ANTHROPIC_API_KEY_PRUEBA;
+      let fallaCerrado = false;
+      try {
+        await ac.clienteParaEmpresa(empresa.id);
+      } catch (e) {
+        fallaCerrado = e instanceof ac.ErrorFuncionNoDisponible && e.codigo === "ANTHROPIC_KEY_PRUEBA_NO_CONFIGURADA";
+      }
+      claves.push({ nombre: "PRUEBA sin ANTHROPIC_API_KEY_PRUEBA → falla cerrado (no usa la principal)", ok: fallaCerrado, detalle: fallaCerrado ? "ErrorFuncionNoDisponible" : "devolvió un cliente" });
+    } finally {
+      if (clavePruebaReal === undefined) delete process.env.ANTHROPIC_API_KEY_PRUEBA;
+      else process.env.ANTHROPIC_API_KEY_PRUEBA = clavePruebaReal;
+    }
+
+    // Punta a punta: el server sin la clave de pruebas responde 503 sin detalles internos y deja el evento.
+    if (clavePruebaReal) {
+      claves.push({ nombre: "HTTP: PRUEBA sin clave de pruebas → 503 (no corrido)", ok: true, detalle: "el entorno tiene ANTHROPIC_API_KEY_PRUEBA: se saltea para no gastar" });
+    } else {
+      const res = await cliente.pedir("POST", `/api/proyectos/${pA.id}/detectar-faltantes`);
+      const texto = await res.text();
+      const cuerpo = (() => { try { return JSON.parse(texto) as { error?: string }; } catch { return null; } })();
+      const evento = await db.eventoAdmin.count({ where: { empresaId: empresa.id, tipo: "ANTHROPIC_KEY_PRUEBA_NO_CONFIGURADA" } });
+      const sinInternos = !/anthropic|claude|api[_ ]key|\bIA\b/i.test(texto);
+      claves.push({
+        nombre: "HTTP: PRUEBA sin clave de pruebas → 503 FUNCION_NO_DISPONIBLE, evento registrado, sin detalles internos",
+        ok: res.status === 503 && cuerpo?.error === "FUNCION_NO_DISPONIBLE" && evento === 1 && sinInternos,
+        detalle: `${res.status} ${cuerpo?.error}, eventos ${evento}, texto limpio ${sinInternos}`,
+      });
+    }
+
+    // Tope alcanzado: errores con la forma exacta que documenta Anthropic.
+    const err400 = Anthropic.APIError.generate(400, { type: "error", error: { type: "invalid_request_error", message: "You have reached your specified workspace API usage limits. You will regain access on 2026-11-01 at 00:00 UTC." } }, undefined, new Headers());
+    const err429Tope = Anthropic.APIError.generate(429, { type: "error", error: { type: "rate_limit_error", message: "You have reached your API usage limits...", details: { error_code: "enforced_spend_limit_reached" } } }, undefined, new Headers());
+    const err429Normal = Anthropic.APIError.generate(429, { type: "error", error: { type: "rate_limit_error", message: "Number of request tokens has exceeded your per-minute rate limit" } }, undefined, new Headers({ "retry-after": "10" }));
+    const c400 = ac.clasificarErrorAnthropic(err400);
+    const c429 = ac.clasificarErrorAnthropic(err429Tope);
+    const cNormal = ac.clasificarErrorAnthropic(err429Normal);
+    claves.push({
+      nombre: "Tope: 400 de workspace → LIMITE_WORKSPACE_ALCANZADO; 429 de spend cap → LIMITE_ORG_ALCANZADO; 429 común → no es tope",
+      ok: c400?.codigo === "LIMITE_WORKSPACE_ALCANZADO" && c429?.codigo === "LIMITE_ORG_ALCANZADO" && cNormal === null,
+      detalle: `${c400?.codigo} / ${c429?.codigo} / ${cNormal === null ? "null" : cNormal.codigo}`,
+    });
+
+    // registrarEventoAdmin no mezcla empresas: dedup solo dentro de la misma empresa (y null aparte).
+    const empresaC = await db.empresa.create({
+      data: { nombre: `AUDITORÍA C ${marca}`, slug: `${slug}-c`, rut: `AUDIT-C-${marca}`, plan: "basico", estado: "ACTIVA" },
+      select: { id: true },
+    });
+    empresaCId = empresaC.id;
+    await ev.registrarEventoAdmin("AUDIT_EVENTO", empresa.id, MARCA_EVENTO, "B");
+    await ev.registrarEventoAdmin("AUDIT_EVENTO", empresaC.id, MARCA_EVENTO, "C");
+    await ev.registrarEventoAdmin("AUDIT_EVENTO", empresa.id, MARCA_EVENTO, "B otra vez (dedup)");
+    await ev.registrarEventoAdmin("AUDIT_EVENTO", null, MARCA_EVENTO, "sin empresa");
+    const [enB, enC, sinEmpresa] = await Promise.all([
+      db.eventoAdmin.count({ where: { funcion: MARCA_EVENTO, empresaId: empresa.id } }),
+      db.eventoAdmin.count({ where: { funcion: MARCA_EVENTO, empresaId: empresaC.id } }),
+      db.eventoAdmin.count({ where: { funcion: MARCA_EVENTO, empresaId: null } }),
+    ]);
+    claves.push({
+      nombre: "registrarEventoAdmin: B, C y sin empresa separados; repetido en B se deduplica",
+      ok: enB === 1 && enC === 1 && sinEmpresa === 1,
+      detalle: `B ${enB}, C ${enC}, sin empresa ${sinEmpresa}`,
+    });
+
     // Vencida: sigue en PRUEBA en la base pero con la fecha pasada.
     await db.empresa.update({ where: { id: empresa.id }, data: { fechaVencimientoPrueba: new Date(Date.now() - 60_000) } });
     const lectura = await cliente.pedir("GET", "/api/empresa/perfil");
@@ -448,19 +552,23 @@ async function main() {
     for (const e of extra) console.log(`  ${e.ok ? "✓" : "✗"} ${e.nombre} — ${e.detalle}`);
     console.log("\nPrueba gratis y estado de la empresa");
     for (const e of prueba) console.log(`  ${e.ok ? "✓" : "✗"} ${e.nombre} — ${e.detalle}`);
+    console.log("\nClave de Anthropic y eventos del sistema");
+    for (const e of claves) console.log(`  ${e.ok ? "✓" : "✗"} ${e.nombre} — ${e.detalle}`);
 
     console.log("\nNotas de diseño (no son pruebas HTTP, no cuentan en el resumen)");
     console.log("  ℹ Configuracion.margenEmpresa / margenImprevistos / monedaDefault no se leen en ningún cálculo:");
     console.log("    el presupuesto usa Proyecto.imprevistosPct / gastosGeneralesPctDefault y proyecto.moneda");
     console.log("    (ver schema.prisma, comentario junto a imprevistosPct). Sin riesgo de contaminación entre empresas.");
 
-    fallas = resultados.filter((r) => r.estado === "FALLA").length + extra.filter((e) => !e.ok).length + prueba.filter((e) => !e.ok).length;
+    fallas = resultados.filter((r) => r.estado === "FALLA").length + extra.filter((e) => !e.ok).length + prueba.filter((e) => !e.ok).length + claves.filter((e) => !e.ok).length;
     inconclusos = resultados.filter((r) => r.estado === "INCONCLUSO").length;
-    const total = resultados.length + extra.length + prueba.length;
+    const total = resultados.length + extra.length + prueba.length + claves.length;
     console.log(`\nResumen: ${total - fallas - inconclusos}/${total} OK, ${fallas} fallas, ${inconclusos} inconclusos.`);
   } finally {
     const fuga = await db.subrubroEstandar.deleteMany({ where: { descripcion: { startsWith: MARCA_SUBRUBRO } } });
     if (fuga.count > 0) console.log(`⚠ Se borraron ${fuga.count} subrubros "${MARCA_SUBRUBRO}" que se llegaron a escribir.`);
+    await db.eventoAdmin.deleteMany({ where: { funcion: MARCA_EVENTO } });
+    if (empresaCId) await borrarEmpresaDePrueba(empresaCId);
     await borrarEmpresaDePrueba(empresa.id);
     console.log(`Empresa de prueba ${slug} borrada (con su usuario, sugerencias y configuración).`);
   }

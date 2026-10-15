@@ -20,6 +20,7 @@ import { db } from "@/lib/db";
 import { mensajeCupoCalculoRapido, mensajeCupoProyectoAsistido, whatsappContacto } from "@/lib/config-prueba";
 import type { EstadoEmpresa } from "@/generated/prisma/client";
 import type { SesionUsuario } from "@/lib/sesion";
+import { ErrorFuncionNoDisponible } from "@/lib/anthropic-client";
 
 export type TipoFuncionAsistida = "calculo_rapido" | "proyecto_ia";
 
@@ -179,4 +180,20 @@ export async function bloquearSiEsPrueba(sesion: SesionUsuario): Promise<NextRes
   const acceso = await estadoAccesoUsuario(sesion.id);
   if (acceso?.estado === "PRUEBA") return respuestaAcceso("NO_DISPONIBLE_EN_PRUEBA", sesion.email);
   return null;
+}
+
+/**
+ * Respuesta al usuario cuando el servicio asistido no está disponible (tope
+ * de gasto alcanzado, clave de pruebas sin configurar, facturación): 503
+ * FUNCION_NO_DISPONIBLE con un mensaje sin detalles internos y el link de
+ * WhatsApp. null si el error es otro (la ruta sigue con su manejo de siempre).
+ * El EventoAdmin ya lo registró crearMensaje() (lib/anthropic-client.ts).
+ */
+export function respuestaFuncionNoDisponible(err: unknown, email: string): NextResponse | null {
+  if (!(err instanceof ErrorFuncionNoDisponible)) return null;
+  const mensaje =
+    err.estadoEmpresa === "PRUEBA" && err.codigo === "LIMITE_WORKSPACE_ALCANZADO"
+      ? "Por ahora no podemos habilitar más pruebas con esta función. Escribinos por WhatsApp."
+      : "Esta función no está disponible por ahora. Escribinos por WhatsApp y te avisamos cuando vuelva.";
+  return NextResponse.json({ error: "FUNCION_NO_DISPONIBLE", mensaje, contacto: whatsappContacto(email) }, { status: 503 });
 }

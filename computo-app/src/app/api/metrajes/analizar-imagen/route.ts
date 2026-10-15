@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje } from "@/lib/anthropic-client";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
-import { bloquearSiEsPrueba } from "@/lib/acceso";
+import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
 
-const client = new Anthropic();
 
 const PROMPT = `Sos un arquitecto experto en cómputo métrico. Analizá esta imagen (puede ser un plano, un croquis a mano, o una foto de obra) e identificá todos los elementos medibles que puedas: muros, aberturas, superficies, longitudes, alturas, etc.
 
@@ -88,7 +87,7 @@ export async function POST(request: NextRequest) {
       ? `${PROMPT}\n\nContexto del espacio: ${contexto.trim()}`
       : PROMPT;
 
-    const message = await client.messages.create({
+    const message = await crearMensaje({ empresaId: sesion.empresaId, funcion: "metrajes-analizar-imagen" }, {
       model: "claude-sonnet-4-6",
       max_tokens: 2000,
       messages: [
@@ -117,6 +116,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(resultado);
   } catch (err) {
     console.error("[metrajes/analizar-imagen]", err);
+    const noDisponible = respuestaFuncionNoDisponible(err, sesion.email);
+    if (noDisponible) return noDisponible;
     return NextResponse.json(
       { error: "Error al analizar las imágenes" },
       { status: 500 }

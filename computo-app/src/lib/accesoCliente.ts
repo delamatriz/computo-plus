@@ -25,12 +25,20 @@ export interface EstadoCuenta {
 }
 
 export interface ErrorAcceso {
-  error: "EMAIL_NO_VERIFICADO" | "EMPRESA_DESACTIVADA" | "PRUEBA_VENCIDA" | "CUPO_AGOTADO" | "NO_DISPONIBLE_EN_PRUEBA";
+  error: "EMAIL_NO_VERIFICADO" | "EMPRESA_DESACTIVADA" | "PRUEBA_VENCIDA" | "CUPO_AGOTADO" | "NO_DISPONIBLE_EN_PRUEBA" | "FUNCION_NO_DISPONIBLE";
   mensaje: string;
   contacto: string;
 }
 
-const CODIGOS = new Set(["EMAIL_NO_VERIFICADO", "EMPRESA_DESACTIVADA", "PRUEBA_VENCIDA", "CUPO_AGOTADO", "NO_DISPONIBLE_EN_PRUEBA"]);
+const CODIGOS = new Set([
+  "EMAIL_NO_VERIFICADO",
+  "EMPRESA_DESACTIVADA",
+  "PRUEBA_VENCIDA",
+  "CUPO_AGOTADO",
+  "NO_DISPONIBLE_EN_PRUEBA",
+  // Servicio asistido sin disponibilidad (tope de gasto, clave de pruebas sin configurar).
+  "FUNCION_NO_DISPONIBLE",
+]);
 
 /** true si la respuesta JSON es un error de acceso (para mostrarlo con <AvisoAcceso />). */
 export function esErrorAcceso(data: unknown): data is ErrorAcceso {

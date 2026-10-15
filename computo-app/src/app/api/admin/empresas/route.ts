@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirSuperadmin } from "@/lib/sesion";
 import { esPlan } from "@/lib/roles";
+import { estadoEfectivo } from "@/lib/acceso";
 
 // Panel /admin — empresas (tenants). Solo SUPERADMIN (otro rol → 403).
 
@@ -20,10 +21,15 @@ export async function GET() {
         plan: true,
         rut: true,
         createdAt: true,
+        estado: true,
+        fechaVencimientoPrueba: true,
+        origen: true,
         _count: { select: { users: true, proyectos: true } },
       },
     });
-    return NextResponse.json({ empresas });
+    // Estado efectivo: una PRUEBA con la fecha pasada se muestra como VENCIDA
+    // aunque nadie la haya usado todavía (el paso se persiste al primer pedido).
+    return NextResponse.json({ empresas: empresas.map((e) => ({ ...e, estado: estadoEfectivo(e) })) });
   } catch (err) {
     console.error("[GET /api/admin/empresas]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
@@ -61,7 +67,7 @@ export async function POST(req: NextRequest) {
       // Alta manual de un cliente: ACTIVA, sin prueba ni cupos (el registro
       // público es el que crea empresas en PRUEBA).
       data: { nombre, slug, plan, rut: rutFinal, estado: "ACTIVA" },
-      select: { id: true, nombre: true, slug: true, plan: true, rut: true, createdAt: true, _count: { select: { users: true, proyectos: true } } },
+      select: { id: true, nombre: true, slug: true, plan: true, rut: true, createdAt: true, estado: true, fechaVencimientoPrueba: true, origen: true, _count: { select: { users: true, proyectos: true } } },
     });
     return NextResponse.json({ empresa }, { status: 201 });
   } catch (err) {

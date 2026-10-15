@@ -1,10 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
 import { precioConRespaldo, resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
 import { sumManoObra } from "@/lib/apu-calc";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
-const client = new Anthropic();
 
 export interface SubrubroConApu {
   id: string;
@@ -35,8 +34,10 @@ export interface SubrubroConApu {
  */
 export async function clasificarCapitulosBiblioteca(
   descripcion: string,
-  // Empresa de la sesión, solo para el log de consumo de IA.
-  empresaId: string | null = null
+  // Empresa de la sesión: elige la clave de Anthropic (prueba / principal) y
+  // va al log de consumo. Obligatorio a propósito: sin default null, que
+  // usaría la clave principal para una empresa en prueba.
+  empresaId: string | null
 ): Promise<{ id: string; nombre: string }[]> {
   if (!descripcion?.trim()) return [];
 
@@ -48,7 +49,7 @@ export async function clasificarCapitulosBiblioteca(
   if (capitulos.length === 0) return [];
 
   try {
-    const response = await client.messages.create({
+    const response = await crearMensaje({ empresaId: empresaId, funcion: "calcular-rapido-clasificar" }, {
       model: "claude-sonnet-4-6",
       max_tokens: 512,
       // temperature 0 — este paso es clasificación pura (¿cuáles de esta

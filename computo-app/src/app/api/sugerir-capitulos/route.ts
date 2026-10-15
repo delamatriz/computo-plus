@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
-import { bloquearSiEsPrueba } from "@/lib/acceso";
+import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
 
 // Sugiere, desde el paso 3 del asistente de Nuevo proyecto, qué capítulos de la
 // Lista estándar conviene prender según lo que se cargó en el paso 1: tipo de
@@ -17,7 +18,6 @@ import { bloquearSiEsPrueba } from "@/lib/acceso";
 // origen "estandar") — así cada nombre devuelto coincide con uno que el
 // selector del paso 3 ya muestra, y no hay que traducir nada.
 
-const client = new Anthropic();
 
 const TIPOS_LABEL: Record<string, string> = {
   REPARACIONES: "Reparaciones",
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       ),
     ];
 
-    const response = await client.messages.create({
+    const response = await crearMensaje({ empresaId: sesion.empresaId, funcion: "sugerir-capitulos" }, {
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: `Sos un experto en construcción uruguaya. Te dan el tipo de obra y lo que se sabe de ella (área, descripción de los trabajos, otros datos y fotos). Elegí qué capítulos del presupuesto hacen falta, en orden lógico de ejecución de obra, usando SOLO nombres de esta lista (copiados exactamente):
@@ -131,6 +131,8 @@ Respondé SOLO con JSON válido, sin texto adicional: { "capitulos": ["nombre1",
     return NextResponse.json({ capitulos });
   } catch (err) {
     console.error("[sugerir-capitulos]", err);
+    const noDisponible = respuestaFuncionNoDisponible(err, sesion.email);
+    if (noDisponible) return noDisponible;
     return NextResponse.json({ error: "No se pudo generar la sugerencia" }, { status: 500 });
   }
 }

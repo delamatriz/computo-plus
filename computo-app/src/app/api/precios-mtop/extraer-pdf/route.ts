@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { crearMensaje } from "@/lib/anthropic-client";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSuperadmin } from "@/lib/sesion";
+import { respuestaFuncionNoDisponible } from "@/lib/acceso";
 
-const client = new Anthropic();
 
 // Mismo criterio de dominio que extraer-jornales.ts ("preferí null antes
 // que adivinar") — acá aplicado a listas de precios de proveedor en vez
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
     const data = match[2];
 
-    const message = await client.messages.create({
+    const message = await crearMensaje({ empresaId: null, funcion: "extraer-pdf" }, {
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
@@ -147,6 +147,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ proveedor, items });
   } catch (err) {
     console.error("[precios-mtop/extraer-pdf]", err);
+    const noDisponible = respuestaFuncionNoDisponible(err, sesionOrError.email);
+    if (noDisponible) return noDisponible;
     return NextResponse.json({ error: "lectura_incierta" }, { status: 422 });
   }
 }

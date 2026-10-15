@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Loader2, Plus, ShieldCheck, Users } from "lucide-react";
+import { Activity, Building2, Loader2, Plus, ShieldCheck, Users } from "lucide-react";
 import { PLANES, ROLES_ASIGNABLES, type Plan } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
-// Panel /admin (solo SUPERADMIN): alta de empresas y de usuarios. Las rutas
-// /api/admin/* vuelven a chequear el rol en cada pedido.
+// Panel /admin (solo SUPERADMIN): alta de empresas y de usuarios, estado de
+// cada empresa (prueba / activa / desactivada) y eventos del sistema (topes de
+// gasto, etc.). Las rutas /api/admin/* vuelven a chequear el rol en cada pedido.
 
 interface EmpresaAdmin {
   id: string;
@@ -15,8 +16,43 @@ interface EmpresaAdmin {
   plan: string;
   rut: string;
   createdAt: string;
+  /** Estado efectivo (una prueba con la fecha pasada llega como VENCIDA). */
+  estado: EstadoEmpresa;
+  fechaVencimientoPrueba: string | null;
+  origen: string | null;
   _count: { users: number; proyectos: number };
 }
+
+type EstadoEmpresa = "PRUEBA" | "ACTIVA" | "VENCIDA" | "DESACTIVADA";
+/** Estados que se eligen a mano; VENCIDA es automático. */
+const ESTADOS_ELEGIBLES = ["PRUEBA", "ACTIVA", "DESACTIVADA"] as const;
+
+const ESTILO_ESTADO: Record<EstadoEmpresa, { etiqueta: string; clase: string }> = {
+  ACTIVA: { etiqueta: "Activa", clase: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  PRUEBA: { etiqueta: "Prueba", clase: "bg-amber-50 text-amber-800 border-amber-200" },
+  VENCIDA: { etiqueta: "Vencida", clase: "bg-red-50 text-red-700 border-red-200" },
+  DESACTIVADA: { etiqueta: "Desactivada", clase: "bg-slate-100 text-slate-600 border-slate-200" },
+};
+
+interface EventoAdmin {
+  id: string;
+  tipo: string;
+  funcion: string | null;
+  detalle: string | null;
+  createdAt: string;
+  empresa: { id: string; nombre: string } | null;
+}
+
+const ETIQUETA_EVENTO: Record<string, string> = {
+  WORKSPACE_SPEND_LIMIT: "Tope del workspace de pruebas",
+  ORG_SPEND_LIMIT: "Tope de la organización",
+  BILLING_ERROR: "Facturación de Anthropic",
+  ANTHROPIC_KEY_PRUEBA_NO_CONFIGURADA: "Falta la clave de pruebas",
+};
+
+const fmtFecha = (iso: string) => new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
+const fmtFechaHora = (iso: string) =>
+  new Date(iso).toLocaleString("es-UY", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
 interface UsuarioAdmin {
   id: string;
@@ -76,6 +112,9 @@ export function PanelAdmin() {
   const [empresas, setEmpresas] = useState<EmpresaAdmin[] | null>(null);
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[] | null>(null);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const [eventos, setEventos] = useState<{ eventos: EventoAdmin[]; porTipo: { tipo: string; total: number }[] } | null>(null);
+  const [cambiandoEstadoId, setCambiandoEstadoId] = useState<string | null>(null);
+  const [errorEstado, setErrorEstado] = useState<string | null>(null);
 
   // ── Form empresa ──
   const [eNombre, setENombre] = useState("");
@@ -106,7 +145,38 @@ export function PanelAdmin() {
         setUsuarios(du.usuarios);
       })
       .catch((e) => setErrorCarga(e instanceof Error ? e.message : "Error al cargar"));
+    fetch("/api/admin/eventos-admin")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setEventos(data))
+      .catch(() => {});
   }, []);
+
+  async function cambiarEstado(emp: EmpresaAdmin, estado: (typeof ESTADOS_ELEGIBLES)[number]) {
+    if (estado === emp.estado) return;
+    if (estado === "DESACTIVADA" && !window.confirm(`¿Desactivar «${emp.nombre}»? Sus usuarios no van a poder entrar.`)) return;
+    setErrorEstado(null);
+    setCambiandoEstadoId(emp.id);
+    try {
+      const res = await fetch(`/api/admin/empresas/${emp.id}/estado`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErrorEstado(`«${emp.nombre}»: ${data?.error ?? `Error ${res.status}`}`);
+      } else {
+        setEmpresas((prev) =>
+          prev?.map((x) =>
+            x.id === emp.id ? { ...x, estado: data.empresa.estado, fechaVencimientoPrueba: data.empresa.fechaVencimientoPrueba } : x
+          ) ?? prev
+        );
+      }
+    } catch {
+      setErrorEstado("No se pudo conectar con el servidor");
+    }
+    setCambiandoEstadoId(null);
+  }
 
   async function crearEmpresa(e: React.FormEvent) {
     e.preventDefault();
@@ -229,23 +299,53 @@ export function PanelAdmin() {
               </div>
             </form>
 
+            {errorEstado && <div className="px-5 pt-3"><Aviso error={errorEstado} exito={null} /></div>}
             <ul className="divide-y divide-slate-100">
               {empresas === null && !errorCarga && (
                 <li className="px-5 py-4 text-sm text-slate-400 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Cargando…</li>
               )}
               {empresas?.length === 0 && <li className="px-5 py-4 text-sm text-slate-400">Todavía no hay empresas.</li>}
               {empresas?.map((emp) => (
-                <li key={emp.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[#1E293B] truncate">{emp.nombre}</p>
-                    <p className="text-xs text-slate-400 font-mono truncate">{emp.slug ?? "sin slug"}</p>
+                <li key={emp.id} className="px-5 py-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#1E293B] truncate">{emp.nombre}</p>
+                      <p className="text-xs text-slate-400 font-mono truncate">{emp.slug ?? "sin slug"}</p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0 text-xs text-slate-500">
+                      <span className="tabular-nums">{emp._count.users} usuario{emp._count.users !== 1 ? "s" : ""}</span>
+                      <span className="tabular-nums">{emp._count.proyectos} proyecto{emp._count.proyectos !== 1 ? "s" : ""}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-semibold">
+                        {ETIQUETA_PLAN[emp.plan as Plan] ?? emp.plan}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0 text-xs text-slate-500">
-                    <span className="tabular-nums">{emp._count.users} usuario{emp._count.users !== 1 ? "s" : ""}</span>
-                    <span className="tabular-nums">{emp._count.proyectos} proyecto{emp._count.proyectos !== 1 ? "s" : ""}</span>
-                    <span className="px-2 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-semibold">
-                      {ETIQUETA_PLAN[emp.plan as Plan] ?? emp.plan}
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className={cn("px-2 py-0.5 rounded-full border font-semibold", ESTILO_ESTADO[emp.estado].clase)}>
+                      {ESTILO_ESTADO[emp.estado].etiqueta}
                     </span>
+                    {(emp.estado === "PRUEBA" || emp.estado === "VENCIDA") && emp.fechaVencimientoPrueba && (
+                      <span className="text-slate-500">
+                        {emp.estado === "PRUEBA" ? "vence el" : "venció el"} {fmtFecha(emp.fechaVencimientoPrueba)}
+                      </span>
+                    )}
+                    {emp.origen && <span className="text-slate-400">· origen: {emp.origen}</span>}
+                    <div className="ml-auto flex items-center gap-1.5">
+                      {cambiandoEstadoId === emp.id && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
+                      <label htmlFor={`estado-${emp.id}`} className="sr-only">Estado de {emp.nombre}</label>
+                      <select
+                        id={`estado-${emp.id}`}
+                        className="h-7 px-2 rounded-md border border-slate-200 bg-white text-xs text-[#1E293B] focus:outline-none focus:border-[#2563EB]"
+                        value={emp.estado}
+                        disabled={cambiandoEstadoId === emp.id}
+                        onChange={(e) => cambiarEstado(emp, e.target.value as (typeof ESTADOS_ELEGIBLES)[number])}
+                      >
+                        {emp.estado === "VENCIDA" && <option value="VENCIDA" disabled>Vencida (automático)</option>}
+                        <option value="PRUEBA">{emp.estado === "VENCIDA" ? "Prueba (nuevos días)" : "Prueba"}</option>
+                        <option value="ACTIVA">Activa</option>
+                        <option value="DESACTIVADA">Desactivada</option>
+                      </select>
+                    </div>
                   </div>
                 </li>
               ))}
@@ -329,6 +429,54 @@ export function PanelAdmin() {
             </ul>
           </section>
         </div>
+
+        {/* ── Eventos del sistema ── */}
+        <section className="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-[#1A3A5C]" />
+            <h2 className="text-sm font-bold uppercase tracking-wide text-[#1A3A5C]">Eventos del sistema</h2>
+            <span className="text-xs text-slate-400 normal-case">últimos 50</span>
+          </div>
+          {eventos === null ? (
+            <p className="px-5 py-4 text-sm text-slate-400 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Cargando…</p>
+          ) : eventos.eventos.length === 0 ? (
+            <p className="px-5 py-4 text-sm text-slate-400">Sin eventos: no se alcanzó ningún tope de gasto.</p>
+          ) : (
+            <>
+              <div className="px-5 py-3 flex flex-wrap gap-2 border-b border-slate-100">
+                {eventos.porTipo.map((t) => (
+                  <span key={t.tipo} className="px-2.5 py-1 rounded-full bg-slate-100 text-xs text-slate-600">
+                    {ETIQUETA_EVENTO[t.tipo] ?? t.tipo}: <span className="font-semibold tabular-nums">{t.total}</span>
+                  </span>
+                ))}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wide text-slate-400 border-b border-slate-100">
+                      <th className="px-5 py-2 font-semibold">Fecha</th>
+                      <th className="px-3 py-2 font-semibold">Tipo</th>
+                      <th className="px-3 py-2 font-semibold">Empresa</th>
+                      <th className="px-3 py-2 font-semibold">Función</th>
+                      <th className="px-5 py-2 font-semibold">Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {eventos.eventos.map((ev) => (
+                      <tr key={ev.id} className="align-top">
+                        <td className="px-5 py-2.5 whitespace-nowrap text-slate-500 tabular-nums">{fmtFechaHora(ev.createdAt)}</td>
+                        <td className="px-3 py-2.5 whitespace-nowrap font-medium text-[#1E293B]">{ETIQUETA_EVENTO[ev.tipo] ?? ev.tipo}</td>
+                        <td className="px-3 py-2.5 text-slate-600">{ev.empresa?.nombre ?? "—"}</td>
+                        <td className="px-3 py-2.5 font-mono text-xs text-slate-500">{ev.funcion ?? "—"}</td>
+                        <td className="px-5 py-2.5 text-xs text-slate-500 min-w-[16rem]">{ev.detalle ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </section>
       </div>
     </div>
   );
