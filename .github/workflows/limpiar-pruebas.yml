@@ -1,0 +1,16 @@
+name: Limpiar pruebas vencidas
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # Lunes 3am UTC
+  workflow_dispatch:       # permite correrlo manualmente
+
+jobs:
+  limpiar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar endpoint de limpieza
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://computo-plus.onrender.com/api/admin/limpiar-pruebas-vencidas
