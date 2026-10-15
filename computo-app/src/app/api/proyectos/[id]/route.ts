@@ -42,6 +42,17 @@ export async function GET(
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
 
+    // Solo el nombre, para rotular el botón "Volver al proyecto" de las
+    // pantallas de referencia (Materiales, Cola de revisión, etc.). El control
+    // de empresa ya lo hizo requerirProyecto: un proyecto ajeno da 404 igual.
+    if (req.nextUrl.searchParams.get("resumen") === "1") {
+      const proyecto = await db.proyecto.findUnique({ where: { id }, select: { id: true, nombre: true } });
+      if (!proyecto) {
+        return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+      }
+      return NextResponse.json(proyecto);
+    }
+
     // Poll liviano: solo el estado de generación de rubros, sin capítulos/rubros/APUs
     if (req.nextUrl.searchParams.get("light") === "1") {
       const proyecto = await db.proyecto.findUnique({

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { proyectoIdDesdePath } from "@/lib/proyectoActual";
 import { motion, AnimatePresence } from "framer-motion";
 
 // "Mis Proyectos" también vive como píldora en el nav central del Header
@@ -99,9 +100,7 @@ export function Sidebar({
   const pathname = usePathname();
   // /proyectos/nuevo no es un id real — sin esta exclusión, "Volver al
   // proyecto" desde ahí apuntaría a /proyectos/nuevo (nada que volver).
-  const matchProyecto = pathname.match(/^\/proyectos\/([^/]+)/);
-  const proyectoIdActual =
-    matchProyecto && matchProyecto[1] !== "nuevo" ? matchProyecto[1] : null;
+  const proyectoIdActual = proyectoIdDesdePath(pathname);
 
   return (
     <>

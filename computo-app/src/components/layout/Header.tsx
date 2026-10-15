@@ -7,6 +7,7 @@ import { getSession, signOut } from "next-auth/react";
 import { Bell, HelpCircle, ChevronDown, Menu, LogOut, Gauge, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEstadoCuenta } from "@/lib/accesoCliente";
+import { conProyectoDeOrigen, proyectoIdDesdePath } from "@/lib/proyectoActual";
 import { AvisoPrueba } from "@/components/acceso/AvisoPrueba";
 
 interface HeaderProps {
@@ -158,6 +159,15 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   };
 
   const isHome = pathname === "/inicio";
+  // Desde la campanita se sale a pantallas de referencia: se lleva el proyecto
+  // en el que se estaba para poder volver (botón "Volver al proyecto" allá).
+  const proyectoIdActual = proyectoIdDesdePath(pathname);
+  // A dónde lleva cada pendiente: la cola de revisión resuelve precios del
+  // catálogo global y es solo para el SUPERADMIN (a los demás les muestra un
+  // aviso de acceso restringido); el resto va al catálogo de Materiales. Si
+  // el rol todavía no cargó, va a Materiales (sirve para todos).
+  const destinoPendiente = (ancla: "a-revisar" | "sin-precio") =>
+    conProyectoDeOrigen(esSuperadmin ? `/configuracion/revision-precios#${ancla}` : "/materiales", proyectoIdActual);
 
   const fmtFecha = (iso: string) =>
     new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
@@ -277,7 +287,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                       {notificaciones.pendientes.requierenVerificacion > 0 && (
                         <li>
                           <Link
-                            href="/configuracion/revision-precios#a-revisar"
+                            href={destinoPendiente("a-revisar")}
                             onClick={() => setNotifOpen(false)}
                             className="text-sm text-text-primary hover:text-brand-accent transition-colors"
                           >
@@ -288,7 +298,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                       {notificaciones.pendientes.aCotizar > 0 && (
                         <li>
                           <Link
-                            href="/configuracion/revision-precios#sin-precio"
+                            href={destinoPendiente("sin-precio")}
                             onClick={() => setNotifOpen(false)}
                             className="text-sm text-text-primary hover:text-brand-accent transition-colors"
                           >

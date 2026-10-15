@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, Loader2, AlertTriangle, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
 import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
+import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
 
@@ -80,6 +81,10 @@ export default function RevisionPreciosPage() {
 
   return (
     <div className="p-8 max-w-3xl">
+      {/* Solo aparece si se llegó desde la campanita (o el sidebar) estando en un proyecto. */}
+      <div>
+        <BotonVolverAlProyecto />
+      </div>
       <Link href="/configuracion" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#2563EB] transition-colors mb-4">
         <ArrowLeft className="w-3.5 h-3.5" /> Configuración
       </Link>
