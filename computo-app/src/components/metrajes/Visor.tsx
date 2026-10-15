@@ -578,6 +578,39 @@ function puntoDesdeEvento(svg: SVGSVGElement, clientX: number, clientY: number):
   return { x: Math.min(100, Math.max(0, p.x)), y: Math.min(100, Math.max(0, p.y)) };
 }
 
+// Arrastre con Pointer Events (mouse, dedo y lápiz) y pointer capture: el
+// elemento sigue recibiendo el movimiento aunque el puntero pase por encima
+// del plano u otro elemento, hasta soltar. alMover recibe el desplazamiento
+// total desde donde empezó el arrastre. Quien lo use pone touch-action: none
+// en el elemento, para que el navegador no lo tome como scroll/zoom.
+// Lo usan la ventana flotante de fotos/detalles y el modal de medición.
+function seguirPuntero(e: React.PointerEvent<HTMLElement>, alMover: (dx: number, dy: number) => void) {
+  if (e.button !== 0) return; // solo botón principal / toque
+  e.preventDefault();
+  const el = e.currentTarget;
+  const id = e.pointerId;
+  const inicio = { x: e.clientX, y: e.clientY };
+  try {
+    el.setPointerCapture(id);
+  } catch {
+    // Puntero que el navegador no considera activo: sin captura, el
+    // arrastre igual anda mientras el puntero siga sobre el elemento.
+  }
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId === id) alMover(ev.clientX - inicio.x, ev.clientY - inicio.y);
+  };
+  const fin = (ev: PointerEvent) => {
+    if (ev.pointerId !== id) return;
+    el.removeEventListener("pointermove", onMove);
+    el.removeEventListener("pointerup", fin);
+    el.removeEventListener("pointercancel", fin);
+    if (el.hasPointerCapture?.(id)) el.releasePointerCapture(id);
+  };
+  el.addEventListener("pointermove", onMove);
+  el.addEventListener("pointerup", fin);
+  el.addEventListener("pointercancel", fin);
+}
+
 // Modal de confirmación compartido entre Línea y Área — mismo patrón
 // de UX para ambas: valor calculado pre-cargado (editable a mano),
 // descripción, repeticiones. Sin rubro acá — se asigna después, directo
@@ -612,6 +645,27 @@ function ModalConfirmarMedicion({
   const [valor, setValor] = useState(valorInicial.toFixed(2));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Desplazamiento desde la posición centrada: se arrastra desde el header
+  // para correrla y ver la medida en el plano. Arranca centrada cada vez.
+  const [desplazamiento, setDesplazamiento] = useState({ x: 0, y: 0 });
+  const cajaRef = useRef<HTMLDivElement>(null);
+
+  const iniciarArrastre = (e: React.PointerEvent<HTMLElement>) => {
+    // El botón cerrar vive dentro del header: tocarlo no arrastra.
+    if ((e.target as HTMLElement).closest("button") || !cajaRef.current) return;
+    const caja = cajaRef.current.getBoundingClientRect();
+    const inicial = desplazamiento;
+    // Límites para que el header quede siempre a la vista (alcanzable para
+    // seguir arrastrando o cerrar): al menos 80px a lo ancho y el borde
+    // superior dentro de la pantalla.
+    const dxMin = -(caja.left + caja.width - 80);
+    const dxMax = window.innerWidth - 80 - caja.left;
+    const dyMin = -caja.top;
+    const dyMax = window.innerHeight - 48 - caja.top;
+    seguirPuntero(e, (dx, dy) =>
+      setDesplazamiento({ x: inicial.x + clamp(dx, dxMin, dxMax), y: inicial.y + clamp(dy, dyMin, dyMax) })
+    );
+  };
 
   const guardar = async () => {
     const rep = parseFloat(repeticiones.replace(",", "."));
@@ -642,9 +696,21 @@ function ModalConfirmarMedicion({
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCancelar} />
-      <div className="relative w-full max-w-sm bg-white rounded-[16px] shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-          <h2 className="text-base font-bold text-[#1A3A5C]">Nueva medición</h2>
+      <div
+        ref={cajaRef}
+        className="relative w-full max-w-sm bg-white rounded-[16px] shadow-2xl"
+        style={{ transform: `translate(${desplazamiento.x}px, ${desplazamiento.y}px)` }}
+      >
+        <div
+          onPointerDown={iniciarArrastre}
+          style={{ touchAction: "none" }}
+          title="Arrastrá para mover"
+          className="flex items-center justify-between px-5 py-4 border-b border-slate-200 cursor-move select-none"
+        >
+          <h2 className="flex items-center gap-1.5 text-base font-bold text-[#1A3A5C]">
+            <GripHorizontal className="w-4 h-4 text-slate-400" />
+            Nueva medición
+          </h2>
           <button onClick={onCancelar} className="p-1.5 rounded-[6px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
             <X className="w-4 h-4" />
           </button>
@@ -2984,44 +3050,29 @@ function VentanaFlotante({
     setTamano(VENTANA_TAMANO_INICIAL);
   }, [doc.id]);
 
-  const iniciarArrastre = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!pos) return;
-    const inicio = { x: e.clientX, y: e.clientY };
+  const iniciarArrastre = (e: React.PointerEvent<HTMLElement>) => {
+    // El botón cerrar vive dentro del header: tocarlo no arranca el arrastre.
+    if (!pos || (e.target as HTMLElement).closest("button")) return;
     const posInicial = pos;
-    const onMove = (ev: MouseEvent) => {
+    seguirPuntero(e, (dx, dy) =>
       // Clamp liviano — evita que se pueda arrastrar tan lejos que se
       // pierda de vista por completo (sin header/botón cerrar alcanzable).
       setPos({
-        x: clamp(posInicial.x + (ev.clientX - inicio.x), -tamano.width + 80, window.innerWidth - 80),
-        y: clamp(posInicial.y + (ev.clientY - inicio.y), 0, window.innerHeight - 40),
-      });
-    };
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+        x: clamp(posInicial.x + dx, -tamano.width + 80, window.innerWidth - 80),
+        y: clamp(posInicial.y + dy, 0, window.innerHeight - 40),
+      })
+    );
   };
 
-  const iniciarRedimension = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const iniciarRedimension = (e: React.PointerEvent<HTMLElement>) => {
     e.stopPropagation();
-    const inicio = { x: e.clientX, y: e.clientY };
     const tamanoInicial = tamano;
-    const onMove = (ev: MouseEvent) => {
+    seguirPuntero(e, (dx, dy) =>
       setTamano({
-        width: clamp(tamanoInicial.width + (ev.clientX - inicio.x), VENTANA_ANCHO_MIN, window.innerWidth - 32),
-        height: clamp(tamanoInicial.height + (ev.clientY - inicio.y), VENTANA_ALTO_MIN, window.innerHeight - 32),
-      });
-    };
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+        width: clamp(tamanoInicial.width + dx, VENTANA_ANCHO_MIN, window.innerWidth - 32),
+        height: clamp(tamanoInicial.height + dy, VENTANA_ALTO_MIN, window.innerHeight - 32),
+      })
+    );
   };
 
   if (!pos) return null;
@@ -3032,8 +3083,9 @@ function VentanaFlotante({
       style={{ left: pos.x, top: pos.y, width: tamano.width, height: tamano.height }}
     >
       <div
-        onMouseDown={iniciarArrastre}
-        className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200 cursor-move flex-shrink-0"
+        onPointerDown={iniciarArrastre}
+        style={{ touchAction: "none" }}
+        className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200 cursor-move select-none flex-shrink-0"
       >
         <div className="flex items-center gap-1.5 min-w-0">
           <GripHorizontal className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
@@ -3064,7 +3116,8 @@ function VentanaFlotante({
       </div>
       {/* Esquina de redimensionar */}
       <div
-        onMouseDown={iniciarRedimension}
+        onPointerDown={iniciarRedimension}
+        style={{ touchAction: "none" }}
         title="Arrastrar para redimensionar"
         className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize flex items-end justify-end p-0.5 text-slate-300 hover:text-slate-500 transition-colors"
       >
