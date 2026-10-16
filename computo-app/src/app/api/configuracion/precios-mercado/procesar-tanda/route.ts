@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       // findFirst en vez de findUnique — codigo dejó de ser único por sí
       // solo (PrecioMTOP.codigo pasó a @@unique([codigo, proveedor])).
       const item = await db.precioMTOP.findFirst({
-        where: { codigo },
+        where: { codigo, empresaId: null },
         select: { codigo: true, descripcion: true, precioUnitario: true, proveedor: true, motivoVerificacion: true, requiereVerificacion: true, origenVerificacion: true },
       });
 

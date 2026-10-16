@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
 import { mejorCoincidencia, type CandidatoImportacion } from "@/lib/similitudDescripcion";
 import { buscarCoincidenciasPorTexto } from "@/lib/recalcularPrecioRubro";
-import { requerirSuperadmin } from "@/lib/sesion";
+import { requerirAdminOSuperadmin } from "@/lib/sesion";
+import { codigoParaEmpresa } from "@/lib/catalogoPrecios";
 import {
   clasificarListaOficial,
   fechaListaONormalizada,
@@ -64,9 +65,17 @@ function esFilaValida(f: unknown): f is FilaImportacion {
 // que la vista previa (lib/similitudDescripcion, isomorfo) — el server
 // recalcula la clasificación acá, nunca confía en la del cliente, para
 // que los datos que se escriben sean siempre los que decidió el server.
+//
+// Quién importa: el SUPERADMIN escribe sobre el catálogo global (empresaId null), incluida la
+// lista oficial. Un ADMIN solo puede importar la lista de un proveedor comercial y lo que sube
+// queda a nombre de su empresa (empresaId): solo ella lo ve, y nada de lo global se toca. Para
+// el ADMIN el proveedor es obligatorio y listaOficial: true se rechaza.
 export async function POST(req: NextRequest) {
-  const sesion = await requerirSuperadmin();
+  const sesion = await requerirAdminOSuperadmin();
   if (sesion instanceof NextResponse) return sesion;
+  const esSuper = sesion.rol === "SUPERADMIN";
+  // Dueño de las filas que se leen y se escriben: null = catálogo global.
+  const empresaDuenia = esSuper ? null : sesion.empresaId;
   try {
     const body = await req.json().catch(() => null);
     const proveedor = typeof body?.proveedor === "string" ? body.proveedor.trim() : "";
@@ -75,6 +84,16 @@ export async function POST(req: NextRequest) {
     // Lista oficial MTOP (proveedor null en la base): proveedor vacío + listaOficial: true.
     // El flag explícito evita que un import comercial sin proveedor (ej. un PDF sin
     // membrete) termine escrito sobre la lista oficial por un campo en blanco.
+    if (!esSuper && (!proveedor || body?.listaOficial === true)) {
+      return NextResponse.json(
+        {
+          error: body?.listaOficial === true
+            ? "Solo el administrador de CÓMPUTO+ puede importar la lista oficial"
+            : "Falta proveedor",
+        },
+        { status: 400 }
+      );
+    }
     const esOficial = !proveedor && body?.listaOficial === true;
     if (!proveedor && !esOficial) {
       return NextResponse.json({ error: "Falta proveedor" }, { status: 400 });
@@ -100,7 +119,7 @@ export async function POST(req: NextRequest) {
     // usado a medida que se matchea, para que dos filas del archivo no
     // terminen las dos actualizando el mismo material existente.
     const candidatosDisponibles: CandidatoImportacion[] = await db.precioMTOP.findMany({
-      where: { proveedor },
+      where: { proveedor, empresaId: empresaDuenia },
       select: { id: true, codigo: true, descripcion: true, precioUnitario: true },
     });
 
@@ -137,8 +156,12 @@ export async function POST(req: NextRequest) {
       // una corrección: un precio recién subido por el usuario desde su
       // propia lista ya está "verificado hoy", no tiene sentido que el
       // job automático de FEAT-AI-006 lo vuelva a chequear de inmediato.
-      let codigoFinal = fila.codigo?.trim() || generarCodigoInterno();
+      const codigoArchivo = fila.codigo?.trim();
+      let codigoFinal = codigoArchivo
+        ? (empresaDuenia ? codigoParaEmpresa(empresaDuenia, codigoArchivo) : codigoArchivo)
+        : generarCodigoInterno();
       const dataBase = {
+        empresaId: empresaDuenia,
         descripcion,
         unidad,
         cantidadUnidad: `1 ${unidad}`,
@@ -177,7 +200,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const ambiguosDetectados = await detectarAmbiguos(sesion.empresaId);
+    // Lo que importa un ADMIN es privado y el matching por texto nunca lo elige (ver
+    // lib/catalogoPrecios.ts), así que no puede volver ambiguo a ningún material: sin chequeo.
+    const ambiguosDetectados = esSuper ? await detectarAmbiguos(sesion.empresaId) : [];
 
     return NextResponse.json({
       ok: true,
@@ -270,7 +295,7 @@ async function importarListaOficial(
   });
 
   const candidatos = await db.precioMTOP.findMany({
-    where: { proveedor: null },
+    where: { proveedor: null, empresaId: null },
     select: { id: true, codigo: true, descripcion: true, precioUnitario: true },
   });
   const coincidencias = clasificarListaOficial(

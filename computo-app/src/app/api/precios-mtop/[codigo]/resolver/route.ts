@@ -45,7 +45,7 @@ export async function POST(
     // updates de abajo van por id (no por el compuesto codigo_proveedor):
     // Prisma no acepta null en el shorthand de un compound unique, y la
     // mayoría de las filas hoy tiene proveedor=null.
-    const item = await db.precioMTOP.findFirst({ where: { codigo } });
+    const item = await db.precioMTOP.findFirst({ where: { codigo, empresaId: null } });
     if (!item) {
       return NextResponse.json({ error: "no_encontrado", mensaje: "Código no encontrado" }, { status: 404 });
     }

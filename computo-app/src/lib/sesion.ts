@@ -25,7 +25,7 @@ import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { estadoAccesoUsuario, respuestaAcceso } from "@/lib/acceso";
-import type { Rol } from "@/lib/roles";
+import { esRol, type Rol } from "@/lib/roles";
 
 export type SesionUsuario = {
   id: string;
@@ -152,6 +152,20 @@ export async function capitulosSonDelProyecto(capituloIds: (string | null | unde
 export async function esSuperadmin(sesion: SesionUsuario): Promise<boolean> {
   const user = await db.user.findUnique({ where: { id: sesion.id }, select: { rol: true } });
   return user?.rol === "SUPERADMIN";
+}
+
+/**
+ * Sesión + rol ADMIN o SUPERADMIN (importar listas de precios). El rol se lee de la base, no del
+ * JWT. Devuelve la sesión con `rol` ya resuelto; con otro rol (USUARIO) → 403.
+ */
+export async function requerirAdminOSuperadmin(): Promise<SesionUsuario | NextResponse> {
+  const sesion = await resolverSesion();
+  if (sesion instanceof NextResponse) return sesion;
+  const user = await db.user.findUnique({ where: { id: sesion.id }, select: { rol: true } });
+  if (!user || !esRol(user.rol) || (user.rol !== "SUPERADMIN" && user.rol !== "ADMIN")) {
+    return NextResponse.json({ error: "Solo un administrador puede importar listas de precios" }, { status: 403 });
+  }
+  return { ...sesion, rol: user.rol };
 }
 
 /** Sesión + rol SUPERADMIN (panel /admin). Sin sesión → 401; otro rol → 403. */

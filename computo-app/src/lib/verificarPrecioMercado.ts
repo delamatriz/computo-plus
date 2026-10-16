@@ -168,7 +168,7 @@ async function escribirResultado(codigo: string, resultado: ResultadoVerificacio
   // poder actualizarla. Se usa id (no el compuesto codigo_proveedor):
   // Prisma no acepta null en el shorthand de un compound unique, y la
   // inmensa mayoría de las filas hoy tiene proveedor=null.
-  const fila = await db.precioMTOP.findFirst({ where: { codigo }, select: { id: true } });
+  const fila = await db.precioMTOP.findFirst({ where: { codigo, empresaId: null }, select: { id: true } });
   if (!fila) return;
   const where = { id: fila.id };
 
@@ -228,7 +228,7 @@ async function escribirResultado(codigo: string, resultado: ResultadoVerificacio
 export async function verificarPrecioMTOP(codigo: string, escribir = true, empresaId: string | null = null): Promise<ResultadoVerificacionPrecio> {
   // findFirst en vez de findUnique — codigo dejó de ser único por sí solo
   // (ver escribirResultado más abajo).
-  const item = await db.precioMTOP.findFirst({ where: { codigo } });
+  const item = await db.precioMTOP.findFirst({ where: { codigo, empresaId: null } });
   if (!item) {
     throw new Error(`Código no encontrado en PrecioMTOP: ${codigo}`);
   }

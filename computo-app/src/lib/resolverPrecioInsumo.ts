@@ -31,7 +31,9 @@ function ordenarCoincidencias<T extends { descripcion: string; codigo: string }>
 export async function coincidenciasPrecioMaterial(descripcion: string): Promise<PrecioMTOP[]> {
   const buscada = descripcion.trim();
   if (!buscada) return [];
-  const filas = await db.precioMTOP.findMany({ where: { descripcion: { contains: buscada, mode: "insensitive" } } });
+  // Solo el catálogo global: el matching por texto es automático y no debe elegir, en silencio,
+  // un material que importó una empresa (los privados se usan por vínculo explícito, precioMTOPId).
+  const filas = await db.precioMTOP.findMany({ where: { descripcion: { contains: buscada, mode: "insensitive" }, empresaId: null } });
   return ordenarCoincidencias(buscada, filas);
 }
 

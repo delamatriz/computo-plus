@@ -10,7 +10,7 @@ import SeccionActualizacionDatos from "@/components/materiales/SeccionActualizac
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { anclaDeFiltro, EVENTO_FILTRO_MATERIALES, type AnclaFiltroMateriales } from "@/lib/filtrosMateriales";
 import { requiereVerificacionExplicita } from "@/lib/pendientesMateriales";
-import { useSuperadmin } from "@/hooks/useSuperadmin";
+import { useRolUsuario, useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
 
 // NOTA(multi-tenant): hoy el catálogo es global (compartido por todas las
@@ -137,6 +137,10 @@ function MaterialesPageInner() {
   const qInicial = useRef(searchParams.get("q")).current;
   // null (cargando) cuenta como "no": sin flash de controles de edición.
   const puedeEditar = useSuperadmin() === true;
+  // Importar listas de precios: SUPERADMIN (catálogo global, incluida la lista oficial) y ADMIN
+  // (solo listas de proveedor, privadas de su empresa). Editar precios sigue siendo del SUPERADMIN.
+  const rol = useRolUsuario();
+  const puedeImportar = rol === "SUPERADMIN" || rol === "ADMIN";
 
   const [materiales, setMateriales] = useState<MaterialCatalogo[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -306,7 +310,7 @@ function MaterialesPageInner() {
             Este catálogo combina la Lista Oficial MTOP N°599 con materiales de mercado libre y listas importadas. El
             badge de cada fila indica si el precio está verificado, pendiente de verificar, o si falta cotizar. Usá
             los filtros para encontrar rápido lo que necesitás revisar.
-            {puedeEditar && (
+            {puedeImportar && (
               <>
                 {" "}¿Tenés tu propia lista de precios? Subila para complementar este catálogo — hacé clic en
                 &quot;Importar lista de precios&quot;.
@@ -319,7 +323,7 @@ function MaterialesPageInner() {
             </p>
           )}
         </div>
-        {puedeEditar && (
+        {puedeImportar && (
           <button
             onClick={() => setModalImportarAbierto(true)}
             className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition-colors"
@@ -541,8 +545,9 @@ function MaterialesPageInner() {
         <SeccionActualizacionDatos esSuperadmin={puedeEditar} />
       </div>
 
-      {puedeEditar && modalImportarAbierto && (
+      {puedeImportar && modalImportarAbierto && (
         <ModalImportarPrecios
+          esSuperadmin={puedeEditar}
           proveedoresExistentes={proveedoresExistentes}
           onClose={() => setModalImportarAbierto(false)}
           onImportado={cargar}

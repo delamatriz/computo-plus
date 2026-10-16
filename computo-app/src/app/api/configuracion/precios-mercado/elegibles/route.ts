@@ -21,6 +21,7 @@ export async function GET() {
     const elegibles = await db.precioMTOP.findMany({
       where: {
         proveedor: { not: null },
+        empresaId: null,
         motivoVerificacion: null,
         requiereVerificacion: false,
         // Protección contra el pisado silencioso (bug real de 9.3.2,

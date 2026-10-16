@@ -53,7 +53,7 @@ export async function POST(
 
     const [categorias, preciosMTOP] = await Promise.all([
       db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),
-      db.precioMTOP.findMany({ take: 30, orderBy: { descripcion: "asc" } }),
+      db.precioMTOP.findMany({ where: { empresaId: null }, take: 30, orderBy: { descripcion: "asc" } }),
     ]);
 
     const tablaJornales = categorias

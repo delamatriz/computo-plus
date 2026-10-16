@@ -14,7 +14,7 @@ export async function GET() {
 
   try {
     const pendientes = await db.precioMTOP.findMany({
-      where: { requiereVerificacion: true },
+      where: { requiereVerificacion: true, empresaId: null },
       select: {
         codigo: true,
         descripcion: true,

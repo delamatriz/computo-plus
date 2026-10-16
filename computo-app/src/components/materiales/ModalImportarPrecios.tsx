@@ -19,6 +19,9 @@ import {
 } from "@/lib/listaMTOP";
 
 interface Props {
+  // El SUPERADMIN importa sobre el catálogo global (puede marcar "Lista oficial MTOP" y usar PDF).
+  // El ADMIN solo importa Excel/CSV de un proveedor comercial, y queda privado de su empresa.
+  esSuperadmin: boolean;
   proveedoresExistentes: string[];
   onClose: () => void;
   onImportado: () => void;
@@ -125,7 +128,7 @@ interface FilaVistaPrevia extends FilaBase {
   incluida: boolean;
 }
 
-export default function ModalImportarPrecios({ proveedoresExistentes, onClose, onImportado }: Props) {
+export default function ModalImportarPrecios({ esSuperadmin, proveedoresExistentes, onClose, onImportado }: Props) {
   const [fuente, setFuente] = useState<Fuente>("excel");
   const [proveedor, setProveedor] = useState("");
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -580,7 +583,8 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
             </div>
           ) : (
             <>
-              {/* Fuente */}
+              {/* Fuente — la extracción de PDF con IA es solo del SUPERADMIN */}
+              {esSuperadmin && (
               <div className="flex items-center gap-1 rounded-[8px] bg-slate-100 p-1 w-fit">
                 {(["excel", "pdf"] as const).map((f) => (
                   <button
@@ -595,8 +599,9 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
                   </button>
                 ))}
               </div>
+              )}
 
-              {fuente === "excel" && (
+              {esSuperadmin && fuente === "excel" && (
                 <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
@@ -640,6 +645,12 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
                     : "Si el PDF trae un membrete identificable, se completa solo al extraer — igual podés corregirlo."}
                 </p>
               </div>
+              )}
+
+              {!esSuperadmin && (
+                <p className="rounded-[10px] border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                  Los materiales importados quedan disponibles solo para tu empresa y no afectan el catálogo global.
+                </p>
               )}
 
               {fuente === "excel" ? (

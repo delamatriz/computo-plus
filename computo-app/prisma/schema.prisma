@@ -36,6 +36,8 @@ model Empresa {
   // LogConsumoIA y EventoAdmin quedan con empresaId en null (historial).
   configuracionEmpresa ConfiguracionEmpresa?
   subrubrosEmpresa SubrubroEmpresa[]
+  // Materiales importados por un ADMIN de esta empresa (PrecioMTOP.empresaId)
+  preciosMTOP PrecioMTOP[]
 
   // Registro público + prueba gratis (oct-2026). Las empresas dadas de alta
   // desde /admin (y las anteriores a esto) son ACTIVA; las que nacen del
@@ -1469,11 +1471,22 @@ model PrecioMTOP {
   // recién creada (nunca hubo un valor previo).
   precioAnterior     Float?
 
+  // Dueño del material. null = catálogo global (Lista MTOP oficial, listas de proveedor que
+  // importa el SUPERADMIN): lo ven todas las empresas. Con valor = lo importó un ADMIN de esa
+  // empresa: solo ella lo ve y lo usa, y el borrado de la empresa lo arrastra (Cascade). Toda
+  // consulta de mantenimiento o de matching automático por texto filtra empresaId: null; las que
+  // ve el usuario usan visibleParaEmpresa (lib/catalogoPrecios.ts).
+  empresaId String?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
   // Lado opuesto de MaterialAPU.precioMTOP — sin uso directo hoy, Prisma
   // exige declarar ambos lados de una relación explícita.
   materialesAPU MaterialAPU[]
 
+  // El único sigue siendo (codigo, proveedor): para que dos empresas no choquen, el importador
+  // de ADMIN prefija el código con la empresa (ver codigoParaEmpresa en lib/catalogoPrecios.ts).
   @@unique([codigo, proveedor])
+  @@index([empresaId])
 }
 
 model PrecioEquipo {

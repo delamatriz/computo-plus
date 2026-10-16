@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
-import { requerirSuperadmin } from "@/lib/sesion";
+import { esSuperadmin, requerirSuperadmin, sesionActual } from "@/lib/sesion";
+import { SOLO_CATALOGO_GLOBAL, visibleParaEmpresa } from "@/lib/catalogoPrecios";
 
 /** Normaliza tildes para que "hormigon" también encuentre "Hormigón" */
 function normalizar(s: string): string {
@@ -50,13 +51,17 @@ export async function GET(req: NextRequest) {
   // de "q" (contains, libre): acá es igualdad exacta de proveedor.
   const proveedorExactoParam = req.nextUrl.searchParams.get("proveedorExacto");
 
+  // Qué filas ve quien consulta: el catálogo global + lo que importó su propia empresa.
+  const sesion = await sesionActual();
+  const visible = visibleParaEmpresa(sesion?.empresaId);
+
   // Búsqueda exacta por lista de códigos — usada para cargar precios de
   // referencia de materiales que no son resultado de búsqueda libre.
   if (codigosParam) {
     try {
       const codigos = codigosParam.split(",").map((c) => c.trim()).filter(Boolean);
       const resultados = await db.precioMTOP.findMany({
-        where: { codigo: { in: codigos } },
+        where: { AND: [visible, { codigo: { in: codigos } }] },
         select: {
           id: true,
           codigo: true,
@@ -84,7 +89,12 @@ export async function GET(req: NextRequest) {
       const resultados = await db.precioMTOP.findMany({
         // "" = lista oficial MTOP (proveedor null): ninguna fila tiene proveedor ""
         // (el importador siempre lo trimea y exige no vacío), así que no hay ambigüedad.
-        where: { proveedor: proveedorExactoParam === "" ? null : proveedorExactoParam },
+        // Candidatos de la importación: los mismos que usa el servidor — el SUPERADMIN importa
+        // sobre el catálogo global, el ADMIN solo sobre lo de su empresa.
+        where: {
+          proveedor: proveedorExactoParam === "" ? null : proveedorExactoParam,
+          ...(sesion && !(await esSuperadmin(sesion)) ? { empresaId: sesion.empresaId } : SOLO_CATALOGO_GLOBAL),
+        },
         select: SELECT_CATALOGO_COMPLETO,
         orderBy: { descripcion: "asc" },
       });
@@ -102,6 +112,7 @@ export async function GET(req: NextRequest) {
   if (!q) {
     try {
       const resultados = await db.precioMTOP.findMany({
+        where: visible,
         select: SELECT_CATALOGO_COMPLETO,
         orderBy: { descripcion: "asc" },
       });
@@ -121,9 +132,14 @@ export async function GET(req: NextRequest) {
 
     const resultados = await db.precioMTOP.findMany({
       where: {
-        OR: [
-          { descripcion: { contains: qNorm, mode: "insensitive" } },
-          { descripcion: { contains: q, mode: "insensitive" } },
+        AND: [
+          visible,
+          {
+            OR: [
+              { descripcion: { contains: qNorm, mode: "insensitive" } },
+              { descripcion: { contains: q, mode: "insensitive" } },
+            ],
+          },
         ],
       },
       select: {
@@ -188,7 +204,7 @@ export async function PATCH(req: NextRequest) {
         // normal, sigue de largo), 2+ (ambiguo, no adivinamos cuál — no hace
         // falta traer más de 2 filas para saber que hay más de una).
         const matches = await db.precioMTOP.findMany({
-          where: { descripcion: { contains: body.descripcion, mode: "insensitive" } },
+          where: { descripcion: { contains: body.descripcion, mode: "insensitive" }, ...SOLO_CATALOGO_GLOBAL },
           orderBy: { id: "asc" },
           take: 2,
           select: { id: true, codigo: true, descripcion: true, precioUnitario: true, proveedor: true },
@@ -252,7 +268,7 @@ export async function PATCH(req: NextRequest) {
         .filter((m) => m?.codigo && Number.isFinite(m.precioUnitario))
         .map(async (m: { codigo: string; precioUnitario: number }) => {
           const fila = await db.precioMTOP.findFirst({
-            where: { codigo: m.codigo, proveedor: null },
+            where: { codigo: m.codigo, proveedor: null, ...SOLO_CATALOGO_GLOBAL },
             select: { id: true, precioUnitario: true },
           });
           if (!fila) return;

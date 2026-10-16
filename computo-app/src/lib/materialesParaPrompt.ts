@@ -55,6 +55,7 @@ export function raicesDelRubro(descripcion: string): string[] {
 
 export async function materialesParaPrompt(descripcionRubro: string, maximo = 80): Promise<MaterialParaPrompt[]> {
   const catalogo = await db.precioMTOP.findMany({
+    where: { empresaId: null },
     select: { id: true, descripcion: true, unidad: true, precioUnitario: true },
     orderBy: { descripcion: "asc" },
   });

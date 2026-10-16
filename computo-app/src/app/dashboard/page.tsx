@@ -77,7 +77,7 @@ export default async function DashboardPage() {
         },
       },
     }),
-    db.precioMTOP.count({ where: { requiereVerificacion: true } }),
+    db.precioMTOP.count({ where: { requiereVerificacion: true, empresaId: null } }),
   ]);
 
   function totalProyecto(p: (typeof proyectos)[number]): number {

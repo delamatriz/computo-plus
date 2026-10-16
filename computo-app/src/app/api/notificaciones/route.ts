@@ -19,8 +19,9 @@ export async function GET() {
         take: 10,
       }),
       // Criterio compartido con los filtros de /materiales (lib/pendientesMateriales.ts).
-      db.precioMTOP.count({ where: WHERE_REQUIEREN_VERIFICACION }),
-      db.precioMTOP.count({ where: WHERE_A_COTIZAR }),
+      // Solo el catálogo global: lo que importa un ADMIN no entra en estos contadores.
+      db.precioMTOP.count({ where: { ...WHERE_REQUIEREN_VERIFICACION, empresaId: null } }),
+      db.precioMTOP.count({ where: { ...WHERE_A_COTIZAR, empresaId: null } }),
     ]);
 
     const hayNovedades = eventos.length > 0 || requierenVerificacion > 0 || aCotizar > 0;
