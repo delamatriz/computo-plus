@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
 import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
+import { rubrosPorCapituloEstandar } from "@/lib/rubrosPorCapitulo";
 
 // Sugiere, desde el paso 3 del asistente de Nuevo proyecto, qué capítulos de la
 // Lista estándar conviene prender según lo que se cargó en el paso 1: tipo de
@@ -17,6 +18,11 @@ import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
 // Los nombres permitidos salen de la propia Lista estándar (CapituloEstandar,
 // origen "estandar") — así cada nombre devuelto coincide con uno que el
 // selector del paso 3 ya muestra, y no hay que traducir nada.
+//
+// Además de los capítulos, para cada uno devuelve entre 2 y 5 rubros representativos, elegidos
+// de los rubros reales del catálogo (SubrubroEstandar, solo nombre y unidad) agrupados por
+// capítulo — la IA no los inventa y lo que devuelve se valida contra esa lista. Son solo un
+// adelanto informativo en el paso 3: el usuario acepta o quita capítulos completos.
 
 
 const TIPOS_LABEL: Record<string, string> = {
@@ -64,6 +70,17 @@ export async function POST(request: NextRequest) {
     if (permitidos.length === 0) {
       return NextResponse.json({ error: "sin_lista" }, { status: 500 });
     }
+    const rubrosCatalogo = await rubrosPorCapituloEstandar(permitidos);
+    // Capítulo → (nombre normalizado del rubro → nombre canónico), para validar lo que devuelve la IA.
+    const rubrosValidos = new Map(
+      permitidos.map((n) => [n, new Map((rubrosCatalogo.get(n) ?? []).map((r) => [r.descripcion.trim().toLowerCase(), r.descripcion]))])
+    );
+    const catalogoParaPrompt = permitidos
+      .map((n) => {
+        const rubros = rubrosCatalogo.get(n) ?? [];
+        return `## ${n}\n${rubros.length > 0 ? rubros.map((r) => `- ${r.descripcion} (${r.unidad})`).join("\n") : "(sin rubros en el catálogo)"}`;
+      })
+      .join("\n\n");
 
     const tipoLabel = TIPOS_LABEL[String(tipo)] ?? String(tipo ?? "");
     const lineas = [`Tipo de obra: ${tipoLabel}.`];
@@ -88,16 +105,21 @@ export async function POST(request: NextRequest) {
 
     const response = await crearMensaje({ empresaId: sesion.empresaId, funcion: "sugerir-capitulos" }, {
       model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      system: `Sos un experto en construcción uruguaya. Te dan el tipo de obra y lo que se sabe de ella (área, descripción de los trabajos, otros datos y fotos). Elegí qué capítulos del presupuesto hacen falta, en orden lógico de ejecución de obra, usando SOLO nombres de esta lista (copiados exactamente):
-${permitidos.join("\n")}
+      max_tokens: 4096,
+      system: `Sos un experto en construcción uruguaya. Te dan el tipo de obra y lo que se sabe de ella (área, descripción de los trabajos, otros datos y fotos). Elegí qué capítulos del presupuesto hacen falta, en orden lógico de ejecución de obra, y para cada uno sugerí entre 2 y 5 rubros representativos.
+
+Los capítulos y sus rubros salen SOLO de este catálogo real (cada "## " es un capítulo; los "- " son sus rubros, con la unidad entre paréntesis). Copiá los nombres de capítulo y de rubro exactamente, sin la unidad. No inventes ni modifiques nombres:
+
+${catalogoParaPrompt}
 
 Criterio:
 - Sugerí únicamente los capítulos que los datos justifican; no rellenes con capítulos "por las dudas".
 - Usá el área como referencia de la escala de la obra (por ejemplo, una obra chica no suele necesitar Ascensor ni Movimiento de tierra importante).
+- Rubros de cada capítulo: elegí de 2 a 5 de la lista de ESE capítulo, los más representativos de lo que la obra necesita. Si el capítulo no tiene rubros en el catálogo, devolvé "rubros": [].
+- Si la descripción o los otros datos mencionan trabajos específicos (por ejemplo "abrir fisuras en borde de pretil"), buscá en el catálogo los rubros que correspondan a esos trabajos, incluilos primero en el capítulo apropiado (agregando ese capítulo si hace falta) y completá con los rubros representativos del capítulo. No te limites a los rubros genéricos.
 - Terminología uruguaya de obra: rubro, capítulo, ticholo, pilar, encofrado, hormigón.
 
-Respondé SOLO con JSON válido, sin texto adicional: { "capitulos": ["nombre1", "nombre2", ...] }`,
+Respondé SOLO con JSON válido, sin texto adicional: { "capitulos": [ { "nombre": "capítulo", "rubros": ["rubro 1", "rubro 2"] } ] }`,
       messages: [{ role: "user", content }],
     });
 
@@ -114,14 +136,25 @@ Respondé SOLO con JSON válido, sin texto adicional: { "capitulos": ["nombre1",
 
     const bruto: unknown = JSON.parse(match[0])?.capitulos;
     const porNombre = new Map(permitidos.map((n) => [n.trim().toLowerCase(), n]));
+    // El rubro puede venir con la unidad pegada ("Nombre (m2)" o "Nombre | m2"): se prueba también sin ella.
+    const rubroCanonico = (validos: Map<string, string>, texto: string) =>
+      validos.get(texto.trim().toLowerCase()) ?? validos.get(texto.replace(/\s*[|(].*$/, "").trim().toLowerCase());
     const vistos = new Set<string>();
-    const capitulos: string[] = [];
-    for (const n of Array.isArray(bruto) ? bruto : []) {
-      const canonico = typeof n === "string" ? porNombre.get(n.trim().toLowerCase()) : undefined;
-      if (canonico && !vistos.has(canonico)) {
-        vistos.add(canonico);
-        capitulos.push(canonico);
+    const capitulos: { nombre: string; rubros: string[] }[] = [];
+    for (const item of Array.isArray(bruto) ? bruto : []) {
+      // Se acepta también el formato viejo (solo el nombre) por si el modelo lo devuelve.
+      const nombreCrudo = typeof item === "string" ? item : typeof item?.nombre === "string" ? item.nombre : "";
+      const canonico = porNombre.get(nombreCrudo.trim().toLowerCase());
+      if (!canonico || vistos.has(canonico)) continue;
+      vistos.add(canonico);
+
+      const validos = rubrosValidos.get(canonico) ?? new Map<string, string>();
+      const rubros: string[] = [];
+      for (const r of Array.isArray(item?.rubros) ? item.rubros : []) {
+        const rubro = typeof r === "string" ? rubroCanonico(validos, r) : undefined;
+        if (rubro && !rubros.includes(rubro)) rubros.push(rubro);
       }
+      capitulos.push({ nombre: canonico, rubros: rubros.slice(0, 5) });
     }
 
     if (capitulos.length === 0) {

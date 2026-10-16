@@ -174,6 +174,9 @@ function NuevoProyectoContent() {
   const cupoAsistido = enPrueba ? cuenta.cupos.proyectoAsistido : null;
   const sinProyectoAsistido = !!cupoAsistido && cupoAsistido.limite !== null && cupoAsistido.usado >= cupoAsistido.limite;
   const [sugeridos, setSugeridos] = useState<Set<string>>(new Set());
+  // Rubros que sugirió la IA por capítulo (clave: nombre en minúscula) — solo un adelanto
+  // informativo debajo de cada capítulo en el paso 3; no cambian lo que se crea.
+  const [rubrosSugeridos, setRubrosSugeridos] = useState<Record<string, string[]>>({});
   // Fetch propio (además del que hace SelectorCapitulosEstandar internamente)
   // — lo sigue necesitando cargarSugeridos() más abajo, que precarga la
   // lista completa al pasar de paso 1 a paso 2, antes de que el paso 3 (y
@@ -445,7 +448,10 @@ function NuevoProyectoContent() {
       // Implantación y Replanteo y Limpieza y Retiro de Obra van en toda obra:
       // se prenden siempre, sugiera lo que sugiera la IA (el usuario los
       // puede apagar a mano).
-      const devueltos: string[] = data.capitulos;
+      const capitulosIA: { nombre: string; rubros?: string[] }[] = data.capitulos.map(
+        (c: string | { nombre: string; rubros?: string[] }) => (typeof c === "string" ? { nombre: c } : c)
+      );
+      const devueltos: string[] = capitulosIA.map((c) => c.nombre);
       const nombres = [
         ...devueltos,
         ...CAPITULOS_SIEMPRE_SUGERIDOS.filter(
@@ -479,6 +485,11 @@ function NuevoProyectoContent() {
           : { ...prev, capitulos: marcar(prev.capitulos), sinTituloEsAutomatico: false }
       );
       setSugeridos(buscados);
+      setRubrosSugeridos(
+        Object.fromEntries(
+          capitulosIA.filter((c) => c.rubros && c.rubros.length > 0).map((c) => [c.nombre.trim().toLowerCase(), c.rubros as string[]])
+        )
+      );
       setMensajeSugerencia({
         tipo: "ok",
         texto: `Se sugirieron ${nombres.length} capítulo${nombres.length === 1 ? "" : "s"} y se prendieron. Los que ya tenías prendidos siguen igual. Revisalos y ajustá lo que haga falta.`,
@@ -1227,6 +1238,7 @@ function NuevoProyectoContent() {
                       capitulos={titulo.capitulos}
                       onConfirmar={(c) => setCapitulosDeTitulo(titulo.id, c)}
                       nombresSugeridos={sugeridos}
+                      rubrosSugeridos={rubrosSugeridos}
                     />
                   </div>
                 </div>
@@ -1254,6 +1266,7 @@ function NuevoProyectoContent() {
                     set("sinTituloEsAutomatico", false);
                   }}
                   nombresSugeridos={sugeridos}
+                  rubrosSugeridos={rubrosSugeridos}
                 />
               )}
             </div>

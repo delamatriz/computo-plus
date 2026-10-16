@@ -98,15 +98,20 @@ interface Props {
   // les agrega una etiqueta "Sugerido" para que el usuario los revise. Es solo
   // visual — no cambia qué capítulos están activos.
   nombresSugeridos?: Set<string>;
+  // Rubros que sugirió la IA por capítulo (clave: nombre en minúscula). Se muestran como texto
+  // chico debajo del nombre, solo informativos.
+  rubrosSugeridos?: Record<string, string[]>;
 }
 
 const SIN_SUGERIDOS = new Set<string>();
+const SIN_RUBROS: Record<string, string[]> = {};
 
 export function SelectorCapitulosEstandar({
   capitulos,
   onConfirmar,
   nombresExcluidos = [],
   nombresSugeridos: sugeridos = SIN_SUGERIDOS,
+  rubrosSugeridos = SIN_RUBROS,
 }: Props) {
   const [capitulosEstandar, setCapitulosEstandar] = useState<CapituloEstandarItem[]>([]);
   const esSuperadmin = useSuperadmin() === true;
@@ -258,10 +263,11 @@ export function SelectorCapitulosEstandar({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.15, delay: idx * 0.03 }}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-[10px] border transition-all",
+                  "px-3 py-2.5 rounded-[10px] border transition-all",
                   cap.activo ? "border-blue-200 bg-blue-50/50" : "border-slate-100 bg-slate-50/50 opacity-50"
                 )}
               >
+                <div className="flex items-center gap-3">
                 <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: cap.activo ? "#2563EB" : "#94A3B8" }}>
                   {String(idx + 1).padStart(2, "0")}
                 </span>
@@ -315,6 +321,12 @@ export function SelectorCapitulosEstandar({
                     </div>
                   </div>
                 </div>
+                </div>
+                {rubrosSugeridos[cap.nombre.trim().toLowerCase()]?.length > 0 && (
+                  <p className="mt-1 pl-9 pr-8 text-[11px] leading-snug text-slate-400 line-clamp-2">
+                    {rubrosSugeridos[cap.nombre.trim().toLowerCase()].join(" · ")}
+                  </p>
+                )}
               </motion.div>
             ))}
           </div>
