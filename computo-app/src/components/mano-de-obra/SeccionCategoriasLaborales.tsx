@@ -23,6 +23,7 @@ interface CategoriaLaboral {
 interface Configuracion {
   id: string;
   convenioFechaVigente: string | null;
+  convenioNumero?: string | null;
   convenioImagenUrl: string | null;
 }
 
@@ -37,6 +38,7 @@ interface ResultadoExtraccion {
   recargoAlturaPct?: number | null;
   fechaVigencia?: string;
   porcentajeAjuste?: number;
+  convenioNumero?: string | null;
 }
 
 interface PropuestaCategoria {
@@ -85,6 +87,10 @@ export default function SeccionCategoriasLaborales() {
   const [categorias, setCategorias] = useState<CategoriaLaboral[]>([]);
   const [jornales, setJornales] = useState<Record<string, string>>({});
   const [fechaConvenio, setFechaConvenio] = useState<string>("");
+  const [numeroConvenio, setNumeroConvenio] = useState<string>("");
+  // Número de convenio que la IA leyó del documento y difiere del cargado — se muestra en la
+  // propuesta y recién se aplica con "Aplicar cambios", igual que los jornales.
+  const [numeroPropuesto, setNumeroPropuesto] = useState<string | null>(null);
   const [configId, setConfigId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -123,6 +129,7 @@ export default function SeccionCategoriasLaborales() {
           ? dataConfig.convenioFechaVigente.slice(0, 10)
           : ""
       );
+      setNumeroConvenio(dataConfig.convenioNumero ?? "");
       setCargando(false);
     }
     cargar();
@@ -179,6 +186,7 @@ export default function SeccionCategoriasLaborales() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               convenioFechaVigente: fechaConvenio || null,
+              convenioNumero: numeroConvenio.trim() || null,
               ...(convenioImagenUrl !== undefined && { convenioImagenUrl }),
             }),
           })
@@ -197,6 +205,7 @@ export default function SeccionCategoriasLaborales() {
     setErrorExtraccion(null);
     setResumenExtraccion(null);
     setPropuestaExtraccion(null);
+    setNumeroPropuesto(null);
     setFilasNoIdentificadas([]);
     setNotaAltura(null);
 
@@ -212,6 +221,7 @@ export default function SeccionCategoriasLaborales() {
     setErrorExtraccion(null);
     setResumenExtraccion(null);
     setPropuestaExtraccion(null);
+    setNumeroPropuesto(null);
     setFilasNoIdentificadas([]);
     setNotaAltura(null);
 
@@ -300,11 +310,16 @@ export default function SeccionCategoriasLaborales() {
         setFechaConvenio(resultado.fechaVigencia);
       }
 
+      const numeroNuevo =
+        resultado.convenioNumero && resultado.convenioNumero.trim() !== numeroConvenio.trim()
+          ? resultado.convenioNumero.trim()
+          : null;
+      setNumeroPropuesto(numeroNuevo);
       setPropuestaExtraccion(propuestas);
       setFilasNoIdentificadas(noIdentificadas);
       setNotaAltura(notaAlturaTexto);
 
-      if (propuestas.length === 0) {
+      if (propuestas.length === 0 && !numeroNuevo) {
         setResumenExtraccion("No se detectaron cambios respecto a los valores actuales.");
       }
     } catch (err) {
@@ -318,7 +333,8 @@ export default function SeccionCategoriasLaborales() {
   }
 
   function aplicarPropuestaExtraccion() {
-    if (!propuestaExtraccion || propuestaExtraccion.length === 0) return;
+    if (!propuestaExtraccion || (propuestaExtraccion.length === 0 && !numeroPropuesto)) return;
+    if (numeroPropuesto) setNumeroConvenio(numeroPropuesto);
 
     setJornales((prev) => {
       const actualizados = { ...prev };
@@ -328,14 +344,17 @@ export default function SeccionCategoriasLaborales() {
       return actualizados;
     });
 
+    const cambios = propuestaExtraccion.length + (numeroPropuesto ? 1 : 0);
     setResumenExtraccion(
-      `Se aplicaron ${propuestaExtraccion.length} cambio${propuestaExtraccion.length === 1 ? "" : "s"} a la tabla. Revisá los valores y hacé clic en "Guardar cambios" para confirmarlos.`
+      `Se aplicaron ${cambios} cambio${cambios === 1 ? "" : "s"} a la tabla. Revisá los valores y hacé clic en "Guardar cambios" para confirmarlos.`
     );
     setPropuestaExtraccion(null);
+    setNumeroPropuesto(null);
   }
 
   function descartarPropuestaExtraccion() {
     setPropuestaExtraccion(null);
+    setNumeroPropuesto(null);
     setResumenExtraccion(null);
   }
 
@@ -457,11 +476,20 @@ export default function SeccionCategoriasLaborales() {
             </div>
           )}
 
-          {propuestaExtraccion && propuestaExtraccion.length > 0 && (
+          {propuestaExtraccion && (propuestaExtraccion.length > 0 || numeroPropuesto) && (
             <div className="border border-slate-200 rounded-lg mt-3 overflow-hidden">
               <div className="bg-slate-50 px-3 py-2 text-sm font-medium text-[#1E293B] border-b border-slate-200">
                 Cambios detectados — revisá antes de aplicar
               </div>
+              {numeroPropuesto && (
+                <div className="flex items-center gap-2 px-3 py-2 text-sm border-b border-slate-100">
+                  <span className="text-[#1E293B]">Número de convenio</span>
+                  <span className="text-slate-500">{numeroConvenio.trim() || "sin número"}</span>
+                  <span className="text-slate-400">→</span>
+                  <span className="font-semibold text-[#2563EB]">{numeroPropuesto}</span>
+                </div>
+              )}
+              {propuestaExtraccion.length > 0 && (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-slate-500 border-b border-slate-200">
@@ -482,6 +510,7 @@ export default function SeccionCategoriasLaborales() {
                   ))}
                 </tbody>
               </table>
+              )}
               <div className="flex items-center gap-3 px-3 py-3 bg-slate-50 border-t border-slate-200">
                 <button
                   onClick={aplicarPropuestaExtraccion}
@@ -507,23 +536,39 @@ export default function SeccionCategoriasLaborales() {
         </div>
       )}
 
-      <div className="mb-5">
-        <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
-          Fecha del convenio vigente
-        </label>
-        <input
-          type="date"
-          value={fechaConvenio}
-          onChange={(e) => setFechaConvenio(e.target.value)}
-          readOnly={!puedeEditar}
-          className="read-only:bg-slate-50 read-only:text-slate-500 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
-        />
+      <div className="mb-5 flex flex-wrap gap-x-4 gap-y-3">
+        <div>
+          <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
+            Fecha del convenio vigente
+          </label>
+          <input
+            type="date"
+            value={fechaConvenio}
+            onChange={(e) => setFechaConvenio(e.target.value)}
+            readOnly={!puedeEditar}
+            className="read-only:bg-slate-50 read-only:text-slate-500 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
+            Número de convenio
+          </label>
+          <input
+            type="text"
+            value={numeroConvenio}
+            onChange={(e) => setNumeroConvenio(e.target.value)}
+            readOnly={!puedeEditar}
+            maxLength={80}
+            placeholder="ej: 2026-2027"
+            className="read-only:bg-slate-50 read-only:text-slate-500 w-44 border border-slate-300 rounded-lg px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+          />
+        </div>
       </div>
 
       {convenioDesactualizado && fechaConvenio && (
         <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2.5 mb-5 text-sm">
           <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <span>⚠️ {mensajeAvisoConvenio(fechaConvenio)}</span>
+          <span>⚠️ {mensajeAvisoConvenio(fechaConvenio, numeroConvenio)}</span>
         </div>
       )}
 

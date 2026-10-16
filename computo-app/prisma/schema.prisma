@@ -975,6 +975,10 @@ model Configuracion {
   iva                 Float     @default(0.22)
   monedaDefault       String    @default("UYU")
   convenioFechaVigente DateTime?
+  // Número/identificación del convenio vigente tal como figura en el documento
+  // (ej. "2026-2027", "Acta N° 15/2026") — texto libre, trazabilidad junto a
+  // convenioFechaVigente. Null en lo cargado antes de este campo.
+  convenioNumero      String?
   // URL de Vercel Blob (store privado) de la última foto del convenio SUNCA
   // subida en Configuración → Categorías Laborales SUNCA, confirmada por el
   // usuario (se guarda recién al hacer clic en "Guardar cambios", no apenas

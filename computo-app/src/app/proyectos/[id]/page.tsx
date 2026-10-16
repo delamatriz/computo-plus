@@ -1736,6 +1736,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const [nuevoMatId, setNuevoMatId] = useState<string | null>(null);
   const [categoriasLaborales, setCategoriasLaborales] = useState<CategoriaLaboral[]>([]);
   const [convenioFechaVigente, setConvenioFechaVigente] = useState<string | null>(null);
+  const [convenioNumero, setConvenioNumero] = useState<string | null>(null);
   // Material cuyo precio unitario está en edición inline (click-to-edit)
   const [precioEditId, setPrecioEditId] = useState<string | null>(null);
   // Material cuyo precio se está estimando con IA (loading del botón "Estimar")
@@ -1860,8 +1861,10 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
       .catch((err) => console.error("[categorías laborales]", err));
     fetch("/api/configuracion")
       .then((res) => res.json())
-      .then((data: { convenioFechaVigente?: string | null }) => {
-        if (!cancelado) setConvenioFechaVigente(data.convenioFechaVigente ?? null);
+      .then((data: { convenioFechaVigente?: string | null; convenioNumero?: string | null }) => {
+        if (cancelado) return;
+        setConvenioFechaVigente(data.convenioFechaVigente ?? null);
+        setConvenioNumero(data.convenioNumero ?? null);
       })
       .catch((err) => console.error("[configuración — fecha convenio]", err));
     return () => { cancelado = true; };
@@ -2524,7 +2527,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
             titulo="Mano de obra"
             headerExtra={
               jornalesPosiblementeDesactualizados && convenioFechaVigente ? (
-                <span title={mensajeAvisoConvenio(convenioFechaVigente)}>
+                <span title={mensajeAvisoConvenio(convenioFechaVigente, convenioNumero)}>
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                 </span>
               ) : undefined

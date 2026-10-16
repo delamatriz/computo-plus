@@ -27,7 +27,7 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const config = await getOrCreateConfiguracion();
 
-    const data: { convenioFechaVigente?: Date; convenioImagenUrl?: string | null } = {};
+    const data: { convenioFechaVigente?: Date; convenioImagenUrl?: string | null; convenioNumero?: string | null } = {};
     if (body.convenioFechaVigente !== undefined) {
       data.convenioFechaVigente = body.convenioFechaVigente
         ? new Date(body.convenioFechaVigente)
@@ -35,6 +35,11 @@ export async function PATCH(request: Request) {
     }
     if (body.convenioImagenUrl !== undefined) {
       data.convenioImagenUrl = body.convenioImagenUrl || null;
+    }
+    // Texto libre; vacío = sin número (a diferencia de la fecha, acá sí se puede borrar).
+    if (body.convenioNumero !== undefined) {
+      const numero = typeof body.convenioNumero === "string" ? body.convenioNumero.trim().slice(0, 80) : "";
+      data.convenioNumero = numero || null;
     }
 
     const actualizada = await db.configuracion.update({

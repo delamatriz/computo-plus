@@ -41,13 +41,15 @@ Devolvé SOLO un JSON con este formato, sin texto adicional:
   ],
   "recargoAlturaPct": number | null,
   "fechaVigencia": string (ej: "2025-04-01") | null,
-  "porcentajeAjuste": number (ej: 5.95) | null
+  "porcentajeAjuste": number (ej: 5.95) | null,
+  "convenioNumero": string (ej: "2026-2027" o "Acta N° 15/2026") | null
 }
 
 Reglas:
 - "categoriaRomano" es null solo cuando no podés determinar con certeza razonable a cuál de las 12 categorías corresponde la fila — en ese caso igual devolvé la fila (con su nombreEnImagen y jornal) para que un humano la revise.
 - "recargoAlturaPct" es null si el porcentaje de compensación por altura no aparece visible en la imagen — no lo inventes ni lo asumas.
-- No devuelvas más de una fila con el mismo "categoriaRomano".`;
+- No devuelvas más de una fila con el mismo "categoriaRomano".
+- "convenioNumero" es el número o identificación del convenio tal como figura impreso en el documento (por ejemplo "2026-2027" para "Convenio SUNCA 2026-2027", o "Acta N° 15/2026"). Es null si no aparece ninguno — no lo inventes ni lo deduzcas de las fechas.`;
 
 type MediaTypeImagen = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
@@ -204,11 +206,17 @@ export async function POST(request: NextRequest) {
     const porcentajeAjuste =
       typeof resultado.porcentajeAjuste === "number" ? resultado.porcentajeAjuste : undefined;
 
+    const convenioNumero =
+      typeof resultado.convenioNumero === "string" && resultado.convenioNumero.trim()
+        ? resultado.convenioNumero.trim().slice(0, 80)
+        : null;
+
     return NextResponse.json({
       categorias: categoriasExtraidas,
       recargoAlturaPct,
       fechaVigencia,
       porcentajeAjuste,
+      convenioNumero,
     });
   } catch (err) {
     console.error("[configuracion/extraer-jornales]", err);

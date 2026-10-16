@@ -201,7 +201,7 @@ export default async function ManoDeObraPage() {
         </h2>
         {config?.convenioFechaVigente && (
           <p className="text-xs text-slate-400 mb-1">
-            {mensajeAvisoConvenio(config.convenioFechaVigente)}
+            {mensajeAvisoConvenio(config.convenioFechaVigente, config.convenioNumero)}
           </p>
         )}
         <Tabla encabezados={["Categoría", "Nombre", "Jornal", "Hora"]} filas={filasLaudo} />
