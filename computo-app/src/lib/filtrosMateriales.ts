@@ -13,8 +13,13 @@ export function avisarFiltroMateriales(ancla: AnclaFiltroMateriales): void {
   window.dispatchEvent(new CustomEvent<AnclaFiltroMateriales>(EVENTO_FILTRO_MATERIALES, { detail: ancla }));
 }
 
-/** "#a-revisar" / "a-revisar" → el filtro; cualquier otra cosa → null (sin filtro). */
+/**
+ * "#a-revisar" / "a-revisar" → el filtro; cualquier otra cosa → null (sin filtro).
+ * Si la URL trae anclas apiladas ("#a-revisar#sin-precio" — pasa al navegar de
+ * un ítem de la campanita a otro estando ya en /materiales), vale la última:
+ * es la que el usuario eligió al final.
+ */
 export function anclaDeFiltro(hash: string): AnclaFiltroMateriales | null {
-  const ancla = hash.replace(/^#/, "");
+  const ancla = hash.split("#").filter(Boolean).pop() ?? "";
   return ancla === "a-revisar" || ancla === "sin-precio" ? ancla : null;
 }

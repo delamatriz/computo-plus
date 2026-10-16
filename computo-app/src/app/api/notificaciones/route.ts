@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { WHERE_A_COTIZAR, WHERE_REQUIEREN_VERIFICACION } from "@/lib/pendientesMateriales";
 
 // Datos del panel de la campanita del Header: eventos cargados a mano
 // (ver comentario en el modelo EventoSistema) + conteo de materiales
@@ -17,15 +18,9 @@ export async function GET() {
         orderBy: { fecha: "desc" },
         take: 10,
       }),
-      db.precioMTOP.count({
-        where: {
-          requiereVerificacion: true,
-          motivoVerificacion: { not: "sin_precio_referencia" },
-        },
-      }),
-      db.precioMTOP.count({
-        where: { motivoVerificacion: "sin_precio_referencia" },
-      }),
+      // Criterio compartido con los filtros de /materiales (lib/pendientesMateriales.ts).
+      db.precioMTOP.count({ where: WHERE_REQUIEREN_VERIFICACION }),
+      db.precioMTOP.count({ where: WHERE_A_COTIZAR }),
     ]);
 
     const hayNovedades = eventos.length > 0 || requierenVerificacion > 0 || aCotizar > 0;

@@ -9,6 +9,7 @@ import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
 import SeccionActualizacionDatos from "@/components/materiales/SeccionActualizacionDatos";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { anclaDeFiltro, EVENTO_FILTRO_MATERIALES, type AnclaFiltroMateriales } from "@/lib/filtrosMateriales";
+import { requiereVerificacionExplicita } from "@/lib/pendientesMateriales";
 import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
 
@@ -142,6 +143,10 @@ function MaterialesPageInner() {
   const [busqueda, setBusqueda] = useState(qInicial ?? "");
   const [filtroSinPrecio, setFiltroSinPrecio] = useState(false);
   const [filtroPendiente, setFiltroPendiente] = useState(false);
+  // "Requieren verificación": solo los marcados explícitamente (el mismo
+  // criterio y el mismo número que la campanita — ver lib/pendientesMateriales.ts).
+  // No es lo mismo que "Pendiente de verificar" (nunca verificados, mucho más amplio).
+  const [filtroRequiere, setFiltroRequiere] = useState(false);
   const [filtroReferencia, setFiltroReferencia] = useState(false);
   // Se aplica una sola vez, apenas cargan los materiales — ver el efecto
   // más abajo que decide si corresponde prender filtroPendiente.
@@ -223,19 +228,18 @@ function MaterialesPageInner() {
 
   // Deep-link desde la campanita: el ancla de la URL prende el filtro que
   // corresponde, igual que si se lo hubiera tocado a mano — #a-revisar →
-  // "Pendiente de verificar", #sin-precio → "Sin precio". Sin ancla (o con
+  // "Requieren verificación", #sin-precio → "Sin precio". Sin ancla (o con
   // otra) no se toca nada. El ancla no llega al servidor ni a
   // useSearchParams, así que se lee en el cliente: al montar y cuando
   // cambia estando ya en la página (por ejemplo, desde la propia campanita).
   useEffect(() => {
+    // Cada ancla deja prendido solo su filtro (los otros pendientes se apagan:
+    // si no, mezclados darían una lista que no coincide con el número de la campanita).
     const aplicar = (ancla: AnclaFiltroMateriales | null) => {
-      if (ancla === "a-revisar") {
-        setFiltroPendiente(true);
-        setFiltroSinPrecio(false);
-      } else if (ancla === "sin-precio") {
-        setFiltroSinPrecio(true);
-        setFiltroPendiente(false);
-      }
+      if (!ancla) return;
+      setFiltroRequiere(ancla === "a-revisar");
+      setFiltroSinPrecio(ancla === "sin-precio");
+      setFiltroPendiente(false);
     };
     const delaUrl = () => aplicar(anclaDeFiltro(window.location.hash));
     const delaCampanita = (e: Event) => aplicar((e as CustomEvent<AnclaFiltroMateriales>).detail);
@@ -271,10 +275,14 @@ function MaterialesPageInner() {
       if (q && !m.descripcion.toLowerCase().includes(q)) return false;
       if (filtroSinPrecio && m.precioUnitario > 0) return false;
       if (filtroPendiente && !esPendiente(m)) return false;
+      if (filtroRequiere && !requiereVerificacionExplicita(m)) return false;
       if (filtroReferencia && !CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return false;
       return true;
     });
-  }, [materiales, busqueda, filtroSinPrecio, filtroPendiente, filtroReferencia]);
+  }, [materiales, busqueda, filtroSinPrecio, filtroPendiente, filtroRequiere, filtroReferencia]);
+
+  // Mismo conteo que "materiales requieren verificación" de la campanita.
+  const cantidadRequieren = useMemo(() => materiales.filter(requiereVerificacionExplicita).length, [materiales]);
 
   const fechaMaxima = useMemo(() => calcularFechaMaxima(materiales), [materiales]);
 
@@ -359,6 +367,18 @@ function MaterialesPageInner() {
           )}
         >
           Pendiente de verificar
+        </button>
+        <button
+          onClick={() => setFiltroRequiere((p) => !p)}
+          title="Materiales marcados como que requieren verificación (el mismo número que la campanita). 'Pendiente de verificar' es más amplio: todos los que nunca se verificaron."
+          className={cn(
+            "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
+            filtroRequiere
+              ? "bg-amber-50 text-amber-600 border-amber-200"
+              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+          )}
+        >
+          Requieren verificación{materiales.length > 0 ? ` (${cantidadRequieren})` : ""}
         </button>
         <button
           onClick={() => setFiltroReferencia((p) => !p)}

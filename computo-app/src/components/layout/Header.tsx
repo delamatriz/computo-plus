@@ -163,6 +163,10 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   // Desde la campanita se sale a pantallas de referencia: se lleva el proyecto
   // en el que se estaba para poder volver (botón "Volver al proyecto" allá).
   const proyectoIdActual = proyectoIdDesdePath(pathname);
+  // Badge de la campanita: materiales que requieren verificación + a cotizar
+  // (los dos números del panel). Sin pendientes no se muestra; desde 100, "99+".
+  const totalPendientes = (notificaciones?.pendientes.requierenVerificacion ?? 0) + (notificaciones?.pendientes.aCotizar ?? 0);
+  const textoBadge = totalPendientes > 99 ? "99+" : String(totalPendientes);
   // A dónde lleva cada pendiente: la cola de revisión resuelve precios del
   // catálogo global y es solo para el SUPERADMIN (a los demás les muestra un
   // aviso de acceso restringido); el resto va al catálogo de Materiales. Si
@@ -256,11 +260,21 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
         <div className="relative">
           <button
             onClick={() => setNotifOpen(!notifOpen)}
+            aria-label={totalPendientes > 0 ? `Notificaciones: ${totalPendientes} pendiente${totalPendientes === 1 ? "" : "s"}` : "Notificaciones"}
             className="w-9 h-9 flex items-center justify-center rounded-[8px] text-text-muted hover:text-text-primary hover:bg-bg-base transition-colors relative"
           >
             <Bell className="w-4.5 h-4.5" />
-            {notificaciones?.hayNovedades && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-accent rounded-full border-2 border-white" />
+            {totalPendientes > 0 ? (
+              <span
+                aria-hidden="true"
+                className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 border-2 border-white text-white text-[10px] font-bold leading-none tabular-nums flex items-center justify-center"
+              >
+                {textoBadge}
+              </span>
+            ) : (
+              notificaciones?.hayNovedades && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-accent rounded-full border-2 border-white" />
+              )
             )}
           </button>
 
