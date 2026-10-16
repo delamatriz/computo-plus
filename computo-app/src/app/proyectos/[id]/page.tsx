@@ -990,9 +990,36 @@ function fmtNum(v: number, decimales = 2): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
 }
 
-/** Rendimiento: máximo 2 decimales, sin ceros innecesarios */
+/**
+ * Decimal uruguayo con tope de decimales y sin ceros de más: punto de miles, coma decimal.
+ * El agrupado se arma a mano porque toLocaleString("es-UY") no agrupa los números de
+ * 4 cifras ("1234,5") y así no cambia con la versión de ICU del navegador.
+ */
+function fmtDecimalUY(v: number, maxDecimales: number): string {
+  if (!Number.isFinite(v)) return "";
+  const r = parseFloat(v.toFixed(maxDecimales));
+  const [entero, decimales] = String(Math.abs(r)).split(".");
+  const agrupado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${r < 0 ? "-" : ""}${agrupado}${decimales ? "," + decimales : ""}`;
+}
+
+/** Rendimiento: hasta 4 decimales (no 15 de ruido de punto flotante), sin ceros innecesarios */
 function fmtRendimiento(v: number): string {
-  return parseFloat(v.toFixed(2)).toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return fmtDecimalUY(v, 4);
+}
+
+/** Texto de un rendimiento mientras se edita: coma decimal, sin separador de miles, hasta 6 decimales */
+function textoRendimientoEdicion(v: number): string {
+  return v ? fmtDecimalUY(v, 6).replace(/\./g, "") : "";
+}
+
+/**
+ * Lo tipeado en un campo de rendimiento (no es dinero): con "," ésta es el decimal y los "."
+ * son miles ("1.234,5"); sin "," el "." se acepta como decimal ("0.5"), como siempre.
+ */
+function parsearRendimientoTipeado(texto: string): number {
+  const t = texto.trim();
+  return parseFloat(t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t);
 }
 
 /** Monetario: 2 decimales fijos con separador de miles */
@@ -1720,6 +1747,20 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const [costoUnitEnFoco, setCostoUnitEnFoco] = useState<EdicionNumerica>(null);
   // Fila de equipo cuyo costo propio (modo Propio con costo) está siendo editado
   const [costoUnitPropioEnFoco, setCostoUnitPropioEnFoco] = useState<EdicionNumerica>(null);
+  // Rendimiento en edición (id = "mat:<id>" | "mo:<id>" | "eq:<id>") — mismo criterio: texto crudo mientras se tipea, formateado al salir
+  const [rendimientoEnFoco, setRendimientoEnFoco] = useState<EdicionNumerica>(null);
+  const propsRendimiento = (clave: string, valor: number, actualizar: (texto: string) => void) => ({
+    type: "text" as const,
+    inputMode: "decimal" as const,
+    value: rendimientoEnFoco?.id === clave ? rendimientoEnFoco.texto : (valor ? fmtRendimiento(valor) : ""),
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      setRendimientoEnFoco({ id: clave, texto: e.target.value });
+      actualizar(e.target.value);
+    },
+    onFocus: () => setRendimientoEnFoco({ id: clave, texto: textoRendimientoEdicion(valor) }),
+    onBlur: () => { setRendimientoEnFoco(null); guardarApuActual(); },
+    placeholder: "0",
+  });
   const { costoDirecto, precioFinal } = calcAPU(apu);
 
   const totalMateriales = apu.materiales.reduce((acc, m) => {
@@ -1837,7 +1878,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
       ...m,
       [field]: field === "descripcion" || field === "unidad" || field === "codigoMTOP"
         ? val
-        : (val === "" ? 0 : parseFloat(val)),
+        : (val === "" ? 0 : field === "rendimiento" ? parsearRendimientoTipeado(val) : parseFloat(val)),
       // Editar la descripción invalida cualquier vínculo con el catálogo
       // — ya no hay garantía de que precioMTOPId siga describiendo lo
       // mismo que el usuario acaba de escribir. Editar precio/rendimiento
@@ -1974,7 +2015,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
         // "." también (parseFloat nativo ya lo hace).
         : field === "jornalRef"
         ? parsearDineroTipeado(val)
-        : parseFloat(val.replace(",", ".")),
+        : parsearRendimientoTipeado(val),
     }));
 
   // Quita una línea de mano de obra y persiste de inmediato. Si estaba
@@ -1999,7 +2040,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
         // criterio anterior.
         : field === "costoUnit" || field === "costoUnitPropio"
         ? parsearDineroTipeado(val)
-        : parseFloat(val.replace(",", ".")),
+        : parsearRendimientoTipeado(val),
     }));
 
   // Quita un equipo y persiste de inmediato. Cualquier mano de obra
@@ -2334,12 +2375,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                           </td>
                           <td className="text-right pr-2">
                             <input
-                              type="number"
-                              value={m.rendimiento === 0 ? "" : m.rendimiento}
-                              onChange={(e) => updateMat(m.id, "rendimiento", e.target.value)}
-                              onBlur={() => guardarApuActual()}
-                              placeholder="0"
-                              className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                              {...propsRendimiento(`mat:${m.id}`, m.rendimiento, (t) => updateMat(m.id, "rendimiento", t))}
+                              className={cn(inputCls, "text-right tabular-nums")}
                             />
                           </td>
                           <td className="text-right pr-3 py-0.5">
@@ -2541,12 +2578,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                         </td>
                         <td className="text-right pr-2">
                           <input
-                            type="number"
-                            value={mo.rendimiento || ""}
-                            onChange={(e) => updateMO(mo.id, "rendimiento", e.target.value)}
-                            onBlur={() => guardarApuActual()}
-                            placeholder="0"
-                            className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                            {...propsRendimiento(`mo:${mo.id}`, mo.rendimiento, (t) => updateMO(mo.id, "rendimiento", t))}
+                            className={cn(inputCls, "text-right tabular-nums")}
                           />
                         </td>
                         <td className="text-right pr-2 tabular-nums text-slate-700">
@@ -2719,12 +2752,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                         </td>
                         <td className="text-right pr-2">
                           <input
-                            type="number"
-                            value={eq.rendimiento || ""}
-                            onChange={(e) => updateEq(eq.id, "rendimiento", e.target.value)}
-                            onBlur={() => guardarApuActual()}
-                            placeholder="0"
-                            className={cn(inputCls, "text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none")}
+                            {...propsRendimiento(`eq:${eq.id}`, eq.rendimiento, (t) => updateEq(eq.id, "rendimiento", t))}
+                            className={cn(inputCls, "text-right tabular-nums")}
                           />
                         </td>
                         <td className="text-right pr-3">
