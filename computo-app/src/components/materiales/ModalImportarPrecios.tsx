@@ -537,6 +537,10 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
                   {resumen.actualizados !== 1 ? "s" : ""}, {resumen.nuevos} nuevo{resumen.nuevos !== 1 ? "s" : ""} — de{" "}
                   {resumen.total} fila{resumen.total !== 1 ? "s" : ""} válida{resumen.total !== 1 ? "s" : ""}.
                 </p>
+                <p className="text-xs text-slate-400 mt-3 max-w-md mx-auto">
+                  Los precios y número de lista se actualizan en el momento de la importación. Si algún material
+                  muestra todavía una lista anterior, volvé a importar la lista más reciente para sobreescribir.
+                </p>
               </div>
 
               {ambiguosDetectados.length > 0 && (
