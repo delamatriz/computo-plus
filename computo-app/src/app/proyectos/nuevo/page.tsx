@@ -840,7 +840,7 @@ function NuevoProyectoContent() {
                   <textarea
                     value={form.trabajos}
                     onChange={(e) => set("trabajos", e.target.value)}
-                    placeholder="Describí brevemente los trabajos a realizar: construcción, reforma, instalaciones, terminaciones..."
+                    placeholder="Describí los trabajos a realizar: construcción, reforma, instalaciones, terminaciones..."
                     rows={4}
                     className={cn(inputCls, "resize-none")}
                   />
