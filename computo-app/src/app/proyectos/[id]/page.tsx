@@ -3257,6 +3257,10 @@ export default function ProyectoPage() {
   const [subrubrosPorCapitulo, setSubrubrosPorCapitulo] = useState<Record<string, SubrubroEstandar[]>>({});
   const [cargandoSubrubros, setCargandoSubrubros] = useState(false);
   const [tabActiva, setTabActiva] = useState<"presupuesto" | "gestion-obra">("presupuesto");
+  // Deep-link desde "Obras en curso": ?tab=gestion-obra abre esa pestaña
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "gestion-obra") setTabActiva("gestion-obra");
+  }, []);
 
   // Refs para debounce de auto-save por rubro
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});

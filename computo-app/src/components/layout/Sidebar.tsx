@@ -38,6 +38,10 @@ const navItems = [
     ],
   },
   {
+    section: "Gestión de Obra",
+    items: [{ href: "/obras-en-curso", label: "Obras en curso" }],
+  },
+  {
     section: "Sistema",
     items: [
       { href: "/configuracion", label: "Configuración" },
