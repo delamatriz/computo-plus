@@ -9,6 +9,14 @@ import {
   type CandidatoImportacion,
   type CoincidenciaImportacion,
 } from "@/lib/similitudDescripcion";
+import {
+  clasificarListaOficial,
+  filasDeHojaMTOP,
+  leerEncabezadoLista,
+  parsearUnidadMTOP,
+  precioUnitarioDeLista,
+  type EncabezadoLista,
+} from "@/lib/listaMTOP";
 
 interface Props {
   proveedoresExistentes: string[];
@@ -96,10 +104,19 @@ interface FilaBase {
   unidad: string;
   precioUnitario: number | null;
   confianza?: Confianza;
+  // Solo lista oficial MTOP: precio de lista con IVA por la presentación ("100 Kg");
+  // precioUnitario ya viene dividido por la cantidad, para mostrarlo comparable con
+  // el precio actual del catálogo.
+  precioLista?: number;
+  hoja?: string;
 }
 
 interface FilaVistaPrevia extends FilaBase {
   coincidencia: CoincidenciaImportacion | null;
+  // Solo lista oficial: si el match fue por código exacto o por similitud de descripción
+  via?: "codigo" | "descripcion";
+  // Solo lista oficial: el código ya apareció antes en el archivo — el servidor toma el primero
+  duplicada?: boolean;
   valida: boolean;
   // Tildado para importar — true por default, salvo confianza "baja"
   // (arranca destildada, el usuario la revisa y tilda a mano si
@@ -120,6 +137,10 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
     unidad: null,
     precio: null,
   });
+  // Lista oficial MTOP (proveedor null): columnas fijas, todas las hojas, matching por código.
+  const [esOficial, setEsOficial] = useState(false);
+  const [filasOficiales, setFilasOficiales] = useState<FilaBase[]>([]);
+  const [infoLista, setInfoLista] = useState<(EncabezadoLista & { hojas: { nombre: string; filas: number }[] }) | null>(null);
   const [archivoPDF, setArchivoPDF] = useState<File | null>(null);
   // Filas ya extraídas por Claude, previas a clasificar contra el
   // catálogo — se guardan aparte de vistaPrevia para poder reclasificar
@@ -164,9 +185,25 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
     setMapeo({ codigo: null, descripcion: null, unidad: null, precio: null });
     setArchivoPDF(null);
     setFilasBasePDF(null);
+    setEsOficial(false);
+    setFilasOficiales([]);
+    setInfoLista(null);
   }
 
-  async function manejarArchivo(f: File) {
+  function alternarOficial(valor: boolean) {
+    setEsOficial(valor);
+    setError(null);
+    setVistaPrevia(null);
+    setResumen(null);
+    setFilasOficiales([]);
+    setInfoLista(null);
+    setHeaders([]);
+    setFilasCrudas([]);
+    setMapeo({ codigo: null, descripcion: null, unidad: null, precio: null });
+    if (archivo) void manejarArchivo(archivo, valor);
+  }
+
+  async function manejarArchivo(f: File, oficial: boolean = esOficial) {
     setError(null);
     setVistaPrevia(null);
     setResumen(null);
@@ -182,6 +219,44 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
       const wb = esCSV
         ? XLSX.read(new TextDecoder("utf-8").decode(await f.arrayBuffer()), { type: "string" })
         : XLSX.read(await f.arrayBuffer(), { type: "array" });
+      if (oficial) {
+        // Lista oficial: todas las hojas (la principal "JUNIO 2026" y "NUEVOS MATERIALES"),
+        // columnas fijas — sin fila de encabezado ni mapeo.
+        const hojas = wb.SheetNames.map((nombre) => ({
+          nombre,
+          filas: XLSX.utils.sheet_to_json(wb.Sheets[nombre], { header: 1, defval: "" }) as unknown[][],
+        }));
+        const textosEncabezado = hojas.flatMap((h) =>
+          h.filas.slice(0, 10).flatMap((r) => r.map((c) => String(c ?? "")).filter((t) => t.trim() !== ""))
+        );
+        const encabezado = leerEncabezadoLista(textosEncabezado, wb.SheetNames);
+        const porHoja = hojas.map((h) => ({ nombre: h.nombre, filas: filasDeHojaMTOP(h.filas, h.nombre) }));
+        const todas = porHoja.flatMap((h) => h.filas);
+        if (todas.length === 0) {
+          setError("No encontré filas de la lista oficial (código en la 3.ª columna, descripción, unidad y precio).");
+          return;
+        }
+        setFilasOficiales(
+          todas.map((r, i): FilaBase => {
+            const u = parsearUnidadMTOP(r.unidad);
+            return {
+              fila: i + 1,
+              hoja: r.hoja,
+              codigo: r.codigo,
+              descripcion: r.descripcion,
+              unidad: r.unidad,
+              precioLista: r.precioLista,
+              // Sin unidad legible o sin precio (0): queda como "sin datos válidos".
+              precioUnitario: u && r.precioLista > 0 ? precioUnitarioDeLista(r.precioLista, u.cantidad) : null,
+            };
+          })
+        );
+        setInfoLista({
+          ...encabezado,
+          hojas: porHoja.filter((h) => h.filas.length > 0).map((h) => ({ nombre: h.nombre, filas: h.filas.length })),
+        });
+        return;
+      }
       const ws = wb.Sheets[wb.SheetNames[0]];
       const filas: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
       if (filas.length < 2) {
@@ -227,6 +302,46 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
       const coincidencia = valida ? mejorCoincidencia(f.descripcion, candidatos) : null;
       return { ...f, coincidencia, valida, incluida: f.confianza !== "baja" };
     });
+  }
+
+  // Lista oficial: candidatos = filas con proveedor null; código exacto primero, después
+  // similitud de descripción (mismo criterio que el servidor, ver lib/listaMTOP).
+  async function previsualizarOficial() {
+    setCargandoPreview(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/precios-mtop?proveedorExacto=");
+      const candidatos: CandidatoImportacion[] = res.ok ? await res.json() : [];
+      setCandidatosCache(candidatos);
+      const vistos = new Set<string>();
+      const duplicadas = filasOficiales.map((f) => {
+        const c = f.codigo.trim();
+        if (!c) return false;
+        if (vistos.has(c)) return true;
+        vistos.add(c);
+        return false;
+      });
+      const validas = filasOficiales.map(
+        (f, i) => !duplicadas[i] && f.precioUnitario != null && f.precioUnitario > 0 && f.descripcion.trim().length > 0
+      );
+      const idx = filasOficiales.map((_, i) => i).filter((i) => validas[i]);
+      const coincidencias = clasificarListaOficial(
+        idx.map((i) => ({ codigo: filasOficiales[i].codigo, descripcion: filasOficiales[i].descripcion })),
+        candidatos
+      );
+      const porIndice = new Map(idx.map((i, k) => [i, coincidencias[k]]));
+      setVistaPrevia(
+        filasOficiales.map((f, i) => {
+          const c = porIndice.get(i) ?? null;
+          return { ...f, coincidencia: c, via: c?.via, duplicada: duplicadas[i], valida: validas[i], incluida: true };
+        })
+      );
+    } catch (err) {
+      console.error("[importar precios] error en preview oficial", err);
+      setError("No se pudo generar la vista previa. Probá de nuevo.");
+    } finally {
+      setCargandoPreview(false);
+    }
   }
 
   async function previsualizar() {
@@ -348,12 +463,23 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
           codigo: f.codigo || undefined,
           descripcion: f.descripcion,
           unidad: f.unidad,
-          precioUnitario: f.precioUnitario,
+          // Lista oficial: el servidor recibe el precio de lista (con IVA, por la presentación)
+          // y la unidad con su presentación ("100 Kg"), y deriva cantidad y precio por unidad.
+          precioUnitario: esOficial ? f.precioLista : f.precioUnitario,
         }));
+      const cuerpo = esOficial
+        ? {
+            proveedor: "",
+            listaOficial: true,
+            numeroLista: infoLista?.numeroLista ?? 0,
+            fechaLista: infoLista?.fechaLista ?? undefined,
+            filas,
+          }
+        : { proveedor: proveedor.trim(), filas };
       const res = await fetch("/api/precios-mtop/importar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proveedor: proveedor.trim(), filas }),
+        body: JSON.stringify(cuerpo),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -381,7 +507,9 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
     };
   }, [vistaPrevia]);
 
-  const puedeConfirmar = (conteo?.tildadas ?? 0) > 0;
+  // Un import comercial sin proveedor (ej. PDF sin membrete) no puede confirmarse: el servidor
+  // lo rechaza igual, pero así el botón ni se habilita.
+  const puedeConfirmar = (conteo?.tildadas ?? 0) > 0 && (esOficial || proveedor.trim().length > 0);
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
@@ -460,7 +588,26 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
                 ))}
               </div>
 
+              {fuente === "excel" && (
+                <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={esOficial}
+                    onChange={(e) => alternarOficial(e.target.checked)}
+                    className="mt-0.5 rounded border-slate-300"
+                  />
+                  <span>
+                    <span className="font-semibold text-[#1A3A5C]">Lista oficial MTOP</span>
+                    <span className="block text-xs text-slate-400">
+                      Excel de la lista oficial (todas las hojas, incluida NUEVOS MATERIALES). Busca cada material por
+                      código y, si no lo encuentra, por descripción.
+                    </span>
+                  </span>
+                </label>
+              )}
+
               {/* Proveedor */}
+              {!esOficial && (
               <div>
                 <label className="block text-sm font-semibold text-[#1A3A5C] mb-1.5">Proveedor</label>
                 <input
@@ -485,6 +632,7 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
                     : "Si el PDF trae un membrete identificable, se completa solo al extraer — igual podés corregirlo."}
                 </p>
               </div>
+              )}
 
               {fuente === "excel" ? (
                 <>
@@ -517,8 +665,28 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
                     </label>
                   </div>
 
+                  {/* Encabezado leído de la lista oficial */}
+                  {esOficial && infoLista && (
+                    <div className="rounded-[10px] border border-slate-200 p-3 space-y-1 text-xs text-slate-600">
+                      <p>
+                        <span className="font-semibold text-slate-500">N.º de lista: </span>
+                        {infoLista.numeroLista ?? (
+                          <span className="text-amber-600">no se pudo leer — se guardará 0</span>
+                        )}
+                        <span className="font-semibold text-slate-500"> · Fecha: </span>
+                        {infoLista.fechaLista ?? (
+                          <span className="text-amber-600">no se pudo leer — se usará el mes actual</span>
+                        )}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-slate-500">Hojas leídas: </span>
+                        {infoLista.hojas.map((h) => `${h.nombre} (${h.filas})`).join(" · ")}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Mapeo de columnas */}
-                  {headers.length > 0 && (
+                  {!esOficial && headers.length > 0 && (
                     <div className="rounded-[10px] border border-slate-200 p-3 space-y-2">
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                         Columnas del archivo ({filasCrudas.length} fila{filasCrudas.length !== 1 ? "s" : ""} de datos)
@@ -558,7 +726,18 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
 
                   {error && <p className="text-xs text-red-600">{error}</p>}
 
-                  {headers.length > 0 && !vistaPrevia && (
+                  {esOficial && filasOficiales.length > 0 && !vistaPrevia && (
+                    <button
+                      onClick={previsualizarOficial}
+                      disabled={cargandoPreview}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-medium hover:bg-[#1A3A5C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {cargandoPreview && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {cargandoPreview ? "Generando vista previa..." : "Previsualizar"}
+                    </button>
+                  )}
+
+                  {!esOficial && headers.length > 0 && !vistaPrevia && (
                     <button
                       onClick={previsualizar}
                       disabled={!proveedor.trim() || !mapeoCompleto || cargandoPreview}
@@ -718,10 +897,18 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
                               )}
                               <td className="px-3 py-2">
                                 {!f.valida ? (
-                                  <span className="text-red-500">Sin datos válidos</span>
+                                  <span className="text-red-500">{f.duplicada ? "Código repetido (se ignora)" : "Sin datos válidos"}</span>
                                 ) : f.coincidencia ? (
-                                  <span className="text-blue-600" title={`Coincide con: ${f.coincidencia.candidato.descripcion} (${Math.round(f.coincidencia.score * 100)}% similitud)`}>
+                                  <span
+                                    className="text-blue-600"
+                                    title={
+                                      f.via === "codigo"
+                                        ? `Coincide por código con: ${f.coincidencia.candidato.descripcion}`
+                                        : `Coincide con: ${f.coincidencia.candidato.descripcion} (${Math.round(f.coincidencia.score * 100)}% similitud)`
+                                    }
+                                  >
                                     Actualiza — {f.coincidencia.candidato.codigo}
+                                    {f.via && <span className="text-slate-400"> · por {f.via === "codigo" ? "código" : "descripción"}</span>}
                                   </span>
                                 ) : (
                                   <span className="text-emerald-600">Nuevo</span>

@@ -4,6 +4,13 @@ import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
 import { mejorCoincidencia, type CandidatoImportacion } from "@/lib/similitudDescripcion";
 import { buscarCoincidenciasPorTexto } from "@/lib/recalcularPrecioRubro";
 import { requerirSuperadmin } from "@/lib/sesion";
+import {
+  clasificarListaOficial,
+  fechaListaONormalizada,
+  numeroListaONormalizado,
+  parsearUnidadMTOP,
+  precioUnitarioDeLista,
+} from "@/lib/listaMTOP";
 
 interface AmbiguoDetectado {
   materialAPUId: string;
@@ -28,6 +35,8 @@ interface DetalleFila {
   precioAnterior?: number;
   precioNuevo: number;
   nota?: string;
+  /** Solo lista oficial: cómo se encontró el material existente */
+  via?: "codigo" | "descripcion";
 }
 
 function generarCodigoInterno(): string {
@@ -63,7 +72,11 @@ export async function POST(req: NextRequest) {
     const proveedor = typeof body?.proveedor === "string" ? body.proveedor.trim() : "";
     const filasCrudas = Array.isArray(body?.filas) ? body.filas : null;
 
-    if (!proveedor) {
+    // Lista oficial MTOP (proveedor null en la base): proveedor vacío + listaOficial: true.
+    // El flag explícito evita que un import comercial sin proveedor (ej. un PDF sin
+    // membrete) termine escrito sobre la lista oficial por un campo en blanco.
+    const esOficial = !proveedor && body?.listaOficial === true;
+    if (!proveedor && !esOficial) {
       return NextResponse.json({ error: "Falta proveedor" }, { status: 400 });
     }
     if (!filasCrudas || filasCrudas.length === 0) {
@@ -76,6 +89,10 @@ export async function POST(req: NextRequest) {
         { error: "Ninguna fila tiene descripción, unidad y precio válidos" },
         { status: 400 }
       );
+    }
+
+    if (esOficial) {
+      return await importarListaOficial(filas, filasCrudas.length, body, sesion.empresaId);
     }
 
     // Candidatos del mismo proveedor — una sola consulta para toda la
@@ -160,48 +177,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Chequeo de ambigüedad post-importación — el catálogo recién cambió
-    // (altas + correcciones de arriba), así que un material sin vínculo
-    // real (precioMTOPId null, ver Paso A/B/C de la migración fuera del
-    // matching por texto) que hoy resuelve sano por contains() podría
-    // volverse ambiguo con las filas nuevas, en silencio, igual que pasó
-    // con "Cemento Portland" antes de tener el vínculo. Universo barato de
-    // recorrer (4 materiales sin vínculo en toda la base al momento de
-    // escribir esto) — se corre siempre, sincrónico, en esta misma
-    // request.
-    // Solo materiales de proyectos de la empresa del usuario: la lista de
-    // precios es compartida, pero el aviso habla de SUS proyectos.
-    const materialesSinVinculo = await db.materialAPU.findMany({
-      where: { precioMTOPId: null, apu: { rubro: { capitulo: { proyecto: { empresaId: sesion.empresaId } } } } },
-      select: {
-        id: true,
-        descripcion: true,
-        apu: {
-          select: {
-            rubro: {
-              select: {
-                descripcion: true,
-                capitulo: { select: { proyecto: { select: { id: true, nombre: true } } } },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const ambiguosDetectados: AmbiguoDetectado[] = [];
-    for (const m of materialesSinVinculo) {
-      const candidatos = await buscarCoincidenciasPorTexto(m.descripcion);
-      if (candidatos.length < 2) continue;
-      ambiguosDetectados.push({
-        materialAPUId: m.id,
-        proyectoId: m.apu.rubro.capitulo.proyecto.id,
-        proyectoNombre: m.apu.rubro.capitulo.proyecto.nombre,
-        rubroNombre: m.apu.rubro.descripcion,
-        descripcion: m.descripcion,
-        candidatos: candidatos.map((c) => ({ id: c.id, descripcion: c.descripcion, precio: c.precioUnitario })),
-      });
-    }
+    const ambiguosDetectados = await detectarAmbiguos(sesion.empresaId);
 
     return NextResponse.json({
       ok: true,
@@ -213,4 +189,160 @@ export async function POST(req: NextRequest) {
     console.error("[POST /api/precios-mtop/importar]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
+}
+
+async function detectarAmbiguos(empresaId: string): Promise<AmbiguoDetectado[]> {
+  // Chequeo de ambigüedad post-importación — el catálogo recién cambió
+  // (altas + correcciones de arriba), así que un material sin vínculo
+  // real (precioMTOPId null, ver Paso A/B/C de la migración fuera del
+  // matching por texto) que hoy resuelve sano por contains() podría
+  // volverse ambiguo con las filas nuevas, en silencio, igual que pasó
+  // con "Cemento Portland" antes de tener el vínculo. Universo barato de
+  // recorrer (4 materiales sin vínculo en toda la base al momento de
+  // escribir esto) — se corre siempre, sincrónico, en esta misma
+  // request.
+  // Solo materiales de proyectos de la empresa del usuario: la lista de
+  // precios es compartida, pero el aviso habla de SUS proyectos.
+  const materialesSinVinculo = await db.materialAPU.findMany({
+    where: { precioMTOPId: null, apu: { rubro: { capitulo: { proyecto: { empresaId: empresaId } } } } },
+    select: {
+      id: true,
+      descripcion: true,
+      apu: {
+        select: {
+          rubro: {
+            select: {
+              descripcion: true,
+              capitulo: { select: { proyecto: { select: { id: true, nombre: true } } } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const ambiguosDetectados: AmbiguoDetectado[] = [];
+  for (const m of materialesSinVinculo) {
+    const candidatos = await buscarCoincidenciasPorTexto(m.descripcion);
+    if (candidatos.length < 2) continue;
+    ambiguosDetectados.push({
+      materialAPUId: m.id,
+      proyectoId: m.apu.rubro.capitulo.proyecto.id,
+      proyectoNombre: m.apu.rubro.capitulo.proyecto.nombre,
+      rubroNombre: m.apu.rubro.descripcion,
+      descripcion: m.descripcion,
+      candidatos: candidatos.map((c) => ({ id: c.id, descripcion: c.descripcion, precio: c.precioUnitario })),
+    });
+  }
+  return ambiguosDetectados;
+}
+
+// Lista oficial MTOP (proveedor null). Matching: 1) código exacto, 2) si no hay código,
+// similitud de descripción, 3) si tampoco, fila nueva (ver lib/listaMTOP). Cada fila trae
+// `unidad` con su presentación ("100 Kg") y `precioUnitario` = el precio de LISTA con IVA
+// (por la presentación, no por unidad); el servidor deriva cantidad, unidad y precio por
+// unidad igual que la carga original de la lista (precioConIva = precio de lista,
+// precioUnitario = lista / cantidad). numeroLista y fechaLista salen del encabezado del
+// Excel (parseados en el cliente, normalizados acá); sin ellos, 0 y el mes actual.
+async function importarListaOficial(
+  filasValidas: FilaImportacion[],
+  totalCrudas: number,
+  body: { numeroLista?: unknown; fechaLista?: unknown },
+  empresaId: string
+) {
+  const numeroLista = numeroListaONormalizado(body.numeroLista);
+  const fechaLista = fechaListaONormalizada(body.fechaLista);
+
+  // Presentación ilegible ("kg" sí vale, "" no): no se puede derivar el precio por unidad.
+  const parseadas = filasValidas.map((f) => ({ fila: f, u: parsearUnidadMTOP(f.unidad) }));
+  const conUnidad = parseadas.filter((p): p is { fila: FilaImportacion; u: NonNullable<typeof p.u> } => p.u != null);
+
+  // Un código repetido dentro del archivo (p. ej. en la hoja principal y en NUEVOS
+  // MATERIALES): vale el primero; los demás se omiten. proveedor null no tiene unicidad
+  // en la base (NULL no choca en el índice), así que acá es la única barrera.
+  const vistos = new Set<string>();
+  const items = conUnidad.filter(({ fila }) => {
+    const c = fila.codigo?.trim();
+    if (!c) return true;
+    if (vistos.has(c)) return false;
+    vistos.add(c);
+    return true;
+  });
+
+  const candidatos = await db.precioMTOP.findMany({
+    where: { proveedor: null },
+    select: { id: true, codigo: true, descripcion: true, precioUnitario: true },
+  });
+  const coincidencias = clasificarListaOficial(
+    items.map(({ fila }) => ({ codigo: fila.codigo, descripcion: fila.descripcion.trim() })),
+    candidatos
+  );
+
+  const detalle: DetalleFila[] = [];
+  let actualizados = 0;
+  let nuevos = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const { fila, u } = items[i];
+    const descripcion = fila.descripcion.trim();
+    const precioUnit = precioUnitarioDeLista(fila.precioUnitario, u.cantidad);
+    const coincidencia = coincidencias[i];
+
+    if (coincidencia) {
+      const actualizado = await db.precioMTOP.update({
+        where: { id: coincidencia.candidato.id },
+        data: {
+          ...datosCorreccionPrecio(precioUnit, coincidencia.candidato.precioUnitario),
+          precioConIva: fila.precioUnitario,
+          // unidad, cantidad y cantidadUnidad van juntas: precioUnitario es por esa unidad.
+          // La descripción no se toca (puede estar curada a mano).
+          unidad: u.unidad,
+          cantidad: u.cantidad,
+          cantidadUnidad: u.cantidadUnidad,
+          numeroLista,
+          fechaLista,
+        },
+      });
+      actualizados++;
+      detalle.push({
+        descripcion,
+        accion: "actualizado",
+        codigo: actualizado.codigo,
+        precioAnterior: coincidencia.candidato.precioUnitario,
+        precioNuevo: precioUnit,
+        via: coincidencia.via,
+        nota:
+          coincidencia.via === "descripcion"
+            ? "El código no existía en el catálogo — se encontró por similitud de descripción."
+            : undefined,
+      });
+      continue;
+    }
+
+    const codigo = fila.codigo?.trim() || generarCodigoInterno();
+    const creado = await db.precioMTOP.create({
+      data: {
+        codigo,
+        descripcion,
+        unidad: u.unidad,
+        cantidadUnidad: u.cantidadUnidad,
+        cantidad: u.cantidad,
+        proveedor: null,
+        numeroLista,
+        fechaLista,
+        ...datosCorreccionPrecio(precioUnit, null),
+        precioConIva: fila.precioUnitario,
+      },
+    });
+    nuevos++;
+    detalle.push({ descripcion, accion: "nuevo", codigo: creado.codigo, precioNuevo: precioUnit });
+  }
+
+  const ambiguosDetectados = await detectarAmbiguos(empresaId);
+  return NextResponse.json({
+    ok: true,
+    resumen: { actualizados, nuevos, total: items.length, omitidas: totalCrudas - items.length },
+    detalle,
+    ambiguosDetectados,
+  });
 }

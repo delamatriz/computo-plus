@@ -82,7 +82,9 @@ export async function GET(req: NextRequest) {
   if (proveedorExactoParam !== null) {
     try {
       const resultados = await db.precioMTOP.findMany({
-        where: { proveedor: proveedorExactoParam },
+        // "" = lista oficial MTOP (proveedor null): ninguna fila tiene proveedor ""
+        // (el importador siempre lo trimea y exige no vacío), así que no hay ambigüedad.
+        where: { proveedor: proveedorExactoParam === "" ? null : proveedorExactoParam },
         select: SELECT_CATALOGO_COMPLETO,
         orderBy: { descripcion: "asc" },
       });
