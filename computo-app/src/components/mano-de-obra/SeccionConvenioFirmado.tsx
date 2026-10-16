@@ -92,6 +92,9 @@ export default function SeccionConvenioFirmado() {
         </div>
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-[#1E293B]">Descargar convenio firmado</h2>
+          {!cargando && tieneArchivo && (
+            <p className="text-xs text-slate-400 mt-0.5">Disponible para todos los usuarios de tu empresa.</p>
+          )}
           <p className="text-sm text-slate-500 mt-0.5">
             Acta de Acuerdo — Consejo de Salarios, Grupo 9 Sub-Grupo 01, documento completo.
           </p>
@@ -104,7 +107,7 @@ export default function SeccionConvenioFirmado() {
             href="/api/configuracion/convenio-pdf"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-[#2563EB] hover:underline"
           >
-            <Download className="w-3.5 h-3.5" /> Descargar PDF
+            <Download className="w-3.5 h-3.5" /> Descargar
           </a>
         )}
         {!cargando && !tieneArchivo && (
@@ -129,7 +132,7 @@ export default function SeccionConvenioFirmado() {
             className="inline-flex items-center gap-1.5 self-start text-xs font-medium text-slate-400 hover:text-slate-600 disabled:opacity-50 transition-colors mt-3"
           >
             <Upload className="w-3 h-3" />
-            {subiendo ? "Subiendo…" : tieneArchivo ? "Reemplazar PDF" : "Subir PDF"}
+            {subiendo ? "Subiendo…" : tieneArchivo ? "Actualizar convenio" : "Subir convenio firmado"}
           </button>
         </>
       )}
