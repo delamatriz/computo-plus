@@ -567,6 +567,10 @@ export default function ModalImportarPrecios({ proveedoresExistentes, onClose, o
                       </li>
                     ))}
                   </ul>
+                  <p className="text-xs font-semibold text-amber-700 mt-3">
+                    Qué hacer: revisá estos rubros en sus proyectos y vinculá el material correcto del catálogo, para
+                    que el próximo &quot;actualizar al precio vigente&quot; tome la variante adecuada.
+                  </p>
                 </div>
               )}
             </div>
