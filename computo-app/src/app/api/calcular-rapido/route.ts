@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import type Anthropic from "@anthropic-ai/sdk";
 import { crearMensaje } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
-import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, resolverProporcionDesglose } from "@/lib/bibliotecaApus";
+import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, buscarSubrubrosEmpresa, formatearSubrubrosParaPrompt, resolverProporcionDesglose } from "@/lib/bibliotecaApus";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
-import { requerirSesion } from "@/lib/sesion";
+import { esSuperadmin, requerirSesion } from "@/lib/sesion";
 import { consumirFuncionAsistida, devolverConsumo, respuestaFuncionNoDisponible } from "@/lib/acceso";
 
 
@@ -50,8 +50,14 @@ export async function POST(request: NextRequest) {
     // real (materiales + mano de obra + equipos), no solo el precio final.
     // Vacío si la descripción no matchea ningún capítulo con biblioteca —
     // ese es el fallback esperado (obra atípica), no un error.
-    // TODO: buscar también en SubrubroEmpresa (biblioteca personal de la empresa).
-    const subrubrosBiblioteca = await buscarSubrubrosPorCapitulos(capitulosBiblioteca.map((c) => c.id));
+    // Biblioteca personal de la empresa (SubrubroEmpresa): sus rubros que tocan la descripción van
+    // mezclados con los globales en una sola lista, primero los propios (ya vienen por relevancia
+    // del texto). El SUPERADMIN no tiene biblioteca personal: solo ve el catálogo global.
+    const [subrubrosGlobales, subrubrosPropios] = await Promise.all([
+      buscarSubrubrosPorCapitulos(capitulosBiblioteca.map((c) => c.id)),
+      (await esSuperadmin(sesion)) ? Promise.resolve([]) : buscarSubrubrosEmpresa(sesion.empresaId, descripcion),
+    ]);
+    const subrubrosBiblioteca = [...subrubrosPropios, ...subrubrosGlobales];
     const tablaBiblioteca = formatearSubrubrosParaPrompt(subrubrosBiblioteca);
 
     const tablaJornales = categorias
@@ -97,7 +103,8 @@ Devolvé un JSON con esta estructura exacta:
       "materiales": number,
       "manoObra": number,
       "origen": "biblioteca" | "estimado",
-      "codigoSubrubro": string | null
+      "codigoSubrubro": string | null,
+      "cantidad": number | null
     }
   ],
   "advertencia": "Materiales y mano de obra: estimación automática según tu descripción. Gastos Generales, Beneficio e IVA se calculan de forma simple sobre esa estimación, no son una cotización. Para mayor exactitud desarrollá un proyecto completo."
@@ -117,6 +124,8 @@ Reglas:
 - Retiro y disposición de residuos: incluí esta línea SOLO si la tarea descripta implica demolición, retiro de material/revestimiento existente, remoción o picado — proporcional al volumen de lo retirado. Si la tarea es una instalación, colocación o aplicación nueva sin demolición/retiro previo, NO incluyas esta línea salvo que el texto del usuario la mencione explícitamente
 - Limpieza final de obra: incluí esta línea ÚNICAMENTE si el usuario la menciona explícitamente en su descripción. NUNCA la agregues por tu cuenta como línea de cierre automática, aunque la tarea genere escombro o residuo — eso ya se cubre, si corresponde, con "Retiro y disposición de residuos"
 - Elemento descripto SOLO por altura, sin longitud/perímetro (ej. "pretiles de 40cm a 1.60m de altura", sin decir cuántos metros lineales): NUNCA inventes un perímetro libremente — es la principal fuente de resultados inconsistentes entre corridas para el mismo texto. Si el texto menciona el área de la superficie principal a la que pertenece ese elemento (ej. "azotea de 144 m²"), calculá el perímetro con esta fórmula fija: perímetro (ml) = 4 × raíz_cuadrada(área en m²) — el perímetro de un cuadrado de esa área, que es el mínimo geométrico esperable y da un ancla consistente entre corridas (un edificio real rara vez tiene menos perímetro que esto para su superficie). Si el texto no menciona ningún área de referencia tampoco, usá tu mejor estimación explícita más conservadora. En ambos casos, marcá "origen": "estimado" para ese capítulo y agregá al final de su "nombre" la aclaración "(perímetro estimado, a confirmar con medición real)" — nunca lo presentes como si fuera un dato dado por el usuario
+- Los subrubros marcados "(MI BIBLIOTECA)" son los precios propios de la empresa del usuario: ante igual cobertura del mismo trabajo, preferilos sobre los demás aunque sean más caros (esta regla pisa a la de elegir el más barato). Su precio "$...UY" es el valor del capítulo: no lo corrijas por tu criterio, aunque te parezca alto o bajo
+- "cantidad": para un capítulo con origen "biblioteca", la cantidad de la unidad del subrubro (la que figura en la lista, ej. m2, ml, u) que corresponde a la tarea — por ejemplo 50 si se piden 50 m2 de un subrubro en m2. Es null si el origen es "estimado"
 - Para cada capítulo: si usaste (aunque sea parcialmente, ajustando cantidades) alguno de los SUBRUBROS REALES DE BIBLIOTECA de arriba, marcá "origen": "biblioteca" y "codigoSubrubro" con el código EXACTO entre corchetes de ese subrubro (ej. "6.6.8", nunca su descripción). Si no había ninguno aplicable para ese capítulo y estimaste con tu criterio usando MTOP/jornales, marcá "origen": "estimado" y "codigoSubrubro": null
 - Si para un mismo trabajo hay más de un SUBRUBRO REAL DE BIBLIOTECA aplicable (ej. variantes de membrana, pintura, vidrio, carpintería con distinto nivel de prestación), preferí SIEMPRE la opción estándar/más económica entre las aplicables. Usá una variante premium o reforzada (ej. "con geotextil", "reforzada", "Low-E", "DVH", "alta gama") únicamente si la descripción del usuario la menciona explícitamente, o si el trabajo la requiere por una razón técnica que la propia descripción deja clara (ej. superficie enterrada expuesta a punzonamiento). Nunca asumas la variante premium por defecto ante una descripción genérica
 - No dupliques un proceso que ya está incluido en un SUBRUBRO REAL DE BIBLIOTECA que usaste para una superficie o elemento. Antes de agregar una línea aparte para un proceso relacionado (ej. imprimación previa, sellado, terminación) sobre la MISMA superficie/elemento que ya cubriste con un subrubro real, revisá su lista de "Materiales" en la tabla de arriba — si ese proceso ya figura ahí (aunque sea con otro nombre), NO generes una línea extra para él, el precio del subrubro ya lo tiene adentro. Ante la duda de si un ítem de biblioteca ya incluye o no un proceso, preferí usar el ítem completo tal cual (sin desglosarlo en pasos separados) antes que arriesgarte a cobrarlo dos veces
@@ -198,15 +207,32 @@ Reglas:
         manoObra?: number;
         origen?: string;
         codigoSubrubro?: string | null;
+        cantidad?: number | null;
+        fuenteBiblioteca?: "global" | "empresa";
       }[]) {
         if (cap.origen !== "biblioteca" || !cap.codigoSubrubro || typeof cap.monto !== "number") continue;
         const subrubro = subrubrosPorCodigo.get(cap.codigoSubrubro);
         if (!subrubro) continue;
+        // De qué biblioteca salió: la UI marca los de "Mi biblioteca".
+        cap.fuenteBiblioteca = subrubro.fuente === "empresa" ? "empresa" : "global";
+        // Rubro de la biblioteca personal: su precio manda. Se calcula acá, sin depender de que la IA
+        // multiplique bien ni de que "corrija" un precio que le parece alto: monto = cantidad × precio propio.
+        const montoIA = cap.monto;
+        if (subrubro.fuente === "empresa" && typeof cap.cantidad === "number" && cap.cantidad > 0) {
+          cap.monto = Math.round(cap.cantidad * subrubro.precioUY * 100) / 100;
+        }
 
         const desglose = await resolverProporcionDesglose(subrubro);
-        if (!desglose) continue;
-        const base = desglose.materialesTotal + desglose.manoObraTotal + desglose.equiposTotal;
-        if (base <= 0) continue;
+        const base = desglose ? desglose.materialesTotal + desglose.manoObraTotal + desglose.equiposTotal : 0;
+        if (!desglose || base <= 0) {
+          // Sin desglose real: se conserva la proporción de la IA, escalada al monto nuevo para que
+          // materiales + mano de obra sigan sumando el monto del capítulo.
+          if (cap.monto !== montoIA && montoIA > 0 && typeof cap.materiales === "number") {
+            cap.materiales = Math.round(cap.materiales * (cap.monto / montoIA) * 100) / 100;
+            cap.manoObra = Math.round((cap.monto - cap.materiales) * 100) / 100;
+          }
+          continue;
+        }
 
         const proporcionMateriales = desglose.materialesTotal / base;
         cap.materiales = Math.round(cap.monto * proporcionMateriales * 100) / 100;

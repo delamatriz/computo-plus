@@ -123,6 +123,8 @@ interface CapituloIA {
   // jornales SUNCA). Validado server-side, no autocertificado por la
   // IA — ver /api/calcular-rapido.
   origen?: "biblioteca" | "estimado";
+  // Si origen es "biblioteca": de la biblioteca global o de la personal de la empresa ("Mi biblioteca").
+  fuenteBiblioteca?: "global" | "empresa";
 }
 
 interface ResultadoIA {
@@ -308,6 +310,7 @@ export default function CalcularPage() {
           manoObra: resultado.total * c.pct * c.moPct,
           color: c.color,
           origen: undefined as "biblioteca" | "estimado" | undefined,
+          fuenteBiblioteca: undefined as "global" | "empresa" | undefined,
         })),
       };
     }
@@ -323,6 +326,7 @@ export default function CalcularPage() {
           manoObra: c.manoObra,
           color: PALETA_COLORES[i % PALETA_COLORES.length],
           origen: c.origen,
+          fuenteBiblioteca: c.fuenteBiblioteca,
         })),
       };
     }
@@ -1070,7 +1074,15 @@ export default function CalcularPage() {
                                 <span className="text-sm text-text-secondary truncate">
                                   {c.nombre}
                                 </span>
-                                {c.origen === "biblioteca" && (
+                                {c.origen === "biblioteca" && c.fuenteBiblioteca === "empresa" && (
+                                  <span
+                                    title="Precio de tu biblioteca personal"
+                                    className="flex-shrink-0 text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-blue-50 text-blue-600 border border-blue-200 uppercase tracking-wide"
+                                  >
+                                    Mi biblioteca
+                                  </span>
+                                )}
+                                {c.origen === "biblioteca" && c.fuenteBiblioteca !== "empresa" && (
                                   <span
                                     title="Precio real de la biblioteca de subrubros, no estimación libre"
                                     className="flex-shrink-0 text-[9px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-200 rounded px-1 leading-4"

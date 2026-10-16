@@ -3,10 +3,14 @@ import { db } from "@/lib/db";
 import { precioConRespaldo, resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
 import { sumManoObra } from "@/lib/apu-calc";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { raicesDelRubro } from "@/lib/materialesParaPrompt";
 
 
 export interface SubrubroConApu {
   id: string;
+  // De qué biblioteca viene: la global (SubrubroEstandar, default) o la personal de la empresa
+  // (SubrubroEmpresa). En la personal, `codigo` es un identificador para el prompt (MB-xxxxxxxx).
+  fuente?: "global" | "empresa";
   codigo: string;
   descripcion: string;
   unidad: string;
@@ -121,6 +125,82 @@ export async function buscarSubrubrosPorCapitulos(capituloIds: string[]): Promis
   }));
 }
 
+const sinTildesNorm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Rubros de la biblioteca personal de la empresa (SubrubroEmpresa) que tocan la descripción de
+ * la obra, con su APU, ordenados por relevancia del texto (cuántas raíces de la descripción
+ * aparecen en el nombre/descripción del rubro; sin ninguna coincidencia no entran). Misma forma
+ * que los subrubros globales, para mezclarlos en una sola lista en el prompt de Cálculo Rápido.
+ * Es una lista corta por empresa: se filtra en memoria.
+ */
+export async function buscarSubrubrosEmpresa(
+  empresaId: string,
+  descripcion: string,
+  maximo = 10
+): Promise<SubrubroConApu[]> {
+  const raices = raicesDelRubro(descripcion);
+  if (raices.length === 0) return [];
+
+  const rubros = await db.subrubroEmpresa.findMany({
+    where: { empresaId },
+    select: {
+      id: true,
+      nombre: true,
+      descripcion: true,
+      unidad: true,
+      precioUY: true,
+      apus: {
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: {
+          materiales: { select: { descripcion: true, unidad: true, cantidad: true, precioUnit: true, precioReferencia: true } },
+          manoObra: { select: { categoria: true, cantidad: true, jornal: true, jornalReferencia: true, jornadasHoras: true } },
+          equipos: { select: { descripcion: true, unidad: true, cantidad: true, costoUnit: true, costoReferencia: true } },
+        },
+      },
+    },
+  });
+
+  return rubros
+    .map((r) => {
+      const texto = sinTildesNorm(`${r.nombre} ${r.descripcion ?? ""}`);
+      return { r, score: raices.filter((raiz) => texto.includes(raiz)).length };
+    })
+    .filter((x) => x.score > 0 && x.r.precioUY > 0)
+    .sort((a, b) => b.score - a.score || a.r.nombre.localeCompare(b.r.nombre))
+    .slice(0, maximo)
+    .map(({ r }): SubrubroConApu => {
+      const apu = r.apus[0];
+      return {
+        id: r.id,
+        fuente: "empresa",
+        codigo: `MB-${r.id.slice(0, 8)}`,
+        descripcion: r.nombre,
+        unidad: r.unidad,
+        precioUY: r.precioUY,
+        materiales: (apu?.materiales ?? []).map((m) => ({
+          descripcion: m.descripcion,
+          unidad: m.unidad,
+          rendimiento: m.cantidad,
+          precioReferencia: m.precioReferencia ?? m.precioUnit,
+        })),
+        manoObra: (apu?.manoObra ?? []).map((m) => ({
+          categoria: m.categoria,
+          rendimiento: m.cantidad,
+          jornadaHs: m.jornadasHoras ?? 8,
+          jornalReferencia: m.jornalReferencia ?? m.jornal,
+        })),
+        equipos: (apu?.equipos ?? []).map((e) => ({
+          descripcion: e.descripcion,
+          unidad: e.unidad,
+          rendimiento: e.cantidad,
+          costoReferencia: e.costoReferencia ?? e.costoUnit,
+        })),
+      };
+    });
+}
+
 /**
  * Convierte la lista de subrubros reales en el bloque de texto que se
  * inserta en el prompt de pricing — un subrubro por bloque, con su
@@ -185,7 +265,7 @@ export function formatearSubrubrosParaPrompt(subrubros: SubrubroConApu[]): strin
         .map((e) => `    · ${e.descripcion}: ${e.rendimiento} ${e.unidad} por ${s.unidad}`)
         .join("\n");
       return (
-        `[${s.codigo}] ${s.descripcion} — ${s.unidad} — $${s.precioUY} UY\n` +
+        `[${s.codigo}] ${s.fuente === "empresa" ? "(MI BIBLIOTECA) " : ""}${s.descripcion} — ${s.unidad} — $${s.precioUY} UY\n` +
         `  Materiales:\n${mats || "    (ninguno)"}\n` +
         `  Mano de obra:\n${mo || "    (ninguna)"}` +
         (eq ? `\n  Equipos:\n${eq}` : "")
