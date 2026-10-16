@@ -34,6 +34,7 @@ import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMate
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
 import { calcularDiasObra } from "@/lib/diasObra";
+import { fmtDecimalUY, fmtRendimiento } from "@/lib/formatoNumeros";
 import { LEYES_SOCIALES_DEFAULTS_FRACCION } from "@/lib/aportesPatronales";
 import { normalizarTipoCaja } from "@/lib/cajaProfesionales";
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada } from "@/lib/costoAgregado";
@@ -988,24 +989,6 @@ function fmtFecha(valor: string | null | undefined): string | null {
 
 function fmtNum(v: number, decimales = 2): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
-}
-
-/**
- * Decimal uruguayo con tope de decimales y sin ceros de más: punto de miles, coma decimal.
- * El agrupado se arma a mano porque toLocaleString("es-UY") no agrupa los números de
- * 4 cifras ("1234,5") y así no cambia con la versión de ICU del navegador.
- */
-function fmtDecimalUY(v: number, maxDecimales: number): string {
-  if (!Number.isFinite(v)) return "";
-  const r = parseFloat(v.toFixed(maxDecimales));
-  const [entero, decimales] = String(Math.abs(r)).split(".");
-  const agrupado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${r < 0 ? "-" : ""}${agrupado}${decimales ? "," + decimales : ""}`;
-}
-
-/** Rendimiento: hasta 4 decimales (no 15 de ruido de punto flotante), sin ceros innecesarios */
-function fmtRendimiento(v: number): string {
-  return fmtDecimalUY(v, 4);
 }
 
 /** Texto de un rendimiento mientras se edita: coma decimal, sin separador de miles, hasta 6 decimales */

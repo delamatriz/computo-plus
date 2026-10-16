@@ -5,6 +5,7 @@ import { Sparkles, ChevronDown, ChevronRight, Plus, Check, Loader2 } from "lucid
 import { motion, AnimatePresence } from "framer-motion";
 import { esBloqueoDeCuenta, esErrorAcceso, type ErrorAcceso } from "@/lib/accesoCliente";
 import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
+import { fmtRendimiento } from "@/lib/formatoNumeros";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface MaterialSugerido {
@@ -260,7 +261,7 @@ export default function SeccionPartidasFaltantes({ proyectoId, moneda, capitulos
                                 <li key={i} className="text-xs text-slate-600 flex justify-between gap-2">
                                   <span className="truncate">{m.descripcion}</span>
                                   <span className="tabular-nums text-slate-400 flex-shrink-0">
-                                    {m.rendimiento} {m.unidad} × {fmtMoneda(m.precioUnit, moneda)}
+                                    {fmtRendimiento(m.rendimiento)} {m.unidad} × {fmtMoneda(m.precioUnit, moneda)}
                                   </span>
                                 </li>
                               ))}
@@ -273,7 +274,7 @@ export default function SeccionPartidasFaltantes({ proyectoId, moneda, capitulos
                                 <li key={i} className="text-xs text-slate-600 flex justify-between gap-2">
                                   <span className="truncate">{mo.categoria}</span>
                                   <span className="tabular-nums text-slate-400 flex-shrink-0">
-                                    rend. {mo.rendimiento} · {fmtMoneda(mo.jornal, moneda)}/jornal
+                                    rend. {fmtRendimiento(mo.rendimiento)} · {fmtMoneda(mo.jornal, moneda)}/jornal
                                   </span>
                                 </li>
                               ))}

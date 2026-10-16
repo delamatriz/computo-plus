@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
+import { fmtRendimiento } from "@/lib/formatoNumeros";
 
 // ── Tipos ──────────────────────────────────────────────────────────────
 
@@ -349,7 +350,7 @@ function SeccionMateriales({ materiales }: { materiales: MaterialDescompuesto[] 
               )}
             </div>
             <span className="flex-shrink-0 text-slate-400 text-xs w-24 text-right">
-              {fmtNum(m.rendimiento)} {m.unidad}
+              {fmtRendimiento(m.rendimiento)} {m.unidad}
             </span>
             <span
               className={cn(
@@ -378,7 +379,7 @@ function SeccionManoObra({ manoObra }: { manoObra: ManoObraDescompuesto[] }) {
           <div key={mo.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 text-sm">
             <span className="flex-1 min-w-0 truncate text-slate-700">{mo.categoria}</span>
             <span className="flex-shrink-0 text-slate-400 text-xs w-28 text-right">
-              rinde {fmtNum(mo.rendimiento)} {`/ ${mo.jornadaHs}hs`}
+              rinde {fmtRendimiento(mo.rendimiento)} {`/ ${mo.jornadaHs}hs`}
             </span>
             <span
               className={cn(
@@ -406,7 +407,7 @@ function SeccionEquipos({ equipos }: { equipos: EquipoDescompuesto[] }) {
           <div key={eq.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 text-sm">
             <span className="flex-1 min-w-0 truncate text-slate-700">{eq.descripcion}</span>
             <span className="flex-shrink-0 text-slate-400 text-xs w-24 text-right">
-              {fmtNum(eq.rendimiento)} {eq.unidad}
+              {fmtRendimiento(eq.rendimiento)} {eq.unidad}
             </span>
             <span
               className={cn(
