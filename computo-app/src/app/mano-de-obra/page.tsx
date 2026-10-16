@@ -16,7 +16,7 @@ const referencias: ReferenciaLink[] = [
   {
     titulo: "Convenio SUNCA",
     descripcion: "Escalas salariales y convenio colectivo vigente",
-    url: "https://sunca.uy/category/convenios/",
+    url: "https://www.sunca.com.uy",
   },
 ];
 

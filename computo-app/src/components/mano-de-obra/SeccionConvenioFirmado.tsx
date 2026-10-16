@@ -10,6 +10,17 @@ import { useSuperadmin } from "@/hooks/useSuperadmin";
 // paso de revisión: se sube y queda, un documento de referencia simple.
 // Descargar es para todos; subir/reemplazar es solo del SUPERADMIN (el
 // convenio es global — POST .../convenio-pdf lo exige).
+// Debajo del tope de la petición (next.config.ts: 40 MB, y el base64 pesa ~33 % más que el archivo).
+const TOPE_PDF_BYTES = 25 * 1024 * 1024;
+const MENSAJE_ERROR_SUBIDA_GENERICO = "No se pudo subir el archivo. Probá de nuevo.";
+// Códigos que devuelve POST /api/configuracion/convenio-pdf.
+const MENSAJES_ERROR_SUBIDA: Record<string, string> = {
+  no_es_pdf: "El archivo tiene que ser un PDF.",
+  cuerpo_invalido: "El archivo llegó incompleto al servidor — probablemente es demasiado pesado. Probá con un PDF más liviano.",
+  blob_sin_token: "El servidor no tiene configurado el almacenamiento de archivos (falta BLOB_READ_WRITE_TOKEN).",
+  blob_error: "El almacenamiento de archivos rechazó la subida — el detalle está en el log del servidor.",
+};
+
 export default function SeccionConvenioFirmado() {
   // null (cargando) cuenta como "no": sin flash del botón de subir.
   const puedeSubir = useSuperadmin() === true;
@@ -39,6 +50,10 @@ export default function SeccionConvenioFirmado() {
     const archivo = e.target.files?.[0];
     if (!archivo) return;
     e.target.value = "";
+    if (archivo.size > TOPE_PDF_BYTES) {
+      setError(`El PDF pesa más de ${TOPE_PDF_BYTES / (1024 * 1024)} MB — probá con uno más liviano.`);
+      return;
+    }
 
     setSubiendo(true);
     setError(null);
@@ -50,10 +65,14 @@ export default function SeccionConvenioFirmado() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ archivo: reader.result }),
         });
-        if (!res.ok) throw new Error();
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(MENSAJES_ERROR_SUBIDA[data?.error as string] ?? MENSAJE_ERROR_SUBIDA_GENERICO);
+          return;
+        }
         setTieneArchivo(true);
       } catch {
-        setError("No se pudo subir el archivo. Probá de nuevo.");
+        setError(MENSAJE_ERROR_SUBIDA_GENERICO);
       } finally {
         setSubiendo(false);
       }
