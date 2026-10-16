@@ -5937,6 +5937,7 @@ export default function ProyectoPage() {
           diasObra={diasObra.total}
           rubrosConDatos={diasObra.rubrosConDatos}
           rubrosSinDatos={diasObra.rubrosSinDatos}
+          rubrosSinDatosNombres={diasObra.rubrosSinDatosNombres}
         />
 
         {/* Una vez convertido a proyecto completo, la estimación original

@@ -29,6 +29,7 @@
 export interface RubroParaDias {
   id: string;
   cantidad: number | null;
+  descripcion?: string;
 }
 
 export interface CapituloParaDias {
@@ -43,6 +44,8 @@ export interface DiasObraResultado {
   total: number;
   rubrosConDatos: number;
   rubrosSinDatos: number;
+  /** Descripción de cada rubro sin mano de obra desglosada, en el orden del presupuesto */
+  rubrosSinDatosNombres: string[];
 }
 
 export function calcularDiasObra(
@@ -52,12 +55,14 @@ export function calcularDiasObra(
   let total = 0;
   let rubrosConDatos = 0;
   let rubrosSinDatos = 0;
+  const rubrosSinDatosNombres: string[] = [];
 
   for (const cap of capitulos) {
     for (const rubro of cap.rubros) {
       const apu = apuData[rubro.id];
       if (!apu || apu.manoObra.length === 0) {
         rubrosSinDatos++;
+        rubrosSinDatosNombres.push(rubro.descripcion?.trim() || "Rubro sin nombre");
         continue;
       }
       const cantidad = rubro.cantidad ?? 0;
@@ -71,5 +76,5 @@ export function calcularDiasObra(
     }
   }
 
-  return { total, rubrosConDatos, rubrosSinDatos };
+  return { total, rubrosConDatos, rubrosSinDatos, rubrosSinDatosNombres };
 }

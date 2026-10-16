@@ -3,11 +3,22 @@
 import { useState } from "react";
 import { CalendarClock, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { NotaInfoIcono } from "@/components/NotaInfoIcono";
 
 interface Props {
   diasObra: number;
   rubrosConDatos: number;
   rubrosSinDatos: number;
+  rubrosSinDatosNombres?: string[];
+}
+
+// Máximo de rubros listados en el tooltip — el resto se resume en "… y N más".
+const MAX_RUBROS_TOOLTIP = 15;
+
+function listaRubros(nombres: string[]): string {
+  const visibles = nombres.slice(0, MAX_RUBROS_TOOLTIP);
+  const resto = nombres.length - visibles.length;
+  return [...visibles, ...(resto > 0 ? [`… y ${resto} más`] : [])].join("\n");
 }
 
 function fmtDias(v: number): string {
@@ -15,7 +26,7 @@ function fmtDias(v: number): string {
   return `${redondeado} día${redondeado !== 1 ? "s" : ""}`;
 }
 
-export default function SeccionDiasDeObra({ diasObra, rubrosConDatos, rubrosSinDatos }: Props) {
+export default function SeccionDiasDeObra({ diasObra, rubrosConDatos, rubrosSinDatos, rubrosSinDatosNombres }: Props) {
   const [expandido, setExpandido] = useState(false);
 
   return (
@@ -61,13 +72,22 @@ export default function SeccionDiasDeObra({ diasObra, rubrosConDatos, rubrosSinD
                 la que marca el ritmo), y el total suma esos días de todos los rubros.
               </p>
               {rubrosSinDatos > 0 && (
-                <div className="flex items-start gap-2 rounded-[8px] bg-amber-50 border border-amber-200 px-3 py-2">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-700">
-                    {rubrosSinDatos} rubro{rubrosSinDatos !== 1 ? "s" : ""} sin mano de obra desglosada
-                    (precio cargado a mano, o sin Análisis de Precio Unitario) no está{rubrosSinDatos !== 1 ? "n" : ""} contado{rubrosSinDatos !== 1 ? "s" : ""} en esta estimación — de {rubrosConDatos + rubrosSinDatos} rubro{rubrosConDatos + rubrosSinDatos !== 1 ? "s" : ""} en total, {rubrosConDatos} aporta{rubrosConDatos !== 1 ? "n" : ""} días.
-                  </p>
-                </div>
+                (() => {
+                  const aviso = (
+                  <div className="flex items-start gap-2 rounded-[8px] bg-amber-50 border border-amber-200 px-3 py-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-700">
+                      {rubrosSinDatos} rubro{rubrosSinDatos !== 1 ? "s" : ""} sin mano de obra desglosada
+                      (precio cargado a mano, o sin Análisis de Precio Unitario) no está{rubrosSinDatos !== 1 ? "n" : ""} contado{rubrosSinDatos !== 1 ? "s" : ""} en esta estimación — de {rubrosConDatos + rubrosSinDatos} rubro{rubrosConDatos + rubrosSinDatos !== 1 ? "s" : ""} en total, {rubrosConDatos} aporta{rubrosConDatos !== 1 ? "n" : ""} días.
+                    </p>
+                  </div>
+                  );
+                  return rubrosSinDatosNombres && rubrosSinDatosNombres.length > 0 ? (
+                    <NotaInfoIcono texto={listaRubros(rubrosSinDatosNombres)} className="block cursor-help">
+                      {aviso}
+                    </NotaInfoIcono>
+                  ) : aviso;
+                })()
               )}
             </div>
           </motion.div>
