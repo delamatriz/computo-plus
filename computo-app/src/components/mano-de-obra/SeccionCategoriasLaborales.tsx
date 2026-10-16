@@ -78,6 +78,11 @@ function formatearJornal(n: number): string {
   return n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// "YYYY-MM-DD" → "dd/mm/aaaa" en UTC (en huso local la fecha se corre un día; ver convenioSunca.ts).
+function formatearFechaConvenio(fechaISO: string): string {
+  return new Date(fechaISO).toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+}
+
 // Antes vivía en /configuracion (ver comentario NOTA(multi-tenant) arriba)
 // — movida a /mano-de-obra porque es contenido específico de ese dominio,
 // no de la empresa en general. Misma funcionalidad exacta, sin cambios.
@@ -541,27 +546,37 @@ export default function SeccionCategoriasLaborales() {
           <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
             Fecha del convenio vigente
           </label>
-          <input
-            type="date"
-            value={fechaConvenio}
-            onChange={(e) => setFechaConvenio(e.target.value)}
-            readOnly={!puedeEditar}
-            className="read-only:bg-slate-50 read-only:text-slate-500 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
-          />
+          {puedeEditar ? (
+            <input
+              type="date"
+              value={fechaConvenio}
+              onChange={(e) => setFechaConvenio(e.target.value)}
+              className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+            />
+          ) : (
+            // Sin permiso de edición: texto plano con la misma caja (padding y borde transparente)
+            // que el input, para que no parezca un campo roto o bloqueado.
+            <p className="border border-transparent px-3 py-2 text-sm text-[#1E293B]">
+              {fechaConvenio ? formatearFechaConvenio(fechaConvenio) : "—"}
+            </p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
             Número de convenio
           </label>
-          <input
-            type="text"
-            value={numeroConvenio}
-            onChange={(e) => setNumeroConvenio(e.target.value)}
-            readOnly={!puedeEditar}
-            maxLength={80}
-            placeholder="ej: 2026-2027"
-            className="read-only:bg-slate-50 read-only:text-slate-500 w-44 border border-slate-300 rounded-lg px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
-          />
+          {puedeEditar ? (
+            <input
+              type="text"
+              value={numeroConvenio}
+              onChange={(e) => setNumeroConvenio(e.target.value)}
+              maxLength={80}
+              placeholder="ej: 2026-2027"
+              className="w-44 border border-slate-300 rounded-lg px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+            />
+          ) : (
+            <p className="border border-transparent px-3 py-2 text-sm text-[#1E293B]">{numeroConvenio.trim() || "—"}</p>
+          )}
         </div>
       </div>
 
@@ -584,16 +599,21 @@ export default function SeccionCategoriasLaborales() {
             <tr key={c.id} className="border-b border-slate-100 last:border-0">
               <td className="py-2 text-[#1E293B]">{c.nombre}</td>
               <td className="py-2">
-                <input
-                  type="number"
-                  step="0.01"
-                  value={jornales[c.id] ?? ""}
-                  onChange={(e) =>
-                    setJornales((prev) => ({ ...prev, [c.id]: e.target.value }))
-                  }
-                  readOnly={!puedeEditar}
-                  className="read-only:bg-slate-50 read-only:text-slate-500 w-32 border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
-                />
+                {puedeEditar ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={jornales[c.id] ?? ""}
+                    onChange={(e) =>
+                      setJornales((prev) => ({ ...prev, [c.id]: e.target.value }))
+                    }
+                    className="w-32 border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                  />
+                ) : (
+                  <span className="inline-block w-32 border border-transparent px-2.5 py-1.5 text-sm tabular-nums text-[#1E293B]">
+                    ${formatearJornal(Number(jornales[c.id] ?? c.jornal))}
+                  </span>
+                )}
               </td>
             </tr>
           ))}
