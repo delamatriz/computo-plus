@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ChevronDown, FileText, ImageUp, Sparkles } from "lucide-react";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
-import { AvisoSoloAdministrador, TEXTO_SOLO_ADMINISTRADOR } from "@/components/shared/AvisoSoloAdministrador";
+import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
 import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
 
@@ -555,19 +555,20 @@ export default function SeccionCategoriasLaborales() {
         </tbody>
       </table>
 
-      <div className="flex items-center gap-3 mt-5">
-        <button
-          onClick={guardarCambios}
-          disabled={guardando || !puedeEditar}
-          title={puedeEditar ? undefined : TEXTO_SOLO_ADMINISTRADOR}
-          className="bg-[#2563EB] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-        >
-          {guardando ? "Guardando..." : "Guardar cambios"}
-        </button>
-        {guardado && (
-          <span className="text-sm text-emerald-600">Cambios guardados</span>
-        )}
-      </div>
+      {puedeEditar && (
+        <div className="flex items-center gap-3 mt-5">
+          <button
+            onClick={guardarCambios}
+            disabled={guardando}
+            className="bg-[#2563EB] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          >
+            {guardando ? "Guardando..." : "Guardar cambios"}
+          </button>
+          {guardado && (
+            <span className="text-sm text-emerald-600">Cambios guardados</span>
+          )}
+        </div>
+      )}
       </div>
       )}
     </section>
