@@ -418,7 +418,7 @@ export default function SeccionLeyesSociales({
                   </div>
                   {metodoMontoImponible === "estimado" && (
                     <p className="text-xs text-amber-600 mt-1.5">
-                      ⚠ Monto imponible estimado (38% sobre precio unitario). Cargá el APU con mano de obra para mayor precisión.
+                      ⚠ Algunos rubros no tienen mano de obra desglosada en el APU. Para esos casos se estimó el 38% del precio como mano de obra. Para mayor precisión, abrí cada rubro y cargá la mano de obra en el APU.
                     </p>
                   )}
 
