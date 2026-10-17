@@ -98,17 +98,43 @@ export function TarjetaCostoDirecto({
   /** Los mismos rubros que cuenta rubrosSinApu, con su ubicación. */
   rubrosSinApuDetalle: RubroSinApuDetalle[];
 }) {
-  // Panel del aviso ámbar: se abre al tocarlo y se cierra al tocar afuera,
-  // con Esc o tocando el aviso otra vez.
+  // Panel del aviso ámbar: se abre al pasar el mouse o al tocarlo, y se cierra al tocar afuera,
+  // con Esc o tocando el aviso otra vez. Si se abrió solo por el hover, se vuelve a cerrar al sacar
+  // el mouse (con una pequeña demora para poder cruzar del aviso a la lista); un clic mientras está
+  // abierto por hover lo deja fijo, y recién el siguiente clic lo cierra.
   const [panelAbierto, setPanelAbierto] = useState(false);
+  const abiertoPorHover = useRef(false);
+  const timerCierre = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const contenedorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => () => clearTimeout(timerCierre.current), []);
+  const alEntrarMouse = () => {
+    clearTimeout(timerCierre.current);
+    if (!panelAbierto) {
+      abiertoPorHover.current = true;
+      setPanelAbierto(true);
+    }
+  };
+  const alSalirMouse = () => {
+    if (!abiertoPorHover.current) return;
+    clearTimeout(timerCierre.current);
+    timerCierre.current = setTimeout(() => {
+      abiertoPorHover.current = false;
+      setPanelAbierto(false);
+    }, 150);
+  };
   useEffect(() => {
     if (!panelAbierto) return;
     const alTocar = (e: MouseEvent) => {
-      if (!contenedorRef.current?.contains(e.target as Node)) setPanelAbierto(false);
+      if (!contenedorRef.current?.contains(e.target as Node)) {
+        abiertoPorHover.current = false;
+        setPanelAbierto(false);
+      }
     };
     const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPanelAbierto(false);
+      if (e.key === "Escape") {
+        abiertoPorHover.current = false;
+        setPanelAbierto(false);
+      }
     };
     document.addEventListener("mousedown", alTocar);
     document.addEventListener("keydown", alTeclear);
@@ -121,10 +147,17 @@ export function TarjetaCostoDirecto({
   return (
     <div className="flex flex-col gap-2 mt-2">
       {metodoCostoDirecto === "estimado" && (
-        <div ref={contenedorRef} className="relative">
+        <div ref={contenedorRef} className="relative" onMouseEnter={alEntrarMouse} onMouseLeave={alSalirMouse}>
           <button
             type="button"
-            onClick={() => setPanelAbierto((v) => !v)}
+            onClick={() => {
+              // Abierto solo por el hover: el clic lo deja fijo en vez de cerrarlo.
+              if (abiertoPorHover.current) {
+                abiertoPorHover.current = false;
+                return;
+              }
+              setPanelAbierto((v) => !v);
+            }}
             aria-expanded={panelAbierto}
             className="w-full flex items-start gap-2 rounded-[8px] bg-amber-50 border border-amber-200 px-3 py-2 text-left hover:bg-amber-100/70 transition-colors"
           >
