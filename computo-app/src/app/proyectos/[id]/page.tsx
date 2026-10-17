@@ -4461,9 +4461,12 @@ export default function ProyectoPage() {
       <button
         onClick={() => guardarRubroEnBiblioteca(rubroId, destino)}
         disabled={estado === "guardando"}
-        title={`Guardar en ${nombreBiblioteca}`}
-        aria-label={`Guardar en ${nombreBiblioteca}`}
-        className="flex items-center justify-center text-slate-400 hover:text-blue-600 transition-colors disabled:cursor-wait"
+        title={`Guardar en ${destino === "global" ? "biblioteca global" : nombreBiblioteca}`}
+        aria-label={`Guardar en ${destino === "global" ? "biblioteca global" : nombreBiblioteca}`}
+        className={cn(
+          "flex items-center justify-center transition-colors disabled:cursor-wait",
+          destino === "global" ? "text-[#2563EB] hover:text-[#1D4ED8]" : "text-slate-400 hover:text-blue-600"
+        )}
       >
         {estado === "guardando" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Icono className="w-3.5 h-3.5" />}
       </button>
