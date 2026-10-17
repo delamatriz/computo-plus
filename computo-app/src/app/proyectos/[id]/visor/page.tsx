@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import * as XLSX from "xlsx";
-import { Loader2, ArrowLeft, AlertTriangle } from "lucide-react";
+import { Loader2, ArrowLeft, AlertTriangle, Info } from "lucide-react";
 import { subtotalFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ActualizacionComputo } from "@/components/metrajes/metrajeFila";
 import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, Anotacion } from "@/components/metrajes/documentoMetraje";
 import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion, ControlesMedicion } from "@/components/metrajes/Visor";
@@ -54,6 +54,8 @@ export default function VisorProyectoPage() {
   // fila" sin un plano abierto (ver agregarFila). Se autolimpia solo, no
   // requiere que el usuario lo cierre a mano.
   const [avisoUnidad, setAvisoUnidad] = useState<string | null>(null);
+  // Aviso informativo (no es una advertencia ni pide confirmar): ver eliminarFila.
+  const [avisoInfo, setAvisoInfo] = useState<string | null>(null);
 
   // Las 3 categorías de documentos — acá solo para armar la lista
   // combinada del visor; el alta/listado/subida en sí vive en
@@ -633,10 +635,16 @@ export default function VisorProyectoPage() {
   };
 
   const eliminarFila = async (id: string) => {
+    // Si la fila estaba vinculada a un rubro, el borrado no toca el presupuesto: se avisa después.
+    const teniaRubro = filas.find((f) => f.id === id)?.rubroId != null;
     setFilas((prev) => prev.filter((f) => f.id !== id));
     try {
       const res = await fetch(`/api/proyectos/${proyectoId}/filas-metraje/${id}`, { method: "DELETE" });
       if (!res.ok) return;
+      if (teniaRubro) {
+        setAvisoInfo("Fila eliminada. La cantidad del presupuesto no cambia hasta que vuelvas a aplicar el cómputo.");
+        setTimeout(() => setAvisoInfo(null), 5000);
+      }
       const data = await res.json();
       // Borrar la fila borra también sus mediciones asociadas (largo y/o
       // ancho medido con el ícono de regla) — ver DELETE
@@ -847,6 +855,17 @@ export default function VisorProyectoPage() {
           >
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
             <p className="text-xs text-amber-800">{avisoUnidad}</p>
+          </motion.div>
+        )}
+        {avisoInfo && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[120] flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-[10px] px-4 py-2.5 shadow-lg max-w-md"
+          >
+            <Info className="w-4 h-4 text-[#2563EB] flex-shrink-0" />
+            <p className="text-xs text-[#1A3A5C]">{avisoInfo}</p>
           </motion.div>
         )}
       </AnimatePresence>
