@@ -99,11 +99,11 @@ const PALETA_COLORES = CAPITULOS.map((c) => c.color);
 const TCU = 42.5;
 const MAX_FOTOS = 5;
 
-// Defaults idénticos a gastosGeneralesPctDefault/utilidadPctDefault del
-// presupuesto completo (ver costoAgregado.ts) — mismo criterio, para que
-// el número de Cálculo Rápido no desentone con uno real.
-const PCT_GG_DEFAULT = "15";
-const PCT_BENEFICIO_DEFAULT = "10";
+// Arrancan en 0: el precio de Cálculo Rápido es materiales y mano de obra; Gastos Generales y
+// Beneficio se cargan a mano solo en obras con empresa contratista (el presupuesto completo, en
+// cambio, usa 15 % y 10 % por defecto, ver costoAgregado.ts).
+const PCT_GG_DEFAULT = "0";
+const PCT_BENEFICIO_DEFAULT = "0";
 
 // Debajo de esto, la estimación de la IA es mayormente libre (sin
 // verificar contra la biblioteca real de subrubros) — dispara la
@@ -1193,6 +1193,9 @@ export default function CalcularPage() {
                     </div>
                   </div>
                 </div>
+                <p className="text-[11px] text-slate-400 -mt-2 mb-4">
+                  Para obras con empresa contratista. Dejá en 0 si el precio es solo materiales y mano de obra.
+                </p>
 
                 <div className="space-y-2 pt-3 border-t border-border">
                   <div className="flex items-center justify-between">
