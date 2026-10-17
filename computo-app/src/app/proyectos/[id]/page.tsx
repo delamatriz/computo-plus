@@ -258,6 +258,14 @@ const UNIDADES_ESTANDAR = ["M2", "M3", "ML", "KG", "TN", "GL", "U", "JORNADA"];
 
 // toUpperCase() no convierte "²"/"³" (no son letras) — se reemplazan
 // explícitamente para reconocer "m²" como "M2".
+// Mismos criterios que guardar-en-mi-biblioteca y guardar-en-biblioteca para detectar duplicados.
+function normalizarTextoBiblioteca(s: string): string {
+  return s.trim().replace(/\s+/g, " ").toLowerCase();
+}
+function claveBibliotecaGlobal(capituloId: string | null | undefined, unidad: string, descripcion: string): string {
+  return `${capituloId ?? ""}|${unidad.trim().toLowerCase()}|${normalizarTextoBiblioteca(descripcion)}`;
+}
+
 function normalizarUnidad(unidad: string): string {
   return unidad.toUpperCase().replace(/²/g, "2").replace(/³/g, "3");
 }
@@ -3229,6 +3237,35 @@ export default function ProyectoPage() {
   // "guardado" lleva la lista de insumos que quedaron sin vínculo al
   // catálogo — vacía = todo vinculado.
   const [estadoBiblioteca, setEstadoBiblioteca] = useState<Record<string, "guardando" | { sinVinculo: string[] }>>({});
+  // Qué rubros ya están en cada biblioteca, para ocultar el botón de guardar: se cargan una sola vez
+  // al abrir el presupuesto (no un pedido por fila) y se comparan acá con el mismo criterio que usan
+  // los endpoints para responder "ya_existe". null = todavía cargando (el botón no aparece hasta
+  // saberlo, para que no parpadee); si la carga falla queda vacío y el servidor sigue siendo la red.
+  //  - Mi biblioteca: mismo nombre (normalizado) en SubrubroEmpresa de la empresa.
+  //  - Global: misma descripción (normalizada), misma unidad y mismo capítulo del catálogo.
+  const [enMiBiblioteca, setEnMiBiblioteca] = useState<Set<string> | null>(null);
+  const [enBibliotecaGlobal, setEnBibliotecaGlobal] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/mi-biblioteca")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((lista: { nombre: string }[]) => {
+        if (!cancelado) setEnMiBiblioteca(new Set((Array.isArray(lista) ? lista : []).map((x) => normalizarTextoBiblioteca(x.nombre))));
+      })
+      .catch(() => { if (!cancelado) setEnMiBiblioteca(new Set()); });
+    return () => { cancelado = true; };
+  }, []);
+  useEffect(() => {
+    if (!esSuperadmin) return;
+    let cancelado = false;
+    fetch("/api/subrubros-estandar")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((lista: { descripcion: string; unidad: string; capituloId: string | null }[]) => {
+        if (!cancelado) setEnBibliotecaGlobal(new Set((Array.isArray(lista) ? lista : []).map((x) => claveBibliotecaGlobal(x.capituloId, x.unidad, x.descripcion))));
+      })
+      .catch(() => { if (!cancelado) setEnBibliotecaGlobal(new Set()); });
+    return () => { cancelado = true; };
+  }, [esSuperadmin]);
   // Sugerencias automáticas de descompuesto no disponibles (cupo de la prueba
   // gratis usado en otro proyecto, prueba vencida…): aviso arriba del presupuesto.
   const [avisoAsistencia, setAvisoAsistencia] = useState<ErrorAcceso | null>(null);
@@ -5173,8 +5210,17 @@ export default function ProyectoPage() {
                         <div className="flex items-center justify-center">
                           {!rubro.id.startsWith("temp-") && (
                             <>
-                              {botonGuardarEnBiblioteca(rubro.id, "empresa")}
-                              {esSuperadmin && botonGuardarEnBiblioteca(rubro.id, "global")}
+                              {/* Se oculta el botón si el rubro ya está en esa biblioteca; si se acaba de guardar
+                                  en esta sesión se sigue mostrando el ícono de estado (guardado). */}
+                              {enMiBiblioteca &&
+                                (estadoBiblioteca[`empresa:${rubro.id}`] || !enMiBiblioteca.has(normalizarTextoBiblioteca(rubro.descripcion))) &&
+                                botonGuardarEnBiblioteca(rubro.id, "empresa")}
+                              {esSuperadmin &&
+                                enBibliotecaGlobal &&
+                                (estadoBiblioteca[`global:${rubro.id}`] ||
+                                  !cap.capituloCatalogoId ||
+                                  !enBibliotecaGlobal.has(claveBibliotecaGlobal(cap.capituloCatalogoId, rubro.unidad, rubro.descripcion))) &&
+                                botonGuardarEnBiblioteca(rubro.id, "global")}
                             </>
                           )}
                         </div>
