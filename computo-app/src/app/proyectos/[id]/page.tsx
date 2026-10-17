@@ -128,6 +128,8 @@ interface ProyectoData {
   notasPresupuesto?: string | null;
   resumenCalculoRapido?: string | null;
   textoOriginalCalculoRapido?: string | null;
+  // Desglose por capítulo de Cálculo Rápido guardado en el anteproyecto (ver Proyecto.calculoRapidoResultado)
+  calculoRapidoResultado?: unknown[] | null;
   createdAt?: string | null;
   fechaBaseIndice?: string | null;
   ultimaActualizacionIndice?: string | null;
@@ -3325,6 +3327,7 @@ export default function ProyectoPage() {
         notasPresupuesto: data.notasPresupuesto ?? null,
         resumenCalculoRapido: data.resumenCalculoRapido ?? null,
         textoOriginalCalculoRapido: data.textoOriginalCalculoRapido ?? null,
+        calculoRapidoResultado: Array.isArray(data.calculoRapidoResultado) ? data.calculoRapidoResultado : null,
         createdAt: data.createdAt ?? null,
         fechaBaseIndice: data.fechaBaseIndice ?? null,
         ultimaActualizacionIndice: data.ultimaActualizacionIndice ?? null,
@@ -3808,15 +3811,48 @@ export default function ProyectoPage() {
     try {
       const nombreDelTexto = nombreDesdeTexto(proyecto?.textoOriginalCalculoRapido);
       const renombrar = !!nombreDelTexto && !!proyecto?.nombre.startsWith(PREFIJO_NOMBRE_FORMULA);
+      // Si el anteproyecto guardó el desglose de Cálculo Rápido, se arma el presupuesto con él (mismo
+      // camino que el asistente de Nuevo proyecto: generar-rubros clona los subrubros reales de la
+      // biblioteca). Los anteproyectos anteriores a ese campo solo cambian de estado, como siempre.
+      const desglose = proyecto?.calculoRapidoResultado?.length ? proyecto.calculoRapidoResultado : null;
       const res = await fetch(`/api/proyectos/${proyectoId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: "EN_CURSO", ...(renombrar ? { nombre: nombreDelTexto } : {}) }),
+        body: JSON.stringify({
+          estado: "EN_CURSO",
+          ...(renombrar ? { nombre: nombreDelTexto } : {}),
+          ...(desglose ? { generandoRubros: true } : {}),
+        }),
       });
       if (!res.ok) throw new Error("No se pudo convertir el anteproyecto");
       setProyecto((prev) =>
-        prev ? { ...prev, estado: "EN_CURSO", ...(renombrar && nombreDelTexto ? { nombre: nombreDelTexto } : {}) } : prev
+        prev
+          ? {
+              ...prev,
+              estado: "EN_CURSO",
+              ...(renombrar && nombreDelTexto ? { nombre: nombreDelTexto } : {}),
+              ...(desglose ? { generandoRubros: true } : {}),
+            }
+          : prev
       );
+      if (desglose) {
+        // generandoRubros: true ya muestra el banner "Generando rubros…" y dispara el polling que
+        // recarga el presupuesto cuando el servidor termina.
+        const resGen = await fetch(`/api/proyectos/${proyectoId}/generar-rubros`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ capitulosConMontos: desglose }),
+        }).catch(() => null);
+        if (!resGen?.ok) {
+          console.error("[convertirEnProyectoCompleto] generar-rubros falló", resGen?.status);
+          await fetch(`/api/proyectos/${proyectoId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ generandoRubros: false }),
+          }).catch(() => {});
+          setProyecto((prev) => (prev ? { ...prev, generandoRubros: false } : prev));
+        }
+      }
     } catch (err) {
       console.error("[convertirEnProyectoCompleto]", err);
     } finally {

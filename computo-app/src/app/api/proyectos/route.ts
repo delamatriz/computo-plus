@@ -19,6 +19,12 @@ export async function GET() {
   }
 }
 
+/** Porcentaje válido (0–100) para los defaults de Gastos Generales y Utilidad. */
+function pctValido(v: unknown): boolean {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  return Number.isFinite(n) && n >= 0 && n <= 100;
+}
+
 export async function POST(req: NextRequest) {
   const sesion = await requerirSesion();
   if (sesion instanceof NextResponse) return sesion;
@@ -49,6 +55,9 @@ export async function POST(req: NextRequest) {
       notasPresupuesto,
       resumenCalculoRapido,
       textoOriginalCalculoRapido,
+      calculoRapidoResultado,
+      gastosGeneralesPctDefault,
+      utilidadPctDefault,
     } = body;
 
     if (!nombre || !String(nombre).trim()) {
@@ -159,6 +168,14 @@ export async function POST(req: NextRequest) {
           notasPresupuesto: notasPresupuesto || null,
           resumenCalculoRapido: resumenCalculoRapido || null,
           textoOriginalCalculoRapido: textoOriginalCalculoRapido || null,
+          // Desglose de Cálculo Rápido del anteproyecto, para generar los rubros al convertirlo.
+          ...(Array.isArray(calculoRapidoResultado) && calculoRapidoResultado.length > 0
+            ? { calculoRapidoResultado }
+            : {}),
+          // %GG y %Beneficio con los que se armó el anteproyecto (Proyecto.gastosGeneralesPctDefault
+          // y utilidadPctDefault); sin valor válido quedan null (el comportamiento histórico, 15/10).
+          ...(pctValido(gastosGeneralesPctDefault) ? { gastosGeneralesPctDefault: Number(gastosGeneralesPctDefault) } : {}),
+          ...(pctValido(utilidadPctDefault) ? { utilidadPctDefault: Number(utilidadPctDefault) } : {}),
           // El proyecto es de la empresa del usuario logueado (tenant).
           empresaId: sesion.empresaId,
         },

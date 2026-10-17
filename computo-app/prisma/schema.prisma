@@ -145,6 +145,11 @@ model Proyecto {
   // una sola vez en guardarComoAnteproyecto() y no tiene ningún formulario
   // de edición — mismo criterio que resumenCalculoRapido.
   textoOriginalCalculoRapido String? @db.Text
+  // Desglose por capítulo de la estimación de Cálculo Rápido (resultadoIA.capitulos: nombre, monto,
+  // materiales, manoObra, origen, codigoSubrubro…), guardado por "Guardar como anteproyecto". Es lo
+  // que "Convertir en proyecto completo" le pasa a generar-rubros para armar el presupuesto. null en
+  // los anteproyectos anteriores a este campo (quedan como estaban) y en cualquier otro proyecto.
+  calculoRapidoResultado Json?
   fechaBaseIndice    DateTime?
   indiceBaseValor    Float?
   ultimaActualizacionIndice DateTime?

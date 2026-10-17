@@ -460,6 +460,11 @@ export default function CalcularPage() {
           estado: "ANTEPROYECTO",
           resumenCalculoRapido,
           textoOriginalCalculoRapido: descripcion.trim() || undefined,
+          // Desglose y porcentajes de la estimación: "Convertir en proyecto completo" los usa para
+          // armar el presupuesto (capítulos y rubros) y respetar los %GG/Beneficio elegidos.
+          calculoRapidoResultado: resultadoIA.capitulos,
+          gastosGeneralesPctDefault: pctGGNum,
+          utilidadPctDefault: pctBeneficioNum,
           capitulos: [],
         }),
       });
