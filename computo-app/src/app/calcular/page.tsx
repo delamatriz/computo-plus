@@ -1292,6 +1292,12 @@ export default function CalcularPage() {
 
                     try {
                       sessionStorage.setItem("calculoRapido_descripcion", descripcion);
+                      // %GG y %Beneficio que el usuario dejó cargados: el asistente los manda al crear el
+                      // proyecto (mismo criterio que "Guardar como anteproyecto").
+                      sessionStorage.setItem(
+                        "calculoRapido_porcentajes",
+                        JSON.stringify({ gastosGeneralesPct: pctGGNum, utilidadPct: pctBeneficioNum })
+                      );
 
                       if (resultadoIA?.capitulos) {
                         sessionStorage.setItem(

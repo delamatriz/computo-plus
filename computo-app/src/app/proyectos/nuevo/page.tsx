@@ -189,6 +189,9 @@ function NuevoProyectoContent() {
   // POST final a generar-rubros lo usen sin tener que releer sessionStorage
   // (que ya quedó vacío después de la primera lectura).
   const [calculoRapidoItems, setCalculoRapidoItems] = useState<CapituloConMontoIA[] | undefined>(undefined);
+  // %GG y %Beneficio de Cálculo Rápido (sessionStorage, leídos una sola vez en el mount): se mandan al
+  // crear el proyecto como gastosGeneralesPctDefault / utilidadPctDefault. undefined = no viene de ahí.
+  const [pctCalculoRapido, setPctCalculoRapido] = useState<{ gastosGeneralesPct: number; utilidadPct: number } | undefined>(undefined);
   // Nombres (en minúscula) de los capítulos reales resueltos a partir de
   // los codigoSubrubro de calculoRapidoItems — ver useEffect de resolución
   // más abajo. Vacío mientras no haya nada que resolver o todavía no
@@ -267,6 +270,19 @@ function NuevoProyectoContent() {
         console.error("[proyectos/nuevo] parseo de calculoRapido_resultado", err);
       }
       sessionStorage.removeItem("calculoRapido_resultado");
+    }
+
+    const porcentajesRaw = sessionStorage.getItem("calculoRapido_porcentajes");
+    if (porcentajesRaw) {
+      try {
+        const p = JSON.parse(porcentajesRaw);
+        if (Number.isFinite(p?.gastosGeneralesPct) && Number.isFinite(p?.utilidadPct)) {
+          setPctCalculoRapido({ gastosGeneralesPct: p.gastosGeneralesPct, utilidadPct: p.utilidadPct });
+        }
+      } catch (err) {
+        console.error("[proyectos/nuevo] parseo de calculoRapido_porcentajes", err);
+      }
+      sessionStorage.removeItem("calculoRapido_porcentajes");
     }
 
     const fotosRaw = sessionStorage.getItem("calculoRapido_fotos");
@@ -578,6 +594,12 @@ function NuevoProyectoContent() {
           direccion: form.direccion,
           titulos: titulosBody,
           capitulos: capitulosBody,
+          ...(pctCalculoRapido
+            ? {
+                gastosGeneralesPctDefault: pctCalculoRapido.gastosGeneralesPct,
+                utilidadPctDefault: pctCalculoRapido.utilidadPct,
+              }
+            : {}),
         }),
       });
       if (!res.ok) {
