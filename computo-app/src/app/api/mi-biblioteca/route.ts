@@ -11,6 +11,18 @@ export async function GET(req: NextRequest) {
 
   try {
     const q = req.nextUrl.searchParams.get("q")?.trim();
+
+    // ?modo=nombres: solo id y nombre de cada rubro, sin el APU ni los insumos — lo usa el
+    // presupuesto para saber qué rubros ya están en la biblioteca (comparar duplicados).
+    if (req.nextUrl.searchParams.get("modo") === "nombres") {
+      const nombres = await db.subrubroEmpresa.findMany({
+        where: { empresaId: sesion.empresaId },
+        select: { id: true, nombre: true },
+        orderBy: { nombre: "asc" },
+      });
+      return NextResponse.json(nombres);
+    }
+
     const subrubros = await db.subrubroEmpresa.findMany({
       where: {
         empresaId: sesion.empresaId,

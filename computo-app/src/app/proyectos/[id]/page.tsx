@@ -3247,7 +3247,7 @@ export default function ProyectoPage() {
   const [enBibliotecaGlobal, setEnBibliotecaGlobal] = useState<Set<string> | null>(null);
   useEffect(() => {
     let cancelado = false;
-    fetch("/api/mi-biblioteca")
+    fetch("/api/mi-biblioteca?modo=nombres")
       .then((r) => (r.ok ? r.json() : []))
       .then((lista: { nombre: string }[]) => {
         if (!cancelado) setEnMiBiblioteca(new Set((Array.isArray(lista) ? lista : []).map((x) => normalizarTextoBiblioteca(x.nombre))));
