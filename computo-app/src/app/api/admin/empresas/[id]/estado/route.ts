@@ -39,7 +39,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data: {
         estado,
         ...(estado === "PRUEBA" && !pruebaVigente
-          ? { fechaVencimientoPrueba: new Date(ahora + DIAS_PRUEBA * 24 * 60 * 60_000) }
+          ? {
+              fechaVencimientoPrueba: new Date(ahora + DIAS_PRUEBA * 24 * 60 * 60_000),
+              // Prueba nueva: los avisos de vencimiento vuelven a corresponder (ver lib/vencimientosPrueba.ts).
+              mailAviso11Enviado: false,
+              mailAviso13Enviado: false,
+              mailAviso14Enviado: false,
+            }
           : {}),
       },
       select: { id: true, estado: true, fechaVencimientoPrueba: true },

@@ -7,7 +7,7 @@
 //   - en producción, tira error — un registro sin mail no se puede verificar,
 //     mejor fallar a la vista que dejar al usuario esperando un código.
 
-import { CODIGO_VIGENCIA_MIN, DIAS_PRUEBA, MAIL_AVISO_REGISTROS, MAIL_REMITENTE } from "@/lib/config-prueba";
+import { CODIGO_VIGENCIA_MIN, DIAS_PRUEBA, MAIL_AVISO_REGISTROS, MAIL_CONTACTO, MAIL_REMITENTE } from "@/lib/config-prueba";
 
 interface Mail {
   para: string;
@@ -104,4 +104,100 @@ export async function enviarAvisoNuevaEmpresa(datos: {
   </table>
 </body></html>`;
   await enviarMail({ para: MAIL_AVISO_REGISTROS, asunto: `Nueva empresa registrada — ${datos.empresa}`, html, texto });
+}
+
+
+// ── Vencimiento de la prueba (job diario, ver lib/vencimientosPrueba.ts) ─────────────────────
+export type TipoAvisoVencimiento = "aviso11" | "aviso13" | "aviso14";
+
+interface PlantillaVencimiento {
+  asunto: string;
+  /** Párrafos del cuerpo, en texto plano (después del saludo y antes de la firma). */
+  parrafos: string[];
+  /** Color del título: azul de la app mientras la prueba corre, el mismo azul al vencer. */
+  titulo: string;
+}
+
+function plantillaVencimiento(tipo: TipoAvisoVencimiento, vence: Date): PlantillaVencimiento {
+  const fecha = fmtUY(vence, false);
+  const contacto = `Para continuar usando CÓMPUTO+, escribinos a ${MAIL_CONTACTO}.`;
+  if (tipo === "aviso11") {
+    return {
+      asunto: "Tu prueba de CÓMPUTO+ vence en 3 días",
+      titulo: "Tu prueba vence en 3 días",
+      parrafos: [
+        `Te recordamos que tu período de prueba de CÓMPUTO+ vence el ${fecha}.`,
+        "Cuando venza, tu cuenta pasará a modo solo lectura: vas a poder seguir viendo y exportando tus proyectos, pero no vas a poder editarlos.",
+        `${contacto} Con gusto te ayudamos.`,
+      ],
+    };
+  }
+  if (tipo === "aviso13") {
+    return {
+      asunto: "Tu prueba de CÓMPUTO+ vence mañana",
+      titulo: "Tu prueba vence mañana",
+      parrafos: [
+        `Tu período de prueba de CÓMPUTO+ vence mañana, ${fecha}.`,
+        "A partir de ese momento tu cuenta pasará a modo solo lectura y no vas a poder editar tus proyectos. Si estás trabajando en un presupuesto, conviene que lo termines o lo exportes antes.",
+        `${contacto} Si lo hacés hoy, no vas a tener ninguna interrupción.`,
+      ],
+    };
+  }
+  return {
+    asunto: "Tu período de prueba de CÓMPUTO+ ha terminado",
+    titulo: "Tu período de prueba ha terminado",
+    parrafos: [
+      "Tu período de prueba de CÓMPUTO+ ha terminado y tu cuenta pasó a modo solo lectura.",
+      "Quedate tranquilo: tus datos están seguros y no se borró nada. Podés entrar cuando quieras para ver y exportar tus proyectos; lo único que no vas a poder hacer es editarlos.",
+      `Para reactivar tu cuenta, escribinos a ${MAIL_CONTACTO} y lo resolvemos.`,
+    ],
+  };
+}
+
+/**
+ * Mail del flujo de vencimiento de la prueba, dirigido a la empresa y firmado por el equipo.
+ * Se manda a cada destinatario por separado. Solo tira si no salió ninguno (el job lo reintenta
+ * en la próxima corrida); si salió al menos uno, el aviso cuenta como enviado.
+ */
+export async function enviarAvisoVencimientoPrueba(datos: {
+  para: string[];
+  empresa: string;
+  tipo: TipoAvisoVencimiento;
+  vence: Date;
+}): Promise<void> {
+  const { asunto, parrafos, titulo } = plantillaVencimiento(datos.tipo, datos.vence);
+  const saludo = `Hola, equipo de ${datos.empresa}:`;
+  const firma = "El equipo de CÓMPUTO+";
+
+  const texto = [saludo, "", ...parrafos.flatMap((p) => [p, ""]), firma].join("\n");
+  const html = `<!doctype html>
+<html lang="es"><body style="margin:0;background:#F8FAFC;font-family:'DM Sans',Arial,sans-serif;color:#1E293B">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #E2E8F0;border-radius:12px;padding:32px">
+        <tr><td style="font-size:22px;font-weight:700;color:#1A3A5C">CÓMPUTO<span style="color:#2563EB">+</span></td></tr>
+        <tr><td style="padding-top:20px;font-size:18px;font-weight:700;color:#1A3A5C">${escaparHtml(titulo)}</td></tr>
+        <tr><td style="padding-top:12px;font-size:15px;line-height:1.6">${escaparHtml(saludo)}</td></tr>
+        ${parrafos
+          .map((p) => `<tr><td style="padding-top:12px;font-size:15px;line-height:1.6">${escaparHtml(p)}</td></tr>`)
+          .join("\n        ")}
+        <tr><td style="padding-top:20px"><a href="mailto:${MAIL_CONTACTO}" style="display:inline-block;background:#2563EB;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px">Escribinos a ${MAIL_CONTACTO}</a></td></tr>
+        <tr><td style="padding-top:24px;font-size:14px;line-height:1.5;color:#64748B">${firma}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  let salieron = 0;
+  let ultimoError: unknown = null;
+  for (const para of datos.para) {
+    try {
+      await enviarMail({ para, asunto, html, texto });
+      salieron++;
+    } catch (err) {
+      ultimoError = err;
+      console.error(`[mail] ${datos.tipo} a ${para}`, err);
+    }
+  }
+  if (salieron === 0) throw ultimoError instanceof Error ? ultimoError : new Error("No salió ningún mail");
 }

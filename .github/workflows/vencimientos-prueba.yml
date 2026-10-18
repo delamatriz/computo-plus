@@ -1,0 +1,16 @@
+name: Vencimientos de prueba
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Todos los días 8am UTC (5am Uruguay)
+  workflow_dispatch:      # permite correrlo manualmente
+
+jobs:
+  procesar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar endpoint de vencimientos
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://computo-plus.onrender.com/api/admin/procesar-vencimientos-prueba

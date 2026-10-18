@@ -49,6 +49,12 @@ model Empresa {
   origen                 String?
   cupoCalculosRapidos    Int           @default(3)
   cupoProyectosIA        Int           @default(1)
+  // Flujo de vencimiento de la prueba (job diario, ver lib/vencimientosPrueba.ts): marcan qué
+  // mails de aviso ya se mandaron (a 3 días, a 1 día y al vencer) para no repetirlos. Se
+  // reinician cuando el SUPERADMIN renueva la prueba (PATCH /api/admin/empresas/[id]/estado).
+  mailAviso11Enviado     Boolean       @default(false)
+  mailAviso13Enviado     Boolean       @default(false)
+  mailAviso14Enviado     Boolean       @default(false)
   consumoFunciones       ConsumoFuncionesAsistidas[]
   eventosAdmin           EventoAdmin[]
   // Avisos de plataforma ya leídos por esta empresa (ver AvisoLeido)

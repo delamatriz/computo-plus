@@ -19,6 +19,9 @@ export const MAIL_REMITENTE = "CÓMPUTO+ <no-responder@delamatriz.com>";
 /** Recibe un aviso por cada empresa nueva que se registra (POST /api/registro/completar). */
 export const MAIL_AVISO_REGISTROS = "computo@delamatriz.com";
 
+/** Contacto que figura en los mails de vencimiento de la prueba (para continuar o reactivar la cuenta). */
+export const MAIL_CONTACTO = "computo@delamatriz.com";
+
 // ── Verificación por mail ──────────────────────────────────────────────
 export const CODIGO_DIGITOS = 6;
 export const CODIGO_VIGENCIA_MIN = 15;

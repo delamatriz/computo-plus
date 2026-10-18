@@ -23,7 +23,7 @@ const PUBLICAS = ["/", "/login", "/registro", "/verificar", "/bienvenida", "/ter
 const PREFIJOS_PUBLICOS = ["/api/auth/", "/api/registro"];
 // Rutas de API sin sesión que se autorizan solas (Cron Job de Render con
 // Authorization: Bearer CRON_SECRET, ver la ruta).
-const API_CON_SECRETO = ["/api/admin/limpiar-pruebas-vencidas"];
+const API_CON_SECRETO = ["/api/admin/limpiar-pruebas-vencidas", "/api/admin/procesar-vencimientos-prueba"];
 const METODOS_DE_ESCRITURA = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export async function proxy(request: NextRequest) {
