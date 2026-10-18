@@ -167,9 +167,11 @@ async function enviarAvisoEmpresa(datos: {
   titulo: string;
   parrafos: string[];
   boton: { texto: string; href: string };
+  /** Enlace de apoyo debajo del botón (ej. el mail de contacto); no es la acción principal. */
+  contacto?: string;
   etiqueta: string;
 }): Promise<void> {
-  const { asunto, parrafos, titulo, boton } = datos;
+  const { asunto, parrafos, titulo, boton, contacto } = datos;
   const saludo = `Hola, equipo de ${datos.empresa}:`;
   const firma = "El equipo de CÓMPUTO+";
 
@@ -186,6 +188,11 @@ async function enviarAvisoEmpresa(datos: {
           .map((p) => `<tr><td style="padding-top:12px;font-size:15px;line-height:1.6">${escaparHtml(p)}</td></tr>`)
           .join("\n        ")}
         <tr><td style="padding-top:20px"><a href="${boton.href}" style="display:inline-block;background:#2563EB;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px">${escaparHtml(boton.texto)}</a></td></tr>
+        ${
+          contacto
+            ? `<tr><td style="padding-top:14px;font-size:13px;line-height:1.5;color:#64748B">¿Dudas? Escribinos a <a href="mailto:${contacto}" style="color:#2563EB">${escaparHtml(contacto)}</a></td></tr>`
+            : ""
+        }
         <tr><td style="padding-top:24px;font-size:14px;line-height:1.5;color:#64748B">${firma}</td></tr>
       </table>
     </td></tr>
@@ -220,7 +227,8 @@ export async function enviarAvisoVencimientoPrueba(datos: {
     asunto,
     titulo,
     parrafos,
-    boton: { texto: `Escribinos a ${MAIL_CONTACTO}`, href: `mailto:${MAIL_CONTACTO}` },
+    boton: { texto: "Ver planes", href: `${mpUrlBase()}/planes` },
+    contacto: MAIL_CONTACTO,
     etiqueta: datos.tipo,
   });
 }
