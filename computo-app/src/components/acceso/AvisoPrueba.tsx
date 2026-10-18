@@ -10,11 +10,11 @@ import type { EstadoCuenta } from "@/lib/accesoCliente";
 const DIAS_AVISO = 10;
 
 // Aviso del estado de la prueba (no es un modal): quedan DIAS_AVISO días o menos, o la prueba
-// venció (solo lectura). Según los días que quedan:
+// venció (la app queda cerrada hasta contratar un plan). Según los días que quedan:
 //   10 a 2 → ámbar        "Te quedan N días de prueba gratuita"
 //   1      → naranja      "Tu prueba vence mañana"
 //   0      → rojo         "Tu período de prueba vence hoy"
-//   vencida → rojo        "Tu período de prueba venció. Estás en modo solo lectura. Contactanos para continuar."
+//   vencida → rojo        "Tu período de prueba venció. Elegí tu plan para seguir usando CÓMPUTO+."
 // variante "chip" va en el header (desde lg); "barra" es una franja fina debajo del header en
 // pantallas más angostas, donde el header no tiene lugar (el logo se quedaba sin texto).
 // El botón principal lleva a /planes (contratar); WhatsApp (con el email del usuario) y el mail de
@@ -51,14 +51,14 @@ export function AvisoPrueba({ cuenta, variante = "chip" }: { cuenta: EstadoCuent
 
   const nivel: Nivel = vencida || dias === 0 ? "rojo" : dias === 1 ? "naranja" : "ambar";
   const texto = vencida
-    ? "Tu período de prueba venció. Estás en modo solo lectura. Elegí un plan para continuar."
+    ? "Tu período de prueba venció. Elegí tu plan para seguir usando CÓMPUTO+."
     : dias === 0
       ? "Tu período de prueba vence hoy"
       : dias === 1
         ? "Tu prueba vence mañana"
         : `Te quedan ${dias} días de prueba gratuita`;
   const textoMedio = vencida
-    ? "Prueba vencida · solo lectura"
+    ? "Prueba vencida · elegí tu plan"
     : dias === 0
       ? "La prueba vence hoy"
       : dias === 1

@@ -6,7 +6,7 @@
 //   authorized         → Suscripcion "activa"; Empresa ACTIVA, con el plan contratado; se
 //                        reinician los avisos de vencimiento de la prueba
 //   paused / cancelled → Suscripcion "pausada" / "cancelada"; si la empresa estaba pagando pasa a
-//                        VENCIDA (solo lectura) y se le avisa por mail
+//                        VENCIDA (sin acceso, va a /planes) y se le avisa por mail
 //   pending (y otros)  → solo se registra
 //
 // Una empresa DESACTIVADA por el SUPERADMIN nunca se reactiva ni se pasa a otro estado por acá.
@@ -80,7 +80,7 @@ export async function procesarPreapproval(preapprovalId: string): Promise<Result
       return "sin_cambios";
     }
     await db.empresa.update({ where: { id: empresa.id }, data: { estado: "VENCIDA" } });
-    await evento(`Suscripción ${nuevo}: empresa VENCIDA (solo lectura)`);
+    await evento(`Suscripción ${nuevo}: empresa VENCIDA (sin acceso hasta elegir plan)`);
 
     const admins = empresa.users.filter((u) => u.rol === "ADMIN");
     const para = [...new Set((admins.length > 0 ? admins : empresa.users).map((u) => u.email))];

@@ -45,7 +45,7 @@ declare module "next-auth/jwt" {
 }
 
 // Sin acceso → el error llega a signIn() como `error` (FormularioLogin lo
-// traduce). Una empresa VENCIDA sí entra: queda en solo lectura.
+// traduce). Una empresa VENCIDA sí inicia sesión, pero el proxy la manda a /planes.
 async function exigirAcceso(userId: string): Promise<void> {
   const acceso = await estadoAccesoUsuario(userId);
   if (acceso && !acceso.emailVerificado) throw new Error("EMAIL_NO_VERIFICADO");

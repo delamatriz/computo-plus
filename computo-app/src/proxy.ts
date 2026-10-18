@@ -30,8 +30,8 @@ const API_CON_SECRETO = [
   "/api/admin/procesar-vencimientos-prueba",
   "/api/pagos/webhook",
 ];
-// Escrituras que una empresa VENCIDA SÍ puede hacer: contratar un plan es justamente cómo sale del
-// modo solo lectura.
+// Escrituras que una empresa VENCIDA SÍ puede hacer: contratar un plan es justamente cómo sale de
+// la pantalla de planes.
 const ESCRITURAS_PERMITIDAS_VENCIDA = ["/api/pagos/crear-suscripcion"];
 const METODOS_DE_ESCRITURA = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 

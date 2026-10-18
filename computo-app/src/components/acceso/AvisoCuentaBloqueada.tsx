@@ -38,7 +38,7 @@ function instalarIntercepcion() {
 }
 
 // Aviso flotante (no modal) cuando el servidor rechaza un cambio porque la
-// cuenta está en solo lectura o sin acceso. Hace falta porque muchas pantallas
+// cuenta no tiene acceso (prueba vencida, empresa desactivada). Hace falta porque muchas pantallas
 // editan en línea con actualización optimista: sin esto, el cambio se veía
 // aplicado y se perdía al recargar. Montado una vez en el layout raíz.
 export function AvisoCuentaBloqueada() {

@@ -2,8 +2,8 @@
 //
 //   - Estado efectivo: una empresa en PRUEBA con la fecha de vencimiento
 //     pasada vale como VENCIDA (y se persiste la primera vez que se nota).
-//   - VENCIDA: solo lectura. El bloqueo de escritura vive en src/proxy.ts
-//     (todo POST/PUT/PATCH/DELETE de /api/*); lectura y PDF siguen andando.
+//   - VENCIDA: sin acceso a la app; las páginas redirigen a /planes (src/proxy.ts). A nivel API,
+//     todo POST/PUT/PATCH/DELETE de /api/* se rechaza con PRUEBA_VENCIDA; los GET siguen andando.
 //   - DESACTIVADA y email sin verificar: sin acceso (lib/sesion.ts).
 //   - Funciones asistidas en PRUEBA: Cálculo Rápido con cupo propio, un
 //     proyecto asistido (la primera función asistida usada en un proyecto lo
@@ -35,7 +35,7 @@ const MENSAJES: Record<Exclude<CodigoAcceso, "CUPO_AGOTADO">, string> = {
   EMAIL_NO_VERIFICADO: "Tenés que verificar tu email para usar CÓMPUTO+.",
   EMPRESA_DESACTIVADA: "Tu cuenta está desactivada. Escribinos para reactivarla.",
   PRUEBA_VENCIDA:
-    "Tu período de prueba venció. Estás en modo solo lectura: podés ver y exportar tus proyectos, pero no modificarlos.",
+    "Tu período de prueba venció. Elegí tu plan para seguir usando CÓMPUTO+.",
   NO_DISPONIBLE_EN_PRUEBA: "Esta función no está disponible en la prueba gratis. Escribinos y te contamos cómo activarla.",
 };
 

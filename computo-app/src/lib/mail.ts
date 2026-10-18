@@ -121,14 +121,15 @@ interface PlantillaVencimiento {
 
 function plantillaVencimiento(tipo: TipoAvisoVencimiento, vence: Date): PlantillaVencimiento {
   const fecha = fmtUY(vence, false);
-  const contacto = `Para continuar usando CÓMPUTO+, escribinos a ${MAIL_CONTACTO}.`;
+  const planes = `${mpUrlBase()}/planes`;
+  const contacto = `Para continuar usando CÓMPUTO+, elegí tu plan en ${planes} o escribinos a ${MAIL_CONTACTO}.`;
   if (tipo === "aviso11") {
     return {
       asunto: "Tu prueba de CÓMPUTO+ vence en 3 días",
       titulo: "Tu prueba vence en 3 días",
       parrafos: [
         `Te recordamos que tu período de prueba de CÓMPUTO+ vence el ${fecha}.`,
-        "Cuando venza, tu cuenta pasará a modo solo lectura: vas a poder seguir viendo y exportando tus proyectos, pero no vas a poder editarlos.",
+        "Cuando venza, tu cuenta pasará a modo inactivo y vas a necesitar elegir un plan para seguir usando CÓMPUTO+. Tus proyectos y datos van a quedar guardados.",
         `${contacto} Con gusto te ayudamos.`,
       ],
     };
@@ -139,7 +140,7 @@ function plantillaVencimiento(tipo: TipoAvisoVencimiento, vence: Date): Plantill
       titulo: "Tu prueba vence mañana",
       parrafos: [
         `Tu período de prueba de CÓMPUTO+ vence mañana, ${fecha}.`,
-        "A partir de ese momento tu cuenta pasará a modo solo lectura y no vas a poder editar tus proyectos. Si estás trabajando en un presupuesto, conviene que lo termines o lo exportes antes.",
+        "A partir de ese momento tu cuenta pasará a modo inactivo y no vas a poder usar la app hasta elegir un plan. Tus proyectos y datos van a quedar guardados. Si estás trabajando en un presupuesto, conviene que lo termines o lo exportes antes.",
         `${contacto} Si lo hacés hoy, no vas a tener ninguna interrupción.`,
       ],
     };
@@ -148,9 +149,8 @@ function plantillaVencimiento(tipo: TipoAvisoVencimiento, vence: Date): Plantill
     asunto: "Tu período de prueba de CÓMPUTO+ ha terminado",
     titulo: "Tu período de prueba ha terminado",
     parrafos: [
-      "Tu período de prueba de CÓMPUTO+ ha terminado y tu cuenta pasó a modo solo lectura.",
-      "Quedate tranquilo: tus datos están seguros y no se borró nada. Podés entrar cuando quieras para ver y exportar tus proyectos; lo único que no vas a poder hacer es editarlos.",
-      `Para reactivar tu cuenta, escribinos a ${MAIL_CONTACTO} y lo resolvemos.`,
+      "Tu período de prueba de CÓMPUTO+ ha terminado. Tu cuenta pasó a modo inactivo. Tus proyectos y datos están guardados — podés reactivar tu cuenta en cualquier momento eligiendo un plan.",
+      `Elegí tu plan en ${planes} o escribinos a ${MAIL_CONTACTO} y lo resolvemos.`,
     ],
   };
 }
@@ -227,7 +227,7 @@ export async function enviarAvisoVencimientoPrueba(datos: {
 
 /**
  * Mail cuando MercadoPago informa que la suscripción se canceló o se pausó (webhook, ver
- * lib/suscripciones.ts): la cuenta pasa a solo lectura y se puede reactivar desde /planes.
+ * lib/suscripciones.ts): la cuenta queda inactiva y se puede reactivar desde /planes.
  */
 export async function enviarAvisoSuscripcionCancelada(datos: { para: string[]; empresa: string }): Promise<void> {
   const planes = `${mpUrlBase()}/planes`;
@@ -237,8 +237,7 @@ export async function enviarAvisoSuscripcionCancelada(datos: { para: string[]; e
     asunto: "Tu suscripción de CÓMPUTO+ fue cancelada",
     titulo: "Tu suscripción fue cancelada",
     parrafos: [
-      "Tu suscripción de CÓMPUTO+ fue cancelada y tu cuenta pasó a modo solo lectura: podés seguir viendo y exportando tus proyectos, pero no editarlos.",
-      "Quedate tranquilo: tus datos están seguros y no se borró nada.",
+      "Tu suscripción de CÓMPUTO+ fue cancelada. Tu cuenta pasó a modo inactivo. Tus proyectos y datos están guardados — podés reactivar tu cuenta en cualquier momento eligiendo un plan.",
       `Para reactivar tu cuenta, elegí un plan en ${planes} o escribinos a ${MAIL_CONTACTO}.`,
     ],
     boton: { texto: "Elegir un plan", href: planes },
