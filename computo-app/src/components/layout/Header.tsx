@@ -82,8 +82,17 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
   },
 ];
 
+interface AvisoEmpresa {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  fechaCreacion: string;
+}
+
 interface Notificaciones {
   eventos: EventoSistema[];
+  // Avisos de plataforma no leídos por la empresa (vacío para el SUPERADMIN)
+  avisos: AvisoEmpresa[];
   pendientes: { requierenVerificacion: number; aCotizar: number };
   hayNovedades: boolean;
 }
@@ -100,6 +109,9 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  // Los avisos se marcan leídos al abrir el panel; se siguen mostrando en esta sesión del panel
+  // (así se alcanzan a leer) pero dejan de sumar al badge.
+  const [avisosVistos, setAvisosVistos] = useState(false);
   const [ayudaOpen, setAyudaOpen] = useState(false);
   const [preguntaAbierta, setPreguntaAbierta] = useState<number | null>(null);
   const [empresa, setEmpresa] = useState<EmpresaHeader | null>(null);
@@ -143,6 +155,19 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
     };
   }, []);
 
+  // Al abrir el panel, los avisos no leídos quedan leídos para toda la empresa. Se mandan los ids
+  // que se están mostrando; si falla, el badge igual se apaga y reaparecen en la próxima carga.
+  function marcarAvisosLeidos() {
+    const ids = notificaciones?.avisos?.map((a) => a.id) ?? [];
+    if (avisosVistos || ids.length === 0) return;
+    setAvisosVistos(true);
+    fetch("/api/notificaciones/marcar-leido", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avisoIds: ids }),
+    }).catch(() => {});
+  }
+
   const nombreEmpresa = empresa?.nombre || "Empresa";
   const iniciales =
     nombreEmpresa
@@ -165,7 +190,9 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const proyectoIdActual = proyectoIdDesdePath(pathname);
   // Badge de la campanita: materiales que requieren verificación + a cotizar
   // (los dos números del panel). Sin pendientes no se muestra; desde 100, "99+".
-  const totalPendientes = (notificaciones?.pendientes.requierenVerificacion ?? 0) + (notificaciones?.pendientes.aCotizar ?? 0);
+  const avisosNoLeidos = avisosVistos ? 0 : notificaciones?.avisos?.length ?? 0;
+  const totalPendientes =
+    (notificaciones?.pendientes.requierenVerificacion ?? 0) + (notificaciones?.pendientes.aCotizar ?? 0) + avisosNoLeidos;
   const textoBadge = totalPendientes > 99 ? "99+" : String(totalPendientes);
   // A dónde lleva cada pendiente: la cola de revisión resuelve precios del
   // catálogo global y es solo para el SUPERADMIN (a los demás les muestra un
@@ -259,7 +286,11 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
         </div>
         <div className="relative">
           <button
-            onClick={() => setNotifOpen(!notifOpen)}
+            onClick={() => {
+              const abriendo = !notifOpen;
+              setNotifOpen(abriendo);
+              if (abriendo) marcarAvisosLeidos();
+            }}
             aria-label={totalPendientes > 0 ? `Notificaciones: ${totalPendientes} pendiente${totalPendientes === 1 ? "" : "s"}` : "Notificaciones"}
             className="w-9 h-9 flex items-center justify-center rounded-[8px] text-text-muted hover:text-text-primary hover:bg-bg-base transition-colors relative"
           >
@@ -288,6 +319,23 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                 className="fixed left-3 right-3 top-[72px] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-80 bg-bg-card border border-border rounded-[12px] shadow-modal z-50 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
+                {/* Avisos de plataforma para la empresa (ver modelo Aviso): solo aparecen los no
+                    leídos; se marcan leídos al abrir el panel. */}
+                {notificaciones && notificaciones.avisos?.length > 0 && (
+                  <div className="px-4 py-3 border-b border-border">
+                    <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Avisos</p>
+                    <ul className="space-y-2.5 max-h-64 overflow-y-auto">
+                      {notificaciones.avisos.map((av) => (
+                        <li key={av.id}>
+                          <p className="text-sm font-medium text-text-primary">{av.titulo}</p>
+                          <p className="text-xs text-text-secondary mt-0.5">{av.descripcion}</p>
+                          <p className="text-[11px] text-text-muted mt-0.5">{fmtFecha(av.fechaCreacion)}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {/* Eventos — cargados a mano en la base, sin formulario de
                     alta en la UI (ver modelo EventoSistema). */}
                 <div className="px-4 py-3 border-b border-border">

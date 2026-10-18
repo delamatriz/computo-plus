@@ -51,6 +51,8 @@ model Empresa {
   cupoProyectosIA        Int           @default(1)
   consumoFunciones       ConsumoFuncionesAsistidas[]
   eventosAdmin           EventoAdmin[]
+  // Avisos de plataforma ya leídos por esta empresa (ver AvisoLeido)
+  avisosLeidos           AvisoLeido[]
 }
 
 enum EstadoEmpresa {
@@ -74,6 +76,8 @@ model User {
   // verificar el mail, así que en la práctica nace en true. Los usuarios
   // anteriores y los de /admin también quedan en true.
   emailVerificado Boolean @default(false)
+  // Avisos de plataforma que este usuario creó (solo SUPERADMIN, ver Aviso).
+  avisosCreados Aviso[]
 }
 
 model Proyecto {
@@ -1728,5 +1732,40 @@ model EventoAdmin {
   createdAt DateTime @default(now())
 
   @@index([tipo, createdAt])
+  @@index([empresaId])
+}
+
+// Avisos de plataforma para las empresas clientes (oct-2026), p. ej. "Precios
+// actualizados" cuando el SUPERADMIN sube una lista al catálogo global. Se crea
+// UNA fila por aviso, no una por empresa: "no leído" para una empresa es la
+// ausencia de su fila en AvisoLeido. Los ve la campanita del Header de las
+// empresas ACTIVA y PRUEBA nacidas antes del aviso (no el SUPERADMIN). Es
+// distinto de EventoSistema (anuncios generales cargados a mano, iguales para
+// todos, sin estado de lectura) y de EventoAdmin (eventos internos del SUPERADMIN).
+// creadoPorId queda en null si se borra al usuario que lo creó (el aviso se conserva).
+model Aviso {
+  id            String   @id @default(cuid())
+  titulo        String
+  descripcion   String   @db.Text
+  tipo          String   // "PRECIOS_ACTUALIZADOS"
+  fechaCreacion DateTime @default(now())
+  creadoPorId   String?
+  creadoPor     User?    @relation(fields: [creadoPorId], references: [id], onDelete: SetNull)
+  leidos        AvisoLeido[]
+
+  @@index([fechaCreacion])
+}
+
+// "Leído" es por empresa (no por usuario): cuando cualquier usuario de la empresa
+// abre la campanita, el aviso queda leído para toda la empresa.
+model AvisoLeido {
+  id         String   @id @default(cuid())
+  avisoId    String
+  aviso      Aviso    @relation(fields: [avisoId], references: [id], onDelete: Cascade)
+  empresaId  String
+  empresa    Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  fechaLeido DateTime @default(now())
+
+  @@unique([avisoId, empresaId])
   @@index([empresaId])
 }

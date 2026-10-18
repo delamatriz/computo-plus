@@ -5,6 +5,7 @@ import { mejorCoincidencia, type CandidatoImportacion } from "@/lib/similitudDes
 import { buscarCoincidenciasPorTexto } from "@/lib/recalcularPrecioRubro";
 import { requerirAdminOSuperadmin } from "@/lib/sesion";
 import { codigoParaEmpresa } from "@/lib/catalogoPrecios";
+import { crearAvisoPreciosActualizados } from "@/lib/avisos";
 import {
   clasificarListaOficial,
   fechaListaONormalizada,
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (esOficial) {
-      return await importarListaOficial(filas, filasCrudas.length, body, sesion.empresaId);
+      return await importarListaOficial(filas, filasCrudas.length, body, sesion.empresaId, sesion.id);
     }
 
     // Candidatos del mismo proveedor — una sola consulta para toda la
@@ -204,6 +205,9 @@ export async function POST(req: NextRequest) {
     // lib/catalogoPrecios.ts), así que no puede volver ambiguo a ningún material: sin chequeo.
     const ambiguosDetectados = esSuper ? await detectarAmbiguos(sesion.empresaId) : [];
 
+    // Solo el catálogo global avisa a las empresas (campanita); lo de un ADMIN es privado.
+    if (esSuper) await crearAvisoPreciosActualizados(sesion.id, actualizados + nuevos, proveedor);
+
     return NextResponse.json({
       ok: true,
       resumen: { actualizados, nuevos, total: filas.length, omitidas: filasCrudas.length - filas.length },
@@ -273,7 +277,8 @@ async function importarListaOficial(
   filasValidas: FilaImportacion[],
   totalCrudas: number,
   body: { numeroLista?: unknown; fechaLista?: unknown },
-  empresaId: string
+  empresaId: string,
+  usuarioId: string
 ) {
   const numeroLista = numeroListaONormalizado(body.numeroLista);
   const fechaLista = fechaListaONormalizada(body.fechaLista);
@@ -364,6 +369,8 @@ async function importarListaOficial(
   }
 
   const ambiguosDetectados = await detectarAmbiguos(empresaId);
+  // La lista oficial solo la importa el SUPERADMIN (ver el chequeo en POST): avisa a las empresas.
+  await crearAvisoPreciosActualizados(usuarioId, actualizados + nuevos);
   return NextResponse.json({
     ok: true,
     resumen: { actualizados, nuevos, total: items.length, omitidas: totalCrudas - items.length },
