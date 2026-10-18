@@ -50,6 +50,7 @@ const ETIQUETA_EVENTO: Record<string, string> = {
   ANTHROPIC_KEY_PRUEBA_NO_CONFIGURADA: "Falta la clave de pruebas",
   EMPRESA_ELIMINADA: "Empresa eliminada",
   LIMPIEZA_AUTOMATICA: "Limpieza automática",
+  SUSCRIPCION_MP: "Suscripción MercadoPago",
 };
 
 const fmtFecha = (iso: string) => new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
@@ -67,6 +68,7 @@ interface UsuarioAdmin {
 
 const ETIQUETA_PLAN: Record<Plan, string> = {
   basico: "Básico",
+  premium: "Premium",
   profesional: "Profesional",
   enterprise: "Enterprise",
 };

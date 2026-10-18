@@ -12,7 +12,7 @@ export type Rol = (typeof ROLES)[number];
 /** Roles que se pueden asignar desde el panel /admin (SUPERADMIN no). */
 export const ROLES_ASIGNABLES = ["ADMIN", "USUARIO"] as const satisfies readonly Rol[];
 
-export const PLANES = ["basico", "profesional", "enterprise"] as const;
+export const PLANES = ["basico", "premium", "profesional", "enterprise"] as const;
 export type Plan = (typeof PLANES)[number];
 
 export function esRol(valor: unknown): valor is Rol {

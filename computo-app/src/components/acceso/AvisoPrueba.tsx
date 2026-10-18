@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Clock, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAIL_CONTACTO } from "@/lib/config-prueba";
@@ -16,8 +17,8 @@ const DIAS_AVISO = 10;
 //   vencida → rojo        "Tu período de prueba venció. Estás en modo solo lectura. Contactanos para continuar."
 // variante "chip" va en el header (desde lg); "barra" es una franja fina debajo del header en
 // pantallas más angostas, donde el header no tiene lugar (el logo se quedaba sin texto).
-// "Contactanos" abre WhatsApp con el email del usuario; al lado va el mail de contacto. El cupo
-// agotado NO se avisa acá: va en el lugar donde se invoca cada función (<AvisoAcceso />).
+// El botón principal lleva a /planes (contratar); WhatsApp (con el email del usuario) y el mail de
+// contacto quedan como opciones secundarias. El cupo agotado NO se avisa acá: va en el lugar donde se invoca cada función (<AvisoAcceso />).
 type Nivel = "ambar" | "naranja" | "rojo";
 
 const ESTILOS: Record<Nivel, { icono: string; colores: string; boton: string; enlace: string }> = {
@@ -50,7 +51,7 @@ export function AvisoPrueba({ cuenta, variante = "chip" }: { cuenta: EstadoCuent
 
   const nivel: Nivel = vencida || dias === 0 ? "rojo" : dias === 1 ? "naranja" : "ambar";
   const texto = vencida
-    ? "Tu período de prueba venció. Estás en modo solo lectura. Contactanos para continuar."
+    ? "Tu período de prueba venció. Estás en modo solo lectura. Elegí un plan para continuar."
     : dias === 0
       ? "Tu período de prueba vence hoy"
       : dias === 1
@@ -66,14 +67,22 @@ export function AvisoPrueba({ cuenta, variante = "chip" }: { cuenta: EstadoCuent
   const Icono = vencida ? Eye : Clock;
 
   const { icono: colorIcono, colores, boton: colorBoton, enlace: colorEnlace } = ESTILOS[nivel];
-  const contactanos = (
+  const verPlanes = (
+    <Link
+      href="/planes"
+      className={cn("flex-shrink-0 rounded-full px-2.5 py-0.5 font-semibold text-white transition-colors", colorBoton)}
+    >
+      Ver planes
+    </Link>
+  );
+  const whatsapp = (clase: string) => (
     <a
       href={cuenta.contacto}
       target="_blank"
       rel="noopener noreferrer"
-      className={cn("flex-shrink-0 rounded-full px-2.5 py-0.5 font-semibold text-white transition-colors", colorBoton)}
+      className={cn("flex-shrink-0 underline underline-offset-2", colorEnlace, clase)}
     >
-      Contactanos
+      WhatsApp
     </a>
   );
   // Correo de contacto: el chip del header es angosto, así que ahí solo aparece en pantallas muy
@@ -94,7 +103,8 @@ export function AvisoPrueba({ cuenta, variante = "chip" }: { cuenta: EstadoCuent
         </span>
         <span className="flex items-center gap-2 flex-shrink-0">
           {correo("hidden sm:inline")}
-          {contactanos}
+          {whatsapp("hidden sm:inline")}
+          {verPlanes}
         </span>
       </div>
     );
@@ -109,7 +119,8 @@ export function AvisoPrueba({ cuenta, variante = "chip" }: { cuenta: EstadoCuent
       <span className="hidden xl:inline">{texto}</span>
       <span className="xl:hidden">{textoMedio}</span>
       {correo("hidden 2xl:inline")}
-      {contactanos}
+      {whatsapp("hidden xl:inline")}
+      {verPlanes}
     </div>
   );
 }

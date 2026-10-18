@@ -25,7 +25,17 @@ function destinoSeguro(callbackUrl: string | null): string {
 
 function FormularioConDestino() {
   const searchParams = useSearchParams();
-  return <FormularioLogin destino={destinoSeguro(searchParams.get("callbackUrl"))} />;
+  return (
+    <>
+      {/* ?aviso=pago: viene de /planes/confirmacion después de pagar (el estado real llega por webhook). */}
+      {searchParams.get("aviso") === "pago" && (
+        <p role="status" className="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm leading-snug text-blue-800">
+          Tu pago está siendo procesado. En unos minutos tu cuenta estará activa.
+        </p>
+      )}
+      <FormularioLogin destino={destinoSeguro(searchParams.get("callbackUrl"))} />
+    </>
+  );
 }
 
 export default function LoginPage() {

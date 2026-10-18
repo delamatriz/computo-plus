@@ -13,17 +13,26 @@
 // Prueba vencida (oct-2026): con sesión, todo pedido que escribe
 // (POST/PUT/PATCH/DELETE) a /api/* de una empresa VENCIDA → 403
 // PRUEBA_VENCIDA. Lectura y exportación (los PDF son GET) siguen andando.
+// Además, una página que no es pública (o sea, la app) de una empresa VENCIDA redirige a /planes:
+// la pantalla intermedia para contratar un plan. Los GET a /api/* no se tocan.
 // Acá y no en cada ruta: cubre las ~100 rutas que escriben sin tocarlas.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { estadoAccesoUsuario, respuestaAcceso } from "@/lib/acceso";
 
-const PUBLICAS = ["/", "/login", "/registro", "/verificar", "/bienvenida", "/terminos", "/privacidad"];
+const PUBLICAS = ["/", "/login", "/registro", "/verificar", "/bienvenida", "/terminos", "/privacidad", "/planes", "/planes/confirmacion"];
 const PREFIJOS_PUBLICOS = ["/api/auth/", "/api/registro"];
-// Rutas de API sin sesión que se autorizan solas (Cron Job de Render con
-// Authorization: Bearer CRON_SECRET, ver la ruta).
-const API_CON_SECRETO = ["/api/admin/limpiar-pruebas-vencidas", "/api/admin/procesar-vencimientos-prueba"];
+// Rutas de API sin sesión que se autorizan solas (los jobs de GitHub Actions con
+// Authorization: Bearer CRON_SECRET; el webhook de MercadoPago con la firma x-signature; ver cada ruta).
+const API_CON_SECRETO = [
+  "/api/admin/limpiar-pruebas-vencidas",
+  "/api/admin/procesar-vencimientos-prueba",
+  "/api/pagos/webhook",
+];
+// Escrituras que una empresa VENCIDA SÍ puede hacer: contratar un plan es justamente cómo sale del
+// modo solo lectura.
+const ESCRITURAS_PERMITIDAS_VENCIDA = ["/api/pagos/crear-suscripcion"];
 const METODOS_DE_ESCRITURA = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export async function proxy(request: NextRequest) {
@@ -35,9 +44,12 @@ export async function proxy(request: NextRequest) {
 
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   if (token) {
-    if (pathname.startsWith("/api/") && METODOS_DE_ESCRITURA.has(request.method)) {
+    if (pathname.startsWith("/api/") && METODOS_DE_ESCRITURA.has(request.method) && !ESCRITURAS_PERMITIDAS_VENCIDA.includes(pathname)) {
       const acceso = await estadoAccesoUsuario(token.id);
       if (acceso?.estado === "VENCIDA") return respuestaAcceso("PRUEBA_VENCIDA", token.email);
+    } else if (!pathname.startsWith("/api/")) {
+      const acceso = await estadoAccesoUsuario(token.id);
+      if (acceso?.estado === "VENCIDA") return NextResponse.redirect(new URL("/planes", request.url));
     }
     return NextResponse.next();
   }

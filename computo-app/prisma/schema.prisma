@@ -56,6 +56,8 @@ model Empresa {
   mailAviso13Enviado     Boolean       @default(false)
   mailAviso14Enviado     Boolean       @default(false)
   consumoFunciones       ConsumoFuncionesAsistidas[]
+  // Suscripción recurrente en MercadoPago (ver Suscripcion); null mientras la empresa no contrató.
+  suscripcionActiva      Suscripcion?
   eventosAdmin           EventoAdmin[]
   // Avisos de plataforma ya leídos por esta empresa (ver AvisoLeido)
   avisosLeidos           AvisoLeido[]
@@ -1774,4 +1776,30 @@ model AvisoLeido {
 
   @@unique([avisoId, empresaId])
   @@index([empresaId])
+}
+
+// Suscripción mensual de una empresa en MercadoPago Uruguay (oct-2026). Una por empresa
+// (@@unique en empresaId): al cambiar de plan o reintentar se actualiza la misma fila.
+// El estado de la empresa (Empresa.estado) NO se deriva de acá solo: lo cambia el webhook de
+// MercadoPago al confirmar un cobro. Los valores de plan y montos viven en lib/config-mercadopago.ts
+// (MP_PLANES); acá se guarda el monto cobrado para conservar el histórico si cambian los precios.
+//   plan:   "basico" | "premium"  (al activarse, el webhook copia este valor a Empresa.plan)
+//   estado: "pendiente" | "activa" | "pausada" | "cancelada"
+//   ultimoEstadoPago: "approved" | "rejected" | "cancelled"
+// mpPreapprovalId y mpPayerId quedan en null hasta que MercadoPago confirma la suscripción.
+model Suscripcion {
+  id                String    @id @default(cuid())
+  empresaId         String    @unique
+  empresa           Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  mpPreapprovalId   String?
+  mpPayerId         String?
+  plan              String
+  montoUYU          Float
+  estado            String    @default("pendiente")
+  fechaInicio       DateTime?
+  fechaProximoCobro DateTime?
+  fechaUltimoCobro  DateTime?
+  ultimoEstadoPago  String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }

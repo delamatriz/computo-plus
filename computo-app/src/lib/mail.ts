@@ -8,6 +8,7 @@
 //     mejor fallar a la vista que dejar al usuario esperando un código.
 
 import { CODIGO_VIGENCIA_MIN, DIAS_PRUEBA, MAIL_AVISO_REGISTROS, MAIL_CONTACTO, MAIL_REMITENTE } from "@/lib/config-prueba";
+import { mpUrlBase } from "@/lib/config-mercadopago";
 
 interface Mail {
   para: string;
@@ -155,17 +156,20 @@ function plantillaVencimiento(tipo: TipoAvisoVencimiento, vence: Date): Plantill
 }
 
 /**
- * Mail del flujo de vencimiento de la prueba, dirigido a la empresa y firmado por el equipo.
- * Se manda a cada destinatario por separado. Solo tira si no salió ninguno (el job lo reintenta
- * en la próxima corrida); si salió al menos uno, el aviso cuenta como enviado.
+ * Mail a una empresa con el formato de los avisos de cuenta: saludo "Hola, equipo de X:", título,
+ * párrafos, un botón y la firma del equipo. Se manda a cada destinatario por separado. Solo tira si
+ * no salió ninguno (quien lo llama decide si reintenta); si salió al menos uno, cuenta como enviado.
  */
-export async function enviarAvisoVencimientoPrueba(datos: {
+async function enviarAvisoEmpresa(datos: {
   para: string[];
   empresa: string;
-  tipo: TipoAvisoVencimiento;
-  vence: Date;
+  asunto: string;
+  titulo: string;
+  parrafos: string[];
+  boton: { texto: string; href: string };
+  etiqueta: string;
 }): Promise<void> {
-  const { asunto, parrafos, titulo } = plantillaVencimiento(datos.tipo, datos.vence);
+  const { asunto, parrafos, titulo, boton } = datos;
   const saludo = `Hola, equipo de ${datos.empresa}:`;
   const firma = "El equipo de CÓMPUTO+";
 
@@ -181,7 +185,7 @@ export async function enviarAvisoVencimientoPrueba(datos: {
         ${parrafos
           .map((p) => `<tr><td style="padding-top:12px;font-size:15px;line-height:1.6">${escaparHtml(p)}</td></tr>`)
           .join("\n        ")}
-        <tr><td style="padding-top:20px"><a href="mailto:${MAIL_CONTACTO}" style="display:inline-block;background:#2563EB;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px">Escribinos a ${MAIL_CONTACTO}</a></td></tr>
+        <tr><td style="padding-top:20px"><a href="${boton.href}" style="display:inline-block;background:#2563EB;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px">${escaparHtml(boton.texto)}</a></td></tr>
         <tr><td style="padding-top:24px;font-size:14px;line-height:1.5;color:#64748B">${firma}</td></tr>
       </table>
     </td></tr>
@@ -196,8 +200,48 @@ export async function enviarAvisoVencimientoPrueba(datos: {
       salieron++;
     } catch (err) {
       ultimoError = err;
-      console.error(`[mail] ${datos.tipo} a ${para}`, err);
+      console.error(`[mail] ${datos.etiqueta} a ${para}`, err);
     }
   }
   if (salieron === 0) throw ultimoError instanceof Error ? ultimoError : new Error("No salió ningún mail");
+}
+
+/** Mail del flujo de vencimiento de la prueba (job diario, ver lib/vencimientosPrueba.ts). */
+export async function enviarAvisoVencimientoPrueba(datos: {
+  para: string[];
+  empresa: string;
+  tipo: TipoAvisoVencimiento;
+  vence: Date;
+}): Promise<void> {
+  const { asunto, parrafos, titulo } = plantillaVencimiento(datos.tipo, datos.vence);
+  await enviarAvisoEmpresa({
+    para: datos.para,
+    empresa: datos.empresa,
+    asunto,
+    titulo,
+    parrafos,
+    boton: { texto: `Escribinos a ${MAIL_CONTACTO}`, href: `mailto:${MAIL_CONTACTO}` },
+    etiqueta: datos.tipo,
+  });
+}
+
+/**
+ * Mail cuando MercadoPago informa que la suscripción se canceló o se pausó (webhook, ver
+ * lib/suscripciones.ts): la cuenta pasa a solo lectura y se puede reactivar desde /planes.
+ */
+export async function enviarAvisoSuscripcionCancelada(datos: { para: string[]; empresa: string }): Promise<void> {
+  const planes = `${mpUrlBase()}/planes`;
+  await enviarAvisoEmpresa({
+    para: datos.para,
+    empresa: datos.empresa,
+    asunto: "Tu suscripción de CÓMPUTO+ fue cancelada",
+    titulo: "Tu suscripción fue cancelada",
+    parrafos: [
+      "Tu suscripción de CÓMPUTO+ fue cancelada y tu cuenta pasó a modo solo lectura: podés seguir viendo y exportando tus proyectos, pero no editarlos.",
+      "Quedate tranquilo: tus datos están seguros y no se borró nada.",
+      `Para reactivar tu cuenta, elegí un plan en ${planes} o escribinos a ${MAIL_CONTACTO}.`,
+    ],
+    boton: { texto: "Elegir un plan", href: planes },
+    etiqueta: "suscripcion-cancelada",
+  });
 }

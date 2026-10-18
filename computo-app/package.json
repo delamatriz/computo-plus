@@ -24,6 +24,7 @@
     "framer-motion": "^12.39.0",
     "html2canvas": "^1.4.1",
     "lucide-react": "^1.16.0",
+    "mercadopago": "^3.6.1",
     "next": "16.2.6",
     "next-auth": "^4.24.15",
     "pg": "^8.21.0",
