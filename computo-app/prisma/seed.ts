@@ -8,7 +8,7 @@
 //   3. Si no hay ninguna empresa, la crea.
 //   4. Si hay varias sin slug, aborta sin escribir (no adivina cuál es).
 //   5. Asigna a esa empresa todos los Proyecto con empresaId vacío.
-//   6. Crea el primer usuario ADMIN (luis@delamatriz.com) si no existe. Si ya
+//   6. Crea el primer usuario, SUPERADMIN (computo@delamatriz.com), si no existe. Si ya
 //      existe no lo toca — no le pisa la contraseña si se cambió después.
 //      La contraseña inicial sale de SEED_ADMIN_PASSWORD (.env.local), nunca
 //      va escrita en este archivo.
@@ -33,7 +33,7 @@ const db = new PrismaClient({ adapter });
 
 const SLUG = "delamatriz";
 const NOMBRE_SI_SE_CREA = "DE LA MATRIZ";
-const ADMIN = { email: "luis@delamatriz.com", nombre: "Luis", rol: "ADMIN" };
+const ADMIN = { email: "computo@delamatriz.com", nombre: "Luis Rodríguez", rol: "SUPERADMIN" };
 
 async function main() {
   const aplicar = process.argv.includes("--apply");
@@ -67,14 +67,14 @@ async function main() {
     console.log(`  Asignados: ${r.count}`);
   }
 
-  // ── Primer usuario ADMIN ──
+  // ── Primer usuario (SUPERADMIN) ──
   const existente = await db.user.findUnique({ where: { email: ADMIN.email } });
   if (existente) {
     console.log(`
 = Usuario ${ADMIN.email} ya existe (${existente.id}, rol ${existente.rol}) — no se toca.`);
   } else {
     const password = process.env.SEED_ADMIN_PASSWORD;
-    if (!password) throw new Error("Falta SEED_ADMIN_PASSWORD en .env.local para crear el usuario ADMIN.");
+    if (!password) throw new Error(`Falta SEED_ADMIN_PASSWORD en .env.local para crear el usuario ${ADMIN.email}.`);
     console.log(`
 → Se crea el usuario ${ADMIN.email} (${ADMIN.nombre}, ${ADMIN.rol}) en la empresa ${empresa?.id ?? "(nueva)"}.`);
     if (aplicar) {
