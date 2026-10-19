@@ -6,6 +6,7 @@ import { estadoEfectivo } from "@/lib/acceso";
 import { esPlanMP, MP_MONEDA, MP_PLANES, mpUrlBase } from "@/lib/config-mercadopago";
 import { clienteMercadoPago, resumenErrorMercadoPago } from "@/lib/mercadopago";
 import { registrarEventoAdmin } from "@/lib/eventos-admin";
+import { enviarAvisoInternoSuscripcion } from "@/lib/mail";
 
 // Inicia la suscripción mensual de la empresa en MercadoPago (preapproval pendiente) y devuelve
 // la URL de pago (init_point) a la que el navegador redirige. El estado real de la empresa lo
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     const empresa = await db.empresa.findUnique({
       where: { id: sesion.empresaId },
-      select: { estado: true, fechaVencimientoPrueba: true },
+      select: { nombre: true, estado: true, fechaVencimientoPrueba: true },
     });
     if (!empresa) return NextResponse.json({ error: "Empresa no encontrada" }, { status: 404 });
     const estado = estadoEfectivo(empresa);
@@ -50,6 +51,12 @@ export async function POST(req: NextRequest) {
       create: { empresaId: sesion.empresaId, plan, montoUYU, estado: "pendiente" },
       update: { plan, montoUYU, estado: "pendiente", mpPreapprovalId: null },
     });
+
+    // Aviso interno a De La Matriz de cada intento (éxito o fallo). Nunca corta el checkout.
+    const avisarInterno = (exito: boolean, detalle: string) =>
+      enviarAvisoInternoSuscripcion({ empresa: empresa.nombre, plan: nombre, montoUYU, exito, detalle, fecha: new Date() }).catch((err) =>
+        console.error("[crear-suscripcion] no se pudo mandar el aviso interno", err)
+      );
 
     let preapproval;
     try {
@@ -74,6 +81,7 @@ export async function POST(req: NextRequest) {
       // Queda también en /admin → eventos del sistema, para diagnosticar sin los logs de Render.
       const { status, texto } = resumenErrorMercadoPago(err);
       await registrarEventoAdmin("MP_ERROR", sesion.empresaId, `crear-suscripcion:${status ?? "sin-status"}`, `Plan ${plan}: ${texto}`);
+      await avisarInterno(false, texto);
       return NextResponse.json({ error: "mp_error", mensaje: "No pudimos iniciar el pago. Probá de nuevo en un rato o escribinos." }, { status: 502 });
     }
 
@@ -85,10 +93,12 @@ export async function POST(req: NextRequest) {
         "crear-suscripcion:sin-init-point",
         `Plan ${plan}: MercadoPago respondió sin id o init_point (estado ${preapproval.status ?? "?"})`
       );
+      await avisarInterno(false, `MercadoPago respondió sin id o init_point (estado ${preapproval.status ?? "?"})`);
       return NextResponse.json({ error: "mp_error", mensaje: "No pudimos iniciar el pago. Probá de nuevo en un rato o escribinos." }, { status: 502 });
     }
 
     await db.suscripcion.update({ where: { empresaId: sesion.empresaId }, data: { mpPreapprovalId: preapproval.id } });
+    await avisarInterno(true, preapproval.id);
     return NextResponse.json({ init_point: preapproval.init_point });
   } catch (err) {
     console.error("[POST /api/pagos/crear-suscripcion]", err);

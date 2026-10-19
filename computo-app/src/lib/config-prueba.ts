@@ -19,6 +19,9 @@ export const MAIL_REMITENTE = "CÓMPUTO+ <no-responder@delamatriz.com>";
 /** Recibe un aviso por cada empresa nueva que se registra (POST /api/registro/completar). */
 export const MAIL_AVISO_REGISTROS = "computo@delamatriz.com";
 
+/** Reciben el aviso interno de cada intento de suscripción en MercadoPago (POST /api/pagos/crear-suscripcion). */
+export const MAILS_AVISO_SUSCRIPCIONES = ["computo@delamatriz.com", "delamatriz@gmail.com"];
+
 /** Contacto que figura en los mails de vencimiento de la prueba (para continuar o reactivar la cuenta). */
 export const MAIL_CONTACTO = "computo@delamatriz.com";
 

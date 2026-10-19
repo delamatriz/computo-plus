@@ -7,7 +7,7 @@
 //   - en producción, tira error — un registro sin mail no se puede verificar,
 //     mejor fallar a la vista que dejar al usuario esperando un código.
 
-import { CODIGO_VIGENCIA_MIN, DIAS_PRUEBA, MAIL_AVISO_REGISTROS, MAIL_CONTACTO, MAIL_REMITENTE } from "@/lib/config-prueba";
+import { CODIGO_VIGENCIA_MIN, DIAS_PRUEBA, MAIL_AVISO_REGISTROS, MAILS_AVISO_SUSCRIPCIONES, MAIL_CONTACTO, MAIL_REMITENTE } from "@/lib/config-prueba";
 import { mpUrlBase } from "@/lib/config-mercadopago";
 
 interface Mail {
@@ -252,3 +252,49 @@ export async function enviarAvisoSuscripcionCancelada(datos: { para: string[]; e
     etiqueta: "suscripcion-cancelada",
   });
 }
+
+/**
+ * Aviso interno (a MAILS_AVISO_SUSCRIPCIONES) de cada intento de crear una suscripción en
+ * MercadoPago, salga bien o mal. El cliente no lo ve. Nunca tira: si un envío falla solo se loguea,
+ * para no cortar el checkout.
+ */
+export async function enviarAvisoInternoSuscripcion(datos: {
+  empresa: string;
+  plan: string;
+  montoUYU: number;
+  exito: boolean;
+  /** Éxito: id de la suscripción en MercadoPago. Fallo: mensaje de error. */
+  detalle: string;
+  fecha: Date;
+}): Promise<void> {
+  const resultado = datos.exito ? "ÉXITO" : "FALLO";
+  const filas: [string, string][] = [
+    ["Empresa", datos.empresa],
+    ["Plan elegido", datos.plan],
+    ["Monto", `UYU ${datos.montoUYU.toLocaleString("es-UY")}`],
+    ["Resultado", datos.exito ? `Éxito — mpPreapprovalId ${datos.detalle}` : `Fallo — ${datos.detalle}`],
+    ["Fecha y hora", `${fmtUY(datos.fecha, true)} (hora de Uruguay)`],
+  ];
+  const asunto = `Nueva suscripción CÓMPUTO+ — ${datos.empresa} — ${resultado}`;
+  const texto = [`Intento de suscripción en MercadoPago: ${resultado}.`, "", ...filas.map(([k, v]) => `${k}: ${v}`)].join("\n");
+  const html = `<!doctype html>
+<html lang="es"><body style="margin:0;background:#F8FAFC;font-family:'DM Sans',Arial,sans-serif;color:#1E293B">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #E2E8F0;border-radius:12px;padding:24px">
+        <tr><td style="font-size:18px;font-weight:700;color:${datos.exito ? "#1A3A5C" : "#B91C1C"};padding-bottom:12px">Suscripción — ${resultado}</td></tr>
+        ${filas
+          .map(
+            ([k, v]) =>
+              `<tr><td style="font-size:14px;line-height:1.6"><span style="color:#64748B">${k}:</span> <strong>${escaparHtml(v)}</strong></td></tr>`
+          )
+          .join("\n        ")}
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  for (const para of MAILS_AVISO_SUSCRIPCIONES) {
+    await enviarMail({ para, asunto, html, texto }).catch((err) => console.error(`[mail] aviso interno de suscripción a ${para}`, err));
+  }
+}
+
