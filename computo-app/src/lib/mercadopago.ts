@@ -11,23 +11,22 @@ export function clienteMercadoPago(): MercadoPagoConfig | null {
 }
 
 /**
- * Resumen de un error de la API de MercadoPago para guardarlo como evento en /admin: tipo, status,
+ * Resumen de un error de la API de MercadoPago para el evento de /admin y el aviso interno: status,
  * mensaje, código y causas (sale del cuerpo de la RESPUESTA de MercadoPago; el SDK nunca guarda el
  * token en el error). Por las dudas se enmascaran los mails y se recorta el largo.
  */
 export function resumenErrorMercadoPago(err: unknown): { status: number | null; texto: string } {
-  const e = (err ?? {}) as { name?: unknown; status?: unknown; message?: unknown; error?: unknown; causes?: unknown; cause?: unknown };
+  // Sin el nombre de la clase del error: en el build de producción queda minificado ("s") y no dice nada.
+  const e = (err ?? {}) as { status?: unknown; message?: unknown; error?: unknown; causes?: unknown; cause?: unknown };
   const status = typeof e.status === "number" ? e.status : null;
   const causas = Array.isArray(e.causes) && e.causes.length > 0 ? e.causes : Array.isArray(e.cause) ? e.cause : [];
   const partes = [
-    typeof e.name === "string" ? e.name : "Error",
     status != null ? `status ${status}` : null,
-    typeof e.message === "string" && e.message ? `mensaje: ${e.message}` : null,
+    typeof e.message === "string" && e.message ? e.message : null,
     typeof e.error === "string" && e.error ? `código: ${e.error}` : null,
     causas.length > 0 ? `causas: ${JSON.stringify(causas)}` : null,
   ].filter(Boolean);
-  const texto = partes
-    .join(" · ")
+  const texto = (partes.length > 0 ? partes.join(" · ") : "error desconocido")
     .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[mail]")
     .slice(0, 1500);
   return { status, texto };
