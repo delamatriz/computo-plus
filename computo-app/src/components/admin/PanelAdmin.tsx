@@ -51,6 +51,7 @@ const ETIQUETA_EVENTO: Record<string, string> = {
   EMPRESA_ELIMINADA: "Empresa eliminada",
   LIMPIEZA_AUTOMATICA: "Limpieza automática",
   SUSCRIPCION_MP: "Suscripción MercadoPago",
+  MP_ERROR: "Error de MercadoPago",
 };
 
 const fmtFecha = (iso: string) => new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });

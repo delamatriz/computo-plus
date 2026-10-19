@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { requerirSesion } from "@/lib/sesion";
 import { estadoEfectivo } from "@/lib/acceso";
 import { esPlanMP, MP_MONEDA, MP_PLANES, mpUrlBase } from "@/lib/config-mercadopago";
-import { clienteMercadoPago } from "@/lib/mercadopago";
+import { clienteMercadoPago, resumenErrorMercadoPago } from "@/lib/mercadopago";
+import { registrarEventoAdmin } from "@/lib/eventos-admin";
 
 // Inicia la suscripción mensual de la empresa en MercadoPago (preapproval pendiente) y devuelve
 // la URL de pago (init_point) a la que el navegador redirige. El estado real de la empresa lo
@@ -70,11 +71,20 @@ export async function POST(req: NextRequest) {
       });
     } catch (err) {
       console.error("[crear-suscripcion] MercadoPago rechazó la suscripción", err);
+      // Queda también en /admin → eventos del sistema, para diagnosticar sin los logs de Render.
+      const { status, texto } = resumenErrorMercadoPago(err);
+      await registrarEventoAdmin("MP_ERROR", sesion.empresaId, `crear-suscripcion:${status ?? "sin-status"}`, `Plan ${plan}: ${texto}`);
       return NextResponse.json({ error: "mp_error", mensaje: "No pudimos iniciar el pago. Probá de nuevo en un rato o escribinos." }, { status: 502 });
     }
 
     if (!preapproval.id || !preapproval.init_point) {
       console.error("[crear-suscripcion] respuesta de MercadoPago sin id o init_point", preapproval);
+      await registrarEventoAdmin(
+        "MP_ERROR",
+        sesion.empresaId,
+        "crear-suscripcion:sin-init-point",
+        `Plan ${plan}: MercadoPago respondió sin id o init_point (estado ${preapproval.status ?? "?"})`
+      );
       return NextResponse.json({ error: "mp_error", mensaje: "No pudimos iniciar el pago. Probá de nuevo en un rato o escribinos." }, { status: 502 });
     }
 
