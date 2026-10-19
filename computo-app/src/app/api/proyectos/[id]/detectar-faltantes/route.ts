@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirProyecto } from "@/lib/sesion";
 import { consumirFuncionAsistida, devolverConsumo, respuestaFuncionNoDisponible } from "@/lib/acceso";
+import { listaMTOPVigente } from "@/lib/listaMTOPVigente";
+import { detalleListaMTOP } from "@/lib/listaMTOP";
 
 
 const TIPOS_LABEL: Record<string, string> = {
@@ -77,6 +79,9 @@ export async function POST(
       })
       .join("\n\n");
 
+    // Número y mes de la lista oficial vigente, de la base (antes estaba escrito "N°599, Nov 2025").
+    const listaMTOP = await listaMTOPVigente();
+
     const prompt = `Tipo de obra: ${tipoLabel}
 
 PRESUPUESTO ACTUAL:
@@ -85,7 +90,7 @@ ${presupuestoTexto || "(sin capítulos)"}
 JORNALES SUNCA VIGENTES (Uruguay 2025):
 ${tablaJornales}
 
-PRECIOS DE REFERENCIA MTOP (Lista Nº599, Nov 2025, en UYU):
+PRECIOS DE REFERENCIA MTOP (${listaMTOP ? `Lista ${detalleListaMTOP(listaMTOP)}, ` : ""}en UYU):
 ${tablaMateriales}
 
 Devolvé SOLO un JSON con esta estructura exacta:

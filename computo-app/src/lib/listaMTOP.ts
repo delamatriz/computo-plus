@@ -199,3 +199,31 @@ export function fechaListaONormalizada(fecha: unknown): string {
 export function numeroListaONormalizado(n: unknown): number {
   return typeof n === "number" && Number.isInteger(n) && n > 0 && n < 100000 ? n : 0;
 }
+
+// ── Lista vigente: textos para mostrarla (pantalla y prompts de IA) ─────────────────────
+const MESES_CORTOS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"];
+
+/** Lista oficial MTOP más reciente cargada en el catálogo global (ver lib/listaMTOPVigente.ts). */
+export interface ListaMTOPVigente {
+  numero: number;
+  /** "YYYY-MM" o null si no se conoce. */
+  fecha: string | null;
+}
+
+/** "2026-06" → "Jun 2026"; null si el formato no es válido. */
+export function etiquetaFechaLista(fecha: string | null | undefined): string | null {
+  const m = typeof fecha === "string" ? /^(\d{4})-(0[1-9]|1[0-2])$/.exec(fecha) : null;
+  return m ? `${MESES_CORTOS[Number(m[2]) - 1]} ${m[1]}` : null;
+}
+
+/** "N°606" o "" si no hay lista: para "Lista Oficial MTOP N°606" sin dejar un número inventado. */
+export function sufijoNumeroLista(lista: ListaMTOPVigente | null): string {
+  return lista ? ` N°${lista.numero}` : "";
+}
+
+/** "N°606, Jun 2026" / "N°606" / "" — entre paréntesis en los prompts, al lado del título en pantalla. */
+export function detalleListaMTOP(lista: ListaMTOPVigente | null): string {
+  if (!lista) return "";
+  const fecha = etiquetaFechaLista(lista.fecha);
+  return fecha ? `N°${lista.numero}, ${fecha}` : `N°${lista.numero}`;
+}

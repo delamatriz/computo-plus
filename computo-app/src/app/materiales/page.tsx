@@ -9,6 +9,7 @@ import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
 import SeccionActualizacionDatos from "@/components/materiales/SeccionActualizacionDatos";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { anclaDeFiltro, EVENTO_FILTRO_MATERIALES, type AnclaFiltroMateriales } from "@/lib/filtrosMateriales";
+import { detalleListaMTOP, etiquetaFechaLista, sufijoNumeroLista, type ListaMTOPVigente } from "@/lib/listaMTOP";
 import { requiereVerificacionExplicita } from "@/lib/pendientesMateriales";
 import { useRolUsuario, useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
@@ -39,12 +40,21 @@ const CODIGOS_MATERIALES_REFERENCIA = new Set([
   "TEJA-COLONIAL",
 ]);
 
-const referencias: ReferenciaLink[] = [
-  {
-    titulo: "Lista de Precios MTOP N°599",
-    descripcion: "Precios de materiales de construcción — Ministerio de Transporte",
-    url: "https://www.gub.uy/ministerio-transporte-obras-publicas/tematica/precios-construccion",
-  },
+// El número y el mes de la lista MTOP salen de la base (GET /api/precios-mtop/lista-vigente): la
+// lista oficial más reciente cargada en el catálogo global. Sin lista, el texto va sin número.
+function referenciasConLista(lista: ListaMTOPVigente | null): ReferenciaLink[] {
+  const detalle = detalleListaMTOP(lista);
+  return [
+    {
+      titulo: `Lista de Precios MTOP${detalle ? ` ${detalle}` : ""}`,
+      descripcion: "Precios de materiales de construcción — Ministerio de Transporte",
+      url: "https://www.gub.uy/ministerio-transporte-obras-publicas/tematica/precios-construccion",
+    },
+    ...REFERENCIAS_FIJAS,
+  ];
+}
+
+const REFERENCIAS_FIJAS: ReferenciaLink[] = [
   {
     titulo: "Índice ICCV — INE",
     descripcion: "Índice del Costo de la Construcción de Vivienda",
@@ -180,6 +190,24 @@ function MaterialesPageInner() {
     cargar();
   }, [cargar]);
 
+  const [listaMTOP, setListaMTOP] = useState<ListaMTOPVigente | null>(null);
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/precios-mtop/lista-vigente")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelado) setListaMTOP(data?.lista ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+  // "Lista Oficial MTOP N°606 (Jun 2026)", o sin número/mes si todavía no cargó o no hay lista.
+  const listaOficial = `Lista Oficial MTOP${sufijoNumeroLista(listaMTOP)}`;
+  const fechaListaMTOP = etiquetaFechaLista(listaMTOP?.fecha);
+  const listaOficialConFecha = fechaListaMTOP ? `${listaOficial} (${fechaListaMTOP})` : listaOficial;
+
   const proveedoresExistentes = useMemo(() => {
     const set = new Set<string>();
     for (const m of materiales) if (m.proveedor) set.add(m.proveedor);
@@ -307,7 +335,7 @@ function MaterialesPageInner() {
             Catálogo de materiales de construcción y sus precios de referencia — {materiales.length} en total.
           </p>
           <p className="text-sm text-slate-400 mt-2 max-w-2xl">
-            Este catálogo combina la Lista Oficial MTOP N°599 con materiales de mercado libre y listas importadas. El
+            Este catálogo combina la {listaOficialConFecha} con materiales de mercado libre y listas importadas. El
             badge de cada fila indica si el precio está verificado, pendiente de verificar, o si falta cotizar. Usá
             los filtros para encontrar rápido lo que necesitás revisar.
             {puedeImportar && (
@@ -335,7 +363,7 @@ function MaterialesPageInner() {
       </div>
 
       <div className="mb-8">
-        <ListaReferencias items={referencias} />
+        <ListaReferencias items={referenciasConLista(listaMTOP)} />
       </div>
 
       {/* Buscador + filtros */}
@@ -386,7 +414,7 @@ function MaterialesPageInner() {
         </button>
         <button
           onClick={() => setFiltroReferencia((p) => !p)}
-          title="Materiales de mampostería que no están en la Lista Oficial MTOP N°599 — precio de referencia editable a mano"
+          title={`Materiales de mampostería que no están en la ${listaOficial} — precio de referencia editable a mano`}
           className={cn(
             "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
             filtroReferencia
@@ -400,7 +428,7 @@ function MaterialesPageInner() {
 
       {filtroReferencia && (
         <p className="text-xs text-slate-400 -mt-2 mb-4">
-          Materiales de mampostería que no están en la Lista Oficial MTOP N°599 — el resto del
+          Materiales de mampostería que no están en la {listaOficial}{" "}— el resto del
           catálogo se actualiza por separado, con &quot;Buscar precios actualizados&quot; más abajo.
           {" "}Última actualización de estos 12:{" "}
           {fechaMaximaReferencia ? fmtFecha(fechaMaximaReferencia) : "nunca actualizado"}.
