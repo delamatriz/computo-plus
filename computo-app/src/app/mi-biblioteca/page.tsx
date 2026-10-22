@@ -368,7 +368,6 @@ export default function MiBibliotecaPage() {
           <Bookmark className="inline w-3.5 h-3.5 align-text-bottom" aria-label="Guardar en mi biblioteca" /> al lado
           de cualquier rubro.
         </p>
-        <p className="text-slate-400 text-xs mt-1">Buscá por nombre del rubro.</p>
       </div>
 
       {vacia ? (
@@ -388,7 +387,7 @@ export default function MiBibliotecaPage() {
               type="text"
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
-              placeholder="Buscar rubro por nombre…"
+              placeholder="Ej: revoque, hormigón, pintura…"
               aria-label="Buscar rubro por nombre"
               className="w-full pl-9 pr-3 py-2.5 text-sm bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 focus:border-[#2563EB]/40 placeholder:text-slate-300"
             />
