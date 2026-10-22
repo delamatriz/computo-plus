@@ -262,14 +262,17 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
       {/* Nav central */}
       <nav className="hidden md:flex items-center gap-1">
         {[
-          { href: "/proyectos", label: "Mis Proyectos" },
+          // /inicio también marca activo a "Mis Proyectos" — coincidencia
+          // exacta, para no matchear otra ruta que empiece igual; /proyectos
+          // cubre sus subrutas.
+          { href: "/proyectos", label: "Mis Proyectos", rutasActivas: ["/proyectos", "/inicio"] },
         ].map((item) => (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
               "px-3.5 py-2 rounded-[8px] text-sm font-medium transition-colors whitespace-nowrap",
-              pathname.startsWith(item.href)
+              item.rutasActivas.some((ruta) => (ruta === "/inicio" ? pathname === ruta : pathname.startsWith(ruta)))
                 ? "bg-brand-pale text-brand-accent"
                 : "text-text-secondary hover:text-text-primary hover:bg-bg-base"
             )}
