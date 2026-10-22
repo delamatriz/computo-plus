@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   Search,
   ChevronRight,
   ChevronDown,
@@ -122,17 +124,21 @@ function ArbolBiblioteca({
   const filtroActivo = filtro.trim().length > 0;
   const q = norm(filtro.trim());
 
-  // Árbol filtrado por búsqueda — solo quedan las ramas con al menos un match
+  // Árbol filtrado por búsqueda — solo quedan las ramas con al menos un match.
+  // Si coincide el nombre del capítulo (ej. "demoliciones") queda entero; lo
+  // mismo con un subcapítulo. Si no, se filtra rubro por rubro.
   const capitulosFiltrados = useMemo(() => {
     if (!filtroActivo) return capitulos;
     return capitulos
       .map((c) => {
+        if (norm(c.nombre).includes(q)) return c;
         const subrubrosDirectos = c.subrubrosDirectos.filter((r) => norm(r.descripcion).includes(q));
         const subcapitulos = c.subcapitulos
-          .map((sc) => ({
-            ...sc,
-            subrubros: sc.subrubros.filter((r) => norm(r.descripcion).includes(q)),
-          }))
+          .map((sc) =>
+            norm(sc.nombre).includes(q)
+              ? sc
+              : { ...sc, subrubros: sc.subrubros.filter((r) => norm(r.descripcion).includes(q)) }
+          )
           .filter((sc) => sc.subrubros.length > 0);
         return { ...c, subrubrosDirectos, subcapitulos };
       })
@@ -466,10 +472,19 @@ export default function BibliotecaPage() {
   return (
     <div className="p-6 md:p-8">
       <div className="mb-6">
-        <BotonVolverAlProyecto />
-        <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-1">Biblioteca</h1>
+        <div className="flex flex-wrap items-center gap-x-5 mb-4">
+          <Link
+            href="/proyectos"
+            className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#2563EB] transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Mis Proyectos
+          </Link>
+          <BotonVolverAlProyecto className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#2563EB] transition-colors" />
+        </div>
+        <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-1">Catálogo de Rubros</h1>
         <p className="text-slate-500 text-sm">
-          Catálogo maestro de rubros y sus descompuestos (APU) — consulta de solo lectura.
+          Explorá los rubros de obra con sus análisis de precios (APU). Hacé clic en un capítulo para ver sus
+          rubros y el desglose completo de materiales, mano de obra y equipos.
           {totalRubros > 0 && <span className="text-slate-400"> {totalRubros} rubros disponibles.</span>}
         </p>
       </div>
@@ -484,7 +499,7 @@ export default function BibliotecaPage() {
                 type="text"
                 value={filtro}
                 onChange={(e) => setFiltro(e.target.value)}
-                placeholder="Buscar rubro por nombre…"
+                placeholder="Buscar capítulo o rubro…"
                 className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 focus:border-[#2563EB]/40 placeholder:text-slate-300"
               />
             </div>
