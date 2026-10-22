@@ -285,7 +285,7 @@ function PanelDescompuesto({ data }: { data: Descompuesto }) {
       ) : (
         <div className="px-6 py-5 space-y-6">
           <SeccionMateriales materiales={apu.materiales} />
-          <SeccionManoObra manoObra={apu.manoObra} />
+          <SeccionManoObra manoObra={apu.manoObra} unidad={data.unidad} />
           {apu.equipos.length > 0 && <SeccionEquipos equipos={apu.equipos} />}
 
           {/* Resumen final */}
@@ -333,10 +333,41 @@ function SeccionAPU({
   );
 }
 
+// Encabezados de columna de cada sección del APU — mismos anchos que las
+// columnas numéricas de las filas de abajo (w-24 / w-20 / w-24 salvo que
+// la sección pase otro).
+function EncabezadosAPU({
+  columnas,
+}: {
+  columnas: { label: string; ancho?: string; title?: string }[];
+}) {
+  const [primera, ...resto] = columnas;
+  return (
+    <div className="flex items-center gap-2 px-2 pb-1 mb-0.5 border-b border-slate-100 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+      <span className="flex-1 min-w-0" title={primera.title}>
+        {primera.label}
+      </span>
+      {resto.map((c) => (
+        <span key={c.label} className={cn("flex-shrink-0 text-right", c.ancho)} title={c.title}>
+          {c.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function SeccionMateriales({ materiales }: { materiales: MaterialDescompuesto[] }) {
   if (materiales.length === 0) return null;
   return (
     <SeccionAPU titulo="Materiales" icono={<Package className="w-3.5 h-3.5 text-slate-400" />}>
+      <EncabezadosAPU
+        columnas={[
+          { label: "Descripción" },
+          { label: "Cantidad", ancho: "w-24", title: "Cantidad de material por unidad de rubro" },
+          { label: "Precio unit.", ancho: "w-20" },
+          { label: "Total", ancho: "w-24", title: "Cantidad × precio unitario" },
+        ]}
+      />
       <div className="space-y-1">
         {materiales.map((m) => (
           <div key={m.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 text-sm">
@@ -376,16 +407,27 @@ function SeccionMateriales({ materiales }: { materiales: MaterialDescompuesto[] 
   );
 }
 
-function SeccionManoObra({ manoObra }: { manoObra: ManoObraDescompuesto[] }) {
+// rendimiento = unidades del rubro producidas por jornada de jornadaHs horas
+// (la línea de MO no guarda unidad propia: es la del rubro). El total es
+// jornal ÷ rendimiento — costo de MO por unidad de rubro.
+function SeccionManoObra({ manoObra, unidad }: { manoObra: ManoObraDescompuesto[]; unidad: string }) {
   if (manoObra.length === 0) return null;
   return (
     <SeccionAPU titulo="Mano de obra" icono={<Hammer className="w-3.5 h-3.5 text-slate-400" />}>
+      <EncabezadosAPU
+        columnas={[
+          { label: "Categoría" },
+          { label: "Rendimiento", ancho: "w-36", title: `Unidades de rubro (${unidad}) producidas por jornada` },
+          { label: "Jornal", ancho: "w-20", title: "Jornal de referencia por jornada completa" },
+          { label: "Total", ancho: "w-24", title: `Jornal ÷ rendimiento, por ${unidad}` },
+        ]}
+      />
       <div className="space-y-1">
         {manoObra.map((mo) => (
           <div key={mo.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 text-sm">
             <span className="flex-1 min-w-0 truncate text-slate-700">{mo.categoria}</span>
-            <span className="flex-shrink-0 text-slate-400 text-xs w-28 text-right">
-              rinde {fmtRendimiento(mo.rendimiento)} {`/ ${mo.jornadaHs}hs`}
+            <span className="flex-shrink-0 text-slate-400 text-xs w-36 text-right">
+              {fmtRendimiento(mo.rendimiento)} {unidad} / jornada de {fmtNum(mo.jornadaHs, 1)} h
             </span>
             <span
               className={cn(
@@ -408,6 +450,14 @@ function SeccionManoObra({ manoObra }: { manoObra: ManoObraDescompuesto[] }) {
 function SeccionEquipos({ equipos }: { equipos: EquipoDescompuesto[] }) {
   return (
     <SeccionAPU titulo="Equipos" icono={<Wrench className="w-3.5 h-3.5 text-slate-400" />}>
+      <EncabezadosAPU
+        columnas={[
+          { label: "Descripción" },
+          { label: "Cantidad", ancho: "w-24", title: "Cantidad de equipo por unidad de rubro" },
+          { label: "Costo unit.", ancho: "w-20" },
+          { label: "Total", ancho: "w-24", title: "Cantidad × costo unitario" },
+        ]}
+      />
       <div className="space-y-1">
         {equipos.map((eq) => (
           <div key={eq.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 text-sm">
@@ -505,6 +555,11 @@ export default function BibliotecaPage() {
             </div>
           </div>
           <div className="max-h-[70vh] overflow-y-auto p-2">
+            {/* La lista inicial son capítulos, no rubros sueltos; con búsqueda
+                activa se mezclan capítulos enteros y rubros que coinciden. */}
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 px-2 pt-1 pb-1.5">
+              {filtro.trim() ? "Resultados" : "Capítulos"}
+            </p>
             {cargandoArbol ? (
               <div className="flex items-center justify-center py-10 text-slate-300">
                 <Loader2 className="w-5 h-5 animate-spin" />
