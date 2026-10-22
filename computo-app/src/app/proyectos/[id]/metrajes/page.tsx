@@ -1,9 +1,11 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { Suspense } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Ruler } from "lucide-react";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
+import { proyectoIdDesdeParams } from "@/lib/proyectoActual";
 
 // Esta página dejó de ser la página de TRABAJO de metrajes — ese contenido
 // (Documentación para metrar, Planilla de cómputo, Calculadora, Visor) vive
@@ -109,6 +111,34 @@ const PASOS_METRAR: PasoMetrar[] = [
   },
 ];
 
+// Sin ?from= se llegó desde el sidebar sin proyecto activo: /metrajes
+// redirige igual al proyecto más viejo (ver /app/metrajes/page.tsx) para
+// tener dónde mostrar esta guía, pero ese proyecto no es "el del usuario" —
+// en vez de mandarlo a su presupuesto, el botón lleva a Mis Proyectos.
+// Suspense propio por useSearchParams(), mismo patrón que BotonVolverAlProyecto.
+const CLASE_BOTON =
+  "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors flex-shrink-0";
+
+function BotonIrAPresupuestoInner({ proyectoId }: { proyectoId: string }) {
+  const searchParams = useSearchParams();
+  const vieneDeProyecto = proyectoIdDesdeParams(searchParams) !== null;
+
+  return (
+    <Link href={vieneDeProyecto ? `/proyectos/${proyectoId}` : "/proyectos"} className={CLASE_BOTON}>
+      {vieneDeProyecto ? "Ir a Presupuesto" : "Mis Proyectos"}
+      <ArrowRight className="w-3.5 h-3.5" />
+    </Link>
+  );
+}
+
+function BotonIrAPresupuesto({ proyectoId }: { proyectoId: string }) {
+  return (
+    <Suspense fallback={null}>
+      <BotonIrAPresupuestoInner proyectoId={proyectoId} />
+    </Suspense>
+  );
+}
+
 export default function MetrajesPage() {
   const params = useParams();
   const proyectoId = (params?.id as string) ?? "";
@@ -129,13 +159,7 @@ export default function MetrajesPage() {
           <p className="text-sm text-slate-500 max-w-xl">
             El camino corto entre un plano y un rubro con su cantidad cargada.
           </p>
-          <Link
-            href={`/proyectos/${proyectoId}`}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors flex-shrink-0"
-          >
-            Ir a Presupuesto
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <BotonIrAPresupuesto proyectoId={proyectoId} />
         </div>
 
         <ol className="space-y-3">
