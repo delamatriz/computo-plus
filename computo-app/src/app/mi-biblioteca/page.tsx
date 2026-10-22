@@ -356,12 +356,17 @@ export default function MiBibliotecaPage() {
         <BotonVolverAlProyecto />
         <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-1">Mi biblioteca</h1>
         <p className="text-slate-500 text-sm">
-          Guardá los rubros que más usás desde tus proyectos y reutilizalos en futuros presupuestos sin armar el
-          APU desde cero. Cada rubro guardado conserva su descompuesto completo con materiales, mano de obra y
-          precios.
+          Tus rubros favoritos, listos para reutilizar. Guardá cualquier rubro desde un proyecto y aparece acá con
+          su APU completo.
           {!cargando && subrubros.length > 0 && !filtro.trim() && (
             <span className="text-slate-400"> {subrubros.length} {subrubros.length === 1 ? "rubro guardado" : "rubros guardados"}.</span>
           )}
+        </p>
+        {/* Mismo ícono (Bookmark) que el botón "Guardar en mi biblioteca" de cada fila de rubro del presupuesto. */}
+        <p className="text-slate-400 text-xs mt-1">
+          Para guardar un rubro: abrí un proyecto → presupuesto → hacé clic en el ícono{" "}
+          <Bookmark className="inline w-3.5 h-3.5 align-text-bottom" aria-label="Guardar en mi biblioteca" /> al lado
+          de cualquier rubro.
         </p>
         <p className="text-slate-400 text-xs mt-1">Buscá por nombre del rubro.</p>
       </div>
