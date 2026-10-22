@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Bookmark, ChevronDown, ChevronRight, Hammer, Loader2, Package, Search, Trash2, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
+import { EncabezadosAPU, textoRendimientoMO } from "@/components/shared/EncabezadosAPU";
 
 // Biblioteca personal de rubros de la empresa (SubrubroEmpresa) — se llena
 // desde "Guardar en mi biblioteca" en cada fila de rubro del proyecto. Solo
@@ -36,6 +37,7 @@ interface ManoObraEmpresa {
   cantidad: number;
   jornal: number;
   costoTotal: number;
+  jornadasHoras: number | null;
 }
 
 interface APUEmpresa {
@@ -70,13 +72,29 @@ const fmtFecha = (iso: string) =>
 
 // ── Descompuesto ───────────────────────────────────────────────────────
 
-function SeccionAPU({ titulo, icono, children }: { titulo: string; icono: React.ReactNode; children: React.ReactNode }) {
+// Anchos de las columnas numéricas de FilaInsumo — los encabezados usan los mismos.
+const ANCHO_DETALLE = "w-36";
+const ANCHO_PRECIO = "hidden sm:inline w-24";
+const ANCHO_TOTAL = "w-24";
+
+function SeccionAPU({
+  titulo,
+  icono,
+  columnas,
+  children,
+}: {
+  titulo: string;
+  icono: React.ReactNode;
+  columnas: React.ComponentProps<typeof EncabezadosAPU>["columnas"];
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-2">
         {icono}
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide">{titulo}</h3>
       </div>
+      <EncabezadosAPU columnas={columnas} />
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -93,9 +111,9 @@ function FilaInsumo({ descripcion, detalle, precio, subtotal, aviso }: { descrip
           </span>
         )}
       </div>
-      <span className="flex-shrink-0 text-slate-400 text-xs w-28 text-right">{detalle}</span>
-      <span className="hidden sm:inline flex-shrink-0 text-xs w-24 text-right text-slate-500">{precio}</span>
-      <span className="flex-shrink-0 font-semibold text-slate-700 text-xs w-24 text-right">{fmtMoneda(subtotal)}</span>
+      <span className={cn("flex-shrink-0 text-slate-400 text-xs text-right", ANCHO_DETALLE)}>{detalle}</span>
+      <span className={cn("flex-shrink-0 text-xs text-right text-slate-500", ANCHO_PRECIO)}>{precio}</span>
+      <span className={cn("flex-shrink-0 font-semibold text-slate-700 text-xs text-right", ANCHO_TOTAL)}>{fmtMoneda(subtotal)}</span>
     </div>
   );
 }
@@ -104,7 +122,16 @@ function Descompuesto({ apu, unidad, precioUY }: { apu: APUEmpresa; unidad: stri
   return (
     <div className="px-5 py-5 space-y-6 border-t border-slate-100">
       {apu.materiales.length > 0 && (
-        <SeccionAPU titulo="Materiales" icono={<Package className="w-3.5 h-3.5 text-slate-400" />}>
+        <SeccionAPU
+          titulo="Materiales"
+          icono={<Package className="w-3.5 h-3.5 text-slate-400" />}
+          columnas={[
+            { label: "Descripción" },
+            { label: "Cantidad", ancho: ANCHO_DETALLE, title: "Cantidad de material por unidad de rubro" },
+            { label: "Precio unit.", ancho: ANCHO_PRECIO },
+            { label: "Total", ancho: ANCHO_TOTAL, title: "Cantidad × precio unitario" },
+          ]}
+        >
           {apu.materiales.map((m) => (
             <FilaInsumo
               key={m.id}
@@ -118,12 +145,21 @@ function Descompuesto({ apu, unidad, precioUY }: { apu: APUEmpresa; unidad: stri
         </SeccionAPU>
       )}
       {apu.manoObra.length > 0 && (
-        <SeccionAPU titulo="Mano de obra" icono={<Hammer className="w-3.5 h-3.5 text-slate-400" />}>
+        <SeccionAPU
+          titulo="Mano de obra"
+          icono={<Hammer className="w-3.5 h-3.5 text-slate-400" />}
+          columnas={[
+            { label: "Categoría" },
+            { label: "Rendimiento", ancho: ANCHO_DETALLE, title: `Unidades de rubro (${unidad}) producidas por jornada` },
+            { label: "Jornal", ancho: ANCHO_PRECIO, title: "Jornal de referencia por jornada completa" },
+            { label: "Total", ancho: ANCHO_TOTAL, title: `Costo de mano de obra por ${unidad}` },
+          ]}
+        >
           {apu.manoObra.map((mo) => (
             <FilaInsumo
               key={mo.id}
               descripcion={mo.categoria}
-              detalle={`rinde ${fmtNum(mo.cantidad)} ${unidad}/jornal`}
+              detalle={textoRendimientoMO(mo.cantidad, unidad, mo.jornadasHoras ?? 8)}
               precio={fmtMoneda(mo.jornal)}
               subtotal={mo.costoTotal}
             />
@@ -131,7 +167,16 @@ function Descompuesto({ apu, unidad, precioUY }: { apu: APUEmpresa; unidad: stri
         </SeccionAPU>
       )}
       {apu.equipos.length > 0 && (
-        <SeccionAPU titulo="Equipos" icono={<Wrench className="w-3.5 h-3.5 text-slate-400" />}>
+        <SeccionAPU
+          titulo="Equipos"
+          icono={<Wrench className="w-3.5 h-3.5 text-slate-400" />}
+          columnas={[
+            { label: "Descripción" },
+            { label: "Cantidad", ancho: ANCHO_DETALLE, title: "Cantidad de equipo por unidad de rubro" },
+            { label: "Costo unit.", ancho: ANCHO_PRECIO },
+            { label: "Total", ancho: ANCHO_TOTAL, title: "Cantidad × costo unitario" },
+          ]}
+        >
           {apu.equipos.map((eq) => (
             <FilaInsumo
               key={eq.id}
@@ -311,8 +356,9 @@ export default function MiBibliotecaPage() {
         <BotonVolverAlProyecto />
         <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-1">Mi biblioteca</h1>
         <p className="text-slate-500 text-sm">
-          Tus rubros guardados desde tus proyectos, con su APU completo. Usá esta biblioteca para reutilizar
-          rubros en nuevos proyectos sin tener que armar el descompuesto desde cero.
+          Guardá los rubros que más usás desde tus proyectos y reutilizalos en futuros presupuestos sin armar el
+          APU desde cero. Cada rubro guardado conserva su descompuesto completo con materiales, mano de obra y
+          precios.
           {!cargando && subrubros.length > 0 && !filtro.trim() && (
             <span className="text-slate-400"> {subrubros.length} {subrubros.length === 1 ? "rubro guardado" : "rubros guardados"}.</span>
           )}

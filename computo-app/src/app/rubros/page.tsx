@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
+import { EncabezadosAPU, textoRendimientoMO } from "@/components/shared/EncabezadosAPU";
 import { fmtRendimiento } from "@/lib/formatoNumeros";
 
 // ── Tipos ──────────────────────────────────────────────────────────────
@@ -333,29 +334,6 @@ function SeccionAPU({
   );
 }
 
-// Encabezados de columna de cada sección del APU — mismos anchos que las
-// columnas numéricas de las filas de abajo (w-24 / w-20 / w-24 salvo que
-// la sección pase otro).
-function EncabezadosAPU({
-  columnas,
-}: {
-  columnas: { label: string; ancho?: string; title?: string }[];
-}) {
-  const [primera, ...resto] = columnas;
-  return (
-    <div className="flex items-center gap-2 px-2 pb-1 mb-0.5 border-b border-slate-100 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-      <span className="flex-1 min-w-0" title={primera.title}>
-        {primera.label}
-      </span>
-      {resto.map((c) => (
-        <span key={c.label} className={cn("flex-shrink-0 text-right", c.ancho)} title={c.title}>
-          {c.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 function SeccionMateriales({ materiales }: { materiales: MaterialDescompuesto[] }) {
   if (materiales.length === 0) return null;
   return (
@@ -427,7 +405,7 @@ function SeccionManoObra({ manoObra, unidad }: { manoObra: ManoObraDescompuesto[
           <div key={mo.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 text-sm">
             <span className="flex-1 min-w-0 truncate text-slate-700">{mo.categoria}</span>
             <span className="flex-shrink-0 text-slate-400 text-xs w-36 text-right">
-              {fmtRendimiento(mo.rendimiento)} {unidad} / jornada de {fmtNum(mo.jornadaHs, 1)} h
+              {textoRendimientoMO(mo.rendimiento, unidad, mo.jornadaHs)}
             </span>
             <span
               className={cn(
