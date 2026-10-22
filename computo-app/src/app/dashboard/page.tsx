@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
+import { Settings } from "lucide-react";
 import GraficoProyectosPorMes from "@/components/dashboard/GraficoProyectosPorMes";
 import { sesionActual } from "@/lib/sesion";
 import { redirect } from "next/navigation";
@@ -118,19 +119,27 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6 md:p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-[#1A3A5C]">Panel de control</h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Resumen general de todos tus proyectos y del estado del catálogo de materiales.
-        </p>
-        <p className="text-slate-400 text-xs mt-1">
-          {new Date().toLocaleDateString("es-UY", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-[#1A3A5C]">Panel de control</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Resumen general de todos tus proyectos y del estado del catálogo de materiales.
+          </p>
+          <p className="text-slate-400 text-xs mt-1">
+            {new Date().toLocaleDateString("es-UY", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+        </div>
+        <Link
+          href="/configuracion"
+          className="inline-flex shrink-0 items-center gap-1.5 text-sm text-slate-500 hover:text-[#2563EB] transition-colors"
+        >
+          <Settings className="w-3.5 h-3.5" /> Configuración
+        </Link>
       </div>
 
       {/* Tarjetas KPI — 3 estados (PAUSADO afuera, inalcanzable) + total por moneda + cola de revisión */}

@@ -85,8 +85,8 @@ export default function RevisionPreciosPage() {
       <div>
         <BotonVolverAlProyecto />
       </div>
-      <Link href="/configuracion" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#2563EB] transition-colors mb-4">
-        <ArrowLeft className="w-3.5 h-3.5" /> Configuración
+      <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#2563EB] transition-colors mb-4">
+        <ArrowLeft className="w-3.5 h-3.5" /> Panel de control
       </Link>
       <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Cola de Revisión — Precios de Materiales</h1>
       <p className="text-slate-500 mb-8">
