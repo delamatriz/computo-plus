@@ -362,11 +362,10 @@ export default function MiBibliotecaPage() {
             <span className="text-slate-400"> {subrubros.length} {subrubros.length === 1 ? "rubro guardado" : "rubros guardados"}.</span>
           )}
         </p>
-        {/* Mismo ícono (Bookmark) que el botón "Guardar en mi biblioteca" de cada fila de rubro del presupuesto. */}
+        {/* "Guardar en mi biblioteca" es el tooltip exacto del botón de cada fila de rubro del presupuesto. */}
         <p className="text-slate-400 text-xs mt-1">
-          Para guardar un rubro: abrí un proyecto → presupuesto → hacé clic en el ícono{" "}
-          <Bookmark className="inline w-3.5 h-3.5 align-text-bottom" aria-label="Guardar en mi biblioteca" /> al lado
-          de cualquier rubro.
+          Para guardar un rubro: abrí un proyecto → presupuesto → hacé clic en{" "}
+          <span className="font-medium text-slate-500">Guardar en mi biblioteca</span> al lado de cualquier rubro.
         </p>
       </div>
 
@@ -387,7 +386,7 @@ export default function MiBibliotecaPage() {
               type="text"
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
-              placeholder="Ej: revoque, hormigón, pintura…"
+              placeholder="Buscá por nombre del rubro…"
               aria-label="Buscar rubro por nombre"
               className="w-full pl-9 pr-3 py-2.5 text-sm bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 focus:border-[#2563EB]/40 placeholder:text-slate-300"
             />
