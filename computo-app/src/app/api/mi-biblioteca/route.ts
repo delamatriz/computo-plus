@@ -3,8 +3,13 @@ import { db } from "@/lib/db";
 import { requerirSesion } from "@/lib/sesion";
 
 // Biblioteca personal de rubros de la empresa del usuario (SubrubroEmpresa),
-// con sus APUs completos. ?q= filtra por nombre (contiene, sin distinguir
-// mayúsculas).
+// con sus APUs completos. ?q= filtra por nombre: tienen que aparecer todas
+// las palabras, en cualquier orden, sin distinguir mayúsculas ni tildes
+// ("picado revoques" encuentra "Picado de revoques"). Se filtra en memoria:
+// Postgres no ignora tildes sin la extensión unaccent, y la biblioteca de
+// una empresa es chica.
+const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
 export async function GET(req: NextRequest) {
   const sesion = await requerirSesion();
   if (sesion instanceof NextResponse) return sesion;
@@ -24,10 +29,7 @@ export async function GET(req: NextRequest) {
     }
 
     const subrubros = await db.subrubroEmpresa.findMany({
-      where: {
-        empresaId: sesion.empresaId,
-        ...(q ? { nombre: { contains: q, mode: "insensitive" as const } } : {}),
-      },
+      where: { empresaId: sesion.empresaId },
       orderBy: { nombre: "asc" },
       include: {
         apus: {
@@ -39,7 +41,14 @@ export async function GET(req: NextRequest) {
         },
       },
     });
-    return NextResponse.json(subrubros);
+    const palabras = q ? norm(q).split(/\s+/).filter(Boolean) : [];
+    const filtrados = palabras.length
+      ? subrubros.filter((s) => {
+          const nombre = norm(s.nombre);
+          return palabras.every((p) => nombre.includes(p));
+        })
+      : subrubros;
+    return NextResponse.json(filtrados);
   } catch (err) {
     console.error("[GET /api/mi-biblioteca]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });

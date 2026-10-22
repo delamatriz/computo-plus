@@ -311,11 +311,13 @@ export default function MiBibliotecaPage() {
         <BotonVolverAlProyecto />
         <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-1">Mi biblioteca</h1>
         <p className="text-slate-500 text-sm">
-          Los rubros que guardaste desde tus proyectos, con su descompuesto (APU) completo.
+          Tus rubros guardados desde tus proyectos, con su APU completo. Usá esta biblioteca para reutilizar
+          rubros en nuevos proyectos sin tener que armar el descompuesto desde cero.
           {!cargando && subrubros.length > 0 && !filtro.trim() && (
             <span className="text-slate-400"> {subrubros.length} {subrubros.length === 1 ? "rubro guardado" : "rubros guardados"}.</span>
           )}
         </p>
+        <p className="text-slate-400 text-xs mt-1">Buscá por nombre del rubro.</p>
       </div>
 
       {vacia ? (
