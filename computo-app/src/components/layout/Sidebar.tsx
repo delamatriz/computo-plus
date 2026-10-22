@@ -13,8 +13,8 @@ import { motion, AnimatePresence } from "framer-motion";
 // de md y el único acceso mobile pasa a ser este drawer (mismo Sidebar,
 // reusado con mobileOpen). No había ningún ítem acá que llevara a
 // /proyectos — el link quedaba inalcanzable en mobile puro. Mismo
-// destino/comportamiento que la píldora de desktop (startsWith para el
-// estado activo, ver el check de `active` más abajo).
+// destino que la píldora de desktop; el estado activo lo decide
+// esActivo() más abajo.
 //
 // Sin íconos a propósito — navegación solo texto para consistencia
 // visual en todo el Sidebar (antes cada ítem tenía un ícono propio).
@@ -28,7 +28,6 @@ const navItems = [
     section: "Presupuestación",
     items: [
       { href: "/dashboard", label: "Panel de control" },
-      { href: "/proyectos", label: "Mis Proyectos" },
       { href: "/metrajes", label: "Metrajes" },
       { href: "/rubros", label: "Catálogo de Rubros" },
       { href: "/mi-biblioteca", label: "Mi biblioteca" },
@@ -51,6 +50,35 @@ const navItems = [
     ],
   },
 ];
+
+// "Mis Proyectos" va suelto, debajo de "Nuevo proyecto" y antes de
+// PRESUPUESTACIÓN — ítem de navegación principal, no una pantalla más de
+// presupuestación. Mismo estilo de ítem que el resto.
+const ITEM_MIS_PROYECTOS = { href: "/proyectos", label: "Mis Proyectos" };
+
+// /metrajes redirige a /proyectos/[id]/metrajes (ver /app/metrajes/page.tsx):
+// esa ruta es de Metrajes, no de Mis Proyectos.
+const RUTA_METRAJES_DE_PROYECTO = /^\/proyectos\/[^/]+\/metrajes(\/|$)/;
+
+function coincide(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+// Cada ítem se marca activo solo en sus propias rutas. /proyectos/nuevo
+// tiene su propio botón ("Nuevo proyecto"), no marca a Mis Proyectos.
+function esActivo(pathname: string, href: string): boolean {
+  if (href === "/proyectos") {
+    return (
+      coincide(pathname, href) &&
+      !coincide(pathname, "/proyectos/nuevo") &&
+      !RUTA_METRAJES_DE_PROYECTO.test(pathname)
+    );
+  }
+  if (href === "/metrajes") {
+    return coincide(pathname, href) || RUTA_METRAJES_DE_PROYECTO.test(pathname);
+  }
+  return coincide(pathname, href);
+}
 
 // Ítems que saben volver al proyecto de origen (ver
 // BotonVolverAlProyecto) — Metrajes SÍ entra acá: su redirect propio
@@ -105,6 +133,49 @@ export function Sidebar({
   // /proyectos/nuevo no es un id real — sin esta exclusión, "Volver al
   // proyecto" desde ahí apuntaría a /proyectos/nuevo (nada que volver).
   const proyectoIdActual = proyectoIdDesdePath(pathname);
+
+  const renderItem = (item: { href: string; label: string; dividerBefore?: boolean }) => {
+    const active = esActivo(pathname, item.href);
+    const href =
+      proyectoIdActual && ITEMS_CON_VOLVER_AL_PROYECTO.has(item.href)
+        ? `${item.href}?from=${proyectoIdActual}`
+        : item.href;
+    return (
+      <Fragment key={item.href}>
+        {item.dividerBefore && (
+          <li key={`${item.href}-divider`} aria-hidden="true" className="py-1.5">
+            <div className="border-t border-white/10" />
+          </li>
+        )}
+        <li key={item.href}>
+          <Link
+            href={href}
+            title={collapsed ? item.label : undefined}
+            className={cn(
+              "flex items-center rounded-[8px] transition-colors text-sm font-medium",
+              collapsed ? "justify-center p-2.5" : "px-3 py-2.5",
+              active
+                ? "bg-white/15 text-white"
+                : "text-white/55 hover:text-white hover:bg-white/8"
+            )}
+          >
+            {collapsed ? (
+              <span
+                className={cn(
+                  "text-[11px] font-bold tracking-wide",
+                  active && "text-brand-accent"
+                )}
+              >
+                {monograma(item.label)}
+              </span>
+            ) : (
+              <span>{item.label}</span>
+            )}
+          </Link>
+        </li>
+      </Fragment>
+    );
+  };
 
   return (
     <>
@@ -193,6 +264,7 @@ export function Sidebar({
 
       {/* Navegación */}
       <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-5">
+        <ul className="space-y-0.5">{renderItem(ITEM_MIS_PROYECTOS)}</ul>
         {navItems.map((section) => (
           <div key={section.section}>
             {!collapsed && (
@@ -201,48 +273,7 @@ export function Sidebar({
               </p>
             )}
             <ul className="space-y-0.5">
-              {section.items.map((item) => {
-                const active = pathname === item.href || pathname.startsWith(item.href);
-                const href =
-                  proyectoIdActual && ITEMS_CON_VOLVER_AL_PROYECTO.has(item.href)
-                    ? `${item.href}?from=${proyectoIdActual}`
-                    : item.href;
-                return (
-                  <Fragment key={item.href}>
-                    {item.dividerBefore && (
-                      <li key={`${item.href}-divider`} aria-hidden="true" className="py-1.5">
-                        <div className="border-t border-white/10" />
-                      </li>
-                    )}
-                    <li key={item.href}>
-                      <Link
-                        href={href}
-                        title={collapsed ? item.label : undefined}
-                        className={cn(
-                          "flex items-center rounded-[8px] transition-colors text-sm font-medium",
-                          collapsed ? "justify-center p-2.5" : "px-3 py-2.5",
-                          active
-                            ? "bg-white/15 text-white"
-                            : "text-white/55 hover:text-white hover:bg-white/8"
-                        )}
-                      >
-                        {collapsed ? (
-                          <span
-                            className={cn(
-                              "text-[11px] font-bold tracking-wide",
-                              active && "text-brand-accent"
-                            )}
-                          >
-                            {monograma(item.label)}
-                          </span>
-                        ) : (
-                          <span>{item.label}</span>
-                        )}
-                      </Link>
-                    </li>
-                  </Fragment>
-                );
-              })}
+              {section.items.map(renderItem)}
             </ul>
           </div>
         ))}
