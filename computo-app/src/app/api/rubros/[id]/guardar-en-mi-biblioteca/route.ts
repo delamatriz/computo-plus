@@ -55,11 +55,11 @@ export async function POST(
     const nombre = rubro.descripcion.trim().replace(/\s+/g, " ");
     const unidad = rubro.unidad.trim();
     if (!nombre || !unidad) {
-      return NextResponse.json({ error: "sin_datos", mensaje: "El rubro necesita descripción y unidad para guardarse en tu biblioteca." }, { status: 400 });
+      return NextResponse.json({ error: "sin_datos", mensaje: "El rubro necesita descripción y unidad para guardarse en Mis rubros." }, { status: 400 });
     }
     const apu = rubro.apu;
     if (!apu || apu.materiales.length + apu.manoObra.length + apu.equipos.length === 0) {
-      return NextResponse.json({ error: "sin_apu", mensaje: "El rubro no tiene descompuesto (APU) — no hay nada que guardar en tu biblioteca." }, { status: 400 });
+      return NextResponse.json({ error: "sin_apu", mensaje: "El rubro no tiene descompuesto (APU) — no hay nada que guardar en Mis rubros." }, { status: 400 });
     }
 
     // Mismo nombre en la biblioteca de esta empresa (sin distinguir mayúsculas
@@ -70,7 +70,7 @@ export async function POST(
     });
     const existente = candidatos.find((s) => normalizar(s.nombre) === normalizar(nombre));
     if (existente) {
-      return NextResponse.json({ error: "ya_existe", mensaje: "Ya está en tu biblioteca.", id: existente.id }, { status: 409 });
+      return NextResponse.json({ error: "ya_existe", mensaje: "Ya está en Mis rubros.", id: existente.id }, { status: 409 });
     }
 
     const idsMTOP = apu.materiales.map((m) => m.precioMTOPId).filter((x): x is string => !!x);

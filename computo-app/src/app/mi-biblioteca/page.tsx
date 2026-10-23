@@ -7,7 +7,7 @@ import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto
 import { EncabezadosAPU, textoRendimientoMO } from "@/components/shared/EncabezadosAPU";
 
 // Biblioteca personal de rubros de la empresa (SubrubroEmpresa) — se llena
-// desde "Guardar en mi biblioteca" en cada fila de rubro del proyecto. Solo
+// desde "Guardar en Mis rubros" en cada fila de rubro del proyecto. Solo
 // consulta y eliminación por ahora (sin edición).
 
 // ── Tipos (respuesta de GET /api/mi-biblioteca) ────────────────────────
@@ -235,7 +235,7 @@ function CardSubrubro({ subrubro, onEliminado }: { subrubro: SubrubroEmpresa; on
       onEliminado(subrubro.id);
     } catch (err) {
       console.error("[eliminar rubro de mi biblioteca]", err);
-      window.alert("No se pudo eliminar el rubro de tu biblioteca.");
+      window.alert("No se pudo quitar el rubro de Mis rubros.");
       setEliminando(false);
       setConfirmando(false);
     }
@@ -287,8 +287,8 @@ function CardSubrubro({ subrubro, onEliminado }: { subrubro: SubrubroEmpresa; on
           ) : (
             <button
               onClick={() => setConfirmando(true)}
-              title="Eliminar de mi biblioteca"
-              aria-label="Eliminar de mi biblioteca"
+              title="Quitar de Mis rubros"
+              aria-label="Quitar de Mis rubros"
               className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
@@ -330,7 +330,7 @@ export default function MiBibliotecaPage() {
         .catch((err) => {
           if (err?.name === "AbortError") return;
           console.error("[GET /api/mi-biblioteca]", err);
-          setError("No se pudo cargar tu biblioteca.");
+          setError("No se pudieron cargar tus rubros.");
         })
         .finally(() => {
           if (!controller.signal.aborted) setCargando(false);
@@ -354,7 +354,7 @@ export default function MiBibliotecaPage() {
     <div className="p-6 md:p-8 max-w-4xl">
       <div className="mb-6">
         <BotonVolverAlProyecto />
-        <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-1">Mi biblioteca</h1>
+        <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-1">Mis rubros</h1>
         <p className="text-slate-500 text-sm">
           Tus rubros favoritos, listos para reutilizar. Guardá cualquier rubro desde un proyecto y aparece acá con
           su APU completo.
@@ -362,10 +362,10 @@ export default function MiBibliotecaPage() {
             <span className="text-slate-400"> {subrubros.length} {subrubros.length === 1 ? "rubro guardado" : "rubros guardados"}.</span>
           )}
         </p>
-        {/* "Guardar en mi biblioteca" es el tooltip exacto del botón de cada fila de rubro del presupuesto. */}
+        {/* "Guardar en Mis rubros" es el tooltip exacto del botón de cada fila de rubro del presupuesto. */}
         <p className="text-slate-400 text-xs mt-1">
           Para guardar un rubro: abrí un proyecto → presupuesto → hacé clic en{" "}
-          <span className="font-medium text-slate-500">Guardar en mi biblioteca</span> al lado de cualquier rubro.
+          <span className="font-medium text-slate-500">Guardar en Mis rubros</span> al lado de cualquier rubro.
         </p>
       </div>
 
@@ -375,7 +375,7 @@ export default function MiBibliotecaPage() {
             <Bookmark className="w-5 h-5 text-[#2563EB]" />
           </div>
           <p className="text-sm text-slate-500 max-w-sm">
-            Tu biblioteca está vacía. Guardá rubros desde tus proyectos para reutilizarlos.
+            Todavía no guardaste ningún rubro. Guardalos desde tus proyectos para reutilizarlos.
           </p>
         </div>
       ) : (
@@ -400,7 +400,7 @@ export default function MiBibliotecaPage() {
             </div>
           ) : subrubros.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200 border-dashed px-6 py-12 text-center text-sm text-slate-400">
-              Ningún rubro de tu biblioteca coincide con “{filtro.trim()}”.
+              Ninguno de tus rubros coincide con “{filtro.trim()}”.
             </div>
           ) : (
             <div className={cn("space-y-3 transition-opacity", cargando && "opacity-60")}>

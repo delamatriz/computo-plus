@@ -78,7 +78,7 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     pregunta: "¿Cómo creo un rubro nuevo que no está en la biblioteca?",
     tipo: "respuesta",
     respuesta:
-      "Cargá el rubro dentro de un proyecto, armá su descompuesto (APU) —a mano o con la sugerencia automática— y aplicá el precio. Después guardalo con el marcador «Guardar en mi biblioteca» de la fila del rubro: queda en Mi biblioteca para tus próximos proyectos.",
+      "Cargá el rubro dentro de un proyecto, armá su descompuesto (APU) —a mano o con la sugerencia automática— y aplicá el precio. Después guardalo con el marcador «Guardar en Mis rubros» de la fila del rubro: queda en Mis rubros para tus próximos proyectos.",
   },
 ];
 

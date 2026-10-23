@@ -123,7 +123,7 @@ interface CapituloIA {
   // jornales SUNCA). Validado server-side, no autocertificado por la
   // IA — ver /api/calcular-rapido.
   origen?: "biblioteca" | "estimado";
-  // Si origen es "biblioteca": de la biblioteca global o de la personal de la empresa ("Mi biblioteca").
+  // Si origen es "biblioteca": de la biblioteca global o de la personal de la empresa ("Mis rubros").
   fuenteBiblioteca?: "global" | "empresa";
 }
 
@@ -1081,10 +1081,10 @@ export default function CalcularPage() {
                                 </span>
                                 {c.origen === "biblioteca" && c.fuenteBiblioteca === "empresa" && (
                                   <span
-                                    title="Precio de tu biblioteca personal"
+                                    title="Precio de Mis rubros"
                                     className="flex-shrink-0 text-[9px] font-bold px-1 py-0.5 rounded-[3px] bg-blue-50 text-blue-600 border border-blue-200 uppercase tracking-wide"
                                   >
-                                    Mi biblioteca
+                                    Mis rubros
                                   </span>
                                 )}
                                 {c.origen === "biblioteca" && c.fuenteBiblioteca !== "empresa" && (

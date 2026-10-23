@@ -30,7 +30,7 @@ const navItems = [
       { href: "/dashboard", label: "Panel de control" },
       { href: "/metrajes", label: "Metrajes" },
       { href: "/rubros", label: "Catálogo de Rubros" },
-      { href: "/mi-biblioteca", label: "Mi biblioteca" },
+      { href: "/mi-biblioteca", label: "Mis rubros" },
       { href: "/materiales", label: "Materiales", dividerBefore: true },
       { href: "/mano-de-obra", label: "Mano de Obra" },
       { href: "/leyes-sociales", label: "Leyes Sociales" },

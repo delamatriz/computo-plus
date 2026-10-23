@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { fmtDecimalUY, fmtRendimiento } from "@/lib/formatoNumeros";
 
 // Encabezados de columna de cada sección de un descompuesto (APU) de solo
-// lectura — Catálogo de Rubros (/rubros) y Mi biblioteca. La primera columna
+// lectura — Catálogo de Rubros (/rubros) y Mis rubros (/mi-biblioteca). La primera columna
 // es flexible (descripción/categoría); el resto lleva el mismo ancho (`ancho`,
 // clases de Tailwind) que la columna numérica de las filas de abajo.
 export function EncabezadosAPU({

@@ -218,7 +218,7 @@ Reglas:
         if (cap.origen !== "biblioteca" || !cap.codigoSubrubro || typeof cap.monto !== "number") continue;
         const subrubro = subrubrosPorCodigo.get(cap.codigoSubrubro);
         if (!subrubro) continue;
-        // De qué biblioteca salió: la UI marca los de "Mi biblioteca".
+        // De qué biblioteca salió: la UI marca los de "Mis rubros".
         cap.fuenteBiblioteca = subrubro.fuente === "empresa" ? "empresa" : "global";
         // Rubro de la biblioteca personal: su precio manda. Se calcula acá, sin depender de que la IA
         // multiplique bien ni de que "corrija" un precio que le parece alto: monto = cantidad × precio propio.

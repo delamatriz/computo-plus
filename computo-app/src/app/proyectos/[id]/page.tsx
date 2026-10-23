@@ -3243,7 +3243,7 @@ export default function ProyectoPage() {
   // al abrir el presupuesto (no un pedido por fila) y se comparan acá con el mismo criterio que usan
   // los endpoints para responder "ya_existe". null = todavía cargando (el botón no aparece hasta
   // saberlo, para que no parpadee); si la carga falla queda vacío y el servidor sigue siendo la red.
-  //  - Mi biblioteca: mismo nombre (normalizado) en SubrubroEmpresa de la empresa.
+  //  - Mis rubros (Mi biblioteca): mismo nombre (normalizado) en SubrubroEmpresa de la empresa.
   //  - Global: misma descripción (normalizada), misma unidad y mismo capítulo del catálogo.
   const [enMiBiblioteca, setEnMiBiblioteca] = useState<Set<string> | null>(null);
   const [enBibliotecaGlobal, setEnBibliotecaGlobal] = useState<Set<string> | null>(null);
@@ -4480,7 +4480,7 @@ export default function ProyectoPage() {
   // con window.alert, mismo patrón que el resto de esta pantalla.
   const guardarRubroEnBiblioteca = useCallback(async (rubroId: string, destino: "global" | "empresa") => {
     const clave = `${destino}:${rubroId}`;
-    const nombreBiblioteca = destino === "global" ? "la biblioteca" : "tu biblioteca";
+    const nombreBiblioteca = destino === "global" ? "la biblioteca" : "Mis rubros";
     setEstadoBiblioteca((prev) => ({ ...prev, [clave]: "guardando" }));
     let sinVinculo: string[] | null = null;
     try {
@@ -4514,7 +4514,7 @@ export default function ProyectoPage() {
   // con todo vinculado, ámbar = guardado con insumos sin vínculo).
   const botonGuardarEnBiblioteca = (rubroId: string, destino: "global" | "empresa") => {
     const estado = estadoBiblioteca[`${destino}:${rubroId}`];
-    const nombreBiblioteca = destino === "global" ? "biblioteca" : "mi biblioteca";
+    const nombreBiblioteca = destino === "global" ? "biblioteca" : "Mis rubros";
     const Icono = destino === "global" ? BookmarkPlus : Bookmark;
     if (typeof estado === "object") {
       return (
