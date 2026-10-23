@@ -243,29 +243,33 @@ function CardSubrubro({ subrubro, onEliminado }: { subrubro: SubrubroEmpresa; on
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4">
+      {/* Mobile: el nombre ocupa el ancho completo (sin cortar) y el precio
+          baja a la derecha, debajo. Desde sm: una sola fila, nombre truncado. */}
+      <div className="flex items-start sm:items-center gap-3 px-4 sm:px-5 py-4">
         <button
           onClick={() => setAbierto((v) => !v)}
           disabled={!apu}
           aria-expanded={abierto}
-          className="flex-1 min-w-0 flex items-center gap-3 text-left disabled:cursor-default"
+          className="flex-1 min-w-0 flex items-start sm:items-center gap-3 text-left disabled:cursor-default"
         >
-          <span className="flex-shrink-0 text-slate-400">
+          <span className="flex-shrink-0 text-slate-400 mt-0.5 sm:mt-0">
             {abierto ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </span>
-          <span className="flex-1 min-w-0">
-            <span className="block text-sm font-semibold text-[#1E293B] truncate">{subrubro.nombre}</span>
-            <span className="block text-xs text-slate-400 mt-0.5">
-              {subrubro.codigo && <>Rubro {subrubro.codigo} · </>}Guardado el {fmtFecha(subrubro.createdAt)}
+          <span className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold text-[#1E293B] break-words sm:truncate">{subrubro.nombre}</span>
+              <span className="block text-xs text-slate-400 mt-0.5">
+                {subrubro.codigo && <>Rubro {subrubro.codigo} · </>}Guardado el {fmtFecha(subrubro.createdAt)}
+              </span>
             </span>
-          </span>
-          <span className="flex-shrink-0 text-right">
-            <span className="block text-sm font-bold text-[#2563EB]">{fmtMoneda(subrubro.precioUY)}</span>
-            <span className="block text-xs text-slate-400">por {subrubro.unidad}</span>
+            <span className="flex-shrink-0 self-end sm:self-auto text-right">
+              <span className="block text-sm font-bold text-[#2563EB] whitespace-nowrap">{fmtMoneda(subrubro.precioUY)}</span>
+              <span className="block text-xs text-slate-400">por {subrubro.unidad}</span>
+            </span>
           </span>
         </button>
 
-        <div className="flex-shrink-0 w-[132px] flex justify-end">
+        <div className="flex-shrink-0 sm:w-[132px] flex justify-end">
           {confirmando ? (
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-slate-500">¿Eliminar?</span>
@@ -364,8 +368,8 @@ export default function MiBibliotecaPage() {
         </p>
         {/* "Guardar en Mis rubros" es el tooltip exacto del botón de cada fila de rubro del presupuesto. */}
         <p className="text-slate-400 text-xs mt-1">
-          Para guardar un rubro: abrí un proyecto → presupuesto → hacé clic en{" "}
-          <span className="font-medium text-slate-500">Guardar en Mis rubros</span> al lado de cualquier rubro.
+          Para guardar un rubro abrí cualquier proyecto, entrá al presupuesto y usá el botón{" "}
+          <span className="font-medium text-slate-500">Guardar en Mis rubros</span> que aparece en cada rubro.
         </p>
       </div>
 
@@ -380,6 +384,7 @@ export default function MiBibliotecaPage() {
         </div>
       ) : (
         <>
+          <p className="text-xs text-slate-400 mb-1.5">Buscá entre tus rubros guardados</p>
           <div className="relative mb-4">
             <Search className="w-4 h-4 text-slate-300 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
