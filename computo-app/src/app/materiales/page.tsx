@@ -9,7 +9,7 @@ import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
 import SeccionActualizacionDatos from "@/components/materiales/SeccionActualizacionDatos";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { anclaDeFiltro, EVENTO_FILTRO_MATERIALES, type AnclaFiltroMateriales } from "@/lib/filtrosMateriales";
-import { detalleListaMTOP, etiquetaFechaLista, sufijoNumeroLista, type ListaMTOPVigente } from "@/lib/listaMTOP";
+import { detalleListaMTOP, sufijoNumeroLista, type ListaMTOPVigente } from "@/lib/listaMTOP";
 import { requiereVerificacionExplicita } from "@/lib/pendientesMateriales";
 import { useRolUsuario, useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
@@ -150,7 +150,8 @@ function MaterialesPageInner() {
   // Importar listas de precios: SUPERADMIN (catálogo global, incluida la lista oficial) y ADMIN
   // (solo listas de proveedor, privadas de su empresa). Editar precios sigue siendo del SUPERADMIN.
   const rol = useRolUsuario();
-  const puedeImportar = rol === "SUPERADMIN" || rol === "ADMIN";
+  const esSuperadmin = rol === "SUPERADMIN";
+  const puedeImportar = esSuperadmin || rol === "ADMIN";
 
   const [materiales, setMateriales] = useState<MaterialCatalogo[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -203,10 +204,8 @@ function MaterialesPageInner() {
       cancelado = true;
     };
   }, []);
-  // "Lista Oficial MTOP N°606 (Jun 2026)", o sin número/mes si todavía no cargó o no hay lista.
+  // "Lista Oficial MTOP N°606", o sin número si todavía no cargó o no hay lista.
   const listaOficial = `Lista Oficial MTOP${sufijoNumeroLista(listaMTOP)}`;
-  const fechaListaMTOP = etiquetaFechaLista(listaMTOP?.fecha);
-  const listaOficialConFecha = fechaListaMTOP ? `${listaOficial} (${fechaListaMTOP})` : listaOficial;
 
   const proveedoresExistentes = useMemo(() => {
     const set = new Set<string>();
@@ -331,23 +330,30 @@ function MaterialesPageInner() {
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
           <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Materiales</h1>
-          <p className="text-slate-500">
-            Catálogo de materiales de construcción y sus precios de referencia — {materiales.length} en total.
-          </p>
-          <p className="text-sm text-slate-400 mt-2 max-w-2xl">
-            Este catálogo combina la {listaOficialConFecha} con materiales de mercado libre y listas importadas. El
-            badge de cada fila indica si el precio está verificado, pendiente de verificar, o si falta cotizar. Usá
-            los filtros para encontrar rápido lo que necesitás revisar.
-            {puedeImportar && (
-              <>
-                {" "}¿Tenés tu propia lista de precios? Subila para complementar este catálogo — hacé clic en
-                &quot;Importar lista de precios&quot;.
-              </>
-            )}
-          </p>
-          {!cargando && (
-            <p className="text-xs text-slate-400 mt-1.5">
-              Catálogo actualizado al: {fechaMaxima ? fmtFecha(fechaMaxima) : "Sin actualizaciones registradas"}
+          {/* Vista por rol: el SUPERADMIN mantiene el catálogo global con la lista
+              oficial del MTOP; ADMIN y USUARIO lo consultan (el ADMIN además puede
+              importar listas de su proveedor, privadas de su empresa). Mientras carga
+              el rol (null) se ve la vista de USUARIO: sin controles que después se van. */}
+          {esSuperadmin ? (
+            <>
+              <p className="text-slate-500">
+                Catálogo de materiales de construcción y sus precios de referencia — {materiales.length} en total.
+              </p>
+              <p className="text-sm text-slate-400 mt-2 max-w-2xl">
+                Para actualizar el catálogo: descargá la lista oficial del MTOP desde el enlace de abajo e importala
+                con el botón <span className="font-medium text-slate-500">Importar lista de precios</span>.
+              </p>
+              {!cargando && (
+                <p className="text-xs text-slate-400 mt-1.5">
+                  Catálogo actualizado al: {fechaMaxima ? fmtFecha(fechaMaxima) : "Sin actualizaciones registradas"}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-slate-500 max-w-2xl">
+              Catálogo de materiales de construcción con precios de referencia.
+              {!cargando && fechaMaxima && <> Actualizado al {fmtFecha(fechaMaxima)}.</>}
+              {puedeImportar && <> También podés importar los precios de tu propio proveedor.</>}
             </p>
           )}
         </div>
@@ -357,13 +363,14 @@ function MaterialesPageInner() {
             className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition-colors"
           >
             <Upload className="w-4 h-4" />
-            Importar lista de precios
+            {esSuperadmin ? "Importar lista de precios" : "Importar precios de proveedor"}
           </button>
         )}
       </div>
 
       <div className="mb-8">
-        <ListaReferencias items={referenciasConLista(listaMTOP)} />
+        {/* La tarjeta de la Lista MTOP (link al Ministerio) es para mantener el catálogo: solo SUPERADMIN. */}
+        <ListaReferencias items={esSuperadmin ? referenciasConLista(listaMTOP) : REFERENCIAS_FIJAS} />
       </div>
 
       {/* Buscador + filtros */}
