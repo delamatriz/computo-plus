@@ -573,7 +573,7 @@ function MaterialesPageInner() {
                         )}
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className="text-xs text-slate-500 truncate block max-w-[220px]" title={fuenteTexto}>
+                        <span className="text-xs text-slate-500 block max-w-[260px] whitespace-normal break-words" title={fuenteTexto}>
                           {fuenteTexto}
                         </span>
                       </td>
