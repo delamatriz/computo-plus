@@ -447,12 +447,21 @@ function MaterialesPageInner() {
               </p>
             </>
           ) : (
-            <p className="text-slate-500 max-w-3xl">
-              Catálogo de materiales de construcción con precios de referencia. Incluye materiales de la fuente
-              oficial MTOP, estimaciones de CÓMPUTO+ y precios de plaza.
-              {!cargando && fechaMaxima && <> Actualizado al {fmtFecha(fechaMaxima)}.</>}
-              {puedeImportar && <> También podés importar los precios de tu propio proveedor.</>}
-            </p>
+            <>
+              <p className="text-slate-500 max-w-3xl">
+                Catálogo de materiales de construcción con precios de referencia. Incluye materiales de la fuente
+                oficial MTOP, estimaciones de CÓMPUTO+ y precios de plaza.
+                {!cargando && fechaMaxima && <> Actualizado al {fmtFecha(fechaMaxima)}.</>}
+                {puedeImportar && <> También podés importar los precios de tu propio proveedor.</>}
+              </p>
+              {/* Acá el cliente no edita el catálogo (eso es del SUPERADMIN): ajusta
+                  precios dentro de cada presupuesto, y el ADMIN importa su proveedor. */}
+              <p className="text-sm text-slate-400 mt-2 max-w-3xl">
+                Los precios de la fuente oficial MTOP y las estimaciones de CÓMPUTO+ los mantenemos actualizados
+                nosotros. En cada presupuesto podés ajustar cualquier precio
+                {puedeImportar ? ", y acá podés agregar los de tu propio proveedor." : "."}
+              </p>
+            </>
           )}
         </div>
         {puedeImportar && (
