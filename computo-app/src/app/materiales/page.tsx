@@ -594,7 +594,12 @@ function MaterialesPageInner() {
                       </td>
                       <td className="px-4 py-2.5">
                         <span
-                          className={cn("text-xs tabular-nums", fecha.verificada ? "text-slate-600" : "text-slate-300")}
+                          className={cn(
+                            // Mismo tamaño y renglón para toda la columna; la fecha sin verificar
+                            // va apenas más clara (antes slate-300, casi ilegible sobre blanco).
+                            "text-xs tabular-nums whitespace-nowrap",
+                            fecha.verificada ? "text-slate-600" : "text-slate-500"
+                          )}
                           title={fecha.verificada ? undefined : "Precio de referencia de fuente de mercado"}
                         >
                           {fecha.texto}
