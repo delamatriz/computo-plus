@@ -75,6 +75,7 @@ interface MaterialCatalogo {
   fechaUltimaVerificacion: string | null;
   requiereVerificacion: boolean;
   motivoVerificacion: string | null;
+  empresaId: string | null;
   actualizadoEn: string;
 }
 
@@ -155,6 +156,46 @@ function textoFuente(m: MaterialCatalogo): string {
 // actualizadoEn (fecha de carga/última edición del registro — nunca pasó
 // por el sistema de verificación, por eso va un poco más clara: no hay que
 // confundir "se cargó/corrigió" con "se verificó contra el mercado").
+// Filtro "Fuente MTOP": exactamente las filas que la columna FUENTE muestra así.
+function esFuenteMTOP(m: MaterialCatalogo): boolean {
+  return textoFuente(m) === "Fuente MTOP";
+}
+
+// Botón de filtro de la fila de filtros — mismo estilo para todos, cambia el
+// color cuando está activo.
+const COLOR_FILTRO_ACTIVO = {
+  rojo: "bg-red-50 text-red-600 border-red-200",
+  ambar: "bg-amber-50 text-amber-600 border-amber-200",
+  azul: "bg-blue-50 text-[#2563EB] border-blue-200",
+} as const;
+
+function BotonFiltro({
+  activo,
+  onClick,
+  color,
+  title,
+  children,
+}: {
+  activo: boolean;
+  onClick: () => void;
+  color: keyof typeof COLOR_FILTRO_ACTIVO;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={cn(
+        "flex-shrink-0 whitespace-nowrap px-2.5 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
+        activo ? COLOR_FILTRO_ACTIVO[color] : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 function fechaColumna(m: MaterialCatalogo): { texto: string; verificada: boolean } {
   if (m.fechaUltimaVerificacion) {
     return { texto: fmtFecha(new Date(m.fechaUltimaVerificacion)), verificada: true };
@@ -210,6 +251,8 @@ function MaterialesPageInner() {
   const [filtroRequiere, setFiltroRequiere] = useState(false);
   const [filtroEstimados, setFiltroEstimados] = useState(false);
   const [filtroReferencia, setFiltroReferencia] = useState(false);
+  const [filtroFuenteMTOP, setFiltroFuenteMTOP] = useState(false);
+  const [filtroMisFuentes, setFiltroMisFuentes] = useState(false);
   // Se aplica una sola vez, apenas cargan los materiales — ver el efecto
   // más abajo que decide si corresponde prender filtroPendiente.
   const filtroAutoAplicado = useRef(false);
@@ -355,15 +398,30 @@ function MaterialesPageInner() {
       if (filtroRequiere && !requiereVerificacionExplicita(m)) return false;
       if (filtroEstimados && !esEstimado(m)) return false;
       if (filtroReferencia && !CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return false;
+      if (filtroFuenteMTOP && !esFuenteMTOP(m)) return false;
+      if (filtroMisFuentes && !m.empresaId) return false;
       return true;
     });
-  }, [materiales, busqueda, filtroSinPrecio, filtroPendiente, puedeEditar, filtroRequiere, filtroEstimados, filtroReferencia]);
+  }, [
+    materiales,
+    busqueda,
+    filtroSinPrecio,
+    filtroPendiente,
+    puedeEditar,
+    filtroRequiere,
+    filtroEstimados,
+    filtroReferencia,
+    filtroFuenteMTOP,
+    filtroMisFuentes,
+  ]);
 
   // Mismo conteo que "materiales requieren verificación" de la campanita.
   const cantidadRequieren = useMemo(() => materiales.filter(requiereVerificacionExplicita).length, [materiales]);
 
   const fechaMaxima = useMemo(() => calcularFechaMaxima(materiales), [materiales]);
   const cantidadEstimados = useMemo(() => materiales.filter(esEstimado).length, [materiales]);
+  const cantidadFuenteMTOP = useMemo(() => materiales.filter(esFuenteMTOP).length, [materiales]);
+  const cantidadMisFuentes = useMemo(() => materiales.filter((m) => m.empresaId).length, [materiales]);
 
   return (
     <div className="p-8 max-w-5xl">
@@ -415,91 +473,82 @@ function MaterialesPageInner() {
         <ListaReferencias items={esSuperadmin ? referenciasConLista(listaMTOP) : REFERENCIAS_FIJAS} />
       </div>
 
-      {/* Buscador + filtros */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="relative flex-1 min-w-[240px]">
+      {/* Buscador + filtros en una sola fila: si no entran (pantalla chica, o el
+          filtro extra del SUPERADMIN), la fila se desplaza horizontalmente en vez
+          de partirse en dos renglones. */}
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+        <div className="relative flex-shrink-0 w-56">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por descripción..."
-            className="w-full pl-9 pr-3 py-2.5 rounded-[10px] border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+            className="w-full pl-9 pr-3 py-2 rounded-[10px] border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
           />
         </div>
-        <button
-          onClick={() => setFiltroSinPrecio((p) => !p)}
-          className={cn(
-            "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
-            filtroSinPrecio
-              ? "bg-red-50 text-red-600 border-red-200"
-              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-          )}
-        >
+        <BotonFiltro activo={filtroSinPrecio} onClick={() => setFiltroSinPrecio((p) => !p)} color="rojo">
           Sin precio
-        </button>
+        </BotonFiltro>
         {puedeEditar && (
-          <button
-            onClick={() => setFiltroPendiente((p) => !p)}
-            className={cn(
-              "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
-              filtroPendiente
-                ? "bg-amber-50 text-amber-600 border-amber-200"
-                : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-            )}
-          >
+          <BotonFiltro activo={filtroPendiente} onClick={() => setFiltroPendiente((p) => !p)} color="ambar">
             Pendiente de verificar
-          </button>
+          </BotonFiltro>
         )}
-        <button
+        <BotonFiltro
+          activo={filtroRequiere}
           onClick={() => setFiltroRequiere((p) => !p)}
+          color="ambar"
           title={
             puedeEditar
               ? "Materiales marcados como que requieren verificación (el mismo número que la campanita). 'Pendiente de verificar' es más amplio: todos los que nunca se verificaron."
               : "Materiales marcados como que requieren verificación (el mismo número que la campanita)."
           }
-          className={cn(
-            "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
-            filtroRequiere
-              ? "bg-amber-50 text-amber-600 border-amber-200"
-              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-          )}
         >
           Requieren verificación{materiales.length > 0 ? ` (${cantidadRequieren})` : ""}
-        </button>
-        <button
+        </BotonFiltro>
+        <BotonFiltro
+          activo={filtroEstimados}
           onClick={() => setFiltroEstimados((p) => !p)}
+          color="ambar"
           title="Precios calculados internamente por CÓMPUTO+ — no son cotizaciones directas"
-          className={cn(
-            "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
-            filtroEstimados
-              ? "bg-amber-50 text-amber-600 border-amber-200"
-              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-          )}
         >
           Estimados — verificar{materiales.length > 0 ? ` (${cantidadEstimados})` : ""}
-        </button>
-        <button
+        </BotonFiltro>
+        <BotonFiltro
+          activo={filtroReferencia}
           onClick={() => setFiltroReferencia((p) => !p)}
+          color="azul"
           title="Materiales de mampostería y básicos que no están en la lista oficial MTOP — precio de plaza"
-          className={cn(
-            "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
-            filtroReferencia
-              ? "bg-blue-50 text-[#2563EB] border-blue-200"
-              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-          )}
         >
           Precios de plaza ({CODIGOS_MATERIALES_REFERENCIA.size})
-        </button>
+        </BotonFiltro>
+        <BotonFiltro activo={filtroFuenteMTOP} onClick={() => setFiltroFuenteMTOP((p) => !p)} color="azul">
+          Fuente MTOP{materiales.length > 0 ? ` (${cantidadFuenteMTOP})` : ""}
+        </BotonFiltro>
+        <BotonFiltro
+          activo={filtroMisFuentes}
+          onClick={() => setFiltroMisFuentes((p) => !p)}
+          color="azul"
+          title="Materiales importados por tu empresa desde tus propias listas de precios"
+        >
+          Mis fuentes ({cantidadMisFuentes})
+        </BotonFiltro>
       </div>
 
       {/* Una leyenda por filtro activo (se pueden combinar). */}
-      {(filtroSinPrecio || filtroRequiere || filtroEstimados || filtroReferencia) && (
+      {(filtroSinPrecio || (puedeEditar && filtroPendiente) || filtroRequiere || filtroEstimados || filtroReferencia) && (
         <div className="-mt-2 mb-4 space-y-1 text-xs text-slate-400 max-w-3xl">
           {filtroSinPrecio && (
             <p>
               <span className="font-medium text-slate-500">Sin precio:</span> Materiales sin precio de referencia
               cargado. Cotizalos con tu proveedor antes de usarlos en un presupuesto.
+            </p>
+          )}
+          {puedeEditar && filtroPendiente && (
+            <p>
+              <span className="font-medium text-slate-500">Pendiente de verificar:</span> Materiales que aún no
+              pasaron por el proceso de verificación de precios. Revisalos antes de usarlos en un presupuesto.
             </p>
           )}
           {filtroRequiere && (
