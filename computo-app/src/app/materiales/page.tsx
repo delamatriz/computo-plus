@@ -424,7 +424,7 @@ function MaterialesPageInner() {
   const cantidadMisFuentes = useMemo(() => materiales.filter((m) => m.empresaId).length, [materiales]);
 
   return (
-    <div className="p-8 max-w-7xl">
+    <div className="p-8 max-w-6xl">
       <BotonVolverAlProyecto />
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
@@ -466,25 +466,26 @@ function MaterialesPageInner() {
         )}
       </div>
 
-      <div className="mb-8">
+      <div className="mb-6">
         {/* La tarjeta de la Lista MTOP (link al Ministerio) es para mantener el catálogo: solo SUPERADMIN. */}
         <ListaReferencias items={esSuperadmin ? referenciasConLista(listaMTOP) : REFERENCIAS_FIJAS} />
       </div>
 
-      {/* Buscador + filtros en una sola fila (la página es max-w-7xl para que
-          entren): solo en pantallas más angostas la fila se desplaza
+      {/* Buscador justo debajo de las tarjetas de referencia, y debajo los
+          filtros en su propia fila: sin el buscador al lado entran en una línea
+          a este ancho; solo en pantallas más angostas la fila se desplaza
           horizontalmente en vez de partirse en dos renglones. */}
+      <div className="relative w-full max-w-md mb-3">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por descripción..."
+          className="w-full pl-9 pr-3 py-2.5 rounded-[10px] border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+        />
+      </div>
       <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
-        <div className="relative flex-shrink-0 w-56">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por descripción..."
-            className="w-full pl-9 pr-3 py-2 rounded-[10px] border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
-          />
-        </div>
         <BotonFiltro activo={filtroSinPrecio} onClick={() => setFiltroSinPrecio((p) => !p)} color="rojo">
           Sin precio
         </BotonFiltro>
