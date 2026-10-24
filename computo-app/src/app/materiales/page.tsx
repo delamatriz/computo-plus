@@ -9,7 +9,7 @@ import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
 import SeccionActualizacionDatos from "@/components/materiales/SeccionActualizacionDatos";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { anclaDeFiltro, EVENTO_FILTRO_MATERIALES, type AnclaFiltroMateriales } from "@/lib/filtrosMateriales";
-import { detalleListaMTOP, sufijoNumeroLista, type ListaMTOPVigente } from "@/lib/listaMTOP";
+import { detalleListaMTOP, type ListaMTOPVigente } from "@/lib/listaMTOP";
 import { requiereVerificacionExplicita } from "@/lib/pendientesMateriales";
 import { useRolUsuario, useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
@@ -134,6 +134,9 @@ const NOTA_FUENTE_MERCADO = /Precio de referencia de mercado|Pendiente de verifi
 
 function textoFuente(m: MaterialCatalogo): string {
   if (m.proveedor) return m.proveedor;
+  // Los materiales de referencia (mampostería fuera de la lista MTOP) traen
+  // numeroLista = 599, el default del schema, no un número de lista real.
+  if (CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return "Fuente de mercado";
   if (m.notaProcedencia) {
     if (NOTA_ESTIMACION_PROPIA.test(m.notaProcedencia) || NOTA_ESTIMACION_PROPIA_I.test(m.notaProcedencia)) {
       return "Estimado por CÓMPUTO+";
@@ -240,8 +243,6 @@ function MaterialesPageInner() {
       cancelado = true;
     };
   }, []);
-  // "Lista Oficial MTOP N°606", o sin número si todavía no cargó o no hay lista.
-  const listaOficial = `Lista Oficial MTOP${sufijoNumeroLista(listaMTOP)}`;
 
   const proveedoresExistentes = useMemo(() => {
     const set = new Set<string>();
@@ -465,7 +466,7 @@ function MaterialesPageInner() {
         </button>
         <button
           onClick={() => setFiltroReferencia((p) => !p)}
-          title={`Materiales de mampostería que no están en la ${listaOficial} — precio de referencia editable a mano`}
+          title="Materiales de mampostería que no están en la fuente oficial MTOP — precio de referencia editable a mano"
           className={cn(
             "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
             filtroReferencia
@@ -479,9 +480,9 @@ function MaterialesPageInner() {
 
       {filtroReferencia && (
         <p className="text-xs text-slate-400 -mt-2 mb-4">
-          Materiales de mampostería que no están en la {listaOficial}{" "}— el resto del
+          Materiales de mampostería que no están en la fuente oficial MTOP — el resto del
           catálogo se actualiza por separado, con &quot;Buscar precios actualizados&quot; más abajo.
-          {" "}Última actualización de estos 12:{" "}
+          {" "}Última actualización de estos {CODIGOS_MATERIALES_REFERENCIA.size}:{" "}
           {fechaMaximaReferencia ? fmtFecha(fechaMaximaReferencia) : "nunca actualizado"}.
         </p>
       )}
