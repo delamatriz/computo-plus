@@ -434,12 +434,18 @@ function MaterialesPageInner() {
               importar listas de su proveedor, privadas de su empresa). Mientras carga
               el rol (null) se ve la vista de USUARIO: sin controles que después se van. */}
           {esSuperadmin ? (
-            <p className="text-slate-500 max-w-3xl">
-              Panel de actualización de precios. Base de datos central de materiales de CÓMPUTO+ — alimenta los
-              presupuestos de todos los clientes. Incluye materiales de la fuente oficial MTOP, estimaciones propias y
-              precios de plaza.
-              {!cargando && fechaMaxima && <> Actualizado al {fmtFecha(fechaMaxima)}.</>}
-            </p>
+            <>
+              <p className="text-slate-500 max-w-3xl">
+                Panel de actualización de precios. Base de datos central de materiales de CÓMPUTO+ — alimenta los
+                presupuestos de todos los clientes. Incluye materiales de la fuente oficial MTOP, estimaciones propias y
+                precios de plaza.
+                {!cargando && fechaMaxima && <> Actualizado al {fmtFecha(fechaMaxima)}.</>}
+              </p>
+              <p className="text-sm text-slate-400 mt-2 max-w-3xl">
+                Para actualizar el catálogo: descargá la lista oficial del MTOP desde el enlace de abajo e importala
+                con el botón <span className="font-medium text-slate-500">Importar lista de precios</span>.
+              </p>
+            </>
           ) : (
             <p className="text-slate-500 max-w-3xl">
               Catálogo de materiales de construcción con precios de referencia. Incluye materiales de la fuente
