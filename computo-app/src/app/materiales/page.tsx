@@ -452,7 +452,6 @@ function MaterialesPageInner() {
                 Catálogo de materiales de construcción con precios de referencia. Incluye materiales de la fuente
                 oficial MTOP, estimaciones de CÓMPUTO+ y precios de plaza.
                 {!cargando && fechaMaxima && <> Actualizado al {fmtFecha(fechaMaxima)}.</>}
-                {puedeImportar && <> También podés importar los precios de tu propio proveedor.</>}
               </p>
               {/* Acá el cliente no edita el catálogo (eso es del SUPERADMIN): ajusta
                   precios dentro de cada presupuesto, y el ADMIN importa su proveedor. */}
