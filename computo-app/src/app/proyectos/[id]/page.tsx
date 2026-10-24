@@ -29,6 +29,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { textoFuente, type DatosFuente } from "@/lib/fuentePrecio";
 import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario, montoAportesPatronales, sumarAportesPatronalesPct, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/apu-calc";
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
@@ -294,12 +295,9 @@ interface InsumoAPU {
   rendimiento: number;
   precioUnit: number;
   componentes?: ComponenteInsumo[];
-  codigoMTOP?: string;       // código de la lista oficial si fue seleccionado
-  precioMTOPOrig?: number;   // precio original MTOP para detectar modificaciones
   precioEstimadoIA?: boolean; // precio recién estimado por IA, aún no confirmado por el usuario
-  // Vínculo REAL y durable con PrecioMTOP.id (a diferencia de codigoMTOP,
-  // que nunca se persiste — ver MaterialAPU.precioMTOPId en schema.prisma
-  // y la investigación de matching por texto). null/undefined = material
+  // Vínculo REAL y durable con PrecioMTOP.id (ver MaterialAPU.precioMTOPId en
+  // schema.prisma y la investigación de matching por texto). null/undefined = material
   // agregado a mano ("+ Agregar manualmente sin buscar") o cuya
   // descripción se editó después de haberse agregado del catálogo (ver
   // updateMat). Todavía NO se usa para resolver precios — sincronizarPrecioMTOP/
@@ -319,6 +317,23 @@ interface InsumoAPU {
   // — mismo criterio que proveedor para BadgeVerificacion.
   notaProcedencia?: string | null;
   fechaUltimaVerificacion?: string | null;
+  // Fila del catálogo vinculada (precioMTOPId), solo para mostrar la fuente del
+  // precio con el mismo criterio que /materiales (lib/fuentePrecio.ts). La trae
+  // el GET del proyecto/APU o el buscador del catálogo; el PUT no la guarda.
+  precioMTOP?: DatosFuente | null;
+}
+
+// Fuente del precio de un material del APU ("Fuente MTOP", "Estimado por
+// CÓMPUTO+", proveedor…). Con la fila del catálogo, el mismo texto que la
+// columna FUENTE de /materiales; sin ella (material sugerido por IA o clonado
+// sin vínculo) se decide con el proveedor/nota copiados al material. Un
+// material escrito a mano, sin nada de eso, no muestra fuente.
+function fuenteDelMaterial(m: InsumoAPU): string | null {
+  if (m.precioMTOP) return textoFuente(m.precioMTOP);
+  if (m.proveedor || m.notaProcedencia) {
+    return textoFuente({ codigo: "", numeroLista: 0, proveedor: m.proveedor ?? null, notaProcedencia: m.notaProcedencia ?? null });
+  }
+  return null;
 }
 
 // Material tal como lo devuelve /api/rubros/[id]/sugerir-apu (MaterialGenerado
@@ -1628,7 +1643,7 @@ interface DrawerAPUProps {
   // ni precioCongelado) — ver sincronizarPrecioAPU en el componente padre.
   onSincronizarMaterial: (materialId: string) => void;
   // Para el deep-link desde "Pendiente de verificar" hacia /materiales
-  // (ver irAMaterialPendiente) — así el botón "Volver al proyecto" de esa
+  // (ver irAMaterialEnCatalogo) — así el botón "Volver al proyecto" de esa
   // página sabe a dónde volver.
   proyectoId: string;
 }
@@ -1716,15 +1731,14 @@ function SelectorModoCosteo({ modo, onChange }: { modo: ModoCosteoEquipo; onChan
 function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura, onToggleUtilidadFija, preciosVigentesPorMaterial, onSincronizarMaterial, proyectoId }: DrawerAPUProps) {
   const dragControls = useDragControls();
   const router = useRouter();
-  // Deep-link desde la etiqueta "Pendiente de verificar" de un material —
-  // misma descripción que usa el matching de sincronizarPrecioMTOP/
-  // recalcularPrecioRubro, para que el buscador de /materiales encuentre
-  // la fila correcta. `from` deja armado el botón "Volver al proyecto" allá.
-  const irAMaterialPendiente = (descripcion: string) => {
+  // Deep-link desde los badges con acción de un material ("Sin verificar",
+  // "Precio desactualizado", "No encontrado en catálogo") — misma descripción
+  // que usa el matching de sincronizarPrecioMTOP/recalcularPrecioRubro, para
+  // que el buscador de /materiales encuentre la fila correcta. `from` deja
+  // armado el botón "Volver al proyecto" allá.
+  const irAMaterialEnCatalogo = (descripcion: string) => {
     router.push(`/materiales?q=${encodeURIComponent(descripcion)}&from=${proyectoId}`);
   };
-  // "Pendiente de verificar" es estado interno del job de precios: solo SUPERADMIN (ver /materiales).
-  const esSuperadmin = useSuperadmin() === true;
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [mostrarBuscadorEquipo, setMostrarBuscadorEquipo] = useState(false);
   const [mostrarSelectorMO, setMostrarSelectorMO] = useState(false);
@@ -1874,7 +1888,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const updateMat = (id: string, field: keyof InsumoAPU, val: string) =>
     setMat(apu.materiales.map((m) => m.id !== id ? m : {
       ...m,
-      [field]: field === "descripcion" || field === "unidad" || field === "codigoMTOP"
+      [field]: field === "descripcion" || field === "unidad"
         ? val
         : (val === "" ? 0 : field === "rendimiento" ? parsearRendimientoTipeado(val) : parseFloat(val)),
       // Editar la descripción invalida cualquier vínculo con el catálogo
@@ -1882,7 +1896,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
       // mismo que el usuario acaba de escribir. Editar precio/rendimiento
       // sin tocar la descripción NO lo limpia — el vínculo sigue siendo
       // válido, el usuario solo está corrigiendo el valor localmente.
-      ...(field === "descripcion" ? { codigoMTOP: undefined, precioMTOPOrig: undefined, precioMTOPId: null } : {}),
+      ...(field === "descripcion" ? { precioMTOPId: null, precioMTOP: null } : {}),
       ...(field === "precioUnit" ? { precioEstimadoIA: undefined } : {}),
     }));
 
@@ -1973,9 +1987,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
       unidad:         m.unidad,
       rendimiento:    0,
       precioUnit:     m.precioUnitario,
-      codigoMTOP:     m.codigo,
-      precioMTOPOrig: m.precioUnitario,
       precioMTOPId:   m.id,
+      precioMTOP:     { codigo: m.codigo, numeroLista: m.numeroLista, proveedor: m.proveedor, notaProcedencia: m.notaProcedencia },
     }];
     setMat(nuevosMateriales);
     setMostrarBuscador(false);
@@ -2327,19 +2340,22 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     const costoTotalPadre = !tieneComponentes && rubro.cantidad != null
                       ? m.rendimiento * m.precioUnit * rubro.cantidad
                       : null;
+                    const fuenteTexto = fuenteDelMaterial(m);
                     return (
                       <React.Fragment key={m.id}>
                         {/* Fila principal del insumo */}
                         <tr className="group/fila border-b border-slate-50" style={{ height: 28 }}>
                           <td className="pl-4 pr-2">
-                            <div className="flex items-center gap-1.5">
+                            {/* El badge con acción es largo: si no entra al lado de la
+                                descripción, baja a la línea de abajo en vez de aplastarla. */}
+                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                               <input
                                 type="text"
                                 value={m.descripcion}
                                 onChange={(e) => updateMat(m.id, "descripcion", e.target.value)}
                                 onBlur={() => guardarApuActual()}
                                 placeholder="Descripción"
-                                className={cn(inputCls, "flex-1 min-w-0")}
+                                className={cn(inputCls, "flex-1 min-w-[140px]")}
                                 autoFocus={m.id === nuevoMatId}
                                 ref={m.id === nuevoMatId ? (el) => el?.scrollIntoView({ block: "center" }) : undefined}
                                 onFocus={() => { if (m.id === nuevoMatId) setNuevoMatId(null); }}
@@ -2354,20 +2370,24 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                   requiereVerificacion: false,
                                   motivoVerificacion: m.motivoVerificacion ?? null,
                                 }}
-                                onClickPendiente={() => irAMaterialPendiente(m.descripcion)}
-                                ocultarPendiente={!esSuperadmin}
+                                onRevisarEnMateriales={() => irAMaterialEnCatalogo(m.descripcion)}
                               />
                               {preciosVigentesPorMaterial[m.id] != null && (
                                 <button
                                   type="button"
                                   onClick={() => { cancelarGuardadoPendiente(); onSincronizarMaterial(m.id); }}
-                                  title={`Precio en catálogo: ${fmtMon(preciosVigentesPorMaterial[m.id].precioUnitario)} — este material tiene ${fmtMon(m.precioUnit)} cargado. Click para actualizar.`}
+                                  title={`El precio de este material se actualizó en el catálogo. Hacé clic para aplicar el nuevo precio. (Catálogo: ${fmtMon(preciosVigentesPorMaterial[m.id].precioUnitario)} — cargado: ${fmtMon(m.precioUnit)})`}
                                   className="flex-shrink-0 hover:opacity-70 transition-opacity"
                                 >
                                   <RefreshCw className="w-3 h-3 text-amber-500" />
                                 </button>
                               )}
                             </div>
+                            {fuenteTexto && (
+                              <p className="text-[10px] text-slate-400 truncate pl-1" title={fuenteTexto}>
+                                {fuenteTexto}
+                              </p>
+                            )}
                           </td>
                           <td className="text-center">
                             <input type="text" value={m.unidad} onChange={(e) => updateMat(m.id, "unidad", e.target.value)} onBlur={() => guardarApuActual()} placeholder="u" className={cn(inputCls, "text-center")} />
@@ -2424,16 +2444,6 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                   <Pencil className="w-3 h-3" />
                                 </button>
                               </div>
-                            )}
-                            {m.codigoMTOP && (
-                              <span className={cn(
-                                "text-[9px] font-bold px-1 py-0.5 rounded-[3px] uppercase tracking-wide whitespace-nowrap",
-                                m.precioUnit === m.precioMTOPOrig
-                                  ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                                  : "bg-orange-50 text-orange-500 border border-orange-200"
-                              )}>
-                                {m.precioUnit === m.precioMTOPOrig ? `MTOP ${m.codigoMTOP}` : "Modificado"}
-                              </span>
                             )}
                           </td>
                           <td className="text-right pr-3 font-semibold tabular-nums text-[#2563EB]">
@@ -5090,8 +5100,8 @@ export default function ProyectoPage() {
                           {apuGenerando.has(rubro.id) && (
                             <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Generando APU…" />
                           )}
-                          {/* Mismo estado que el badge "Pendiente de verificar" del descompuesto: solo SUPERADMIN. */}
-                          {esSuperadmin && materialesPendientesVerificar > 0 && (
+                          {/* Mismo estado que el badge "Sin verificar" del descompuesto (todos los roles). */}
+                          {materialesPendientesVerificar > 0 && (
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setDrawerRubroId(rubro.id); }}

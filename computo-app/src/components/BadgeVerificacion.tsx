@@ -1,4 +1,5 @@
 import { AlertTriangle, BadgeCheck, Clock, HelpCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Badge de gobernanza FEAT-AI-006 — compartido entre la biblioteca de
 // solo lectura (/rubros) y el editor real de proyecto (DrawerAPU en
@@ -40,16 +41,32 @@ const ETIQUETAS_MOTIVO_ESPECIFICO: Record<string, string> = {
   sin_costo_referencia: "Sin costo de referencia", // equipos, ver EquipoAPU.motivoVerificacion
 };
 
+// Versión "con acción" de los mismos estados (APU del presupuesto): dice qué
+// hacer. Los que terminan en "revisá en Materiales" son clickeables.
+const ACCION_MOTIVO: Record<string, string> = {
+  variacion_alta: "Precio desactualizado — revisá en Materiales",
+  producto_no_encontrado: "No encontrado en catálogo — revisá en Materiales",
+};
+const ACCION_SIN_PRECIO = "Sin precio — cotizá con tu proveedor";
+const ACCION_SIN_VERIFICAR = "Sin verificar — revisá el precio en Materiales";
+
+const BASE = "flex-shrink-0 flex items-center gap-1 rounded-[4px] border whitespace-nowrap";
+// Badge corto de siempre (mayúsculas) y badge con acción (texto normal, más legible).
+const ESTILO_CORTO = "text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wide";
+const ESTILO_ACCION = "text-[10px] font-semibold px-1.5 py-0.5";
+const AMBAR = "bg-amber-50 text-amber-600 border-amber-200";
+const AMBAR_CLICK = "hover:bg-amber-100 hover:text-amber-700 transition-colors";
+
 interface BadgeVerificacionProps {
   fuente: FuenteMaterial;
-  // Solo lo pasa el drawer del APU (proyectos/[id]/page.tsx) para el caso
-  // "Pendiente de verificar" de un material — deep-link a la ficha en
-  // /materiales (ver irAMaterialPendiente). El resto de los usos
-  // (biblioteca /rubros, equipos, otros estados del badge) no lo pasan,
-  // así que siguen siendo un <span> no interactivo, sin cambios.
-  onClickPendiente?: () => void;
-  // /rubros y el presupuesto lo pasan para quien no es SUPERADMIN:
-  // "Pendiente de verificar" es un estado interno del job de precios.
+  // Solo lo pasa el drawer del APU (proyectos/[id]/page.tsx): activa los
+  // textos con acción y vuelve clickeables los que mandan a /materiales
+  // (deep-link a la ficha, ver irAMaterialEnCatalogo). El resto de los usos
+  // (biblioteca /rubros, /materiales, equipos) no lo pasan y siguen con el
+  // badge corto, no interactivo.
+  onRevisarEnMateriales?: () => void;
+  // /rubros lo pasa para quien no es SUPERADMIN: "Pendiente de verificar"
+  // es un estado interno del job de precios.
   ocultarPendiente?: boolean;
   // Texto del badge de ese mismo estado — /materiales le muestra al cliente
   // "Sin verificar" (coincide con su filtro y su leyenda).
@@ -58,10 +75,12 @@ interface BadgeVerificacionProps {
 
 export function BadgeVerificacion({
   fuente,
-  onClickPendiente,
+  onRevisarEnMateriales,
   ocultarPendiente,
   etiquetaPendiente = "Pendiente de verificar",
 }: BadgeVerificacionProps) {
+  const conAccion = !!onRevisarEnMateriales;
+
   // Marca puntual — caso conocido y aceptado (honorarios profesionales,
   // materiales sin fuente de mercado confiable), no un problema a
   // resolver. Estilo neutro (slate), no ámbar, a propósito.
@@ -69,10 +88,10 @@ export function BadgeVerificacion({
     return (
       <span
         title="Sin precio de referencia — a cotizar directamente"
-        className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-slate-100 text-slate-500 border border-slate-200 uppercase tracking-wide whitespace-nowrap"
+        className={cn(BASE, conAccion ? ESTILO_ACCION : ESTILO_CORTO, "bg-slate-100 text-slate-500 border-slate-200")}
       >
         <HelpCircle className="w-2.5 h-2.5" />
-        A cotizar
+        {conAccion ? ACCION_SIN_PRECIO : "A cotizar"}
       </span>
     );
   }
@@ -82,10 +101,24 @@ export function BadgeVerificacion({
     : undefined;
 
   if (etiquetaEspecifica || fuente.requiereVerificacion) {
+    const accion = conAccion && fuente.motivoVerificacion ? ACCION_MOTIVO[fuente.motivoVerificacion] : undefined;
+    if (accion) {
+      return (
+        <button
+          type="button"
+          onClick={onRevisarEnMateriales}
+          title={`${etiquetaEspecifica} — click para revisarlo en Materiales`}
+          className={cn(BASE, ESTILO_ACCION, AMBAR, AMBAR_CLICK)}
+        >
+          <AlertTriangle className="w-2.5 h-2.5" />
+          {accion}
+        </button>
+      );
+    }
     return (
       <span
         title={fuente.motivoVerificacion ?? "Requiere verificación"}
-        className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap"
+        className={cn(BASE, ESTILO_CORTO, AMBAR)}
       >
         <AlertTriangle className="w-2.5 h-2.5" />
         {etiquetaEspecifica ?? "Requiere verificación"}
@@ -98,29 +131,25 @@ export function BadgeVerificacion({
     // todavía sin ninguna corrida real encima — fechaUltimaVerificacion
     // null es la señal (limpiada de backfills falsos, ver
     // scripts/_historico/limpiar-fecha-verificacion-falsa.ts). Ámbar — mismo color
-    // que el reloj de "pendiente de verificar" en la lista de rubros
-    // (mismo estado, misma señal), y acá además refuerza que la etiqueta
-    // es clickeable (deep-link a Materiales, ver onClickPendiente).
+    // que el reloj de "sin verificar" en la lista de rubros (mismo estado,
+    // misma señal).
     if (!fuente.fechaUltimaVerificacion) {
       if (ocultarPendiente) return null;
-      if (onClickPendiente) {
+      if (conAccion) {
         return (
           <button
             type="button"
-            onClick={onClickPendiente}
+            onClick={onRevisarEnMateriales}
             title="Precio de referencia de fuente de mercado — click para revisarlo en Materiales"
-            className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap hover:bg-amber-100 hover:text-amber-700 transition-colors"
+            className={cn(BASE, ESTILO_ACCION, AMBAR, AMBAR_CLICK)}
           >
             <Clock className="w-2.5 h-2.5" />
-            {etiquetaPendiente}
+            {ACCION_SIN_VERIFICAR}
           </button>
         );
       }
       return (
-        <span
-          title="Precio de referencia de fuente de mercado"
-          className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap"
-        >
+        <span title="Precio de referencia de fuente de mercado" className={cn(BASE, ESTILO_CORTO, AMBAR)}>
           <Clock className="w-2.5 h-2.5" />
           {etiquetaPendiente}
         </span>
@@ -131,7 +160,7 @@ export function BadgeVerificacion({
     return (
       <span
         title={`Verificado ${fecha}`}
-        className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide whitespace-nowrap"
+        className={cn(BASE, ESTILO_CORTO, "bg-emerald-50 text-emerald-600 border-emerald-200")}
       >
         <BadgeCheck className="w-2.5 h-2.5" />
         Verificado

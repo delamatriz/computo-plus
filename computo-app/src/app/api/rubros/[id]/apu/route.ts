@@ -253,7 +253,11 @@ export async function PUT(
         include: {
           materiales: {
             orderBy: { orden: "asc" },
-            include: { componentes: { orderBy: { orden: "asc" } } },
+            include: {
+              componentes: { orderBy: { orden: "asc" } },
+              // Para la fuente del precio en el APU (lib/fuentePrecio.ts); el PUT no la lee.
+              precioMTOP: { select: { codigo: true, numeroLista: true, proveedor: true, notaProcedencia: true } },
+            },
           },
           manoObra: { orderBy: { orden: "asc" } },
           equipos:  { orderBy: { orden: "asc" } },
@@ -349,7 +353,11 @@ export async function GET(
       include: {
         materiales: {
           orderBy: { orden: "asc" },
-          include: { componentes: { orderBy: { orden: "asc" } } },
+          include: {
+            componentes: { orderBy: { orden: "asc" } },
+            // Para la fuente del precio en el APU (lib/fuentePrecio.ts); el PUT no la lee.
+            precioMTOP: { select: { codigo: true, numeroLista: true, proveedor: true, notaProcedencia: true } },
+          },
         },
         manoObra: { orderBy: { orden: "asc" } },
         equipos:  { orderBy: { orden: "asc" } },

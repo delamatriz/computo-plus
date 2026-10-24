@@ -13,6 +13,7 @@ import { detalleListaMTOP, type ListaMTOPVigente } from "@/lib/listaMTOP";
 import { requiereVerificacionExplicita } from "@/lib/pendientesMateriales";
 import { useRolUsuario, useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
+import { CODIGOS_MATERIALES_REFERENCIA, esEstimado, textoFuente } from "@/lib/fuentePrecio";
 
 // NOTA(multi-tenant): hoy el catálogo es global (compartido por todas las
 // empresas), así que editarlo, importar listas y buscar precios es solo
@@ -25,20 +26,8 @@ import { cn } from "@/lib/utils";
 // filtro sobre el mismo catálogo y el mismo editor inline de siempre
 // (por id), no un segundo mecanismo de edición por código en batch
 // como el que reemplaza.
-const CODIGOS_MATERIALES_REFERENCIA = new Set([
-  "TICH-0800",
-  "TICH-1200",
-  "TICH-1700",
-  "LAD-COMUN",
-  "LAD-PRIMERA",
-  "LAD-CHORIZO",
-  "BLOQUE-1219",
-  "BLOQUE-1919",
-  "CAL-HID",
-  "PIEDRA-BRUTA",
-  "MAD-ENCOFRADO",
-  "TEJA-COLONIAL",
-]);
+// Los códigos de los precios de plaza (CODIGOS_MATERIALES_REFERENCIA) viven en
+// lib/fuentePrecio.ts, junto con el criterio de la columna FUENTE.
 
 // El número y el mes de la lista MTOP salen de la base (GET /api/precios-mtop/lista-vigente): la
 // lista oficial más reciente cargada en el catálogo global. Sin lista, el texto va sin número.
@@ -105,57 +94,6 @@ function fmtFecha(v: Date): string {
   return v.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-// Texto de la columna FUENTE. Solo visualización: la base no se toca. Las
-// notas internas de carga no se muestran tal cual:
-//  - "Estimado por IA (Claude)…" (seeds oct-2026) y "Backfill FEATURE <especialidad>…"
-//    → estimación propia.
-//  - "Derivado — modelo de regresión…", "Retro-derivado SAU 2022…", "Estimación
-//    general de mercado / sin cotización", "ESTIMACIÓN…" y "Kit mensual de
-//    consumibles…" → estimación propia.
-//  - "Corregido oct-2026: el precio de la lista era por 1.000 unidades…" y
-//    "Lista Oficial MTOP (código …)" → precio de la lista MTOP.
-//  - "Precio de referencia de mercado…" y "Pendiente de verificar. Precio de
-//    tienda publicado…" → fuente de mercado.
-// Se evalúan en ese orden (estimación antes que MTOP: un derivado calculado a
-// partir de la lista sigue siendo una estimación). Sin proveedor ni nota,
-// numeroLista > 0 es una fila de la lista oficial MTOP y 0 un material de
-// mercado sin lista.
-const NOTA_ESTIMACION_PROPIA =
-  /Estimado por IA|Backfill|FEATURE|Derivado|modelo de regresión|Kit mensual de consumibles/;
-// Sin distinguir mayúsculas: "Retro-derivado"/"retro-derivado", y "estimación" cubre
-// "Estimación general de mercado", "Estimación sin cotización" y "ESTIMACIÓN".
-const NOTA_ESTIMACION_PROPIA_I = /retro-derivado|estimación/i;
-const NOTA_FUENTE_MTOP = /Corregido\s+\S+-\d{4}|Lista Oficial MTOP/;
-const NOTA_FUENTE_MERCADO = /Precio de referencia de mercado|Pendiente de verificar/;
-
-// Precio estimado por CÓMPUTO+ (no es cotización directa): lo que la columna
-// FUENTE muestra como "Estimado por CÓMPUTO+" y lo que filtra "Estimados —
-// verificar". Un mismo criterio para los dos, así el filtro trae exactamente
-// las filas que dicen eso.
-function esEstimado(m: MaterialCatalogo): boolean {
-  if (m.proveedor || !m.notaProcedencia || CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return false;
-  return NOTA_ESTIMACION_PROPIA.test(m.notaProcedencia) || NOTA_ESTIMACION_PROPIA_I.test(m.notaProcedencia);
-}
-
-function textoFuente(m: MaterialCatalogo): string {
-  if (m.proveedor) return m.proveedor;
-  // Los precios de plaza (mampostería fuera de la lista MTOP) traen
-  // numeroLista = 599, el default del schema, no un número de lista real.
-  if (CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return "Fuente de mercado";
-  if (esEstimado(m)) return "Estimado por CÓMPUTO+";
-  if (m.notaProcedencia) {
-    if (NOTA_FUENTE_MTOP.test(m.notaProcedencia)) return "Fuente MTOP";
-    if (NOTA_FUENTE_MERCADO.test(m.notaProcedencia)) return "Fuente de mercado";
-    return m.notaProcedencia;
-  }
-  return m.numeroLista > 0 ? "Fuente MTOP" : "Fuente de mercado";
-}
-
-// Fecha de la columna "Actualizado" — fechaUltimaVerificacion si existe
-// (verificación real de precio de mercado, texto normal) o si no,
-// actualizadoEn (fecha de carga/última edición del registro — nunca pasó
-// por el sistema de verificación, por eso va un poco más clara: no hay que
-// confundir "se cargó/corrigió" con "se verificó contra el mercado").
 // Filtro "Fuente MTOP": exactamente las filas que la columna FUENTE muestra así.
 function esFuenteMTOP(m: MaterialCatalogo): boolean {
   return textoFuente(m) === "Fuente MTOP";

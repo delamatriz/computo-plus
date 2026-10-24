@@ -21,6 +21,9 @@ const PROYECTO_INCLUDE = {
                 orderBy: { orden: "asc" as const },
                 include: {
                   componentes: { orderBy: { orden: "asc" as const } },
+                  // Fila del catálogo vinculada: solo lo que hace falta para mostrar la
+                  // fuente del precio en el APU (lib/fuentePrecio.ts). No se guarda de vuelta.
+                  precioMTOP: { select: { codigo: true, numeroLista: true, proveedor: true, notaProcedencia: true } },
                 },
               },
               manoObra: { orderBy: { orden: "asc" as const } },
