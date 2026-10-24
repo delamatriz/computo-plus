@@ -393,8 +393,7 @@ function MaterialesPageInner() {
     return materiales.filter((m) => {
       if (q && !m.descripcion.toLowerCase().includes(q)) return false;
       if (filtroSinPrecio && m.precioUnitario > 0) return false;
-      // El filtro solo existe para el SUPERADMIN (puede haberlo prendido un deep-link).
-      if (filtroPendiente && puedeEditar && !esPendiente(m)) return false;
+      if (filtroPendiente && !esPendiente(m)) return false;
       if (filtroRequiere && !requiereVerificacionExplicita(m)) return false;
       if (filtroEstimados && !esEstimado(m)) return false;
       if (filtroReferencia && !CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return false;
@@ -407,7 +406,6 @@ function MaterialesPageInner() {
     busqueda,
     filtroSinPrecio,
     filtroPendiente,
-    puedeEditar,
     filtroRequiere,
     filtroEstimados,
     filtroReferencia,
@@ -497,20 +495,14 @@ function MaterialesPageInner() {
         <BotonFiltro activo={filtroSinPrecio} onClick={() => setFiltroSinPrecio((p) => !p)} color="rojo">
           Sin precio
         </BotonFiltro>
-        {puedeEditar && (
-          <BotonFiltro activo={filtroPendiente} onClick={() => setFiltroPendiente((p) => !p)} color="ambar">
-            Pendiente de verificar
-          </BotonFiltro>
-        )}
+        <BotonFiltro activo={filtroPendiente} onClick={() => setFiltroPendiente((p) => !p)} color="ambar">
+          Pendiente de verificar
+        </BotonFiltro>
         <BotonFiltro
           activo={filtroRequiere}
           onClick={() => setFiltroRequiere((p) => !p)}
           color="ambar"
-          title={
-            puedeEditar
-              ? "Materiales marcados como que requieren verificación (el mismo número que la campanita). 'Pendiente de verificar' es más amplio: todos los que nunca se verificaron."
-              : "Materiales marcados como que requieren verificación (el mismo número que la campanita)."
-          }
+          title="Materiales marcados como que requieren verificación (el mismo número que la campanita). 'Pendiente de verificar' es más amplio: todos los que nunca se verificaron."
         >
           Requieren verificación{materiales.length > 0 ? ` (${cantidadRequieren})` : ""}
         </BotonFiltro>
@@ -544,7 +536,7 @@ function MaterialesPageInner() {
       </div>
 
       {/* Una leyenda por filtro activo (se pueden combinar). */}
-      {(filtroSinPrecio || (puedeEditar && filtroPendiente) || filtroRequiere || filtroEstimados || filtroReferencia) && (
+      {(filtroSinPrecio || filtroPendiente || filtroRequiere || filtroEstimados || filtroReferencia) && (
         <div className="-mt-2 mb-4 space-y-1 text-xs text-slate-400 max-w-3xl">
           {filtroSinPrecio && (
             <p>
@@ -552,12 +544,21 @@ function MaterialesPageInner() {
               cargado. Cotizalos con tu proveedor antes de usarlos en un presupuesto.
             </p>
           )}
-          {puedeEditar && filtroPendiente && (
-            <p>
-              <span className="font-medium text-slate-500">Pendiente de verificar:</span> Materiales que aún no
-              pasaron por el proceso de verificación de precios. Revisalos antes de usarlos en un presupuesto.
-            </p>
-          )}
+          {/* Mismo filtro para todos; la leyenda cambia: el SUPERADMIN mantiene el
+              catálogo, el cliente cotiza con su proveedor. */}
+          {filtroPendiente &&
+            (puedeEditar ? (
+              <p>
+                <span className="font-medium text-slate-500">Pendiente de verificar:</span> Materiales que aún no
+                pasaron por el proceso de verificación de precios. Revisalos antes de usarlos en un presupuesto.
+              </p>
+            ) : (
+              <p>
+                <span className="font-medium text-slate-500">Precios sin verificar:</span> Estos materiales no tienen
+                confirmación de precio actualizado. Te recomendamos cotizarlos con tu proveedor antes de usarlos en un
+                presupuesto.
+              </p>
+            ))}
           {filtroRequiere && (
             <p>
               <span className="font-medium text-slate-500">Requieren verificación:</span> El sistema detectó que estos
