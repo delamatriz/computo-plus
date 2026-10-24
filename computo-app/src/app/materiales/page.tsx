@@ -110,16 +110,24 @@ function fmtFecha(v: Date): string {
 // por el sistema de verificación, por eso va en gris tenue: no hay que
 // confundir "se cargó/corrigió" con "se verificó contra el mercado").
 // Texto de la columna FUENTE. Solo visualización: la base no se toca. Las
-// notas "Estimado por IA (Claude)…" (seeds de oct-2026) se muestran como
-// estimación propia; sin proveedor ni nota, numeroLista > 0 es una fila de
-// la lista oficial MTOP y 0 un material de mercado sin lista.
-function textoFuente(m: MaterialCatalogo): { texto: string; oficial: boolean } {
-  if (m.proveedor) return { texto: m.proveedor, oficial: false };
+// notas internas de carga no se muestran tal cual:
+//  - "Estimado por IA (Claude)…" (seeds oct-2026) y "Backfill FEATURE <especialidad>…"
+//    → estimación propia.
+//  - "Corregido oct-2026: el precio de la lista era por 1.000 unidades…" → es
+//    precio de la lista MTOP corregido de unidad.
+// Sin proveedor ni nota, numeroLista > 0 es una fila de la lista oficial MTOP
+// y 0 un material de mercado sin lista.
+const NOTA_ESTIMACION_PROPIA = /Estimado por IA|Backfill|FEATURE/;
+const NOTA_CORRECCION_MTOP = /Corregido\s+\S+-\d{4}/;
+
+function textoFuente(m: MaterialCatalogo): string {
+  if (m.proveedor) return m.proveedor;
   if (m.notaProcedencia) {
-    if (m.notaProcedencia.includes("Estimado por IA")) return { texto: "Estimado por CÓMPUTO+", oficial: false };
-    return { texto: m.notaProcedencia, oficial: false };
+    if (NOTA_ESTIMACION_PROPIA.test(m.notaProcedencia)) return "Estimado por CÓMPUTO+";
+    if (NOTA_CORRECCION_MTOP.test(m.notaProcedencia)) return "Fuente MTOP";
+    return m.notaProcedencia;
   }
-  return m.numeroLista > 0 ? { texto: "Fuente MTOP", oficial: true } : { texto: "Fuente de mercado", oficial: false };
+  return m.numeroLista > 0 ? "Fuente MTOP" : "Fuente de mercado";
 }
 
 function fechaColumna(m: MaterialCatalogo): { texto: string; verificada: boolean } {
@@ -565,13 +573,9 @@ function MaterialesPageInner() {
                         )}
                       </td>
                       <td className="px-4 py-2.5">
-                        {fuenteTexto.oficial ? (
-                          <span className="text-xs text-emerald-600 font-semibold">{fuenteTexto.texto}</span>
-                        ) : (
-                          <span className="text-xs text-slate-500 truncate block max-w-[220px]" title={fuenteTexto.texto}>
-                            {fuenteTexto.texto}
-                          </span>
-                        )}
+                        <span className="text-xs text-slate-500 truncate block max-w-[220px]" title={fuenteTexto}>
+                          {fuenteTexto}
+                        </span>
                       </td>
                       <td className="px-4 py-2.5">
                         <span
