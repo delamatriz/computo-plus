@@ -113,22 +113,31 @@ function fmtFecha(v: Date): string {
 // notas internas de carga no se muestran tal cual:
 //  - "Estimado por IA (Claude)…" (seeds oct-2026) y "Backfill FEATURE <especialidad>…"
 //    → estimación propia.
-//  - "Derivado — modelo de regresión…" → estimación propia.
+//  - "Derivado — modelo de regresión…", "Retro-derivado SAU 2022…", "Estimación
+//    general de mercado / sin cotización", "ESTIMACIÓN…" y "Kit mensual de
+//    consumibles…" → estimación propia.
 //  - "Corregido oct-2026: el precio de la lista era por 1.000 unidades…" y
 //    "Lista Oficial MTOP (código …)" → precio de la lista MTOP.
-//  - "Precio de referencia de mercado…" → fuente de mercado.
+//  - "Precio de referencia de mercado…" y "Pendiente de verificar. Precio de
+//    tienda publicado…" → fuente de mercado.
 // Se evalúan en ese orden (estimación antes que MTOP: un derivado calculado a
 // partir de la lista sigue siendo una estimación). Sin proveedor ni nota,
 // numeroLista > 0 es una fila de la lista oficial MTOP y 0 un material de
 // mercado sin lista.
-const NOTA_ESTIMACION_PROPIA = /Estimado por IA|Backfill|FEATURE|Derivado|modelo de regresión/;
+const NOTA_ESTIMACION_PROPIA =
+  /Estimado por IA|Backfill|FEATURE|Derivado|modelo de regresión|Kit mensual de consumibles/;
+// Sin distinguir mayúsculas: "Retro-derivado"/"retro-derivado", y "estimación" cubre
+// "Estimación general de mercado", "Estimación sin cotización" y "ESTIMACIÓN".
+const NOTA_ESTIMACION_PROPIA_I = /retro-derivado|estimación/i;
 const NOTA_FUENTE_MTOP = /Corregido\s+\S+-\d{4}|Lista Oficial MTOP/;
-const NOTA_FUENTE_MERCADO = /Precio de referencia de mercado/;
+const NOTA_FUENTE_MERCADO = /Precio de referencia de mercado|Pendiente de verificar/;
 
 function textoFuente(m: MaterialCatalogo): string {
   if (m.proveedor) return m.proveedor;
   if (m.notaProcedencia) {
-    if (NOTA_ESTIMACION_PROPIA.test(m.notaProcedencia)) return "Estimado por CÓMPUTO+";
+    if (NOTA_ESTIMACION_PROPIA.test(m.notaProcedencia) || NOTA_ESTIMACION_PROPIA_I.test(m.notaProcedencia)) {
+      return "Estimado por CÓMPUTO+";
+    }
     if (NOTA_FUENTE_MTOP.test(m.notaProcedencia)) return "Fuente MTOP";
     if (NOTA_FUENTE_MERCADO.test(m.notaProcedencia)) return "Fuente de mercado";
     return m.notaProcedencia;
