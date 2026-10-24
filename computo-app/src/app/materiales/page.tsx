@@ -495,14 +495,17 @@ function MaterialesPageInner() {
         <BotonFiltro activo={filtroSinPrecio} onClick={() => setFiltroSinPrecio((p) => !p)} color="rojo">
           Sin precio
         </BotonFiltro>
+        {/* Para el cliente se llama "Sin verificar", igual que el badge de las filas y su leyenda. */}
         <BotonFiltro activo={filtroPendiente} onClick={() => setFiltroPendiente((p) => !p)} color="ambar">
-          Pendiente de verificar
+          {puedeEditar ? "Pendiente de verificar" : "Sin verificar"}
         </BotonFiltro>
         <BotonFiltro
           activo={filtroRequiere}
           onClick={() => setFiltroRequiere((p) => !p)}
           color="ambar"
-          title="Materiales marcados como que requieren verificación (el mismo número que la campanita). 'Pendiente de verificar' es más amplio: todos los que nunca se verificaron."
+          title={`Materiales marcados como que requieren verificación (el mismo número que la campanita). '${
+            puedeEditar ? "Pendiente de verificar" : "Sin verificar"
+          }' es más amplio: todos los que nunca se verificaron.`}
         >
           Requieren verificación{materiales.length > 0 ? ` (${cantidadRequieren})` : ""}
         </BotonFiltro>
@@ -639,7 +642,7 @@ function MaterialesPageInner() {
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
                           <span className="text-slate-700">{m.descripcion}</span>
-                          <BadgeVerificacion fuente={fuente} ocultarPendiente={!puedeEditar} />
+                          <BadgeVerificacion fuente={fuente} etiquetaPendiente={puedeEditar ? undefined : "Sin verificar"} />
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-slate-500">{m.unidad}</td>

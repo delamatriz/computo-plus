@@ -48,12 +48,20 @@ interface BadgeVerificacionProps {
   // (biblioteca /rubros, equipos, otros estados del badge) no lo pasan,
   // así que siguen siendo un <span> no interactivo, sin cambios.
   onClickPendiente?: () => void;
-  // /materiales lo pasa para quien no es SUPERADMIN: "Pendiente de verificar"
-  // es un estado interno del job de precios, no algo que el cliente resuelva.
+  // /rubros y el presupuesto lo pasan para quien no es SUPERADMIN:
+  // "Pendiente de verificar" es un estado interno del job de precios.
   ocultarPendiente?: boolean;
+  // Texto del badge de ese mismo estado — /materiales le muestra al cliente
+  // "Sin verificar" (coincide con su filtro y su leyenda).
+  etiquetaPendiente?: string;
 }
 
-export function BadgeVerificacion({ fuente, onClickPendiente, ocultarPendiente }: BadgeVerificacionProps) {
+export function BadgeVerificacion({
+  fuente,
+  onClickPendiente,
+  ocultarPendiente,
+  etiquetaPendiente = "Pendiente de verificar",
+}: BadgeVerificacionProps) {
   // Marca puntual — caso conocido y aceptado (honorarios profesionales,
   // materiales sin fuente de mercado confiable), no un problema a
   // resolver. Estilo neutro (slate), no ámbar, a propósito.
@@ -104,7 +112,7 @@ export function BadgeVerificacion({ fuente, onClickPendiente, ocultarPendiente }
             className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap hover:bg-amber-100 hover:text-amber-700 transition-colors"
           >
             <Clock className="w-2.5 h-2.5" />
-            Pendiente de verificar
+            {etiquetaPendiente}
           </button>
         );
       }
@@ -114,7 +122,7 @@ export function BadgeVerificacion({ fuente, onClickPendiente, ocultarPendiente }
           className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap"
         >
           <Clock className="w-2.5 h-2.5" />
-          Pendiente de verificar
+          {etiquetaPendiente}
         </span>
       );
     }
