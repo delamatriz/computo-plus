@@ -109,6 +109,19 @@ function fmtFecha(v: Date): string {
 // actualizadoEn (fecha de carga/última edición del registro — nunca pasó
 // por el sistema de verificación, por eso va en gris tenue: no hay que
 // confundir "se cargó/corrigió" con "se verificó contra el mercado").
+// Texto de la columna FUENTE. Solo visualización: la base no se toca. Las
+// notas "Estimado por IA (Claude)…" (seeds de oct-2026) se muestran como
+// estimación propia; sin proveedor ni nota, numeroLista > 0 es una fila de
+// la lista oficial MTOP y 0 un material de mercado sin lista.
+function textoFuente(m: MaterialCatalogo): { texto: string; oficial: boolean } {
+  if (m.proveedor) return { texto: m.proveedor, oficial: false };
+  if (m.notaProcedencia) {
+    if (m.notaProcedencia.includes("Estimado por IA")) return { texto: "Estimado por CÓMPUTO+", oficial: false };
+    return { texto: m.notaProcedencia, oficial: false };
+  }
+  return m.numeroLista > 0 ? { texto: "Fuente MTOP", oficial: true } : { texto: "Fuente de mercado", oficial: false };
+}
+
 function fechaColumna(m: MaterialCatalogo): { texto: string; verificada: boolean } {
   if (m.fechaUltimaVerificacion) {
     return { texto: fmtFecha(new Date(m.fechaUltimaVerificacion)), verificada: true };
@@ -305,12 +318,13 @@ function MaterialesPageInner() {
     return materiales.filter((m) => {
       if (q && !m.descripcion.toLowerCase().includes(q)) return false;
       if (filtroSinPrecio && m.precioUnitario > 0) return false;
-      if (filtroPendiente && !esPendiente(m)) return false;
+      // El filtro solo existe para el SUPERADMIN (puede haberlo prendido un deep-link).
+      if (filtroPendiente && puedeEditar && !esPendiente(m)) return false;
       if (filtroRequiere && !requiereVerificacionExplicita(m)) return false;
       if (filtroReferencia && !CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return false;
       return true;
     });
-  }, [materiales, busqueda, filtroSinPrecio, filtroPendiente, filtroRequiere, filtroReferencia]);
+  }, [materiales, busqueda, filtroSinPrecio, filtroPendiente, puedeEditar, filtroRequiere, filtroReferencia]);
 
   // Mismo conteo que "materiales requieren verificación" de la campanita.
   const cantidadRequieren = useMemo(() => materiales.filter(requiereVerificacionExplicita).length, [materiales]);
@@ -351,7 +365,8 @@ function MaterialesPageInner() {
             </>
           ) : (
             <p className="text-slate-500 max-w-2xl">
-              Catálogo de materiales de construcción con precios de referencia.
+              Catálogo de materiales con precios de referencia tomados de la fuente oficial MTOP y otras fuentes de
+              mercado.
               {!cargando && fechaMaxima && <> Actualizado al {fmtFecha(fechaMaxima)}.</>}
               {puedeImportar && <> También podés importar los precios de tu propio proveedor.</>}
             </p>
@@ -396,20 +411,26 @@ function MaterialesPageInner() {
         >
           Sin precio
         </button>
-        <button
-          onClick={() => setFiltroPendiente((p) => !p)}
-          className={cn(
-            "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
-            filtroPendiente
-              ? "bg-amber-50 text-amber-600 border-amber-200"
-              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-          )}
-        >
-          Pendiente de verificar
-        </button>
+        {puedeEditar && (
+          <button
+            onClick={() => setFiltroPendiente((p) => !p)}
+            className={cn(
+              "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
+              filtroPendiente
+                ? "bg-amber-50 text-amber-600 border-amber-200"
+                : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+            )}
+          >
+            Pendiente de verificar
+          </button>
+        )}
         <button
           onClick={() => setFiltroRequiere((p) => !p)}
-          title="Materiales marcados como que requieren verificación (el mismo número que la campanita). 'Pendiente de verificar' es más amplio: todos los que nunca se verificaron."
+          title={
+            puedeEditar
+              ? "Materiales marcados como que requieren verificación (el mismo número que la campanita). 'Pendiente de verificar' es más amplio: todos los que nunca se verificaron."
+              : "Materiales marcados como que requieren verificación (el mismo número que la campanita)."
+          }
           className={cn(
             "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
             filtroRequiere
@@ -493,12 +514,13 @@ function MaterialesPageInner() {
                     motivoVerificacion: m.motivoVerificacion,
                   };
                   const fecha = fechaColumna(m);
+                  const fuenteTexto = textoFuente(m);
                   return (
                     <tr key={m.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
                           <span className="text-slate-700">{m.descripcion}</span>
-                          <BadgeVerificacion fuente={fuente} />
+                          <BadgeVerificacion fuente={fuente} ocultarPendiente={!puedeEditar} />
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-slate-500">{m.unidad}</td>
@@ -543,18 +565,18 @@ function MaterialesPageInner() {
                         )}
                       </td>
                       <td className="px-4 py-2.5">
-                        {m.proveedor || m.notaProcedencia ? (
-                          <span className="text-xs text-slate-500 truncate block max-w-[220px]" title={m.proveedor ?? m.notaProcedencia ?? undefined}>
-                            {m.proveedor ?? m.notaProcedencia}
-                          </span>
+                        {fuenteTexto.oficial ? (
+                          <span className="text-xs text-emerald-600 font-semibold">{fuenteTexto.texto}</span>
                         ) : (
-                          <span className="text-xs text-emerald-600 font-semibold">Lista {m.numeroLista}</span>
+                          <span className="text-xs text-slate-500 truncate block max-w-[220px]" title={fuenteTexto.texto}>
+                            {fuenteTexto.texto}
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-2.5">
                         <span
                           className={cn("text-xs tabular-nums", fecha.verificada ? "text-slate-600" : "text-slate-300")}
-                          title={fecha.verificada ? undefined : "Fecha de carga/última edición — no pasó por verificación de precio de mercado"}
+                          title={fecha.verificada ? undefined : "Precio de referencia de fuente de mercado"}
                         >
                           {fecha.texto}
                         </span>

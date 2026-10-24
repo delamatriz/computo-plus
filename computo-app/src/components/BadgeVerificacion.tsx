@@ -48,9 +48,12 @@ interface BadgeVerificacionProps {
   // (biblioteca /rubros, equipos, otros estados del badge) no lo pasan,
   // así que siguen siendo un <span> no interactivo, sin cambios.
   onClickPendiente?: () => void;
+  // /materiales lo pasa para quien no es SUPERADMIN: "Pendiente de verificar"
+  // es un estado interno del job de precios, no algo que el cliente resuelva.
+  ocultarPendiente?: boolean;
 }
 
-export function BadgeVerificacion({ fuente, onClickPendiente }: BadgeVerificacionProps) {
+export function BadgeVerificacion({ fuente, onClickPendiente, ocultarPendiente }: BadgeVerificacionProps) {
   // Marca puntual — caso conocido y aceptado (honorarios profesionales,
   // materiales sin fuente de mercado confiable), no un problema a
   // resolver. Estilo neutro (slate), no ámbar, a propósito.
@@ -91,12 +94,13 @@ export function BadgeVerificacion({ fuente, onClickPendiente }: BadgeVerificacio
     // (mismo estado, misma señal), y acá además refuerza que la etiqueta
     // es clickeable (deep-link a Materiales, ver onClickPendiente).
     if (!fuente.fechaUltimaVerificacion) {
+      if (ocultarPendiente) return null;
       if (onClickPendiente) {
         return (
           <button
             type="button"
             onClick={onClickPendiente}
-            title="Todavía no pasó por el job de verificación de precios de mercado — click para revisarlo en Materiales"
+            title="Precio de referencia de fuente de mercado — click para revisarlo en Materiales"
             className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap hover:bg-amber-100 hover:text-amber-700 transition-colors"
           >
             <Clock className="w-2.5 h-2.5" />
@@ -106,7 +110,7 @@ export function BadgeVerificacion({ fuente, onClickPendiente }: BadgeVerificacio
       }
       return (
         <span
-          title="Todavía no pasó por el job de verificación de precios de mercado"
+          title="Precio de referencia de fuente de mercado"
           className="flex-shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap"
         >
           <Clock className="w-2.5 h-2.5" />
