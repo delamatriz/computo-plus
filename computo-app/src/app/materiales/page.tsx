@@ -424,7 +424,7 @@ function MaterialesPageInner() {
   const cantidadMisFuentes = useMemo(() => materiales.filter((m) => m.empresaId).length, [materiales]);
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-8 max-w-7xl">
       <BotonVolverAlProyecto />
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
@@ -434,24 +434,16 @@ function MaterialesPageInner() {
               importar listas de su proveedor, privadas de su empresa). Mientras carga
               el rol (null) se ve la vista de USUARIO: sin controles que después se van. */}
           {esSuperadmin ? (
-            <>
-              <p className="text-slate-500">
-                Catálogo de materiales de construcción y sus precios de referencia — {materiales.length} en total.
-              </p>
-              <p className="text-sm text-slate-400 mt-2 max-w-2xl">
-                Para actualizar el catálogo: descargá la lista oficial del MTOP desde el enlace de abajo e importala
-                con el botón <span className="font-medium text-slate-500">Importar lista de precios</span>.
-              </p>
-              {!cargando && (
-                <p className="text-xs text-slate-400 mt-1.5">
-                  Catálogo actualizado al: {fechaMaxima ? fmtFecha(fechaMaxima) : "Sin actualizaciones registradas"}
-                </p>
-              )}
-            </>
+            <p className="text-slate-500 max-w-3xl">
+              Panel de actualización de precios. Base de datos central de materiales de CÓMPUTO+ — alimenta los
+              presupuestos de todos los clientes. Incluye materiales de la fuente oficial MTOP, estimaciones propias y
+              precios de plaza.
+              {!cargando && fechaMaxima && <> Actualizado al {fmtFecha(fechaMaxima)}.</>}
+            </p>
           ) : (
-            <p className="text-slate-500 max-w-2xl">
-              Catálogo de materiales con precios de referencia tomados de la fuente oficial MTOP y otras fuentes de
-              mercado.
+            <p className="text-slate-500 max-w-3xl">
+              Catálogo de materiales de construcción con precios de referencia. Incluye materiales de la fuente
+              oficial MTOP, estimaciones de CÓMPUTO+ y precios de plaza.
               {!cargando && fechaMaxima && <> Actualizado al {fmtFecha(fechaMaxima)}.</>}
               {puedeImportar && <> También podés importar los precios de tu propio proveedor.</>}
             </p>
@@ -473,9 +465,9 @@ function MaterialesPageInner() {
         <ListaReferencias items={esSuperadmin ? referenciasConLista(listaMTOP) : REFERENCIAS_FIJAS} />
       </div>
 
-      {/* Buscador + filtros en una sola fila: si no entran (pantalla chica, o el
-          filtro extra del SUPERADMIN), la fila se desplaza horizontalmente en vez
-          de partirse en dos renglones. */}
+      {/* Buscador + filtros en una sola fila (la página es max-w-7xl para que
+          entren): solo en pantallas más angostas la fila se desplaza
+          horizontalmente en vez de partirse en dos renglones. */}
       <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
         <div className="relative flex-shrink-0 w-56">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
