@@ -2200,11 +2200,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                 Análisis de Precio Unitario
                 {rubro.unidad && <span className="ml-1 font-medium text-slate-500">({rubro.unidad})</span>}
               </p>
-              {rubro.cantidad != null && (
-                <p className="text-sm font-bold text-[#2563EB] mt-0.5">
-                  Cantidad total del rubro: {fmtRendimiento(rubro.cantidad)} {rubro.unidad}
-                </p>
-              )}
+              {/* La cantidad total del rubro está en el pie del panel, junto al costo total. */}
             </div>
           </div>
           <button
