@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { EncabezadosAPU, textoRendimientoMO } from "@/components/shared/EncabezadosAPU";
+import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { fmtRendimiento } from "@/lib/formatoNumeros";
 
 // ── Tipos ──────────────────────────────────────────────────────────────
@@ -335,6 +336,8 @@ function SeccionAPU({
 }
 
 function SeccionMateriales({ materiales }: { materiales: MaterialDescompuesto[] }) {
+  // "Pendiente de verificar" es estado interno del job de precios: solo SUPERADMIN (ver /materiales).
+  const esSuperadmin = useSuperadmin() === true;
   if (materiales.length === 0) return null;
   return (
     <SeccionAPU titulo="Materiales" icono={<Package className="w-3.5 h-3.5 text-slate-400" />}>
@@ -352,7 +355,7 @@ function SeccionMateriales({ materiales }: { materiales: MaterialDescompuesto[] 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-700 truncate">{m.descripcion}</span>
-                {m.fuente && <BadgeVerificacion fuente={m.fuente} />}
+                {m.fuente && <BadgeVerificacion fuente={m.fuente} ocultarPendiente={!esSuperadmin} />}
               </div>
               {m.fuente?.nombreProducto && (
                 <p className="text-[11px] text-slate-400 truncate mt-0.5">

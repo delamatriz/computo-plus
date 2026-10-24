@@ -1723,6 +1723,8 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   const irAMaterialPendiente = (descripcion: string) => {
     router.push(`/materiales?q=${encodeURIComponent(descripcion)}&from=${proyectoId}`);
   };
+  // "Pendiente de verificar" es estado interno del job de precios: solo SUPERADMIN (ver /materiales).
+  const esSuperadmin = useSuperadmin() === true;
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [mostrarBuscadorEquipo, setMostrarBuscadorEquipo] = useState(false);
   const [mostrarSelectorMO, setMostrarSelectorMO] = useState(false);
@@ -2353,6 +2355,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                   motivoVerificacion: m.motivoVerificacion ?? null,
                                 }}
                                 onClickPendiente={() => irAMaterialPendiente(m.descripcion)}
+                                ocultarPendiente={!esSuperadmin}
                               />
                               {preciosVigentesPorMaterial[m.id] != null && (
                                 <button
@@ -5087,7 +5090,8 @@ export default function ProyectoPage() {
                           {apuGenerando.has(rubro.id) && (
                             <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Generando APU…" />
                           )}
-                          {materialesPendientesVerificar > 0 && (
+                          {/* Mismo estado que el badge "Pendiente de verificar" del descompuesto: solo SUPERADMIN. */}
+                          {esSuperadmin && materialesPendientesVerificar > 0 && (
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setDrawerRubroId(rubro.id); }}
