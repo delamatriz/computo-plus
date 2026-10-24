@@ -104,11 +104,6 @@ function fmtFecha(v: Date): string {
   return v.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-// Fecha de la columna "Actualizado" — fechaUltimaVerificacion si existe
-// (verificación real de precio de mercado, texto normal) o si no,
-// actualizadoEn (fecha de carga/última edición del registro — nunca pasó
-// por el sistema de verificación, por eso va en gris tenue: no hay que
-// confundir "se cargó/corrigió" con "se verificó contra el mercado").
 // Texto de la columna FUENTE. Solo visualización: la base no se toca. Las
 // notas internas de carga no se muestran tal cual:
 //  - "Estimado por IA (Claude)…" (seeds oct-2026) y "Backfill FEATURE <especialidad>…"
@@ -132,15 +127,22 @@ const NOTA_ESTIMACION_PROPIA_I = /retro-derivado|estimación/i;
 const NOTA_FUENTE_MTOP = /Corregido\s+\S+-\d{4}|Lista Oficial MTOP/;
 const NOTA_FUENTE_MERCADO = /Precio de referencia de mercado|Pendiente de verificar/;
 
+// Precio estimado por CÓMPUTO+ (no es cotización directa): lo que la columna
+// FUENTE muestra como "Estimado por CÓMPUTO+" y lo que filtra "Estimados —
+// verificar". Un mismo criterio para los dos, así el filtro trae exactamente
+// las filas que dicen eso.
+function esEstimado(m: MaterialCatalogo): boolean {
+  if (m.proveedor || !m.notaProcedencia || CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return false;
+  return NOTA_ESTIMACION_PROPIA.test(m.notaProcedencia) || NOTA_ESTIMACION_PROPIA_I.test(m.notaProcedencia);
+}
+
 function textoFuente(m: MaterialCatalogo): string {
   if (m.proveedor) return m.proveedor;
-  // Los materiales de referencia (mampostería fuera de la lista MTOP) traen
+  // Los precios de plaza (mampostería fuera de la lista MTOP) traen
   // numeroLista = 599, el default del schema, no un número de lista real.
   if (CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return "Fuente de mercado";
+  if (esEstimado(m)) return "Estimado por CÓMPUTO+";
   if (m.notaProcedencia) {
-    if (NOTA_ESTIMACION_PROPIA.test(m.notaProcedencia) || NOTA_ESTIMACION_PROPIA_I.test(m.notaProcedencia)) {
-      return "Estimado por CÓMPUTO+";
-    }
     if (NOTA_FUENTE_MTOP.test(m.notaProcedencia)) return "Fuente MTOP";
     if (NOTA_FUENTE_MERCADO.test(m.notaProcedencia)) return "Fuente de mercado";
     return m.notaProcedencia;
@@ -148,6 +150,11 @@ function textoFuente(m: MaterialCatalogo): string {
   return m.numeroLista > 0 ? "Fuente MTOP" : "Fuente de mercado";
 }
 
+// Fecha de la columna "Actualizado" — fechaUltimaVerificacion si existe
+// (verificación real de precio de mercado, texto normal) o si no,
+// actualizadoEn (fecha de carga/última edición del registro — nunca pasó
+// por el sistema de verificación, por eso va un poco más clara: no hay que
+// confundir "se cargó/corrigió" con "se verificó contra el mercado").
 function fechaColumna(m: MaterialCatalogo): { texto: string; verificada: boolean } {
   if (m.fechaUltimaVerificacion) {
     return { texto: fmtFecha(new Date(m.fechaUltimaVerificacion)), verificada: true };
@@ -201,6 +208,7 @@ function MaterialesPageInner() {
   // criterio y el mismo número que la campanita — ver lib/pendientesMateriales.ts).
   // No es lo mismo que "Pendiente de verificar" (nunca verificados, mucho más amplio).
   const [filtroRequiere, setFiltroRequiere] = useState(false);
+  const [filtroEstimados, setFiltroEstimados] = useState(false);
   const [filtroReferencia, setFiltroReferencia] = useState(false);
   // Se aplica una sola vez, apenas cargan los materiales — ver el efecto
   // más abajo que decide si corresponde prender filtroPendiente.
@@ -345,22 +353,17 @@ function MaterialesPageInner() {
       // El filtro solo existe para el SUPERADMIN (puede haberlo prendido un deep-link).
       if (filtroPendiente && puedeEditar && !esPendiente(m)) return false;
       if (filtroRequiere && !requiereVerificacionExplicita(m)) return false;
+      if (filtroEstimados && !esEstimado(m)) return false;
       if (filtroReferencia && !CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return false;
       return true;
     });
-  }, [materiales, busqueda, filtroSinPrecio, filtroPendiente, puedeEditar, filtroRequiere, filtroReferencia]);
+  }, [materiales, busqueda, filtroSinPrecio, filtroPendiente, puedeEditar, filtroRequiere, filtroEstimados, filtroReferencia]);
 
   // Mismo conteo que "materiales requieren verificación" de la campanita.
   const cantidadRequieren = useMemo(() => materiales.filter(requiereVerificacionExplicita).length, [materiales]);
 
   const fechaMaxima = useMemo(() => calcularFechaMaxima(materiales), [materiales]);
-
-  // Última actualización SOLO de los 12 de referencia — mismo dato que
-  // mostraba la sección vieja de Configuración, ahora acotado al filtro.
-  const fechaMaximaReferencia = useMemo(
-    () => calcularFechaMaxima(materiales.filter((m) => CODIGOS_MATERIALES_REFERENCIA.has(m.codigo))),
-    [materiales]
-  );
+  const cantidadEstimados = useMemo(() => materiales.filter(esEstimado).length, [materiales]);
 
   return (
     <div className="p-8 max-w-5xl">
@@ -465,8 +468,20 @@ function MaterialesPageInner() {
           Requieren verificación{materiales.length > 0 ? ` (${cantidadRequieren})` : ""}
         </button>
         <button
+          onClick={() => setFiltroEstimados((p) => !p)}
+          title="Precios calculados internamente por CÓMPUTO+ — no son cotizaciones directas"
+          className={cn(
+            "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
+            filtroEstimados
+              ? "bg-amber-50 text-amber-600 border-amber-200"
+              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+          )}
+        >
+          Estimados — verificar{materiales.length > 0 ? ` (${cantidadEstimados})` : ""}
+        </button>
+        <button
           onClick={() => setFiltroReferencia((p) => !p)}
-          title="Materiales de mampostería que no están en la fuente oficial MTOP — precio de referencia editable a mano"
+          title="Materiales de mampostería y básicos que no están en la lista oficial MTOP — precio de plaza"
           className={cn(
             "px-3 py-2 rounded-[8px] text-xs font-semibold border transition-colors",
             filtroReferencia
@@ -474,17 +489,40 @@ function MaterialesPageInner() {
               : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
           )}
         >
-          Materiales de referencia ({CODIGOS_MATERIALES_REFERENCIA.size})
+          Precios de plaza ({CODIGOS_MATERIALES_REFERENCIA.size})
         </button>
       </div>
 
-      {filtroReferencia && (
-        <p className="text-xs text-slate-400 -mt-2 mb-4">
-          Materiales de mampostería que no están en la fuente oficial MTOP — el resto del
-          catálogo se actualiza por separado, con &quot;Buscar precios actualizados&quot; más abajo.
-          {" "}Última actualización de estos {CODIGOS_MATERIALES_REFERENCIA.size}:{" "}
-          {fechaMaximaReferencia ? fmtFecha(fechaMaximaReferencia) : "nunca actualizado"}.
-        </p>
+      {/* Una leyenda por filtro activo (se pueden combinar). */}
+      {(filtroSinPrecio || filtroRequiere || filtroEstimados || filtroReferencia) && (
+        <div className="-mt-2 mb-4 space-y-1 text-xs text-slate-400 max-w-3xl">
+          {filtroSinPrecio && (
+            <p>
+              <span className="font-medium text-slate-500">Sin precio:</span> Materiales sin precio de referencia
+              cargado. Cotizalos con tu proveedor antes de usarlos en un presupuesto.
+            </p>
+          )}
+          {filtroRequiere && (
+            <p>
+              <span className="font-medium text-slate-500">Requieren verificación:</span> El sistema detectó que estos
+              precios pueden estar desactualizados. Verificalos con cotizaciones recientes antes de presupuestar.
+            </p>
+          )}
+          {filtroEstimados && (
+            <p>
+              <span className="font-medium text-slate-500">Estimados — verificar:</span> Precios calculados
+              internamente por CÓMPUTO+ a partir de referencias de mercado. No son cotizaciones directas. Confirmá con
+              tu proveedor antes de usar en presupuestos.
+            </p>
+          )}
+          {filtroReferencia && (
+            <p>
+              <span className="font-medium text-slate-500">Precios de plaza:</span> Materiales de mampostería y
+              básicos que no están en la lista oficial MTOP. Sus precios se tomaron del mercado local. Verificalos
+              periódicamente con tu proveedor.
+            </p>
+          )}
+        </div>
       )}
 
       {/* Tabla */}
