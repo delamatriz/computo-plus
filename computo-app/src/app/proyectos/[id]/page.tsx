@@ -5001,9 +5001,10 @@ export default function ProyectoPage() {
                     const materialesSinPrecioRubro = tieneAPU
                       ? apuData[rubro.id].materiales.filter((m) => m.precioUnit === 0).length
                       : 0;
-                    // Mismo criterio que BadgeVerificacion.tsx para "Pendiente de
-                    // verificar" — proveedor real (mercado libre, no MTOP oficial)
-                    // sin fechaUltimaVerificacion, excluyendo los casos que ya
+                    // Mismo criterio que BadgeVerificacion.tsx para "Sin verificar"
+                    // — proveedor real o nota de procedencia (mercado libre o
+                    // estimación, no MTOP oficial) sin fechaUltimaVerificacion,
+                    // excluyendo los casos que ya
                     // tienen su propio badge distinto ahí (alerta específica o "a
                     // cotizar"). Duplicado a propósito acá en vez de importar
                     // ETIQUETAS_MOTIVO_ESPECIFICO (no exportado) — mantener en
@@ -5011,7 +5012,7 @@ export default function ProyectoPage() {
                     const materialesPendientesVerificar = tieneAPU
                       ? apuData[rubro.id].materiales.filter(
                           (m) =>
-                            !!m.proveedor &&
+                            !!(m.proveedor || m.notaProcedencia) &&
                             !m.fechaUltimaVerificacion &&
                             m.motivoVerificacion !== "sin_precio_referencia" &&
                             !["variacion_alta", "producto_no_encontrado", "fuente_no_disponible", "sin_costo_referencia"].includes(
