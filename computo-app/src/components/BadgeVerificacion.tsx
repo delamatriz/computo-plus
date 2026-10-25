@@ -35,9 +35,10 @@ export interface FuenteMaterial {
 // propósito, para no marcar como "problema" un material que en
 // realidad tiene precio real, solo de otro origen.
 const ETIQUETAS_MOTIVO_ESPECIFICO: Record<string, string> = {
-  variacion_alta: "Variación alta",
+  // Mismos nombres que la versión con acción del APU (ver ACCION_MOTIVO abajo).
+  variacion_alta: "Precio desactualizado",
   producto_no_encontrado: "No encontrado",
-  fuente_no_disponible: "Fuente no disponible",
+  fuente_no_disponible: "No se pudo verificar",
   sin_costo_referencia: "Sin costo de referencia", // equipos, ver EquipoAPU.motivoVerificacion
 };
 
@@ -107,7 +108,7 @@ export function BadgeVerificacion({
         className={cn(BASE, conAccion ? ESTILO_ACCION : ESTILO_CORTO, "bg-slate-100 text-slate-500 border-slate-200")}
       >
         <HelpCircle className="w-2.5 h-2.5" />
-        {conAccion ? (tienePrecio ? ACCION_PRECIO_ESTIMADO : ACCION_SIN_PRECIO) : "A cotizar"}
+        {conAccion ? (tienePrecio ? ACCION_PRECIO_ESTIMADO : ACCION_SIN_PRECIO) : "Sin precio"}
       </span>
     );
   }

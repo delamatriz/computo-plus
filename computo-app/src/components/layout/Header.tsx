@@ -89,7 +89,7 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
       "⏰ Reloj ámbar — hay materiales con precio sin verificar en este rubro.",
       "⚠ Triángulo ámbar — hay insumos sin precio cargado.",
       "🔄 Flecha circular ámbar — el precio del catálogo cambió, hacé clic para actualizar.",
-      "🔄 Cambios sin aplicar (ámbar) — el APU tiene cambios que no se aplicaron al precio del rubro, hacé clic para sincronizar.",
+      "🔄 Cambios sin aplicar (ámbar) — el APU tiene cambios que no se aplicaron al precio del rubro, hacé clic para aplicarlos.",
       "✅ Verificado (verde) — precio confirmado contra el mercado.",
       "⏰ Sin verificar (ámbar) — precio de referencia, confirmá con tu proveedor.",
       "⚠ Precio desactualizado (ámbar) — el precio varió significativamente, revisá en Materiales.",

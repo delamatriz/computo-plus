@@ -2463,7 +2463,7 @@ function DrawerAPU({
                                 <button
                                   type="button"
                                   onClick={() => { cancelarGuardadoPendiente(); onSincronizarMaterial(m.id); }}
-                                  title={`El precio de este material se actualizó en el catálogo. Hacé clic para aplicar el nuevo precio. (Catálogo: ${fmtMon(preciosVigentesPorMaterial[m.id].precioUnitario)} — cargado: ${fmtMon(m.precioUnit)})`}
+                                  title={`El precio de este material se actualizó en el catálogo. Hacé clic para aplicar el nuevo precio. (guardado ${fmtMon(m.precioUnit)}, nuevo ${fmtMon(preciosVigentesPorMaterial[m.id].precioUnitario)})`}
                                   className="flex-shrink-0 hover:opacity-70 transition-opacity"
                                 >
                                   <RefreshCw className="w-3 h-3 text-amber-500" />
@@ -5225,10 +5225,10 @@ export default function ProyectoPage() {
                               }}
                               title={
                                 catalogoDesactualizado && precioAPUSinAplicar
-                                  ? `${materialesDesactualizadosCatalogo!.length === 1 ? `"${materialesDesactualizadosCatalogo![0]}" cambió` : `${materialesDesactualizadosCatalogo!.length} materiales cambiaron`} de precio en el catálogo, y el APU tiene cambios sin aplicar (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(apuPrecio)}). Click para sincronizar todo.`
+                                  ? `${materialesDesactualizadosCatalogo!.length === 1 ? `"${materialesDesactualizadosCatalogo![0]}" cambió` : `${materialesDesactualizadosCatalogo!.length} materiales cambiaron`} de precio en el catálogo, y el APU tiene cambios sin aplicar (guardado ${fmtMon(rubro.precioUnit ?? 0)}, nuevo ${fmtMon(apuPrecio)}). Click para aplicar todo.`
                                   : catalogoDesactualizado
-                                  ? `${materialesDesactualizadosCatalogo!.length === 1 ? `"${materialesDesactualizadosCatalogo![0]}" cambió` : `${materialesDesactualizadosCatalogo!.length} materiales cambiaron`} de precio en el catálogo — click para sincronizar.`
-                                  : `Cambios en el APU sin aplicar (guardado ${fmtMon(rubro.precioUnit ?? 0)}, nuevo ${fmtMon(apuPrecio)}). Click para sincronizar.`
+                                  ? `${materialesDesactualizadosCatalogo!.length === 1 ? `"${materialesDesactualizadosCatalogo![0]}" cambió` : `${materialesDesactualizadosCatalogo!.length} materiales cambiaron`} de precio en el catálogo — click para aplicar.`
+                                  : `Cambios en el APU sin aplicar (guardado ${fmtMon(rubro.precioUnit ?? 0)}, nuevo ${fmtMon(apuPrecio)}). Click para aplicar.`
                               }
                               className="flex-shrink-0 hover:opacity-70 transition-opacity"
                             >
