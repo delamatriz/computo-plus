@@ -86,6 +86,7 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     tipo: "respuesta",
     respuesta: [
       "🔒 Candado — precio de entrega anterior. No se toca el candado: tocá la cantidad o el precio del rubro para mantenerlo o actualizarlo.",
+      "🔵 Punto azul titilando — CÓMPUTO+ está generando el APU automáticamente, esperá un momento.",
       "⏰ Reloj ámbar — hay materiales con precio sin verificar en este rubro.",
       "⚠ Triángulo ámbar — hay insumos sin precio cargado.",
       "🔄 Flecha circular ámbar — el precio del catálogo cambió, hacé clic para actualizar.",
@@ -95,6 +96,9 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
       "⚠ Precio desactualizado (ámbar) — el precio varió significativamente, revisá en Materiales.",
       "? Sin precio — no hay precio de referencia, cotizá con tu proveedor.",
       "? Precio estimado (gris) — precio de referencia calculado, confirmá con tu proveedor antes de usar.",
+      "🔒 Presupuesto entregado — el proyecto fue entregado al cliente y está en solo lectura. Usá 'Habilitar edición' para volver a editarlo.",
+      "🔍 No encontrado en catálogo (ámbar) — el material no se encontró en el catálogo, revisá en Materiales.",
+      "⚠ No se pudo verificar (ámbar) — no se pudo consultar la fuente del precio, confirmá con tu proveedor.",
     ].join("\n"),
   },
 ];
