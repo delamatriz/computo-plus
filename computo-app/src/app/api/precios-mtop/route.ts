@@ -157,6 +157,11 @@ export async function GET(req: NextRequest) {
         numeroLista: true,
         proveedor: true,
         notaProcedencia: true,
+        // Para que un material agregado desde el buscador del APU nazca con el
+        // mismo estado de verificación que uno clonado de la biblioteca.
+        motivoVerificacion: true,
+        fechaUltimaVerificacion: true,
+        requiereVerificacion: true,
       },
       orderBy: { descripcion: "asc" },
       take: 8,

@@ -430,6 +430,9 @@ interface PrecioMTOPResult {
   numeroLista: number;
   proveedor: string | null;
   notaProcedencia: string | null;
+  motivoVerificacion?: string | null;
+  fechaUltimaVerificacion?: string | null;
+  requiereVerificacion?: boolean;
 }
 
 interface PrecioEquipoResult {
@@ -1176,6 +1179,7 @@ type ItemCatalogoMTOP = {
   proveedor: string | null;
   notaProcedencia: string | null;
   fechaUltimaVerificacion: string | null;
+  requiereVerificacion?: boolean;
 };
 
 // Busca la fila vigente de un material en el catálogo completo de
@@ -1269,6 +1273,18 @@ function aplicarPreciosVigentesAMateriales(apu: APU, preciosVigentes: Record<str
         proveedor: vigente.proveedor,
         notaProcedencia: vigente.notaProcedencia,
         fechaUltimaVerificacion: vigente.fechaUltimaVerificacion,
+        // El badge lee el estado vivo de precioMTOP (ver estadoVerificacion):
+        // sin esto, seguía mostrando el estado del momento de la carga.
+        precioMTOP: m.precioMTOP
+          ? {
+              ...m.precioMTOP,
+              proveedor: vigente.proveedor,
+              notaProcedencia: vigente.notaProcedencia,
+              motivoVerificacion: vigente.motivoVerificacion,
+              fechaUltimaVerificacion: vigente.fechaUltimaVerificacion,
+              ...(vigente.requiereVerificacion !== undefined && { requiereVerificacion: vigente.requiereVerificacion }),
+            }
+          : m.precioMTOP,
       };
     }),
   };
@@ -1985,7 +2001,18 @@ function DrawerAPU({
       // mismo que el usuario acaba de escribir. Editar precio/rendimiento
       // sin tocar la descripción NO lo limpia — el vínculo sigue siendo
       // válido, el usuario solo está corrigiendo el valor localmente.
-      ...(field === "descripcion" ? { precioMTOPId: null, precioMTOP: null } : {}),
+      // Con el vínculo se van también las copias: eran del material anterior
+      // (proveedor, nota y estado de verificación de otra fila del catálogo).
+      ...(field === "descripcion"
+        ? {
+            precioMTOPId: null,
+            precioMTOP: null,
+            proveedor: null,
+            notaProcedencia: null,
+            motivoVerificacion: null,
+            fechaUltimaVerificacion: null,
+          }
+        : {}),
       ...(field === "precioUnit" ? { precioEstimadoIA: undefined } : {}),
     }));
 
@@ -2033,6 +2060,15 @@ function DrawerAPU({
               ...mat,
               fechaUltimaVerificacion: data.fechaUltimaVerificacion ?? null,
               motivoVerificacion: data.motivoVerificacion ?? null,
+              // Mismo cambio en el estado vivo del vínculo, que es lo que lee el badge.
+              precioMTOP: mat.precioMTOP
+                ? {
+                    ...mat.precioMTOP,
+                    fechaUltimaVerificacion: data.fechaUltimaVerificacion ?? null,
+                    motivoVerificacion: data.motivoVerificacion ?? null,
+                    requiereVerificacion: !!data.requiereVerificacion,
+                  }
+                : mat.precioMTOP,
             }
       );
       setMat(materialesActualizados);
@@ -2077,7 +2113,21 @@ function DrawerAPU({
       rendimiento:    0,
       precioUnit:     m.precioUnitario,
       precioMTOPId:   m.id,
-      precioMTOP:     { codigo: m.codigo, numeroLista: m.numeroLista, proveedor: m.proveedor, notaProcedencia: m.notaProcedencia },
+      // Mismas copias que deja el clonado desde la biblioteca (clonarApuAlRubro):
+      // sin proveedor/nota el badge nunca mostraba "Sin verificar"/"Verificado".
+      proveedor:               m.proveedor,
+      notaProcedencia:         m.notaProcedencia,
+      motivoVerificacion:      m.motivoVerificacion ?? null,
+      fechaUltimaVerificacion: m.fechaUltimaVerificacion ?? null,
+      precioMTOP: {
+        codigo: m.codigo,
+        numeroLista: m.numeroLista,
+        proveedor: m.proveedor,
+        notaProcedencia: m.notaProcedencia,
+        motivoVerificacion: m.motivoVerificacion ?? null,
+        fechaUltimaVerificacion: m.fechaUltimaVerificacion ?? null,
+        requiereVerificacion: m.requiereVerificacion,
+      },
     }];
     setMat(nuevosMateriales);
     setMostrarBuscador(false);
