@@ -2213,7 +2213,7 @@ function DrawerAPU({
               </h2>
               {materialesSinPrecio > 0 && (
                 <span
-                  title={`Precio incompleto — ${materialesSinPrecio} insumo(s) sin costo de referencia`}
+                  title={`Precio incompleto — ${materialesSinPrecio} material${materialesSinPrecio !== 1 ? "es" : ""} sin precio cargado`}
                   className="flex-shrink-0 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap"
                 >
                   <AlertTriangle className="w-3 h-3" />
@@ -5207,7 +5207,7 @@ export default function ProyectoPage() {
                           {materialesSinPrecioRubro > 0 && (
                             <span
                               className="flex-shrink-0"
-                              title={`Precio incompleto — ${materialesSinPrecioRubro} insumo(s) sin costo de referencia`}
+                              title={`Precio incompleto — ${materialesSinPrecioRubro} material${materialesSinPrecioRubro !== 1 ? "es" : ""} sin precio cargado`}
                             >
                               <AlertTriangle className="w-3 h-3 text-amber-500" />
                             </span>

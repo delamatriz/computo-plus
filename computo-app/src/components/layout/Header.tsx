@@ -94,6 +94,7 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
       "✅ Verificado (verde) — precio confirmado contra el mercado.",
       "⏰ Sin verificar (ámbar) — precio de referencia, confirmá con tu proveedor.",
       "⚠ Precio desactualizado (ámbar) — el precio varió significativamente, revisá en Materiales.",
+      "⚠ Requiere verificación (ámbar) — el precio de este material necesita revisión, verificá en Materiales.",
       "? Sin precio — no hay precio de referencia, cotizá con tu proveedor.",
       "? Precio estimado (gris) — precio de referencia calculado, confirmá con tu proveedor antes de usar.",
       "🔒 Presupuesto entregado — el proyecto fue entregado al cliente y está en solo lectura. Usá 'Habilitar edición' para volver a editarlo.",
