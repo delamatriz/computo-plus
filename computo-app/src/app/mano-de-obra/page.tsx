@@ -50,6 +50,19 @@ const OFICIOS_ESPECIALIZADOS = [
   "oficial_escalerista",
 ];
 
+// Resto de CategoriaLaboral que también se usa al armar un APU (trabajo en
+// altura, vigilancia, dirección de obra) y no entra en las tablas de arriba.
+// Los alias de nombre común ("Peón", "Oficial albañil", "Capataz"…) no se
+// listan: repiten el mismo jornal de su categoría del laudo.
+const OTRAS_CATEGORIAS = [
+  "oficial_altura",
+  "medio_oficial_altura",
+  "vigilancia_sereno",
+  "panolero_canchero_gruista",
+  "sobrestante",
+  "jefatura_obra",
+];
+
 // "Personal no incluido en el Decreto Ley 14.411" — a propósito NO vive en
 // CategoriaLaboral (a diferencia de Oficios Especializados, arriba):
 // (a) esa tabla alimenta los desplegables de mano de obra al armar un APU
@@ -64,7 +77,7 @@ const OFICIOS_ESPECIALIZADOS = [
 // viene. Confirmado con Luis antes de implementar (ver sesión).
 interface FilaPersonalNoIncluido {
   categoria: string;
-  valor: number; // igual en Zona 1/2/3 en esta planilla
+  valor: number; // igual en Zona 1/2/3 en esta planilla: se muestra una sola columna
   hora: number;
 }
 
@@ -109,7 +122,7 @@ function fmtMoneda(v: number): string {
 }
 
 function filasPersonalNoIncluido(datos: FilaPersonalNoIncluido[]): string[][] {
-  return datos.map((d) => [d.categoria, fmtMoneda(d.valor), fmtMoneda(d.valor), fmtMoneda(d.valor), fmtMoneda(d.hora)]);
+  return datos.map((d) => [d.categoria, fmtMoneda(d.valor), fmtMoneda(d.hora)]);
 }
 
 function Tabla({
@@ -172,11 +185,16 @@ export default async function ManoDeObraPage() {
     return [numero, c.nombre, fmtMoneda(c.jornal), fmtMoneda(c.jornal / 8)];
   }).filter((f): f is string[] => f !== null);
 
-  const filasOficios = OFICIOS_ESPECIALIZADOS.map((categoria) => {
-    const c = porCategoria.get(categoria);
-    if (!c) return null;
-    return [c.nombre, fmtMoneda(c.jornal), fmtMoneda(c.jornal / 8)];
-  }).filter((f): f is string[] => f !== null);
+  const filasPorNombre = (lista: string[]) =>
+    lista
+      .map((categoria) => {
+        const c = porCategoria.get(categoria);
+        if (!c) return null;
+        return [c.nombre, fmtMoneda(c.jornal), fmtMoneda(c.jornal / 8)];
+      })
+      .filter((f): f is string[] => f !== null);
+  const filasOficios = filasPorNombre(OFICIOS_ESPECIALIZADOS);
+  const filasOtras = filasPorNombre(OTRAS_CATEGORIAS);
 
   return (
     <div className="p-8 max-w-3xl">
@@ -185,7 +203,7 @@ export default async function ManoDeObraPage() {
         Mano de Obra
       </h1>
       <p className="text-slate-500 mb-8">
-        Categorías laborales, jornales y rendimientos de referencia.
+        Categorías laborales y jornales de referencia.
       </p>
 
       {/* Convenio SUNCA (link externo) + Descargar convenio firmado (PDF,
@@ -219,6 +237,18 @@ export default async function ManoDeObraPage() {
         </div>
       )}
 
+      {filasOtras.length > 0 && (
+        <div className="mt-8">
+          <h3 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide mb-1">
+            Otras categorías
+          </h3>
+          <p className="text-xs text-slate-400 mb-1">
+            Trabajo en altura (10% de recargo sobre Oficial y Medio oficial), vigilancia y dirección de obra.
+          </p>
+          <Tabla encabezados={["Categoría", "Jornal", "Hora"]} filas={filasOtras} />
+        </div>
+      )}
+
       <div className="mt-8">
         <h3 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide mb-1">
           Personal no incluido en el Decreto Ley 14.411
@@ -231,24 +261,17 @@ export default async function ManoDeObraPage() {
         <p className="text-xs font-semibold text-slate-500 mt-4 mb-1">
           Obreros jornaleros (jornal por día)
         </p>
-        <Tabla
-          encabezados={["Categoría", "Zona 1", "Zona 2", "Zona 3", "Valor Hora"]}
-          filas={filasPersonalNoIncluido(OBREROS_JORNALEROS)}
-        />
+        <Tabla encabezados={["Categoría", "Jornal", "Hora"]} filas={filasPersonalNoIncluido(OBREROS_JORNALEROS)} />
 
         <p className="text-xs font-semibold text-slate-500 mt-4 mb-1">Obreros mensuales</p>
-        <Tabla
-          encabezados={["Categoría", "Zona 1", "Zona 2", "Zona 3", "Valor Hora"]}
-          filas={filasPersonalNoIncluido(OBREROS_MENSUALES)}
-        />
+        <Tabla encabezados={["Categoría", "Sueldo mensual", "Hora"]} filas={filasPersonalNoIncluido(OBREROS_MENSUALES)} />
 
         <p className="text-xs font-semibold text-slate-500 mt-4 mb-1">Administrativos</p>
-        <Tabla
-          encabezados={["Categoría", "Zona 1", "Zona 2", "Zona 3", "Valor Hora"]}
-          filas={filasPersonalNoIncluido(ADMINISTRATIVOS)}
-        />
+        <Tabla encabezados={["Categoría", "Sueldo mensual", "Hora"]} filas={filasPersonalNoIncluido(ADMINISTRATIVOS)} />
 
-        <p className="text-xs text-slate-400 mt-3">{FUENTE_PERSONAL_NO_INCLUIDO}</p>
+        <p className="text-xs text-slate-400 mt-3">
+          Mismo valor en las tres zonas del laudo. {FUENTE_PERSONAL_NO_INCLUIDO}
+        </p>
       </div>
 
       {/* Editor real de CategoriaLaboral — antes vivía en /configuracion,
@@ -258,7 +281,8 @@ export default async function ManoDeObraPage() {
           resto de la página (las tablas de consulta de arriba) sigue
           siendo un server component sin cambios. Al final de todo y
           colapsada: es mantenimiento anual, no algo que un usuario nuevo
-          necesite ver de entrada. */}
+          necesite ver de entrada. Solo la ve el SUPERADMIN (el componente
+          devuelve null para el resto). */}
       <div className="mt-8">
         <SeccionCategoriasLaborales />
       </div>

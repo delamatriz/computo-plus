@@ -9,7 +9,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ChevronDown, FileText, ImageUp, Sparkles } from "lucide-react";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
-import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
 import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { cn } from "@/lib/utils";
 
@@ -365,6 +364,11 @@ export default function SeccionCategoriasLaborales() {
 
   const convenioDesactualizado = convenioPosiblementeDesactualizado(fechaConvenio || null);
 
+  // Es el editor del catálogo global (lo mantiene el SUPERADMIN una vez al año):
+  // para ADMIN y USUARIO no se muestra — las tablas de consulta de la página ya
+  // tienen los jornales vigentes. Después de todos los hooks, a propósito.
+  if (!puedeEditar) return null;
+
   if (cargando) {
     return (
       <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
@@ -405,7 +409,6 @@ export default function SeccionCategoriasLaborales() {
         </p>
       </div>
 
-      {!puedeEditar && <AvisoSoloAdministrador />}
 
       <p className="text-xs text-slate-400 mb-4 max-w-2xl">
         Esto actualiza la fuente de la que nacen los jornales al clonar un subrubro nuevo de la
