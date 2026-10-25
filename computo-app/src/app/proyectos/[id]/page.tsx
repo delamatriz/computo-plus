@@ -1642,6 +1642,12 @@ interface DrawerAPUProps {
   // Sincroniza SOLO este material contra el catálogo (sin tocar los demás
   // ni precioCongelado) — ver sincronizarPrecioAPU en el componente padre.
   onSincronizarMaterial: (materialId: string) => void;
+  // Presupuesto entregado (FINALIZADO): el panel queda de solo lectura — el
+  // servidor ya rechaza cualquier escritura con 403, esto evita que se pueda
+  // editar en pantalla y "perder" los cambios en silencio.
+  soloLectura?: boolean;
+  onHabilitarEdicion?: () => void;
+  habilitandoEdicion?: boolean;
   // Para el deep-link desde "Pendiente de verificar" hacia /materiales
   // (ver irAMaterialEnCatalogo) — así el botón "Volver al proyecto" de esa
   // página sabe a dónde volver.
@@ -1728,7 +1734,22 @@ function SelectorModoCosteo({ modo, onChange }: { modo: ModoCosteoEquipo; onChan
   );
 }
 
-function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onToggleTrabajoEnAltura, onToggleUtilidadFija, preciosVigentesPorMaterial, onSincronizarMaterial, proyectoId }: DrawerAPUProps) {
+function DrawerAPU({
+  rubro,
+  apu,
+  moneda,
+  onClose,
+  onApuChange,
+  onAplicar,
+  onToggleTrabajoEnAltura,
+  onToggleUtilidadFija,
+  preciosVigentesPorMaterial,
+  onSincronizarMaterial,
+  proyectoId,
+  soloLectura = false,
+  onHabilitarEdicion,
+  habilitandoEdicion = false,
+}: DrawerAPUProps) {
   const dragControls = useDragControls();
   const router = useRouter();
   // Deep-link desde los badges con acción de un material ("Sin verificar",
@@ -1814,7 +1835,11 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
   // los 600ms) al cerrar el drawer o cambiar de rubro (ver el useEffect de
   // cleanup más abajo), en vez de simplemente perderlo.
   const guardarApuTimer = useRef<{ timerId: ReturnType<typeof setTimeout>; ejecutar: () => void } | null>(null);
+  // Aviso visible cuando el autoguardado no llega a la base — antes solo
+  // quedaba en la consola y los cambios se perdían al recargar.
+  const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const guardarApuActual = useCallback((apuAGuardar?: APU) => {
+    if (soloLectura) return;
     const payload = apuAGuardar ?? apu;
     if (guardarApuTimer.current) clearTimeout(guardarApuTimer.current.timerId);
     const ejecutar = () => {
@@ -1823,11 +1848,23 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }).catch((err) => console.error("[auto-save APU]", err));
+      })
+        .then((res) => {
+          if (res.ok) return setErrorGuardado(null);
+          setErrorGuardado(
+            res.status === 403
+              ? "No se pudo guardar — el presupuesto está entregado. Habilitá la edición para modificarlo."
+              : "No se pudo guardar el APU. Volvé a intentar en unos segundos."
+          );
+        })
+        .catch((err) => {
+          console.error("[auto-save APU]", err);
+          setErrorGuardado("No se pudo guardar el APU — revisá tu conexión.");
+        });
     };
     const timerId = setTimeout(ejecutar, 600);
     guardarApuTimer.current = { timerId, ejecutar };
-  }, [apu, rubro.id]);
+  }, [apu, rubro.id, soloLectura]);
 
   // Cancela un guardado debounced pendiente SIN ejecutarlo — usado justo
   // antes de aplicarPrecioAPU/sincronizar (botón "Aplicar al rubro",
@@ -2183,7 +2220,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                   Precio incompleto
                 </span>
               )}
-              {precioAPUDesincronizado(rubro.precioUnit, precioFinal) && (
+              {!soloLectura && precioAPUDesincronizado(rubro.precioUnit, precioFinal) && (
                 <button
                   type="button"
                   onClick={() => { cancelarGuardadoPendiente(); onAplicar(precioFinal, apu); }}
@@ -2216,6 +2253,49 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
           {avisoAcceso && (
             <AvisoAcceso mensaje={avisoAcceso.mensaje} contacto={avisoAcceso.contacto} onCerrar={() => setAvisoAcceso(null)} />
           )}
+
+          {soloLectura && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-[10px] border border-blue-200 bg-blue-50 px-3.5 py-2.5">
+              <p className="flex items-center gap-2 text-sm text-[#1A3A5C]">
+                <Lock className="w-3.5 h-3.5 flex-shrink-0 text-[#2563EB]" />
+                Presupuesto entregado — habilitá la edición para modificarlo.
+              </p>
+              {onHabilitarEdicion && (
+                <button
+                  type="button"
+                  onClick={onHabilitarEdicion}
+                  disabled={habilitandoEdicion}
+                  className="flex-shrink-0 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-colors disabled:opacity-60"
+                >
+                  <LockOpen className="w-3.5 h-3.5" />
+                  {habilitandoEdicion ? "Habilitando…" : "Habilitar edición"}
+                </button>
+              )}
+            </div>
+          )}
+
+          {errorGuardado && (
+            <div className="flex items-start justify-between gap-3 rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-2.5">
+              <p className="flex items-start gap-2 text-sm text-red-700">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                {errorGuardado}
+              </p>
+              <button
+                type="button"
+                onClick={() => setErrorGuardado(null)}
+                aria-label="Cerrar aviso"
+                className="flex-shrink-0 text-red-400 hover:text-red-600 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* En solo lectura, el fieldset deshabilita de una vez todos los
+              inputs, selects y botones de adentro (incluidos los que se
+              agreguen más adelante). Los de agregar/quitar/estimar además se
+              ocultan, abajo. */}
+          <fieldset disabled={soloLectura} className="min-w-0 space-y-3">
 
           {/* Trabajo en altura */}
           <div>
@@ -2424,7 +2504,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                                     m.precioEstimadoIA && "text-amber-600 bg-amber-50 rounded px-1"
                                   )}
                                 />
-                                {m.precioUnit === 0 && (
+                                {m.precioUnit === 0 && !soloLectura && (
                                   <button
                                     type="button"
                                     onClick={() => estimarPrecioMaterial(m)}
@@ -2441,14 +2521,14 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                             ) : (
                               <div className="flex items-center justify-end gap-1 group">
                                 <span className="tabular-nums text-slate-700">{fmtMon(m.precioUnit)}</span>
-                                <button
+                                {!soloLectura && (<button
                                   type="button"
                                   onClick={() => setPrecioEditId(m.id)}
                                   title="Editar precio"
                                   className="flex-shrink-0 opacity-40 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 text-slate-400 hover:text-[#2563EB] transition-opacity"
                                 >
                                   <Pencil className="w-3 h-3" />
-                                </button>
+                                </button>)}
                               </div>
                             )}
                           </td>
@@ -2459,7 +2539,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                             {costoTotalPadre != null && costoTotalPadre > 0 ? fmtMon(costoTotalPadre) : tieneComponentes ? "" : "—"}
                           </td>
                           <td className="text-center">
-                            <button
+                            {!soloLectura && (<button
                               type="button"
                               onClick={() => quitarMat(m.id)}
                               title="Quitar material"
@@ -2467,7 +2547,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                               style={{ width: 20, height: 20 }}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            </button>)}
                           </td>
                         </tr>
                         {/* Filas secundarias — componentes */}
@@ -2523,12 +2603,12 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
               )}
               {!mostrarBuscador && (
                 <div className="pl-4 pt-1.5 pb-1">
-                  <button
+                  {!soloLectura && (<button
                     onClick={() => setMostrarBuscador(true)}
                     className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
                   >
                     <Plus className="w-3 h-3" /> Agregar material
-                  </button>
+                  </button>)}
                 </div>
               )}
             </div>
@@ -2629,7 +2709,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                           {sub > 0 ? fmtMon(sub) : "—"}
                         </td>
                         <td className="text-center">
-                          <button
+                          {!soloLectura && (<button
                             type="button"
                             onClick={() => quitarMO(mo.id)}
                             title="Quitar mano de obra"
@@ -2637,7 +2717,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                             style={{ width: 20, height: 20 }}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          </button>)}
                         </td>
                       </tr>
                     );
@@ -2671,9 +2751,9 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                 />
               ) : (
                 <div className="pl-4 pt-1.5">
-                  <button onClick={() => setMostrarSelectorMO(true)} className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">
+                  {!soloLectura && (<button onClick={() => setMostrarSelectorMO(true)} className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">
                     <Plus className="w-3 h-3" /> Agregar MO
-                  </button>
+                  </button>)}
                 </div>
               )}
               <p className="pl-4 pt-2 text-[11px] text-slate-400">
@@ -2828,7 +2908,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                           {sub > 0 ? fmtMon(sub) : "—"}
                         </td>
                         <td className="text-center">
-                          <button
+                          {!soloLectura && (<button
                             type="button"
                             onClick={() => quitarEq(eq.id)}
                             title="Quitar equipo"
@@ -2836,7 +2916,7 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                             style={{ width: 20, height: 20 }}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          </button>)}
                         </td>
                       </tr>
                       {manoObraVinculada.map((mo) => {
@@ -2888,17 +2968,19 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
               )}
               {!mostrarBuscadorEquipo && (
                 <div className="pl-4 pt-1.5">
-                  <button onClick={() => setMostrarBuscadorEquipo(true)} className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">
+                  {!soloLectura && (<button onClick={() => setMostrarBuscadorEquipo(true)} className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">
                     <Plus className="w-3 h-3" /> Agregar equipo
-                  </button>
+                  </button>)}
                 </div>
               )}
             </div>
           </SeccionAPU>
+          </fieldset>
         </div>
 
         {/* Resumen APU — pie fijo */}
         <div className="flex-shrink-0 border-t border-slate-200 bg-[#F8FAFC] px-5 py-4 space-y-2">
+          <fieldset disabled={soloLectura} className="min-w-0 space-y-2">
           <SeccionAPU
             titulo="Resumen y Precio Total"
             defaultAbierta={false}
@@ -2984,12 +3066,15 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
             </div>
           </SeccionAPU>
 
-          <button
-            onClick={() => { cancelarGuardadoPendiente(); onAplicar(precioFinal, apu); }}
-            className="w-full mt-1 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors"
-          >
-            Aplicar al rubro
-          </button>
+          {!soloLectura && (
+            <button
+              onClick={() => { cancelarGuardadoPendiente(); onAplicar(precioFinal, apu); }}
+              className="w-full mt-1 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors"
+            >
+              Aplicar al rubro
+            </button>
+          )}
+          </fieldset>
         </div>
       </motion.div>
       </div>
@@ -6299,6 +6384,9 @@ export default function ProyectoPage() {
             preciosVigentesPorMaterial={preciosVigentesPorMaterial}
             onSincronizarMaterial={(materialId) => sincronizarPrecioAPU(drawerRubroId, drawerAPU, materialId)}
             proyectoId={proyectoId}
+            soloLectura={soloLectura}
+            onHabilitarEdicion={habilitarEdicion}
+            habilitandoEdicion={habilitandoEdicion}
           />
         )}
       </AnimatePresence>
