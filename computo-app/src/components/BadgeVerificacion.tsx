@@ -49,6 +49,8 @@ const ACCION_MOTIVO: Record<string, string> = {
   variacion_alta: "Precio desactualizado — revisá en Materiales",
   producto_no_encontrado: "No encontrado en catálogo — revisá en Materiales",
 };
+// Marcado para revisar (requiereVerificacion) sin un motivo con nombre propio.
+const ACCION_REQUIERE_VERIFICACION = "Requiere verificación — revisá en Materiales";
 // Con texto de acción pero no clickeables: en /materiales no hay nada que hacer, se resuelve con el proveedor.
 const ACCION_MOTIVO_SIN_CLICK: Record<string, string> = {
   fuente_no_disponible: "No se pudo verificar — confirmá con tu proveedor",
@@ -144,6 +146,18 @@ export function BadgeVerificacion({
         >
           <AlertTriangle className="w-2.5 h-2.5" />
           {accion}
+        </Link>
+      );
+    }
+    if (conAccion && !etiquetaEspecifica) {
+      return (
+        <Link
+          href={hrefRevisarEnMateriales!}
+          title="El precio de este material necesita revisión — click para revisarlo en Materiales"
+          className={cn(BASE, ESTILO_ACCION, AMBAR, AMBAR_CLICK)}
+        >
+          <AlertTriangle className="w-2.5 h-2.5" />
+          {ACCION_REQUIERE_VERIFICACION}
         </Link>
       );
     }
