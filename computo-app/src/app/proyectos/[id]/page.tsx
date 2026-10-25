@@ -5264,20 +5264,27 @@ export default function ProyectoPage() {
                             disabled={soloLectura}
                             className="flex-1 min-w-0 text-sm text-slate-700 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default"
                           />
-                          {!soloLectura && rubro.precioCongelado != null && (
-                            <span
-                              className="flex-shrink-0"
-                              title={
-                                decisionPrecio === "mantener"
-                                  ? "Precio entregado al cliente — precio unitario bloqueado en esta edición."
-                                  : decisionPrecio === "actualizar"
-                                  ? "Precio actualizado al vigente en esta edición."
-                                  : "Precio de entrega anterior — tocá cantidad o precio para mantenerlo o actualizarlo."
-                              }
-                            >
-                              <Lock className={cn("w-3 h-3", pendienteDecisionPrecio ? "text-amber-500" : "text-slate-300")} />
-                            </span>
-                          )}
+                          {!soloLectura && rubro.precioCongelado != null &&
+                            (decisionPrecio === "actualizar" ? (
+                              <span className="flex-shrink-0" title="Precio actualizado al vigente en esta edición.">
+                                <Lock className="w-3 h-3 text-slate-300" />
+                              </span>
+                            ) : (
+                              // Sin decisión o con "mantener": el candado reabre el modal, así el
+                              // usuario puede cambiar de opinión sin recargar la página.
+                              <button
+                                type="button"
+                                onClick={() => abrirModalPrecioCongelado(cap.id, rubro)}
+                                className="flex-shrink-0 hover:opacity-70 transition-opacity"
+                                title={
+                                  decisionPrecio === "mantener"
+                                    ? "Precio entregado al cliente — precio unitario bloqueado en esta edición. Hacé clic para cambiar la decisión."
+                                    : "Precio de entrega anterior — tocá cantidad o precio para mantenerlo o actualizarlo."
+                                }
+                              >
+                                <Lock className={cn("w-3 h-3", pendienteDecisionPrecio ? "text-amber-500" : "text-slate-300")} />
+                              </button>
+                            ))}
                           {apuGenerando.has(rubro.id) && (
                             <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Generando APU…" />
                           )}
@@ -5401,18 +5408,25 @@ export default function ProyectoPage() {
                             onFocus={() => setPrecioUnitEnFoco({ id: rubro.id, texto: rubro.precioUnit != null ? String(rubro.precioUnit) : "" })}
                             onBlur={() => setPrecioUnitEnFoco(null)}
                             onMouseDown={(e) => {
-                              if (pendienteDecisionPrecio) {
+                              // Sin decisión o con "mantener": tocar el precio abre (o reabre) el modal.
+                              if (pendienteDecisionPrecio || decisionPrecio === "mantener") {
                                 e.preventDefault();
                                 abrirModalPrecioCongelado(cap.id, rubro);
                               }
                             }}
                             placeholder="0.00"
-                            disabled={soloLectura || decisionPrecio === "mantener"}
-                            readOnly={pendienteDecisionPrecio}
-                            title={decisionPrecio === "mantener" ? "Precio entregado al cliente — bloqueado. Elegí \"Actualizar al precio vigente\" para poder editarlo." : undefined}
+                            disabled={soloLectura}
+                            // readOnly y no disabled: un campo deshabilitado no recibe el
+                            // clic que reabre el modal.
+                            readOnly={pendienteDecisionPrecio || decisionPrecio === "mantener"}
+                            title={decisionPrecio === "mantener" ? "Precio entregado al cliente — bloqueado. Tocá el precio para actualizarlo al vigente." : undefined}
                             className={cn(
                               "w-full text-sm bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                              pendienteDecisionPrecio ? "text-amber-600 cursor-pointer" : "text-slate-600"
+                              pendienteDecisionPrecio
+                                ? "text-amber-600 cursor-pointer"
+                                : decisionPrecio === "mantener"
+                                ? "text-slate-400 cursor-pointer"
+                                : "text-slate-600"
                             )}
                           />
                         </div>

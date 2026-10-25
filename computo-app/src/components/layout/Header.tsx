@@ -85,7 +85,7 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     pregunta: "¿Qué significan los íconos y colores del presupuesto?",
     tipo: "respuesta",
     respuesta: [
-      "🔒 Candado — precio de entrega anterior. No se toca el candado: tocá la cantidad o el precio del rubro para mantenerlo o actualizarlo.",
+      "🔒 Candado — precio de entrega anterior. Tocá la cantidad, el precio o el candado para mantenerlo o actualizarlo.",
       "🔵 Punto azul titilando — CÓMPUTO+ está generando el APU automáticamente, esperá un momento.",
       "⏰ Reloj ámbar — hay materiales con precio sin verificar en este rubro.",
       "⚠ Triángulo ámbar — hay materiales sin precio cargado.",
