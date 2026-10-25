@@ -203,7 +203,7 @@ export default function SeccionAplicarPreciosVigentes() {
                     No hay presupuestos pendientes de actualización.
                   </p>
                   <p className="text-xs text-slate-400">
-                    Todos los rubros con precio pactado ya reflejan los precios y jornales vigentes.
+                    Todos los rubros con precio entregado ya reflejan los precios y jornales vigentes.
                   </p>
                 </div>
               ) : (

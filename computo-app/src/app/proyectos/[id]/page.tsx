@@ -5671,7 +5671,7 @@ export default function ProyectoPage() {
           <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4">
             <h2 className="text-base font-bold text-[#1A3A5C]">¿Entregar este presupuesto?</h2>
             <p className="text-sm text-slate-500">
-              Se congela el precio actual de cada rubro como precio pactado y el presupuesto pasa a solo lectura.
+              Se congela el precio actual de cada rubro como precio entregado al cliente y el presupuesto pasa a solo lectura.
               Vas a poder habilitar la edición después si necesitás agregar, sacar o modificar algo.
             </p>
             <div className="flex items-center justify-end gap-2 pt-2">
@@ -5710,7 +5710,7 @@ export default function ProyectoPage() {
             ) : precioVigenteInfo ? (
               <div className="rounded-[10px] border border-slate-200 divide-y divide-slate-100">
                 <div className="flex items-center justify-between px-4 py-2.5">
-                  <span className="text-sm text-slate-500">Precio pactado</span>
+                  <span className="text-sm text-slate-500">Precio entregado</span>
                   <span className="text-sm font-semibold tabular-nums text-slate-700">{fmtMon(precioVigenteInfo.precioUnitAnterior)}</span>
                 </div>
                 <div className="flex items-center justify-between px-4 py-2.5">
@@ -5735,7 +5735,7 @@ export default function ProyectoPage() {
                 disabled={aplicandoPrecioVigente}
                 className="px-4 py-2 rounded-[8px] text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
               >
-                Mantener precio pactado
+                Mantener precio entregado
               </button>
               <button
                 onClick={actualizarAlPrecioVigente}
