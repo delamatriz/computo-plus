@@ -1637,13 +1637,25 @@ function SelectorCategoriaMO({
   onCancelar: () => void;
   destacarAltura?: boolean;
 }) {
+  // CategoriaLaboral tiene alias a propósito (la categoría del laudo y su nombre
+  // de uso común: "Oficial albañil", "Capataz", "Oficial especializado" están
+  // dos veces con el mismo jornal). En el selector se muestra cada par
+  // nombre+jornal una sola vez — la primera que aparece; el APU guarda nombre y
+  // jornal, no la fila, así que da igual cuál. Con jornal distinto quedan las dos.
+  const vistas = new Set<string>();
+  const unicas = categorias.filter((c) => {
+    const clave = `${c.nombre.trim().toLowerCase()}|${c.jornal}`;
+    if (vistas.has(clave)) return false;
+    vistas.add(clave);
+    return true;
+  });
   // Categorías con recargo por trabajo en altura (10% sobre Oficial y
   // Medio Oficial) — Peón no tiene variante de altura, nunca se recomienda.
   const categoriasAltura = destacarAltura
-    ? categorias.filter((c) => c.categoria === "oficial_altura" || c.categoria === "medio_oficial_altura")
+    ? unicas.filter((c) => c.categoria === "oficial_altura" || c.categoria === "medio_oficial_altura")
     : [];
   const idsAltura = new Set(categoriasAltura.map((c) => c.id));
-  const resto = [...categorias]
+  const resto = [...unicas]
     .filter((c) => !idsAltura.has(c.id))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
@@ -1668,7 +1680,7 @@ function SelectorCategoriaMO({
           <>
             {categoriasAltura.map((cat) => (
               <option key={cat.id} value={cat.id}>
-                {cat.nombre} — jornal ref: U$S {fmtMon(cat.jornal)} (recomendado)
+                {cat.nombre} — jornal ref: $ {fmtMon(cat.jornal)} (recomendado)
               </option>
             ))}
             <option value="" disabled>──────────</option>
@@ -1676,7 +1688,7 @@ function SelectorCategoriaMO({
         )}
         {resto.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.nombre} — jornal ref: U$S {fmtMon(c.jornal)}
+            {c.nombre} — jornal ref: $ {fmtMon(c.jornal)}
           </option>
         ))}
         <option value="__personalizada__">+ Categoría personalizada</option>
