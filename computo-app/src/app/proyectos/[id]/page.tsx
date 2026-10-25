@@ -324,8 +324,10 @@ interface InsumoAPU {
 }
 
 // Fila del catálogo vinculada a un material del APU. Los campos de
-// verificación son opcionales: los trae el GET del proyecto/APU, pero no el
-// buscador del catálogo (agregarDesdeMTOP), y ahí se cae a las copias.
+// verificación los traen el GET del proyecto/APU y, desde 235f060, también el
+// buscador del catálogo (agregarDesdeMTOP: motivoVerificacion,
+// fechaUltimaVerificacion y requiereVerificacion). Siguen siendo opcionales
+// por las dudas: si alguno no llega, estadoVerificacion cae a las copias.
 type FilaCatalogoVinculada = DatosFuente & {
   requiereVerificacion?: boolean;
   motivoVerificacion?: string | null;
