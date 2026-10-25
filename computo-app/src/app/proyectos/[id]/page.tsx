@@ -5084,10 +5084,10 @@ export default function ProyectoPage() {
                               className="flex-shrink-0"
                               title={
                                 decisionPrecio === "mantener"
-                                  ? "Precio pactado — cantidad libre, precio unitario bloqueado"
+                                  ? "Precio entregado al cliente — precio unitario bloqueado en esta edición."
                                   : decisionPrecio === "actualizar"
                                   ? "Precio actualizado al vigente en esta edición"
-                                  : "Precio pactado de una entrega anterior — tocá cantidad o precio para elegir mantenerlo o actualizarlo al vigente"
+                                  : "Precio de entrega anterior — tocá cantidad o precio para mantenerlo o actualizarlo."
                               }
                             >
                               <Lock className={cn("w-3 h-3", pendienteDecisionPrecio ? "text-amber-500" : "text-slate-300")} />
