@@ -25,10 +25,15 @@ interface MaterialARevisar {
   url: string | null;
 }
 
+// Mismos nombres que los badges del resto de la app (ver BadgeVerificacion),
+// más los motivos que solo aparecen en esta cola.
 const MOTIVO_LABEL: Record<string, string> = {
-  variacion_alta: "Variación de precio alta",
-  producto_no_encontrado: "Producto no encontrado en la fuente",
-  fuente_no_disponible: "No se pudo consultar la fuente",
+  variacion_alta: "Precio desactualizado",
+  producto_no_encontrado: "No encontrado",
+  fuente_no_disponible: "No se pudo verificar",
+  sin_precio_referencia: "Sin precio de referencia",
+  sin_cotizacion_fresca: "Sin cotización reciente",
+  fuente_debil_cruzada: "Fuente de baja confianza",
 };
 
 function fmtMoneda(n: number): string {
