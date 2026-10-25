@@ -144,7 +144,8 @@ export function BadgeVerificacion({
     }
     return (
       <span
-        title={fuente.motivoVerificacion ?? "Requiere verificación"}
+        // Nombre legible (mismo mapa que el texto del badge), nunca el código interno del motivo.
+        title={etiquetaEspecifica ?? "Requiere verificación"}
         className={cn(BASE, ESTILO_CORTO, AMBAR)}
       >
         <AlertTriangle className="w-2.5 h-2.5" />
