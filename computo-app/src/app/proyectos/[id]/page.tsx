@@ -5086,7 +5086,7 @@ export default function ProyectoPage() {
                                 decisionPrecio === "mantener"
                                   ? "Precio entregado al cliente — precio unitario bloqueado en esta edición."
                                   : decisionPrecio === "actualizar"
-                                  ? "Precio actualizado al vigente en esta edición"
+                                  ? "Precio actualizado al vigente en esta edición."
                                   : "Precio de entrega anterior — tocá cantidad o precio para mantenerlo o actualizarlo."
                               }
                             >
