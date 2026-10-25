@@ -336,7 +336,7 @@ function SeccionAPU({
 }
 
 function SeccionMateriales({ materiales }: { materiales: MaterialDescompuesto[] }) {
-  // "Pendiente de verificar" es estado interno del job de precios: solo SUPERADMIN (ver /materiales).
+  // Mismo criterio que /materiales: el cliente ve "Sin verificar", el SUPERADMIN "Pendiente de verificar".
   const esSuperadmin = useSuperadmin() === true;
   if (materiales.length === 0) return null;
   return (
@@ -355,7 +355,7 @@ function SeccionMateriales({ materiales }: { materiales: MaterialDescompuesto[] 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-700 truncate">{m.descripcion}</span>
-                {m.fuente && <BadgeVerificacion fuente={m.fuente} ocultarPendiente={!esSuperadmin} />}
+                {m.fuente && <BadgeVerificacion fuente={m.fuente} etiquetaPendiente={esSuperadmin ? undefined : "Sin verificar"} />}
               </div>
               {m.fuente?.nombreProducto && (
                 <p className="text-[11px] text-slate-400 truncate mt-0.5">

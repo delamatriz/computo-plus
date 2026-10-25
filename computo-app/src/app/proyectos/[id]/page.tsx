@@ -5321,7 +5321,7 @@ export default function ProyectoPage() {
                             placeholder="0.00"
                             disabled={soloLectura || decisionPrecio === "mantener"}
                             readOnly={pendienteDecisionPrecio}
-                            title={decisionPrecio === "mantener" ? "Precio pactado — bloqueado. Elegí \"Actualizar al precio vigente\" para poder editarlo." : undefined}
+                            title={decisionPrecio === "mantener" ? "Precio entregado al cliente — bloqueado. Elegí \"Actualizar al precio vigente\" para poder editarlo." : undefined}
                             className={cn(
                               "w-full text-sm bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 text-right placeholder:text-slate-300 disabled:text-slate-400 disabled:cursor-default [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
                               pendienteDecisionPrecio ? "text-amber-600 cursor-pointer" : "text-slate-600"
