@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AlertTriangle, BadgeCheck, Clock, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -70,11 +71,14 @@ interface BadgeVerificacionProps {
   fuente: FuenteMaterial;
   // Solo lo pasa el drawer del APU (proyectos/[id]/page.tsx): activa los
   // textos con acción y vuelve clickeables los que mandan a /materiales
-  // (deep-link a la ficha, ver irAMaterialEnCatalogo). El resto de los usos
+  // (deep-link a la ficha, ver urlMaterialEnCatalogo). El resto de los usos
   // (biblioteca /rubros, /materiales, equipos) no lo pasan y siguen con el
-  // badge corto, no interactivo.
-  onRevisarEnMateriales?: () => void;
-  // Solo con onRevisarEnMateriales: si el material ya tiene un precio cargado,
+  // badge corto, no interactivo. Es un <Link>, no un <button>, a propósito:
+  // el <fieldset disabled> del panel en un presupuesto entregado desactiva
+  // los controles de formulario pero no los links, y mirar el material en
+  // /materiales no modifica el presupuesto.
+  hrefRevisarEnMateriales?: string;
+  // Solo con hrefRevisarEnMateriales: si el material ya tiene un precio cargado,
   // "sin precio de referencia" se muestra como "Precio estimado".
   tienePrecio?: boolean;
   // /rubros lo pasa para quien no es SUPERADMIN: "Pendiente de verificar"
@@ -87,12 +91,12 @@ interface BadgeVerificacionProps {
 
 export function BadgeVerificacion({
   fuente,
-  onRevisarEnMateriales,
+  hrefRevisarEnMateriales,
   tienePrecio = false,
   ocultarPendiente,
   etiquetaPendiente = "Pendiente de verificar",
 }: BadgeVerificacionProps) {
-  const conAccion = !!onRevisarEnMateriales;
+  const conAccion = !!hrefRevisarEnMateriales;
 
   // Marca puntual — caso conocido y aceptado (honorarios profesionales,
   // materiales sin fuente de mercado confiable), no un problema a
@@ -131,15 +135,14 @@ export function BadgeVerificacion({
     }
     if (accion) {
       return (
-        <button
-          type="button"
-          onClick={onRevisarEnMateriales}
+        <Link
+          href={hrefRevisarEnMateriales!}
           title={`${etiquetaEspecifica} — click para revisarlo en Materiales`}
           className={cn(BASE, ESTILO_ACCION, AMBAR, AMBAR_CLICK)}
         >
           <AlertTriangle className="w-2.5 h-2.5" />
           {accion}
-        </button>
+        </Link>
       );
     }
     return (
@@ -165,15 +168,14 @@ export function BadgeVerificacion({
       if (ocultarPendiente) return null;
       if (conAccion) {
         return (
-          <button
-            type="button"
-            onClick={onRevisarEnMateriales}
+          <Link
+            href={hrefRevisarEnMateriales!}
             title="Precio de referencia de fuente de mercado — click para revisarlo en Materiales"
             className={cn(BASE, ESTILO_ACCION, AMBAR, AMBAR_CLICK)}
           >
             <Clock className="w-2.5 h-2.5" />
             {ACCION_SIN_VERIFICAR}
-          </button>
+          </Link>
         );
       }
       return (

@@ -1719,7 +1719,7 @@ interface DrawerAPUProps {
   onHabilitarEdicion?: () => void;
   habilitandoEdicion?: boolean;
   // Para el deep-link desde "Pendiente de verificar" hacia /materiales
-  // (ver irAMaterialEnCatalogo) — así el botón "Volver al proyecto" de esa
+  // (ver urlMaterialEnCatalogo) — así el botón "Volver al proyecto" de esa
   // página sabe a dónde volver.
   proyectoId: string;
 }
@@ -1821,15 +1821,14 @@ function DrawerAPU({
   habilitandoEdicion = false,
 }: DrawerAPUProps) {
   const dragControls = useDragControls();
-  const router = useRouter();
   // Deep-link desde los badges con acción de un material ("Sin verificar",
   // "Precio desactualizado", "No encontrado en catálogo") — misma descripción
   // que usa el matching de sincronizarPrecioMTOP/recalcularPrecioRubro, para
   // que el buscador de /materiales encuentre la fila correcta. `from` deja
-  // armado el botón "Volver al proyecto" allá.
-  const irAMaterialEnCatalogo = (descripcion: string) => {
-    router.push(`/materiales?q=${encodeURIComponent(descripcion)}&from=${proyectoId}`);
-  };
+  // armado el botón "Volver al proyecto" allá. El badge lo usa como href de un
+  // <Link>, que sigue activo aunque el panel esté en solo lectura.
+  const urlMaterialEnCatalogo = (descripcion: string) =>
+    `/materiales?q=${encodeURIComponent(descripcion)}&from=${proyectoId}`;
   const [mostrarBuscador, setMostrarBuscador] = useState(false);
   const [mostrarBuscadorEquipo, setMostrarBuscadorEquipo] = useState(false);
   const [mostrarSelectorMO, setMostrarSelectorMO] = useState(false);
@@ -2559,7 +2558,7 @@ function DrawerAPU({
                                   // Estado vivo del catálogo si está vinculado (ver estadoVerificacion).
                                   ...estadoVerificacion(m),
                                 }}
-                                onRevisarEnMateriales={() => irAMaterialEnCatalogo(m.descripcion)}
+                                hrefRevisarEnMateriales={urlMaterialEnCatalogo(m.descripcion)}
                                 tienePrecio={m.precioUnit > 0}
                               />
                               {preciosVigentesPorMaterial[m.id] != null && (
