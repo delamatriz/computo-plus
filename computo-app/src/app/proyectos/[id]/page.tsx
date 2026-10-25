@@ -5282,7 +5282,7 @@ export default function ProyectoPage() {
                                 title={
                                   decisionPrecio === "mantener"
                                     ? "Precio entregado al cliente — precio unitario bloqueado en esta edición. Hacé clic para cambiar la decisión."
-                                    : "Precio de entrega anterior — tocá la cantidad, el precio o el candado para mantenerlo o actualizarlo."
+                                    : "Precio de entrega anterior — tocá el precio o el candado para mantenerlo o actualizarlo."
                                 }
                               >
                                 <Lock className={cn("w-3 h-3", pendienteDecisionPrecio ? "text-amber-500" : "text-slate-300")} />
