@@ -23,7 +23,19 @@ const PROYECTO_INCLUDE = {
                   componentes: { orderBy: { orden: "asc" as const } },
                   // Fila del catálogo vinculada: solo lo que hace falta para mostrar la
                   // fuente del precio en el APU (lib/fuentePrecio.ts). No se guarda de vuelta.
-                  precioMTOP: { select: { codigo: true, numeroLista: true, proveedor: true, notaProcedencia: true } },
+                  precioMTOP: {
+                    select: {
+                      codigo: true,
+                      numeroLista: true,
+                      proveedor: true,
+                      notaProcedencia: true,
+                      // Estado vivo de verificación — el badge del APU lo usa en vez de las
+                      // copias del material, que quedan viejas desde el clonado.
+                      requiereVerificacion: true,
+                      motivoVerificacion: true,
+                      fechaUltimaVerificacion: true,
+                    },
+                  },
                 },
               },
               manoObra: { orderBy: { orden: "asc" as const } },

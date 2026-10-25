@@ -320,7 +320,59 @@ interface InsumoAPU {
   // Fila del catálogo vinculada (precioMTOPId), solo para mostrar la fuente del
   // precio con el mismo criterio que /materiales (lib/fuentePrecio.ts). La trae
   // el GET del proyecto/APU o el buscador del catálogo; el PUT no la guarda.
-  precioMTOP?: DatosFuente | null;
+  precioMTOP?: FilaCatalogoVinculada | null;
+}
+
+// Fila del catálogo vinculada a un material del APU. Los campos de
+// verificación son opcionales: los trae el GET del proyecto/APU, pero no el
+// buscador del catálogo (agregarDesdeMTOP), y ahí se cae a las copias.
+type FilaCatalogoVinculada = DatosFuente & {
+  requiereVerificacion?: boolean;
+  motivoVerificacion?: string | null;
+  fechaUltimaVerificacion?: string | null;
+};
+
+// Estado de verificación de un material del APU para el badge y el reloj de
+// la lista. Vinculado al catálogo (y con el estado ya traído) → el VALOR VIVO
+// del catálogo, aunque sea null: un motivo resuelto en el catálogo no tiene
+// que reaparecer desde la copia vieja del material. Sin vínculo (escrito a
+// mano, sugerido por IA sin match) → las copias guardadas en el material.
+function estadoVerificacion(m: InsumoAPU): {
+  requiereVerificacion: boolean;
+  motivoVerificacion: string | null;
+  fechaUltimaVerificacion: string | null;
+} {
+  const p = m.precioMTOP;
+  if (p && p.requiereVerificacion !== undefined) {
+    return {
+      requiereVerificacion: p.requiereVerificacion,
+      motivoVerificacion: p.motivoVerificacion ?? null,
+      fechaUltimaVerificacion: p.fechaUltimaVerificacion ?? null,
+    };
+  }
+  return {
+    requiereVerificacion: false,
+    motivoVerificacion: m.motivoVerificacion ?? null,
+    fechaUltimaVerificacion: m.fechaUltimaVerificacion ?? null,
+  };
+}
+
+// Motivos que ya tienen su propio badge en BadgeVerificacion (no cuentan como
+// "Sin verificar" en el reloj de la lista). Duplicado a propósito: mantener en
+// sync con ETIQUETAS_MOTIVO_ESPECIFICO de BadgeVerificacion.tsx.
+const MOTIVOS_CON_BADGE_PROPIO = ["variacion_alta", "producto_no_encontrado", "fuente_no_disponible", "sin_costo_referencia"];
+
+// Mismo criterio que el badge "Sin verificar": proveedor o nota, sin fecha de
+// verificación, sin alerta propia ni marca de revisión.
+function materialSinVerificar(m: InsumoAPU): boolean {
+  const e = estadoVerificacion(m);
+  return (
+    !!(m.proveedor || m.notaProcedencia) &&
+    !e.fechaUltimaVerificacion &&
+    !e.requiereVerificacion &&
+    e.motivoVerificacion !== "sin_precio_referencia" &&
+    !MOTIVOS_CON_BADGE_PROPIO.includes(e.motivoVerificacion ?? "")
+  );
 }
 
 // Fuente del precio de un material del APU ("Fuente MTOP", "Estimado por
@@ -2452,9 +2504,8 @@ function DrawerAPU({
                                   notaProcedencia: m.notaProcedencia ?? null,
                                   nombreProducto: null,
                                   urlReferencia: null,
-                                  fechaUltimaVerificacion: m.fechaUltimaVerificacion ?? null,
-                                  requiereVerificacion: false,
-                                  motivoVerificacion: m.motivoVerificacion ?? null,
+                                  // Estado vivo del catálogo si está vinculado (ver estadoVerificacion).
+                                  ...estadoVerificacion(m),
                                 }}
                                 onRevisarEnMateriales={() => irAMaterialEnCatalogo(m.descripcion)}
                                 tienePrecio={m.precioUnit > 0}
@@ -5097,24 +5148,10 @@ export default function ProyectoPage() {
                     const materialesSinPrecioRubro = tieneAPU
                       ? apuData[rubro.id].materiales.filter((m) => m.precioUnit === 0).length
                       : 0;
-                    // Mismo criterio que BadgeVerificacion.tsx para "Sin verificar"
-                    // — proveedor real o nota de procedencia (mercado libre o
-                    // estimación, no MTOP oficial) sin fechaUltimaVerificacion,
-                    // excluyendo los casos que ya
-                    // tienen su propio badge distinto ahí (alerta específica o "a
-                    // cotizar"). Duplicado a propósito acá en vez de importar
-                    // ETIQUETAS_MOTIVO_ESPECIFICO (no exportado) — mantener en
-                    // sync si esa lista cambia.
+                    // Mismo criterio que el badge "Sin verificar" del panel, con el
+                    // estado vivo del catálogo — ver materialSinVerificar.
                     const materialesPendientesVerificar = tieneAPU
-                      ? apuData[rubro.id].materiales.filter(
-                          (m) =>
-                            !!(m.proveedor || m.notaProcedencia) &&
-                            !m.fechaUltimaVerificacion &&
-                            m.motivoVerificacion !== "sin_precio_referencia" &&
-                            !["variacion_alta", "producto_no_encontrado", "fuente_no_disponible", "sin_costo_referencia"].includes(
-                              m.motivoVerificacion ?? ""
-                            )
-                        ).length
+                      ? apuData[rubro.id].materiales.filter(materialSinVerificar).length
                       : 0;
                     const precioAPUSinAplicar = tieneAPU && precioAPUDesincronizado(rubro.precioUnit, apuPrecio);
                     // Materiales de este rubro cuyo precio guardado quedó

@@ -256,7 +256,19 @@ export async function PUT(
             include: {
               componentes: { orderBy: { orden: "asc" } },
               // Para la fuente del precio en el APU (lib/fuentePrecio.ts); el PUT no la lee.
-              precioMTOP: { select: { codigo: true, numeroLista: true, proveedor: true, notaProcedencia: true } },
+              precioMTOP: {
+                select: {
+                  codigo: true,
+                  numeroLista: true,
+                  proveedor: true,
+                  notaProcedencia: true,
+                  // Estado vivo de verificación — el badge del APU lo usa en vez de las
+                  // copias del material, que quedan viejas desde el clonado.
+                  requiereVerificacion: true,
+                  motivoVerificacion: true,
+                  fechaUltimaVerificacion: true,
+                },
+              },
             },
           },
           manoObra: { orderBy: { orden: "asc" } },
@@ -356,7 +368,19 @@ export async function GET(
           include: {
             componentes: { orderBy: { orden: "asc" } },
             // Para la fuente del precio en el APU (lib/fuentePrecio.ts); el PUT no la lee.
-            precioMTOP: { select: { codigo: true, numeroLista: true, proveedor: true, notaProcedencia: true } },
+            precioMTOP: {
+              select: {
+                codigo: true,
+                numeroLista: true,
+                proveedor: true,
+                notaProcedencia: true,
+                // Estado vivo de verificación — el badge del APU lo usa en vez de las
+                // copias del material, que quedan viejas desde el clonado.
+                requiereVerificacion: true,
+                motivoVerificacion: true,
+                fechaUltimaVerificacion: true,
+              },
+            },
           },
         },
         manoObra: { orderBy: { orden: "asc" } },
