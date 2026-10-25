@@ -2266,6 +2266,11 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                         key={preset}
                         type="button"
                         onClick={() => setPctPiedra(preset)}
+                        title={
+                          preset === 0.50
+                            ? "50% piedra bruta / 50% hormigón simple — dosificación MTOP, más piedra: más económico"
+                            : "30% piedra bruta / 70% hormigón simple — más hormigón: más resistente y más caro"
+                        }
                         className={cn(
                           "px-2 py-[3px] text-[10px] font-semibold whitespace-nowrap transition-colors",
                           i > 0 && "border-l border-slate-200",
@@ -2294,12 +2299,17 @@ function DrawerAPU({ rubro, apu, moneda, onClose, onApuChange, onAplicar, onTogg
                     <span className="text-[10px] text-slate-400">%</span>
                   </div>
                   <span
-                    title="MTOP 2006 (Pliego de condiciones generales para obras de arquitectura) recomienda partes iguales — 50% piedra, 50% hormigón simple — para la dosificación de hormigón ciclópeo"
+                    title="El MTOP recomienda 50% de piedra bruta (dosificación tradicional, más económica). El 30% es válido pero tiene más hormigón y mayor costo. Elegí según el proyecto."
                     className="flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[3px] uppercase tracking-wide whitespace-nowrap bg-blue-50 text-[#2563EB] border border-blue-200"
                   >
                     <Info className="w-2.5 h-2.5" />
                     Nota MTOP
                   </span>
+                  {/* Qué implica cada preset — la piedra bruta es más barata que el hormigón simple que desplaza. */}
+                  <p className="basis-full text-[10px] text-slate-400 leading-snug">
+                    <span className="font-medium text-slate-500">50%:</span> más piedra, más económico (MTOP) ·{" "}
+                    <span className="font-medium text-slate-500">30%:</span> más hormigón, más resistente y más caro.
+                  </p>
                 </div>
               )}
               <div className="overflow-x-auto -mx-4 px-4">
