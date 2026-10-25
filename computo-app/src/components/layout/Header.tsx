@@ -85,14 +85,14 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     pregunta: "¿Qué significan los íconos y colores del presupuesto?",
     tipo: "respuesta",
     respuesta: [
-      "🔒 Candado — precio de entrega anterior, tocá para mantenerlo o actualizarlo.",
+      "🔒 Candado — precio de entrega anterior. No se toca el candado: tocá la cantidad o el precio del rubro para mantenerlo o actualizarlo.",
       "⏰ Reloj ámbar — hay materiales con precio sin verificar en este rubro.",
       "⚠ Triángulo ámbar — hay insumos sin precio cargado.",
       "🔄 Flecha circular ámbar — el precio del catálogo cambió, hacé clic para actualizar.",
       "✅ Verificado (verde) — precio confirmado contra el mercado.",
       "⏰ Sin verificar (ámbar) — precio de referencia, confirmá con tu proveedor.",
       "⚠ Precio desactualizado (ámbar) — el precio varió significativamente, revisá en Materiales.",
-      "❌ Sin precio — no hay precio de referencia, cotizá con tu proveedor.",
+      "? Sin precio — no hay precio de referencia, cotizá con tu proveedor.",
     ].join("\n"),
   },
 ];

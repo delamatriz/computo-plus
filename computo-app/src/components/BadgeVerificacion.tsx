@@ -47,7 +47,15 @@ const ACCION_MOTIVO: Record<string, string> = {
   variacion_alta: "Precio desactualizado — revisá en Materiales",
   producto_no_encontrado: "No encontrado en catálogo — revisá en Materiales",
 };
+// Con texto de acción pero no clickeables: en /materiales no hay nada que hacer, se resuelve con el proveedor.
+const ACCION_MOTIVO_SIN_CLICK: Record<string, string> = {
+  fuente_no_disponible: "No se pudo verificar — confirmá con tu proveedor",
+};
+// "sin_precio_referencia" también lo tienen materiales CON precio (rubros
+// generados desde Cálculo rápido guardan el monto estimado con ese motivo):
+// ahí no es "sin precio" sino un precio estimado.
 const ACCION_SIN_PRECIO = "Sin precio — cotizá con tu proveedor";
+const ACCION_PRECIO_ESTIMADO = "Precio estimado — cotizá con tu proveedor";
 const ACCION_SIN_VERIFICAR = "Sin verificar — revisá el precio en Materiales";
 
 const BASE = "flex-shrink-0 flex items-center gap-1 rounded-[4px] border whitespace-nowrap";
@@ -65,6 +73,9 @@ interface BadgeVerificacionProps {
   // (biblioteca /rubros, /materiales, equipos) no lo pasan y siguen con el
   // badge corto, no interactivo.
   onRevisarEnMateriales?: () => void;
+  // Solo con onRevisarEnMateriales: si el material ya tiene un precio cargado,
+  // "sin precio de referencia" se muestra como "Precio estimado".
+  tienePrecio?: boolean;
   // /rubros lo pasa para quien no es SUPERADMIN: "Pendiente de verificar"
   // es un estado interno del job de precios.
   ocultarPendiente?: boolean;
@@ -76,6 +87,7 @@ interface BadgeVerificacionProps {
 export function BadgeVerificacion({
   fuente,
   onRevisarEnMateriales,
+  tienePrecio = false,
   ocultarPendiente,
   etiquetaPendiente = "Pendiente de verificar",
 }: BadgeVerificacionProps) {
@@ -87,11 +99,15 @@ export function BadgeVerificacion({
   if (fuente.motivoVerificacion === "sin_precio_referencia") {
     return (
       <span
-        title="Sin precio de referencia — a cotizar directamente"
+        title={
+          conAccion && tienePrecio
+            ? "Precio estimado, sin precio de referencia de mercado — confirmalo con tu proveedor"
+            : "Sin precio de referencia — a cotizar directamente"
+        }
         className={cn(BASE, conAccion ? ESTILO_ACCION : ESTILO_CORTO, "bg-slate-100 text-slate-500 border-slate-200")}
       >
         <HelpCircle className="w-2.5 h-2.5" />
-        {conAccion ? ACCION_SIN_PRECIO : "A cotizar"}
+        {conAccion ? (tienePrecio ? ACCION_PRECIO_ESTIMADO : ACCION_SIN_PRECIO) : "A cotizar"}
       </span>
     );
   }
@@ -102,6 +118,16 @@ export function BadgeVerificacion({
 
   if (etiquetaEspecifica || fuente.requiereVerificacion) {
     const accion = conAccion && fuente.motivoVerificacion ? ACCION_MOTIVO[fuente.motivoVerificacion] : undefined;
+    const accionSinClick =
+      conAccion && fuente.motivoVerificacion ? ACCION_MOTIVO_SIN_CLICK[fuente.motivoVerificacion] : undefined;
+    if (accionSinClick) {
+      return (
+        <span title="La verificación automática no pudo consultar la fuente del precio" className={cn(BASE, ESTILO_ACCION, AMBAR)}>
+          <AlertTriangle className="w-2.5 h-2.5" />
+          {accionSinClick}
+        </span>
+      );
+    }
     if (accion) {
       return (
         <button

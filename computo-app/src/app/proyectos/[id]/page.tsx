@@ -2224,11 +2224,11 @@ function DrawerAPU({
                 <button
                   type="button"
                   onClick={() => { cancelarGuardadoPendiente(); onAplicar(precioFinal, apu); }}
-                  title={`APU modificado — precio desactualizado (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(precioFinal)}). Click para aplicar y sincronizar.`}
+                  title="Cambios en el APU sin aplicar — click para aplicar al rubro."
                   className="flex-shrink-0 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide whitespace-nowrap hover:bg-amber-100 transition-colors"
                 >
                   <RefreshCw className="w-3 h-3" />
-                  APU modificado
+                  Cambios sin aplicar
                 </button>
               )}
             </div>
@@ -2310,8 +2310,8 @@ function DrawerAPU({
             </label>
             {rubro.trabajoEnAltura && (
               <div className="mt-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                Trabajo en altura activo — al agregar mano de obra se recomiendan las categorías
-                Oficial y Medio oficial trabajo en altura (10% de recargo). Peón no tiene variante de altura.
+                Trabajo en altura activo — al agregar mano de obra se sugieren Oficial y Medio oficial en altura
+                (10% de recargo). No modifica la mano de obra ya cargada.
               </div>
             )}
           </div>
@@ -2457,6 +2457,7 @@ function DrawerAPU({
                                   motivoVerificacion: m.motivoVerificacion ?? null,
                                 }}
                                 onRevisarEnMateriales={() => irAMaterialEnCatalogo(m.descripcion)}
+                                tienePrecio={m.precioUnit > 0}
                               />
                               {preciosVigentesPorMaterial[m.id] != null && (
                                 <button
@@ -5227,7 +5228,7 @@ export default function ProyectoPage() {
                                   ? `${materialesDesactualizadosCatalogo!.length === 1 ? `"${materialesDesactualizadosCatalogo![0]}" cambió` : `${materialesDesactualizadosCatalogo!.length} materiales cambiaron`} de precio en el catálogo, y el APU tiene cambios sin aplicar (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(apuPrecio)}). Click para sincronizar todo.`
                                   : catalogoDesactualizado
                                   ? `${materialesDesactualizadosCatalogo!.length === 1 ? `"${materialesDesactualizadosCatalogo![0]}" cambió` : `${materialesDesactualizadosCatalogo!.length} materiales cambiaron`} de precio en el catálogo — click para sincronizar.`
-                                  : `APU modificado — precio desactualizado (guardado ${fmtMon(rubro.precioUnit ?? 0)}, actual ${fmtMon(apuPrecio)}). Click para aplicar y sincronizar.`
+                                  : `Cambios en el APU sin aplicar (guardado ${fmtMon(rubro.precioUnit ?? 0)}, nuevo ${fmtMon(apuPrecio)}). Click para sincronizar.`
                               }
                               className="flex-shrink-0 hover:opacity-70 transition-opacity"
                             >
