@@ -45,10 +45,10 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     href: "/referencias#tutorial-flujo-principal",
   },
   {
-    pregunta: "¿Qué son Rubro, Partida y APU?",
+    pregunta: "¿Qué son Capítulo, Rubro y APU?",
     tipo: "respuesta",
     respuesta:
-      "Rubro es la agrupación mayor de trabajo (ej. Estructura, Mampostería). Partida es un ítem puntual dentro de un rubro, con cantidad y precio. APU es el desglose de ese precio: materiales, mano de obra, equipos, gastos generales y beneficio.",
+      "Capítulo es la agrupación mayor de trabajo (ej. Estructura, Mampostería). Rubro es un ítem puntual dentro de un capítulo, con unidad, cantidad y precio unitario. APU es el desglose del precio de ese rubro: materiales, mano de obra, equipos y beneficio.",
     href: "/referencias#glosario",
     hrefLabel: "Ver glosario completo",
   },
@@ -67,7 +67,7 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     pregunta: "¿Dónde consigo precios oficiales de materiales y jornales actualizados?",
     tipo: "respuesta",
     respuesta:
-      "Materiales tiene los links a la Lista Oficial MTOP y al Índice ICCV del INE. Mano de Obra tiene el link al Convenio SUNCA vigente.",
+      "Materiales tiene el catálogo con precios de referencia actualizados y el link al Índice ICCV del INE. Mano de Obra tiene el link al Convenio SUNCA vigente.",
   },
   {
     pregunta: "¿Qué cambia si presupuesto para el Estado (Obra Pública)?",
@@ -79,6 +79,21 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     tipo: "respuesta",
     respuesta:
       "Cargá el rubro dentro de un proyecto, armá su descompuesto (APU) —a mano o con la sugerencia automática— y aplicá el precio. Después guardalo con el marcador «Guardar en Mis rubros» de la fila del rubro: queda en Mis rubros para tus próximos proyectos.",
+  },
+  {
+    // Una línea por símbolo: la respuesta se muestra con whitespace-pre-line.
+    pregunta: "¿Qué significan los íconos y colores del presupuesto?",
+    tipo: "respuesta",
+    respuesta: [
+      "🔒 Candado — precio de entrega anterior, tocá para mantenerlo o actualizarlo.",
+      "⏰ Reloj ámbar — hay materiales con precio sin verificar en este rubro.",
+      "⚠ Triángulo ámbar — hay insumos sin precio cargado.",
+      "🔄 Flecha circular ámbar — el precio del catálogo cambió, hacé clic para actualizar.",
+      "✅ Verificado (verde) — precio confirmado contra el mercado.",
+      "⏰ Sin verificar (ámbar) — precio de referencia, confirmá con tu proveedor.",
+      "⚠ Precio desactualizado (ámbar) — el precio varió significativamente, revisá en Materiales.",
+      "❌ Sin precio — no hay precio de referencia, cotizá con tu proveedor.",
+    ].join("\n"),
   },
 ];
 
@@ -452,7 +467,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                         </button>
                         {preguntaAbierta === i && (
                           <div className="px-4 pb-3 -mt-1">
-                            <p className="text-sm text-text-secondary leading-relaxed">
+                            <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">
                               {item.respuesta}
                             </p>
                             {item.href && (
