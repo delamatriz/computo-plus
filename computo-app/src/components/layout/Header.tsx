@@ -404,7 +404,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                             onClick={() => alElegirPendiente("sin-precio")}
                             className="text-sm text-text-primary hover:text-brand-accent transition-colors"
                           >
-                            {notificaciones.pendientes.aCotizar} material{notificaciones.pendientes.aCotizar !== 1 ? "es" : ""} a cotizar
+                            {notificaciones.pendientes.aCotizar} material{notificaciones.pendientes.aCotizar !== 1 ? "es" : ""} sin precio
                           </Link>
                         </li>
                       )}

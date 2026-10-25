@@ -1821,6 +1821,8 @@ function DrawerAPU({
   habilitandoEdicion = false,
 }: DrawerAPUProps) {
   const dragControls = useDragControls();
+  // Mismo nombre que en /materiales y /rubros: el SUPERADMIN ve "Pendiente de verificar".
+  const esSuperadmin = useSuperadmin() === true;
   // Deep-link desde los badges con acción de un material ("Sin verificar",
   // "Precio desactualizado", "No encontrado en catálogo") — misma descripción
   // que usa el matching de sincronizarPrecioMTOP/recalcularPrecioRubro, para
@@ -2559,6 +2561,7 @@ function DrawerAPU({
                                   ...estadoVerificacion(m),
                                 }}
                                 hrefRevisarEnMateriales={urlMaterialEnCatalogo(m.descripcion)}
+                                etiquetaPendiente={esSuperadmin ? "Pendiente de verificar" : undefined}
                                 tienePrecio={m.precioUnit > 0}
                               />
                               {preciosVigentesPorMaterial[m.id] != null && (

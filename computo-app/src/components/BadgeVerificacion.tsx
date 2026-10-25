@@ -58,7 +58,8 @@ const ACCION_MOTIVO_SIN_CLICK: Record<string, string> = {
 // ahí no es "sin precio" sino un precio estimado.
 const ACCION_SIN_PRECIO = "Sin precio — cotizá con tu proveedor";
 const ACCION_PRECIO_ESTIMADO = "Precio estimado — cotizá con tu proveedor";
-const ACCION_SIN_VERIFICAR = "Sin verificar — revisá el precio en Materiales";
+// El nombre del estado ("Sin verificar" / "Pendiente de verificar" para el SUPERADMIN) sale de etiquetaPendiente.
+const sufijoSinVerificar = " — revisá el precio en Materiales";
 
 const BASE = "flex-shrink-0 flex items-center gap-1 rounded-[4px] border whitespace-nowrap";
 // Badge corto de siempre (mayúsculas) y badge con acción (texto normal, más legible).
@@ -84,8 +85,9 @@ interface BadgeVerificacionProps {
   // /rubros lo pasa para quien no es SUPERADMIN: "Pendiente de verificar"
   // es un estado interno del job de precios.
   ocultarPendiente?: boolean;
-  // Texto del badge de ese mismo estado — /materiales le muestra al cliente
-  // "Sin verificar" (coincide con su filtro y su leyenda).
+  // Nombre del estado "nunca verificado". Sin pasarlo: "Pendiente de
+  // verificar" en el badge corto y "Sin verificar" en el con acción. El
+  // SUPERADMIN ve "Pendiente de verificar" en todas las pantallas.
   etiquetaPendiente?: string;
 }
 
@@ -94,7 +96,7 @@ export function BadgeVerificacion({
   hrefRevisarEnMateriales,
   tienePrecio = false,
   ocultarPendiente,
-  etiquetaPendiente = "Pendiente de verificar",
+  etiquetaPendiente,
 }: BadgeVerificacionProps) {
   const conAccion = !!hrefRevisarEnMateriales;
 
@@ -174,14 +176,14 @@ export function BadgeVerificacion({
             className={cn(BASE, ESTILO_ACCION, AMBAR, AMBAR_CLICK)}
           >
             <Clock className="w-2.5 h-2.5" />
-            {ACCION_SIN_VERIFICAR}
+            {(etiquetaPendiente ?? "Sin verificar") + sufijoSinVerificar}
           </Link>
         );
       }
       return (
         <span title="Precio de referencia de fuente de mercado" className={cn(BASE, ESTILO_CORTO, AMBAR)}>
           <Clock className="w-2.5 h-2.5" />
-          {etiquetaPendiente}
+          {etiquetaPendiente ?? "Pendiente de verificar"}
         </span>
       );
     }
