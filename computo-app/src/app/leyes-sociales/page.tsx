@@ -412,7 +412,7 @@ export default function LeyesSocialesPage() {
               </p>
               <p className="text-sm text-slate-500 mt-2">
                 El precio unitario del rubro suma además la Utilidad sobre el costo directo — por eso el precio
-                final del rubro va a ser mayor que estos valores.
+                unitario del rubro va a ser mayor que estos valores.
               </p>
             </section>
 
