@@ -43,7 +43,7 @@ const ESTADOS_ORDEN = ["ANTEPROYECTO", "EN_CURSO", "FINALIZADO"] as const;
 // a ese estado (ver "Guardar como anteproyecto" en /calcular).
 const ESTADO_SUBTITULO: Record<string, string> = {
   ANTEPROYECTO: "creado con Cálculo Rápido",
-  EN_CURSO: "obras en marcha",
+  EN_CURSO: "proyectos activos",
   PAUSADO: "obras en pausa",
   FINALIZADO: "presupuesto entregado",
 };
