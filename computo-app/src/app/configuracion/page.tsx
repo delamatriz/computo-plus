@@ -91,7 +91,8 @@ export default function ConfiguracionPage() {
   async function guardarEmpresa() {
     const errores: { rut?: string; email?: string } = {};
     const rut = soloDigitosRut(empresaForm.rut);
-    if (!/^\d{10,12}$/.test(rut)) errores.rut = "El RUT tiene que tener solo números, entre 10 y 12 dígitos.";
+    // Opcional, igual que el email: vacío no se valida (y el servidor deja el RUT que ya tenía).
+    if (rut && !/^\d{10,12}$/.test(rut)) errores.rut = "El RUT tiene que tener solo números, entre 10 y 12 dígitos.";
     if (empresaForm.email.trim() && !EMAIL_VALIDO.test(empresaForm.email.trim())) errores.email = "Ingresá un email válido.";
     setErroresCampo(errores);
     if (errores.rut || errores.email) return;
