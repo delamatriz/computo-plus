@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { calcularPrecioUnitario, costoUnitEfectivo, montoAportesPatronales, redondearPrecio, sumEquipos, sumManoObra } from "@/lib/apu-calc";
 import { requerirRubro } from "@/lib/sesion";
+import { hoyUruguayISO } from "@/lib/fechaUruguay";
 
 const normalizar = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
 
@@ -141,7 +142,7 @@ export async function POST(
     const costoTotal = sumMat + costoManoObra + costoEquipos;
     const precioUY = redondearPrecio(calcularPrecioUnitario(costoTotal, apu.utilidadPct));
 
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = hoyUruguayISO();
     const notasInternas = [
       `Copiado del rubro ${rubro.codigo} "${nombre}" (capítulo "${rubro.capitulo.nombre}", proyecto "${rubro.capitulo.proyecto.nombre}") el ${hoy}. Utilidad ${apu.utilidadPct}%.`,
       ...(materialesSinVinculo.length > 0 ? [`materiales_sin_vinculo: ${JSON.stringify(materialesSinVinculo)}`] : []),

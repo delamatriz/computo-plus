@@ -5,6 +5,7 @@ import { Wallet, ChevronDown, ChevronRight, Plus, Pencil, X } from "lucide-react
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import { hoyUruguayISO } from "@/lib/fechaUruguay";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_TIPO = ["Ingreso", "Egreso"] as const;
@@ -46,7 +47,7 @@ type FormState = {
 };
 
 function formVacio(): FormState {
-  return { tipo: "Ingreso", fecha: new Date().toISOString().slice(0, 10), concepto: "", monto: "", moneda: "UYU" };
+  return { tipo: "Ingreso", fecha: hoyUruguayISO(), concepto: "", monto: "", moneda: "UYU" };
 }
 
 function formDesdeMovimiento(m: Movimiento): FormState {

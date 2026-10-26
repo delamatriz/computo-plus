@@ -3,6 +3,7 @@ import path from "path";
 import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
 import { AUC_PCT_DEFAULT } from "@/lib/auc";
 import { CAJA_PROFESIONALES_ETIQUETA, CAJA_PROFESIONALES_PCT, montoCajaProfesionales, normalizarTipoCaja } from "@/lib/cajaProfesionales";
+import { fechaUruguay } from "@/lib/fechaUruguay";
 
 // DM Sans — tipografía de marca de CÓMPUTO+ (ver CLAUDE.md), registrada acá
 // en vez de depender de las fuentes estándar de PDFKit (Helvetica), que no
@@ -241,8 +242,8 @@ function simboloMoneda(moneda: string): string {
 }
 
 function fechaHoy(): string {
-  const d = new Date();
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
+  // Hoy en hora de Uruguay: el PDF se genera en el servidor, que corre en UTC.
+  return fechaUruguay();
 }
 
 // timeZone: "UTC" — fechaInicio/fechaPresupuesto son fechas "solo día"

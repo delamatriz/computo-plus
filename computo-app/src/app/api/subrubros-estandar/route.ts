@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 import { requerirSuperadmin } from "@/lib/sesion";
 import { redondearPrecio } from "@/lib/apu-calc";
+import { mesUruguayISO } from "@/lib/fechaUruguay";
 
 export async function GET(req: NextRequest) {
   const capituloId = req.nextUrl.searchParams.get("capituloId")?.trim();
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
       if (precioUY > 0 && Math.abs(existente.precioUY - precioUY) > 1) {
         await db.subrubroEstandar.update({
           where: { id: existente.id },
-          data: { precioUY, fechaBase: new Date().toISOString().slice(0, 7) },
+          data: { precioUY, fechaBase: mesUruguayISO() },
         });
       }
       return NextResponse.json(existente);
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
         descripcion: descripcionLimpia,
         unidad: unidadLimpia,
         precioUY,
-        fechaBase: new Date().toISOString().slice(0, 7),
+        fechaBase: mesUruguayISO(),
         origen: "manual",
         capituloId,
         orden: ordenNuevo,

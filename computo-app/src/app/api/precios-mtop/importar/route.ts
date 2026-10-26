@@ -13,6 +13,7 @@ import {
   parsearUnidadMTOP,
   precioUnitarioDeLista,
 } from "@/lib/listaMTOP";
+import { mesUruguayISO } from "@/lib/fechaUruguay";
 
 interface AmbiguoDetectado {
   materialAPUId: string;
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
       select: { id: true, codigo: true, descripcion: true, precioUnitario: true },
     });
 
-    const fechaLista = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    const fechaLista = mesUruguayISO(); // "YYYY-MM", mes actual en Uruguay
     const detalle: DetalleFila[] = [];
     let actualizados = 0;
     let nuevos = 0;

@@ -4,6 +4,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { db } from "@/lib/db";
 import { requerirSesion } from "@/lib/sesion";
 import { EstimacionPDF, type CapituloEstimacionPDF, type EstimacionPDFProps } from "@/components/EstimacionPDF";
+import { hoyUruguayISO } from "@/lib/fechaUruguay";
 
 // POST — PDF de la estimación de Cálculo Rápido. La estimación no se guarda en
 // la base: la pantalla manda sus números y acá se arma el documento. Gastos
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     const elemento = React.createElement(EstimacionPDF, props) as Parameters<typeof renderToBuffer>[0];
     const buffer = await renderToBuffer(elemento);
-    const nombreArchivo = `Estimacion-Calculo-Rapido-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const nombreArchivo = `Estimacion-Calculo-Rapido-${hoyUruguayISO()}.pdf`;
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",

@@ -11,6 +11,7 @@
 // El número y el mes de la lista vienen en un encabezado tipo "N° 606 - Junio 2026".
 
 import { mejorCoincidencia, type CandidatoImportacion, type CoincidenciaImportacion } from "@/lib/similitudDescripcion";
+import { mesUruguayISO } from "@/lib/fechaUruguay";
 
 // Índices (base 0) de las columnas de la lista oficial.
 const COL_CODIGO = 2;
@@ -192,7 +193,7 @@ export function clasificarListaOficial(
 /** "YYYY-MM" válido, o el mes actual. */
 export function fechaListaONormalizada(fecha: unknown): string {
   if (typeof fecha === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(fecha)) return fecha;
-  return new Date().toISOString().slice(0, 7);
+  return mesUruguayISO();
 }
 
 /** Número de lista entero y positivo, o 0. */

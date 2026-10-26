@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { fechaUruguay } from "@/lib/fechaUruguay";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 export interface AjusteLiquidacionPDF {
@@ -35,8 +36,8 @@ function fmtFecha(iso: string): string {
 }
 
 function fechaHoy(): string {
-  const d = new Date();
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
+  // Hoy en hora de Uruguay: el PDF se genera en el servidor, que corre en UTC.
+  return fechaUruguay();
 }
 
 function fmtMoneda(v: number, moneda: string): string {

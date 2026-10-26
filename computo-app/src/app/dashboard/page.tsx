@@ -5,6 +5,7 @@ import GraficoProyectosPorMes from "@/components/dashboard/GraficoProyectosPorMe
 import { esSuperadmin, sesionActual } from "@/lib/sesion";
 import { SELECT_CAPITULOS_RESUMEN, nombreProyectoParaMostrar, totalPresupuestado, ultimaModificacion } from "@/lib/resumenProyecto";
 import { redirect } from "next/navigation";
+import { fechaUruguay, partesFechaUruguay } from "@/lib/fechaUruguay";
 
 export const dynamic = "force-dynamic";
 
@@ -107,17 +108,18 @@ export default async function DashboardPage() {
   // Últimos MESES_GRAFICO meses en orden cronológico (más viejo primero),
   // incluyendo los que tienen 0 proyectos creados — si no, el eje del
   // gráfico saltearía meses sin dato en vez de mostrar un hueco en 0.
-  const hoy = new Date();
+  // Todo en hora de Uruguay (el servidor corre en UTC): el mes actual y el mes
+  // en que se creó cada proyecto. Meses como índice absoluto (año × 12 + mes).
+  const hoy = partesFechaUruguay();
+  const indiceMes = (anio: number, mes: number) => anio * 12 + (mes - 1);
+  const mesesDeCreacion = proyectos.map((p) => {
+    const c = partesFechaUruguay(new Date(p.createdAt));
+    return indiceMes(c.anio, c.mes);
+  });
   const datosGrafico = Array.from({ length: MESES_GRAFICO }, (_, i) => {
-    const offset = MESES_GRAFICO - 1 - i;
-    const anio = hoy.getFullYear();
-    const mes = hoy.getMonth() - offset;
-    const fechaMes = new Date(anio, mes, 1);
-    const cantidad = proyectos.filter((p) => {
-      const c = new Date(p.createdAt);
-      return c.getFullYear() === fechaMes.getFullYear() && c.getMonth() === fechaMes.getMonth();
-    }).length;
-    return { mes: NOMBRES_MES[fechaMes.getMonth()], cantidad };
+    const indice = indiceMes(hoy.anio, hoy.mes) - (MESES_GRAFICO - 1 - i);
+    const cantidad = mesesDeCreacion.filter((m) => m === indice).length;
+    return { mes: NOMBRES_MES[indice % 12], cantidad };
   });
 
   return (
@@ -131,7 +133,7 @@ export default async function DashboardPage() {
               : "Resumen general de todos tus proyectos."}
           </p>
           <p className="text-slate-400 text-xs mt-1">
-            {new Date().toLocaleDateString("es-UY", {
+            {fechaUruguay(new Date(), {
               weekday: "long",
               year: "numeric",
               month: "long",

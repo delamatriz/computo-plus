@@ -5,6 +5,7 @@ import { calcularPrecioUnitario, costoUnitEfectivo, redondearPrecio } from "@/li
 import { costoDirectoUnitario } from "@/lib/costoAgregado";
 import { precioConRespaldo, resolverPrecioEquipo, resolverPrecioMaterial } from "@/lib/resolverPrecioInsumo";
 import { requerirRubro, requerirSuperadmin } from "@/lib/sesion";
+import { hoyUruguayISO } from "@/lib/fechaUruguay";
 
 const normalizar = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
 
@@ -146,7 +147,7 @@ export async function POST(
         ) * 100
       ) / 100;
 
-    const hoy = new Date().toISOString();
+    const hoy = hoyUruguayISO(); // "aaaa-mm-dd" en hora de Uruguay
     // Marca para revisar desde la base (o una pantalla futura): una línea
     // "clave: [JSON]" por cada tipo de insumo con precio fijo.
     const marcas = [

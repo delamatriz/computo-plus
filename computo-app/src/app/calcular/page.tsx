@@ -26,6 +26,7 @@ import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
 import { mensajeCupoCalculoRapido } from "@/lib/config-prueba";
 import { TIPOS_OBRA } from "@/lib/tiposObra";
 import { TIPO_CAMBIO_REFERENCIA, type TipoCambioVigente } from "@/lib/tipoCambioReferencia";
+import { hoyUruguayISO } from "@/lib/fechaUruguay";
 
 /* ─── Datos de referencia ─────────────────────────────────── */
 const CALIDADES = [
@@ -455,7 +456,7 @@ export default function CalcularPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Estimacion-Calculo-Rapido-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `Estimacion-Calculo-Rapido-${hoyUruguayISO()}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {

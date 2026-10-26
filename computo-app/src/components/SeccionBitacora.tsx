@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import { hoyUruguayISO } from "@/lib/fechaUruguay";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_CLIMA = ["Soleado", "Nublado", "Lluvia", "Tormenta", "Viento fuerte", "Otro"] as const;
@@ -107,7 +108,7 @@ type FormState = {
 
 function formVacio(): FormState {
   return {
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: hoyUruguayISO(),
     clima: "Soleado",
     climaDetalle: "",
     personalPresente: "",
