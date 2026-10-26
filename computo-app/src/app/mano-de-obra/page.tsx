@@ -1,7 +1,6 @@
 import { Hammer } from "lucide-react";
 import { db } from "@/lib/db";
-import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
-import { mensajeAvisoConvenio } from "@/lib/convenioSunca";
+import { formatearFechaUTC, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionCategoriasLaborales from "@/components/mano-de-obra/SeccionCategoriasLaborales";
 import SeccionConvenioFirmado from "@/components/mano-de-obra/SeccionConvenioFirmado";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
@@ -11,14 +10,6 @@ import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto
 // una actualización de convenio (ver seed-jornales-sunca-2026.ts) no se
 // reflejaría acá hasta el próximo build.
 export const dynamic = "force-dynamic";
-
-const referencias: ReferenciaLink[] = [
-  {
-    titulo: "Convenio SUNCA",
-    descripcion: "Escalas salariales y convenio colectivo vigente",
-    url: "https://www.sunca.com.uy",
-  },
-];
 
 // Las 12 categorías oficiales del laudo, en orden — se muestran estas (no
 // las 25 filas crudas de CategoriaLaboral, que tienen alias/duplicados por
@@ -206,12 +197,12 @@ export default async function ManoDeObraPage() {
         Categorías laborales y jornales de referencia.
       </p>
 
-      {/* Convenio SUNCA (link externo) + Descargar convenio firmado (PDF,
-          Blob) — lado a lado en desktop, apiladas en mobile. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch">
-        <ListaReferencias items={referencias} />
-        <SeccionConvenioFirmado />
-      </div>
+      {/* Convenio SUNCA (link externo + subir, SUPERADMIN) y Decreto del
+          Convenio firmado (descargar PDF) — lado a lado en desktop, apiladas
+          en mobile. La fecha es la misma vigencia del aviso de abajo. */}
+      <SeccionConvenioFirmado
+        fechaConvenio={config?.convenioFechaVigente ? formatearFechaUTC(new Date(config.convenioFechaVigente)) : null}
+      />
 
       <div className="mt-8">
         <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide mb-1">

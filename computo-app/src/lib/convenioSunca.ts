@@ -23,7 +23,7 @@ export function convenioPosiblementeDesactualizado(
 // que devuelve la API representan la misma fecha calendario en UTC. Si se
 // formateara en huso horario local (Uruguay UTC-3), esa fecha calendario se
 // corre un día para atrás.
-function formatearFechaUTC(fecha: Date): string {
+export function formatearFechaUTC(fecha: Date): string {
   return new Intl.DateTimeFormat("es-UY", {
     day: "2-digit",
     month: "2-digit",
