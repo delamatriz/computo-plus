@@ -39,6 +39,14 @@ function fechaFinVigencia(fechaVigenciaDesde: string | Date): Date {
   return new Date(Date.UTC(inicio.getUTCFullYear() + 1, inicio.getUTCMonth(), inicio.getUTCDate() - 1));
 }
 
+/** "Convenio 01/04/2026 al 31/03/2027" (o "Convenio SUNCA <número> · …" si hay número). */
+export function periodoConvenio(fechaVigenciaDesde: string | Date, numeroConvenio?: string | null): string {
+  const desde = formatearFechaUTC(new Date(fechaVigenciaDesde));
+  const hasta = formatearFechaUTC(fechaFinVigencia(fechaVigenciaDesde));
+  const numero = numeroConvenio?.trim();
+  return numero ? `Convenio SUNCA ${numero} · vigente ${desde} al ${hasta}` : `Convenio ${desde} al ${hasta}`;
+}
+
 // Con número de convenio cargado (ej. "2026-2027") se muestra junto a la fecha:
 // "Convenio SUNCA 2026-2027 · vigente 01/04/2026 al 31/03/2027 — …". Sin número,
 // el mensaje es el de siempre.

@@ -1,6 +1,6 @@
 import { Hammer } from "lucide-react";
 import { db } from "@/lib/db";
-import { formatearFechaUTC, mensajeAvisoConvenio } from "@/lib/convenioSunca";
+import { formatearFechaUTC, periodoConvenio } from "@/lib/convenioSunca";
 import SeccionCategoriasLaborales from "@/components/mano-de-obra/SeccionCategoriasLaborales";
 import SeccionConvenioFirmado from "@/components/mano-de-obra/SeccionConvenioFirmado";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
@@ -204,14 +204,26 @@ export default async function ManoDeObraPage() {
         fechaConvenio={config?.convenioFechaVigente ? formatearFechaUTC(new Date(config.convenioFechaVigente)) : null}
       />
 
+      {/* Actualizar jornales desde la imagen o el PDF del convenio (extracción
+          con IA, fecha y número). Solo SUPERADMIN: el componente devuelve null
+          para el resto. Reemplaza al "Catálogo maestro de jornales" con tabla
+          editable; los jornales vigentes se consultan en las tablas de abajo. */}
+      <SeccionCategoriasLaborales />
+
       <div className="mt-8">
         <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide mb-1">
           Jornales SUNCA vigentes
         </h2>
+        {/* Vigencia del convenio bien visible para todos: es de qué fecha son los jornales. */}
         {config?.convenioFechaVigente && (
-          <p className="text-xs text-slate-400 mb-1">
-            {mensajeAvisoConvenio(config.convenioFechaVigente, config.convenioNumero)}
-          </p>
+          <div className="mt-2 mb-1">
+            <p className="inline-flex items-center rounded-lg bg-blue-50 border border-blue-100 px-3 py-1.5 text-sm font-semibold text-[#1A3A5C]">
+              {periodoConvenio(config.convenioFechaVigente, config.convenioNumero)}
+            </p>
+            <p className="text-xs text-slate-400 mt-1.5">
+              Verificá si hay convenio más reciente antes de usar en presupuestos definitivos.
+            </p>
+          </div>
         )}
         <Tabla encabezados={["Categoría", "Nombre", "Jornal", "Hora"]} filas={filasLaudo} />
       </div>
@@ -263,19 +275,6 @@ export default async function ManoDeObraPage() {
         <p className="text-xs text-slate-400 mt-3">
           Mismo valor en las tres zonas del laudo. {FUENTE_PERSONAL_NO_INCLUIDO}
         </p>
-      </div>
-
-      {/* Editor real de CategoriaLaboral — antes vivía en /configuracion,
-          movida acá porque es contenido específico de mano de obra, no de
-          la empresa en general (ver NOTA(multi-tenant) en el componente).
-          Client component embebido dentro de esta página server — el
-          resto de la página (las tablas de consulta de arriba) sigue
-          siendo un server component sin cambios. Al final de todo y
-          colapsada: es mantenimiento anual, no algo que un usuario nuevo
-          necesite ver de entrada. Solo la ve el SUPERADMIN (el componente
-          devuelve null para el resto). */}
-      <div className="mt-8">
-        <SeccionCategoriasLaborales />
       </div>
 
       <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6 mt-8">

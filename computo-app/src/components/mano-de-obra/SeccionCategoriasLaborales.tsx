@@ -1,16 +1,22 @@
 "use client";
 
 // NOTA(multi-tenant): los jornales son globales (compartidos por todas las
-// empresas), así que editarlos, subir el convenio y extraer con IA es solo
-// del SUPERADMIN — las APIs lo exigen; acá los controles se ocultan y la
-// tabla queda en modo lectura. En la Fase 3 cada empresa va a tener su
-// propia copia editable (nace de una semilla SUNCA oficial).
+// empresas), así que actualizarlos, subir el convenio y extraer con IA es solo
+// del SUPERADMIN — las APIs lo exigen; para el resto este panel no se muestra.
+// En la Fase 3 cada empresa va a tener su propia copia (nace de una semilla
+// SUNCA oficial).
+//
+// Flujo de actualización anual de jornales (oct-2026, reemplaza al "Catálogo
+// maestro de jornales" con la tabla editable): botón → imagen o PDF del
+// convenio → extracción con IA → cambios propuestos (antes/después) →
+// "Aplicar cambios" guarda directo, con confirmación. Los jornales vigentes se
+// consultan en las tablas de solo lectura de la página.
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ChevronDown, FileText, ImageUp, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, FileText, ImageUp, Sparkles } from "lucide-react";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import { useSuperadmin } from "@/hooks/useSuperadmin";
-import { cn } from "@/lib/utils";
 
 interface CategoriaLaboral {
   id: string;
@@ -64,57 +70,59 @@ const ROMANO_A_CODIGO_LAUDO: Record<string, string> = {
   XII: "sunca_cat_xii",
 };
 
-// Flujo simplificado (obra mediana) — Peón = Cat. I, Medio Oficial = Cat. V,
-// Oficial = Cat. VII, siempre anclado al número de categoría, nunca a la
-// posición de la fila en la imagen.
-const ROMANO_A_CODIGO_SIMPLIFICADO: Record<string, string> = {
-  I: "peon",
-  V: "medio_oficial",
-  VII: "oficial",
+// Categorías de CategoriaLaboral que siguen el jornal de una categoría fija
+// del laudo: los alias de nombre común (Peón = Cat. I, Medio oficial = Cat. V,
+// Oficial = Cat. VII, Oficial especializado = Cat. VIII, Capataz = Cat. IX) y
+// los oficios nivelados (ver /mano-de-obra, "Oficios especializados"). Sin la
+// tabla editable, es la única forma de que se actualicen junto con el laudo.
+// Siempre anclado al número de categoría, nunca a la posición de la fila.
+const ROMANO_A_CODIGOS_NIVELADOS: Record<string, string[]> = {
+  I: ["peon"],
+  V: ["medio_oficial"],
+  VII: ["oficial"],
+  VIII: ["oficial_especializado", "electricista_oficial", "plomero_oficial", "pintor_oficial", "oficial_gasista"],
+  IX: ["capataz"],
+  X: ["oficial_maquinista", "oficial_escalerista"],
 };
 
 function formatearJornal(n: number): string {
   return n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// "YYYY-MM-DD" → "dd/mm/aaaa" en UTC (en huso local la fecha se corre un día; ver convenioSunca.ts).
-function formatearFechaConvenio(fechaISO: string): string {
-  return new Date(fechaISO).toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
-}
+const MENSAJE_ERROR_EXTRACCION =
+  "No pude extraer los jornales con certeza. Intentá con una imagen más clara o con el PDF del convenio.";
 
-// Antes vivía en /configuracion (ver comentario NOTA(multi-tenant) arriba)
-// — movida a /mano-de-obra porque es contenido específico de ese dominio,
-// no de la empresa en general. Misma funcionalidad exacta, sin cambios.
 export default function SeccionCategoriasLaborales() {
   // null (cargando) cuenta como "no": sin flash de controles de edición.
   const puedeEditar = useSuperadmin() === true;
+  const router = useRouter();
   const [categorias, setCategorias] = useState<CategoriaLaboral[]>([]);
-  const [jornales, setJornales] = useState<Record<string, string>>({});
   const [fechaConvenio, setFechaConvenio] = useState<string>("");
   const [numeroConvenio, setNumeroConvenio] = useState<string>("");
-  // Número de convenio que la IA leyó del documento y difiere del cargado — se muestra en la
-  // propuesta y recién se aplica con "Aplicar cambios", igual que los jornales.
+  // Lo guardado en la base, para saber si fecha/número cambiaron.
+  const [fechaGuardada, setFechaGuardada] = useState<string>("");
+  const [numeroGuardado, setNumeroGuardado] = useState<string>("");
+  // Número de convenio que la IA leyó del documento y difiere del cargado —
+  // se muestra en la propuesta y se guarda con "Aplicar cambios".
   const [numeroPropuesto, setNumeroPropuesto] = useState<string | null>(null);
   const [configId, setConfigId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [abierto, setAbierto] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [guardado, setGuardado] = useState(false);
-  const [expandido, setExpandido] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [imagenPreview, setImagenPreview] = useState<string | null>(null);
-  // imagenPreview sigue el nombre viejo (ahora puede ser un PDF, no solo
-  // imagen) — se mantiene para no tocar más de lo necesario el resto del
-  // estado; esta bandera es la única distinción que hace falta en el JSX.
-  const esPDF = imagenPreview?.startsWith("data:application/pdf") ?? false;
+  // Puede ser una imagen o un PDF (data URL).
+  const [archivo, setArchivo] = useState<string | null>(null);
+  const esPDF = archivo?.startsWith("data:application/pdf") ?? false;
   const [extrayendo, setExtrayendo] = useState(false);
   const [errorExtraccion, setErrorExtraccion] = useState<string | null>(null);
-  const [resumenExtraccion, setResumenExtraccion] = useState<string | null>(null);
-  const [propuestaExtraccion, setPropuestaExtraccion] = useState<PropuestaCategoria[] | null>(null);
+  const [resumen, setResumen] = useState<string | null>(null);
+  const [propuesta, setPropuesta] = useState<PropuestaCategoria[] | null>(null);
   const [filasNoIdentificadas, setFilasNoIdentificadas] = useState<CategoriaExtraida[]>([]);
   const [notaAltura, setNotaAltura] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!puedeEditar) return;
     async function cargar() {
       const [resCategorias, resConfig] = await Promise.all([
         fetch("/api/categorias-laborales"),
@@ -122,370 +130,271 @@ export default function SeccionCategoriasLaborales() {
       ]);
       const dataCategorias: CategoriaLaboral[] = await resCategorias.json();
       const dataConfig: Configuracion = await resConfig.json();
-
+      const fecha = dataConfig.convenioFechaVigente ? dataConfig.convenioFechaVigente.slice(0, 10) : "";
       setCategorias(dataCategorias);
-      setJornales(
-        Object.fromEntries(dataCategorias.map((c) => [c.id, String(c.jornal)]))
-      );
       setConfigId(dataConfig.id);
-      setFechaConvenio(
-        dataConfig.convenioFechaVigente
-          ? dataConfig.convenioFechaVigente.slice(0, 10)
-          : ""
-      );
+      setFechaConvenio(fecha);
+      setFechaGuardada(fecha);
       setNumeroConvenio(dataConfig.convenioNumero ?? "");
+      setNumeroGuardado(dataConfig.convenioNumero ?? "");
       setCargando(false);
     }
     cargar();
-  }, []);
+  }, [puedeEditar]);
 
-  async function guardarCambios() {
-    // Capa de seguridad 2/2 — mismo patrón window.confirm() ya usado en
-    // el resto de la app (ver eliminarRubro y afines en
-    // proyectos/[id]/page.tsx) para confirmaciones simples, sin
-    // necesidad de armar un modal propio para esto.
-    const confirmado = window.confirm(
-      "¿Confirmás? Esto va a afectar todos los proyectos nuevos que se creen de acá en adelante."
-    );
-    if (!confirmado) return;
-
-    setGuardando(true);
-    setGuardado(false);
-
-    const categoriasModificadas = categorias
-      .map((c) => ({ id: c.id, jornal: Number(jornales[c.id]) }))
-      .filter((c) => !Number.isNaN(c.jornal));
-
-    // La foto del convenio recién se sube a Blob acá, al confirmar — no
-    // apenas se selecciona el archivo (manejarSeleccionImagen). Así una
-    // imagen subida por error o nunca confirmada no queda guardada.
-    let convenioImagenUrl: string | undefined;
-    if (imagenPreview) {
-      try {
-        const resImagen = await fetch("/api/configuracion/convenio-imagen", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imagen: imagenPreview }),
-        });
-        if (resImagen.ok) {
-          const data = await resImagen.json();
-          convenioImagenUrl = data.url;
-        } else {
-          console.error("[guardarCambios] no se pudo subir la imagen del convenio");
-        }
-      } catch (err) {
-        console.error("[guardarCambios] error al subir la imagen del convenio", err);
-      }
-    }
-
-    await Promise.all([
-      fetch("/api/categorias-laborales", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categorias: categoriasModificadas }),
-      }),
-      configId
-        ? fetch("/api/configuracion", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              convenioFechaVigente: fechaConvenio || null,
-              convenioNumero: numeroConvenio.trim() || null,
-              ...(convenioImagenUrl !== undefined && { convenioImagenUrl }),
-            }),
-          })
-        : Promise.resolve(),
-    ]);
-
-    setGuardando(false);
-    setGuardado(true);
-    setTimeout(() => setGuardado(false), 2500);
-  }
-
-  function manejarSeleccionImagen(e: React.ChangeEvent<HTMLInputElement>) {
-    const archivo = e.target.files?.[0];
-    if (!archivo) return;
-
+  function limpiarExtraccion() {
     setErrorExtraccion(null);
-    setResumenExtraccion(null);
-    setPropuestaExtraccion(null);
+    setResumen(null);
+    setPropuesta(null);
     setNumeroPropuesto(null);
     setFilasNoIdentificadas([]);
     setNotaAltura(null);
+  }
 
+  function manejarSeleccionArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const elegido = e.target.files?.[0];
+    if (!elegido) return;
+    e.target.value = "";
+    limpiarExtraccion();
+    setAbierto(true);
     const reader = new FileReader();
-    reader.onload = () => setImagenPreview(reader.result as string);
-    reader.readAsDataURL(archivo);
+    reader.onload = () => setArchivo(reader.result as string);
+    reader.readAsDataURL(elegido);
   }
 
   async function extraerJornalesConIA() {
-    if (!imagenPreview) return;
-
+    if (!archivo) return;
     setExtrayendo(true);
-    setErrorExtraccion(null);
-    setResumenExtraccion(null);
-    setPropuestaExtraccion(null);
-    setNumeroPropuesto(null);
-    setFilasNoIdentificadas([]);
-    setNotaAltura(null);
+    limpiarExtraccion();
 
     try {
       const res = await fetch("/api/configuracion/extraer-jornales", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archivo: imagenPreview }),
+        body: JSON.stringify({ archivo }),
       });
-
       if (!res.ok) {
-        setErrorExtraccion(
-          "No pude extraer los jornales con certeza. Intentá con una imagen más clara o ingresá los valores manualmente."
-        );
+        setErrorExtraccion(MENSAJE_ERROR_EXTRACCION);
         return;
       }
-
       const resultado: ResultadoExtraccion = await res.json();
 
       const identificadas = resultado.categorias.filter(
         (c): c is CategoriaExtraida & { categoriaRomano: string } => c.categoriaRomano !== null
       );
-      const noIdentificadas = resultado.categorias.filter((c) => c.categoriaRomano === null);
-
       const jornalPorRomano: Record<string, number> = {};
-      for (const c of identificadas) {
-        jornalPorRomano[c.categoriaRomano] = c.jornal;
-      }
+      for (const c of identificadas) jornalPorRomano[c.categoriaRomano] = c.jornal;
 
       const propuestas: PropuestaCategoria[] = [];
       const yaPropuestas = new Set<string>();
-
       function agregarPropuesta(codigo: string, jornalDespues: number) {
         const categoria = categorias.find((cat) => cat.categoria === codigo);
         if (!categoria || yaPropuestas.has(categoria.id)) return;
-        const jornalAntes = Number(jornales[categoria.id] ?? categoria.jornal);
-        if (jornalAntes === jornalDespues) return;
+        if (categoria.jornal === jornalDespues) return;
         yaPropuestas.add(categoria.id);
-        propuestas.push({
-          categoriaId: categoria.id,
-          nombre: categoria.nombre,
-          jornalAntes,
-          jornalDespues,
-        });
+        propuestas.push({ categoriaId: categoria.id, nombre: categoria.nombre, jornalAntes: categoria.jornal, jornalDespues });
       }
 
-      // Categorías completas del laudo — mapeadas por número de categoría
-      // (Cat. I..XII), nunca por la posición de la fila en la imagen.
+      // Categorías del laudo, y las que se nivelan a una de ellas.
       for (const [romano, jornal] of Object.entries(jornalPorRomano)) {
         const codigo = ROMANO_A_CODIGO_LAUDO[romano];
         if (codigo) agregarPropuesta(codigo, jornal);
-      }
-
-      // Flujo simplificado (Peón = Cat. I, Medio Oficial = Cat. V,
-      // Oficial = Cat. VII) — anclado al mismo número de categoría.
-      for (const [romano, codigo] of Object.entries(ROMANO_A_CODIGO_SIMPLIFICADO)) {
-        const jornal = jornalPorRomano[romano];
-        if (jornal != null) agregarPropuesta(codigo, jornal);
+        for (const nivelado of ROMANO_A_CODIGOS_NIVELADOS[romano] ?? []) agregarPropuesta(nivelado, jornal);
       }
 
       // Compensación por trabajo en altura — solo Oficial y Medio Oficial,
-      // nunca Peón. Si la imagen no muestra el porcentaje, no se toca.
+      // nunca Peón. Si el documento no muestra el porcentaje, no se toca.
       let notaAlturaTexto: string | null = null;
       if (resultado.recargoAlturaPct != null) {
         const factor = 1 + resultado.recargoAlturaPct / 100;
-        const jornalOficialBase =
-          jornalPorRomano["VII"] ?? categorias.find((c) => c.categoria === "oficial")?.jornal;
-        const jornalMedioOficialBase =
-          jornalPorRomano["V"] ?? categorias.find((c) => c.categoria === "medio_oficial")?.jornal;
-
-        if (jornalOficialBase != null) {
-          agregarPropuesta("oficial_altura", Math.round(jornalOficialBase * factor * 100) / 100);
-        }
-        if (jornalMedioOficialBase != null) {
-          agregarPropuesta(
-            "medio_oficial_altura",
-            Math.round(jornalMedioOficialBase * factor * 100) / 100
-          );
-        }
+        const oficialBase = jornalPorRomano["VII"] ?? categorias.find((c) => c.categoria === "oficial")?.jornal;
+        const medioOficialBase = jornalPorRomano["V"] ?? categorias.find((c) => c.categoria === "medio_oficial")?.jornal;
+        if (oficialBase != null) agregarPropuesta("oficial_altura", Math.round(oficialBase * factor * 100) / 100);
+        if (medioOficialBase != null) agregarPropuesta("medio_oficial_altura", Math.round(medioOficialBase * factor * 100) / 100);
       } else {
         notaAlturaTexto =
-          "No se detectó el porcentaje de compensación por trabajo en altura en la imagen — se mantiene el valor actual.";
+          "No se detectó el porcentaje de compensación por trabajo en altura en el documento — se mantiene el valor actual.";
       }
 
-      if (resultado.fechaVigencia) {
-        setFechaConvenio(resultado.fechaVigencia);
-      }
-
+      if (resultado.fechaVigencia) setFechaConvenio(resultado.fechaVigencia);
       const numeroNuevo =
         resultado.convenioNumero && resultado.convenioNumero.trim() !== numeroConvenio.trim()
           ? resultado.convenioNumero.trim()
           : null;
       setNumeroPropuesto(numeroNuevo);
-      setPropuestaExtraccion(propuestas);
-      setFilasNoIdentificadas(noIdentificadas);
+      setPropuesta(propuestas);
+      setFilasNoIdentificadas(resultado.categorias.filter((c) => c.categoriaRomano === null));
       setNotaAltura(notaAlturaTexto);
-
       if (propuestas.length === 0 && !numeroNuevo) {
-        setResumenExtraccion("No se detectaron cambios respecto a los valores actuales.");
+        setResumen("No se detectaron cambios de jornales respecto a los valores actuales.");
       }
     } catch (err) {
       console.error(err);
-      setErrorExtraccion(
-        "No pude extraer los jornales con certeza. Intentá con una imagen más clara o ingresá los valores manualmente."
-      );
+      setErrorExtraccion(MENSAJE_ERROR_EXTRACCION);
     } finally {
       setExtrayendo(false);
     }
   }
 
-  function aplicarPropuestaExtraccion() {
-    if (!propuestaExtraccion || (propuestaExtraccion.length === 0 && !numeroPropuesto)) return;
-    if (numeroPropuesto) setNumeroConvenio(numeroPropuesto);
-
-    setJornales((prev) => {
-      const actualizados = { ...prev };
-      for (const p of propuestaExtraccion) {
-        actualizados[p.categoriaId] = String(p.jornalDespues);
-      }
-      return actualizados;
-    });
-
-    const cambios = propuestaExtraccion.length + (numeroPropuesto ? 1 : 0);
-    setResumenExtraccion(
-      `Se aplicaron ${cambios} cambio${cambios === 1 ? "" : "s"} a la tabla. Revisá los valores y hacé clic en "Guardar cambios" para confirmarlos.`
+  // Guarda en la base los jornales propuestos (si hay) y la fecha/número del
+  // convenio. Con confirmación: afecta a todo lo que se cree de acá en más.
+  async function guardar(conJornales: boolean) {
+    const cambiosJornal = conJornales ? propuesta ?? [] : [];
+    const numeroFinal = (conJornales && numeroPropuesto ? numeroPropuesto : numeroConvenio).trim();
+    const confirmado = window.confirm(
+      cambiosJornal.length > 0
+        ? `¿Confirmás? Se actualizan ${cambiosJornal.length} jornal${cambiosJornal.length === 1 ? "" : "es"} y van a afectar a todos los proyectos nuevos que se creen de acá en adelante.`
+        : "¿Confirmás la fecha y el número del convenio?"
     );
-    setPropuestaExtraccion(null);
-    setNumeroPropuesto(null);
+    if (!confirmado) return;
+
+    setGuardando(true);
+    try {
+      // La imagen o el PDF del convenio recién se sube al confirmar: uno
+      // elegido por error y nunca confirmado no queda guardado.
+      let convenioImagenUrl: string | undefined;
+      if (conJornales && archivo) {
+        const resImagen = await fetch("/api/configuracion/convenio-imagen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imagen: archivo }),
+        });
+        if (resImagen.ok) convenioImagenUrl = (await resImagen.json()).url;
+        else console.error("[guardar] no se pudo subir el archivo del convenio");
+      }
+
+      const respuestas = await Promise.all([
+        cambiosJornal.length > 0
+          ? fetch("/api/categorias-laborales", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ categorias: cambiosJornal.map((p) => ({ id: p.categoriaId, jornal: p.jornalDespues })) }),
+            })
+          : null,
+        configId
+          ? fetch("/api/configuracion", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                convenioFechaVigente: fechaConvenio || null,
+                convenioNumero: numeroFinal || null,
+                ...(convenioImagenUrl !== undefined && { convenioImagenUrl }),
+              }),
+            })
+          : null,
+      ]);
+      if (respuestas.some((r) => r && !r.ok)) {
+        setErrorExtraccion("No se pudieron guardar los cambios. Volvé a intentar.");
+        return;
+      }
+
+      setCategorias((prev) =>
+        prev.map((c) => {
+          const p = cambiosJornal.find((x) => x.categoriaId === c.id);
+          return p ? { ...c, jornal: p.jornalDespues } : c;
+        })
+      );
+      setNumeroConvenio(numeroFinal);
+      setNumeroGuardado(numeroFinal);
+      setFechaGuardada(fechaConvenio);
+      setPropuesta(null);
+      setNumeroPropuesto(null);
+      setResumen(
+        cambiosJornal.length > 0
+          ? `Listo: se actualizaron ${cambiosJornal.length} jornal${cambiosJornal.length === 1 ? "" : "es"}.`
+          : "Listo: se guardaron la fecha y el número del convenio."
+      );
+      // Las tablas de jornales vigentes de la página se arman en el servidor.
+      router.refresh();
+    } finally {
+      setGuardando(false);
+    }
   }
 
-  function descartarPropuestaExtraccion() {
-    setPropuestaExtraccion(null);
-    setNumeroPropuesto(null);
-    setResumenExtraccion(null);
-  }
-
-  const convenioDesactualizado = convenioPosiblementeDesactualizado(fechaConvenio || null);
-
-  // Es el editor del catálogo global (lo mantiene el SUPERADMIN una vez al año):
-  // para ADMIN y USUARIO no se muestra — las tablas de consulta de la página ya
-  // tienen los jornales vigentes. Después de todos los hooks, a propósito.
+  // Solo SUPERADMIN. Después de todos los hooks, a propósito.
   if (!puedeEditar) return null;
 
-  if (cargando) {
-    return (
-      <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-        <p className="text-slate-400 text-sm">Cargando categorías laborales...</p>
-      </section>
-    );
-  }
+  const fechaONumeroCambiaron = fechaConvenio !== fechaGuardada || numeroConvenio.trim() !== numeroGuardado.trim();
+  const hayPropuesta = !!propuesta && (propuesta.length > 0 || !!numeroPropuesto);
+  const convenioDesactualizado = convenioPosiblementeDesactualizado(fechaConvenio || null);
 
   return (
-    <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-      <button
-        onClick={() => setExpandido((v) => !v)}
-        className="flex items-center justify-between w-full text-left"
-      >
-        <h2 className="text-lg font-semibold text-[#1E293B]">
-          Catálogo maestro de jornales
-        </h2>
-        <ChevronDown
-          className={cn(
-            "w-4 h-4 text-slate-400 flex-shrink-0 transition-transform",
-            expandido && "rotate-180"
-          )}
-        />
-      </button>
-
-      {expandido && (
-      <div className="mt-4 pt-4 border-t border-slate-100">
-      {/* Capa de seguridad 1/2 — banner bien visible apenas se expande,
-          antes que nada más (ver también la confirmación en
-          guardarCambios, capa 2/2). Mismo estilo ámbar que el resto de
-          los banners de advertencia de la app. */}
-      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3.5 py-3 mb-4 text-sm">
-        <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-        <p>
-          <strong>Esta tabla alimenta TODOS los cálculos nuevos de la aplicación</strong> (subrubros
-          de biblioteca, Leyes Sociales, cuantía de obra) en TODOS los proyectos. No afecta lo ya
-          guardado, pero sí todo lo que se cree de ahora en más.
-        </p>
-      </div>
-
-
-      <p className="text-xs text-slate-400 mb-4 max-w-2xl">
-        Esto actualiza la fuente de la que nacen los jornales al clonar un subrubro nuevo de la
-        biblioteca o calcular Leyes Sociales en un proyecto nuevo — no modifica los rubros ya
-        guardados en proyectos existentes. Usalo una vez al año, cuando cambia el convenio SUNCA.
-      </p>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,application/pdf"
-        className="hidden"
-        onChange={manejarSeleccionImagen}
-      />
-      {puedeEditar && (
+    <div className="mt-3">
+      <input ref={fileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={manejarSeleccionArchivo} />
+      <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="inline-flex items-center gap-2 border border-slate-300 text-[#1E293B] text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-slate-50 transition-colors mb-5"
+          disabled={cargando}
+          className="inline-flex items-center gap-2 border border-slate-300 bg-white text-[#1E293B] text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-slate-50 disabled:opacity-60 transition-colors"
         >
           <ImageUp className="w-4 h-4" />
-          Actualizar desde imagen o PDF del convenio
+          Actualizar jornales desde imagen o PDF del convenio
         </button>
-      )}
+        {!abierto && (
+          <button onClick={() => setAbierto(true)} disabled={cargando} className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
+            Fecha y número del convenio
+          </button>
+        )}
+      </div>
 
-      {puedeEditar && imagenPreview && (
-        <div className="mb-5 border border-slate-200 rounded-lg p-4">
-          {esPDF ? (
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 mb-3 text-sm text-slate-600">
-              <FileText className="w-4 h-4 flex-shrink-0 text-slate-400" />
-              PDF del convenio cargado — listo para extraer.
-            </div>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imagenPreview}
-              alt="Foto del convenio SUNCA"
-              className="max-h-64 rounded-lg mb-3"
-            />
-          )}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={extraerJornalesConIA}
-              disabled={extrayendo}
-              className="inline-flex items-center gap-2 bg-[#1A3A5C] text-white text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-[#15304c] disabled:opacity-60 transition-colors"
-            >
-              <Sparkles className="w-4 h-4" />
-              {extrayendo ? "Extrayendo jornales..." : "Extraer jornales automáticamente"}
-            </button>
+      {abierto && (
+        <div className="mt-3 bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3.5 py-3 text-sm">
+            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <p>
+              Los jornales alimentan todos los cálculos nuevos (rubros de la Biblioteca, Leyes Sociales, cuantía de
+              obra) en todos los proyectos. No cambian lo ya guardado. Se actualizan una vez al año, cuando cambia el
+              convenio SUNCA.
+            </p>
           </div>
 
+          {archivo && (
+            <div className="border border-slate-200 rounded-lg p-4">
+              {esPDF ? (
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 mb-3 text-sm text-slate-600">
+                  <FileText className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  PDF del convenio cargado — listo para extraer.
+                </div>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={archivo} alt="Foto del convenio SUNCA" className="max-h-64 rounded-lg mb-3" />
+              )}
+              <button
+                onClick={extraerJornalesConIA}
+                disabled={extrayendo || guardando}
+                className="inline-flex items-center gap-2 bg-[#1A3A5C] text-white text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-[#15304c] disabled:opacity-60 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                {extrayendo ? "Extrayendo jornales..." : "Extraer jornales automáticamente"}
+              </button>
+            </div>
+          )}
+
           {errorExtraccion && (
-            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-800 rounded-lg px-3 py-2.5 mt-3 text-sm">
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-800 rounded-lg px-3 py-2.5 text-sm">
               <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <span>{errorExtraccion}</span>
             </div>
           )}
-
           {notaAltura && (
-            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2.5 mt-3 text-sm">
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2.5 text-sm">
               <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <span>{notaAltura}</span>
             </div>
           )}
-
           {filasNoIdentificadas.length > 0 && (
-            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2.5 mt-3 text-sm">
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2.5 text-sm">
               <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <span>
                 No se pudo identificar con certeza a qué categoría corresponden{" "}
-                {filasNoIdentificadas.length === 1 ? "esta fila" : "estas filas"} de la imagen —
-                revisalas manualmente: {filasNoIdentificadas.map((f) => `"${f.nombreEnImagen}" ($${formatearJornal(f.jornal)})`).join(", ")}.
+                {filasNoIdentificadas.length === 1 ? "esta fila" : "estas filas"} del documento — no se aplican:{" "}
+                {filasNoIdentificadas.map((f) => `"${f.nombreEnImagen}" ($${formatearJornal(f.jornal)})`).join(", ")}.
               </span>
             </div>
           )}
 
-          {propuestaExtraccion && (propuestaExtraccion.length > 0 || numeroPropuesto) && (
-            <div className="border border-slate-200 rounded-lg mt-3 overflow-hidden">
+          {hayPropuesta && (
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
               <div className="bg-slate-50 px-3 py-2 text-sm font-medium text-[#1E293B] border-b border-slate-200">
                 Cambios detectados — revisá antes de aplicar
               </div>
@@ -497,37 +406,42 @@ export default function SeccionCategoriasLaborales() {
                   <span className="font-semibold text-[#2563EB]">{numeroPropuesto}</span>
                 </div>
               )}
-              {propuestaExtraccion.length > 0 && (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-slate-500 border-b border-slate-200">
-                    <th className="py-2 px-3 font-medium">Categoría</th>
-                    <th className="py-2 px-3 font-medium">Antes</th>
-                    <th className="py-2 px-3 font-medium"></th>
-                    <th className="py-2 px-3 font-medium">Después</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {propuestaExtraccion.map((p) => (
-                    <tr key={p.categoriaId} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2 px-3 text-[#1E293B]">{p.nombre}</td>
-                      <td className="py-2 px-3 text-slate-500 tabular-nums">${formatearJornal(p.jornalAntes)}</td>
-                      <td className="py-2 px-3 text-slate-400">→</td>
-                      <td className="py-2 px-3 font-semibold text-[#2563EB] tabular-nums">${formatearJornal(p.jornalDespues)}</td>
+              {propuesta!.length > 0 && (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-slate-500 border-b border-slate-200">
+                      <th className="py-2 px-3 font-medium">Categoría</th>
+                      <th className="py-2 px-3 font-medium">Antes</th>
+                      <th className="py-2 px-3 font-medium"></th>
+                      <th className="py-2 px-3 font-medium">Después</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {propuesta!.map((p) => (
+                      <tr key={p.categoriaId} className="border-b border-slate-100 last:border-0">
+                        <td className="py-2 px-3 text-[#1E293B]">{p.nombre}</td>
+                        <td className="py-2 px-3 text-slate-500 tabular-nums">${formatearJornal(p.jornalAntes)}</td>
+                        <td className="py-2 px-3 text-slate-400">→</td>
+                        <td className="py-2 px-3 font-semibold text-[#2563EB] tabular-nums">${formatearJornal(p.jornalDespues)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
               <div className="flex items-center gap-3 px-3 py-3 bg-slate-50 border-t border-slate-200">
                 <button
-                  onClick={aplicarPropuestaExtraccion}
-                  className="bg-[#2563EB] text-white text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-[#1d4ed8] transition-colors"
+                  onClick={() => guardar(true)}
+                  disabled={guardando}
+                  className="bg-[#2563EB] text-white text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-60 transition-colors"
                 >
-                  Aplicar cambios
+                  {guardando ? "Guardando..." : "Aplicar cambios"}
                 </button>
                 <button
-                  onClick={descartarPropuestaExtraccion}
+                  onClick={() => {
+                    setPropuesta(null);
+                    setNumeroPropuesto(null);
+                  }}
+                  disabled={guardando}
                   className="text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
                 >
                   Descartar
@@ -536,109 +450,50 @@ export default function SeccionCategoriasLaborales() {
             </div>
           )}
 
-          {resumenExtraccion && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg px-3 py-2.5 mt-3 text-sm">
-              {resumenExtraccion}
+          {resumen && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg px-3 py-2.5 text-sm">{resumen}</div>
+          )}
+
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+            <div>
+              <label className="block text-sm font-medium text-[#1E293B] mb-1.5">Fecha del convenio vigente</label>
+              <input
+                type="date"
+                value={fechaConvenio}
+                onChange={(e) => setFechaConvenio(e.target.value)}
+                className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#1E293B] mb-1.5">Número de convenio</label>
+              <input
+                type="text"
+                value={numeroConvenio}
+                onChange={(e) => setNumeroConvenio(e.target.value)}
+                maxLength={80}
+                placeholder="ej: 2026-2027"
+                className="w-44 border border-slate-300 rounded-lg px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+              />
+            </div>
+            {fechaONumeroCambiaron && !hayPropuesta && (
+              <button
+                onClick={() => guardar(false)}
+                disabled={guardando}
+                className="bg-[#2563EB] text-white text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-60 transition-colors"
+              >
+                {guardando ? "Guardando..." : "Guardar fecha y número"}
+              </button>
+            )}
+          </div>
+
+          {convenioDesactualizado && fechaConvenio && (
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2.5 text-sm">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{mensajeAvisoConvenio(fechaConvenio, numeroConvenio)}</span>
             </div>
           )}
         </div>
       )}
-
-      <div className="mb-5 flex flex-wrap gap-x-4 gap-y-3">
-        <div>
-          <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
-            Fecha del convenio vigente
-          </label>
-          {puedeEditar ? (
-            <input
-              type="date"
-              value={fechaConvenio}
-              onChange={(e) => setFechaConvenio(e.target.value)}
-              className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
-            />
-          ) : (
-            // Sin permiso de edición: texto plano con la misma caja (padding y borde transparente)
-            // que el input, para que no parezca un campo roto o bloqueado.
-            <p className="border border-transparent px-3 py-2 text-sm text-[#1E293B]">
-              {fechaConvenio ? formatearFechaConvenio(fechaConvenio) : "—"}
-            </p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
-            Número de convenio
-          </label>
-          {puedeEditar ? (
-            <input
-              type="text"
-              value={numeroConvenio}
-              onChange={(e) => setNumeroConvenio(e.target.value)}
-              maxLength={80}
-              placeholder="ej: 2026-2027"
-              className="w-44 border border-slate-300 rounded-lg px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
-            />
-          ) : (
-            <p className="border border-transparent px-3 py-2 text-sm text-[#1E293B]">{numeroConvenio.trim() || "—"}</p>
-          )}
-        </div>
-      </div>
-
-      {convenioDesactualizado && fechaConvenio && (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2.5 mb-5 text-sm">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <span>⚠️ {mensajeAvisoConvenio(fechaConvenio, numeroConvenio)}</span>
-        </div>
-      )}
-
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-slate-500 border-b border-slate-200">
-            <th className="py-2 font-medium">Nombre</th>
-            <th className="py-2 font-medium w-40">Jornal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {categorias.map((c) => (
-            <tr key={c.id} className="border-b border-slate-100 last:border-0">
-              <td className="py-2 text-[#1E293B]">{c.nombre}</td>
-              <td className="py-2">
-                {puedeEditar ? (
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={jornales[c.id] ?? ""}
-                    onChange={(e) =>
-                      setJornales((prev) => ({ ...prev, [c.id]: e.target.value }))
-                    }
-                    className="w-32 border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
-                  />
-                ) : (
-                  <span className="inline-block w-32 border border-transparent px-2.5 py-1.5 text-sm tabular-nums text-[#1E293B]">
-                    ${formatearJornal(Number(jornales[c.id] ?? c.jornal))}
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {puedeEditar && (
-        <div className="flex items-center gap-3 mt-5">
-          <button
-            onClick={guardarCambios}
-            disabled={guardando}
-            className="bg-[#2563EB] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-          >
-            {guardando ? "Guardando..." : "Guardar cambios"}
-          </button>
-          {guardado && (
-            <span className="text-sm text-emerald-600">Cambios guardados</span>
-          )}
-        </div>
-      )}
-      </div>
-      )}
-    </section>
+    </div>
   );
 }
