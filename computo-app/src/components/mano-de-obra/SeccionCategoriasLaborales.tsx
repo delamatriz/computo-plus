@@ -608,9 +608,13 @@ export default function SeccionCategoriasLaborales() {
             <p className="font-medium text-slate-600 mb-1">Fuentes para actualizar cada año:</p>
             <ul className="list-disc pl-4 space-y-0.5">
               <li>
-                Oficial y Medio oficial trabajo en altura: recargo del 10% sobre Cat. VII y Cat. V del laudo SUNCA Grupo 9.
+                Oficial y Medio oficial trabajo en altura: recargo del 10% sobre Cat. VII y Cat. V del laudo SUNCA Grupo 9
+                (verificar si cambia en el convenio nuevo).
               </li>
-              <li>Vigilancia presencial (Sereno): laudo del Grupo de Vigilancia, publicado por separado en el BPS.</li>
+              <li>
+                Vigilancia presencial (Sereno): laudo del Grupo de Vigilancia, publicado por separado en el MTSS (Ministerio
+                de Trabajo y Seguridad Social).
+              </li>
               <li>
                 Pañolero/Canchero/Gruista y Sobrestante: convenio completo SUNCA Grupo 9 (categorías adicionales).
               </li>
