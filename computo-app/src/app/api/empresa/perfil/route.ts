@@ -37,12 +37,25 @@ export async function PATCH(request: Request) {
     if (body.nombre !== undefined && String(body.nombre).trim()) {
       data.nombre = String(body.nombre).trim();
     }
+    // Mismas reglas que la pantalla (/configuracion), también acá por si el pedido no viene de ella:
+    // RUT opcional, solo números (se ignoran puntos, guiones y espacios), 10 a 12 dígitos.
     if (body.rut !== undefined && String(body.rut).trim()) {
-      data.rut = String(body.rut).trim();
+      const rut = String(body.rut).replace(/[\s.-]/g, "");
+      if (!/^\d{10,12}$/.test(rut)) {
+        return NextResponse.json(
+          { error: "rut_invalido", mensaje: "El RUT tiene que tener solo números, entre 10 y 12 dígitos." },
+          { status: 400 }
+        );
+      }
+      data.rut = rut;
+    }
+    // Email opcional: si viene, con formato válido.
+    if (body.email !== undefined && String(body.email ?? "").trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.email).trim())) {
+      return NextResponse.json({ error: "email_invalido", mensaje: "Ingresá un email válido." }, { status: 400 });
     }
     if (body.direccion !== undefined) data.direccion = body.direccion || null;
     if (body.telefono !== undefined) data.telefono = body.telefono || null;
-    if (body.email !== undefined) data.email = body.email || null;
+    if (body.email !== undefined) data.email = String(body.email ?? "").trim() || null;
     if (body.web !== undefined) data.web = body.web || null;
     if (body.logo !== undefined) data.logo = body.logo || null;
 

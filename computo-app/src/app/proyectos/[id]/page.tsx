@@ -26,7 +26,6 @@ import {
   Bookmark,
   BookmarkPlus,
   BookmarkCheck,
-  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { textoFuente, type DatosFuente } from "@/lib/fuentePrecio";
@@ -74,7 +73,7 @@ import SeccionMemoriaDescriptiva from "@/components/SeccionMemoriaDescriptiva";
 import SeccionActualizacionPrecios from "@/components/SeccionActualizacionPrecios";
 import SeccionDocumentacionLlamado from "@/components/SeccionDocumentacionLlamado";
 import { SelectorCapitulosEstandar, type CapituloSeleccionable } from "@/components/SelectorCapitulosEstandar";
-import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
+import { BadgeVerificacion } from "@/components/BadgeVerificacion";
 import { NotaInfoIcono } from "@/components/NotaInfoIcono";
 import { nombreDesdeTexto, PREFIJO_NOMBRE_FORMULA } from "@/lib/nombreDesdeTexto";
 import { capitalizarDescripcion } from "@/lib/capitalizarDescripcion";
@@ -637,43 +636,11 @@ const MODALIDAD_EJECUCION_LABEL: Record<string, string> = {
   PARTE_Y_PARTE: "Parte por Administración y parte por Contrato",
 };
 
-// Tarjeta de sección sin diseñar/implementar todavía, dentro de "Gestión de
-// Obra" — visualmente apagada (fondo gris, borde punteado, ícono/título sin
-// color de marca) y con badge "Próximamente" explícito, para que no genere
-// la expectativa de que ya funciona (a diferencia de las tarjetas
-// funcionales de al lado, que sí usan los tokens de marca #1A3A5C/#2563EB).
-function TarjetaProximamente({
-  icono: Icono,
-  titulo,
-  descripcion,
-}: {
-  icono: LucideIcon;
-  titulo: string;
-  descripcion: string;
-}) {
-  return (
-    <div className="mt-6 bg-slate-50 rounded-[16px] border border-dashed border-slate-300 px-5 py-5 flex items-start gap-4">
-      <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
-        <Icono className="w-5 h-5 text-slate-400" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wide">{titulo}</h2>
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-500 uppercase tracking-wide">
-            Próximamente
-          </span>
-        </div>
-        <p className="text-sm text-slate-400">{descripcion}</p>
-      </div>
-    </div>
-  );
-}
-
 // Encabezado de cada uno de los 5 bloques de "Gestión de Obra" — agrupa los
 // módulos (funcionales y "Próximamente") siguiendo el ciclo de vida real de
 // la obra. Numeración + título en el mismo tono de marca que el resto de
 // encabezados de sección; el contenido del bloque conserva su propio mt-6
-// (mismo criterio que cualquier <Seccion.../TarjetaProximamente suelta), así
+// (mismo criterio que cualquier <Seccion... suelta), así
 // que este wrapper no le agrega padding propio, solo el título arriba.
 function BloqueGestionObra({
   numero,
@@ -987,10 +954,6 @@ function fmtFecha(valor: string | null | undefined): string | null {
   const d = new Date(valor);
   if (isNaN(d.getTime())) return null;
   return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
-}
-
-function fmtNum(v: number, decimales = 2): string {
-  return v.toLocaleString("es-UY", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
 }
 
 /** Texto de un rendimiento mientras se edita: coma decimal, sin separador de miles, hasta 6 decimales */
@@ -2657,6 +2620,8 @@ function DrawerAPU({
             titulo="Mano de obra"
             headerExtra={
               jornalesPosiblementeDesactualizados && convenioFechaVigente ? (
+                // Solo ícono con title (va dentro del botón que abre/cierra la sección): el texto
+                // completo se ve además al principio de la sección, legible en celular.
                 <span title={mensajeAvisoConvenio(convenioFechaVigente, convenioNumero)}>
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                 </span>
@@ -2665,6 +2630,13 @@ function DrawerAPU({
           >
 
             <div className="pb-2">
+              {/* Mismo aviso que el ícono del encabezado, visible sin hover (celular). */}
+              {jornalesPosiblementeDesactualizados && convenioFechaVigente && (
+                <div className="mx-4 mt-2.5 mb-1 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-800">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-px" />
+                  <span>{mensajeAvisoConvenio(convenioFechaVigente, convenioNumero)}</span>
+                </div>
+              )}
               <div className="overflow-x-auto -mx-4 px-4">
               <table className="w-full text-xs border-collapse min-w-[480px]">
                 <colgroup>
