@@ -103,19 +103,49 @@ async function calcularResultado(proyectoId: string): Promise<ResultadoAplicarCo
     }),
     db.rubro.findMany({
       where: { capitulo: { proyectoId }, cantidadOrigen: "COMPUTO", cantidad: { not: 0 } },
-      select: { id: true, descripcion: true },
+      select: { id: true, descripcion: true, capituloId: true },
     }),
   ]);
   const conFilas = new Set(actualizaciones.map((a) => a.rubroId));
+  const sinFilas = rubrosDeComputo.filter((r) => !conFilas.has(r.id));
+  const etiquetaCapitulo = sinFilas.length > 0 ? await etiquetasDeCapitulo(proyectoId) : new Map<string, string>();
   return {
     actualizaciones,
     tieneContratoOCertificaciones:
       !!proyecto?.contrato || !!proyecto?.liquidacionFinal || (proyecto?._count.certificaciones ?? 0) > 0,
-    rubrosSinFilas: rubrosDeComputo
-      .filter((r) => !conFilas.has(r.id))
-      .map((r) => r.descripcion || "Rubro sin nombre")
-      .sort((a, b) => a.localeCompare(b, "es")),
+    rubrosSinFilas: sinFilas
+      .map((r) => ({
+        rubroId: r.id,
+        nombre: r.descripcion || "Rubro sin nombre",
+        capitulo: etiquetaCapitulo.get(r.capituloId) ?? "",
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es") || a.capitulo.localeCompare(b.capitulo, "es")),
   };
+}
+
+// "Cap. 03 Albañilería" — misma numeración que muestra el presupuesto
+// (proyectos/[id]/page.tsx): con 2+ títulos "título.capítulo" (1.2), si no
+// correlativa con dos dígitos (01, 02…), siempre por `orden`.
+async function etiquetasDeCapitulo(proyectoId: string): Promise<Map<string, string>> {
+  const [titulos, capitulos] = await Promise.all([
+    db.titulo.findMany({ where: { proyectoId }, orderBy: { orden: "asc" }, select: { id: true } }),
+    db.capitulo.findMany({
+      where: { proyectoId },
+      orderBy: { orden: "asc" },
+      select: { id: true, nombre: true, tituloId: true },
+    }),
+  ]);
+  const etiquetas = new Map<string, string>();
+  if (titulos.length >= 2) {
+    titulos.forEach((t, tIdx) => {
+      capitulos
+        .filter((c) => c.tituloId === t.id)
+        .forEach((c, i) => etiquetas.set(c.id, `Cap. ${tIdx + 1}.${i + 1} ${c.nombre}`));
+    });
+  } else {
+    capitulos.forEach((c, i) => etiquetas.set(c.id, `Cap. ${String(i + 1).padStart(2, "0")} ${c.nombre}`));
+  }
+  return etiquetas;
 }
 
 export async function POST(

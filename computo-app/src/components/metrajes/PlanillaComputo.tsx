@@ -665,14 +665,16 @@ export default function PlanillaComputo({
               {(modalAplicar.paso === "preview" || modalAplicar.paso === "aplicando" || modalAplicar.paso === "resultado") && (
                 <>
                   <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
-                    {modalAplicar.paso === "resultado" ? "Presupuesto actualizado" : "Aplicar al presupuesto"}
+                    {modalAplicar.paso === "resultado" ? "Cantidades aplicadas al presupuesto" : "Aplicar al presupuesto"}
                   </h3>
                   <p className="text-sm text-slate-600 mb-4">
                     {modalAplicar.paso === "resultado"
                       ? `${modalAplicar.resultado.actualizaciones.length} ${modalAplicar.resultado.actualizaciones.length === 1 ? "rubro con cantidad aplicada" : "rubros con cantidad aplicada"}.`
                       : "Suma las filas de la Planilla vinculadas a cada rubro, cruzando todos los documentos del proyecto."}
                   </p>
-                  {modalAplicar.paso !== "resultado" && modalAplicar.resultado.tieneContratoOCertificaciones && (
+                  {modalAplicar.paso !== "resultado" &&
+                    modalAplicar.resultado.tieneContratoOCertificaciones &&
+                    modalAplicar.resultado.actualizaciones.length > 0 && (
                     <div className="flex items-start gap-2 rounded-[10px] bg-amber-50 border border-amber-200 px-4 py-3 mb-4">
                       <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
                       <p className="text-xs text-amber-800">
@@ -684,9 +686,10 @@ export default function PlanillaComputo({
                     <div className="flex items-start gap-2 rounded-[10px] bg-slate-50 border border-slate-200 px-4 py-3 mb-4">
                       <AlertTriangle className="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" />
                       <div className="text-xs text-slate-600 space-y-1">
-                        {modalAplicar.resultado.rubrosSinFilas.map((nombre) => (
-                          <p key={nombre}>
-                            El rubro {nombre} no tiene filas vinculadas — su cantidad no cambió. Si querés quitarle la
+                        {modalAplicar.resultado.rubrosSinFilas.map((r) => (
+                          <p key={r.rubroId}>
+                            El rubro {r.nombre}
+                            {r.capitulo ? ` (${r.capitulo})` : ""} no tiene filas vinculadas — su cantidad no cambió. Si querés quitarle la
                             cantidad, editalo a mano en el presupuesto.
                           </p>
                         ))}
@@ -695,7 +698,7 @@ export default function PlanillaComputo({
                   )}
                   {modalAplicar.resultado.actualizaciones.length === 0 ? (
                     <p className="text-sm text-slate-500 py-4">
-                      No hay filas vinculadas a ningún rubro todavía — vinculá filas en la columna &quot;Rubro vinculado&quot; antes de aplicar.
+                      No hay filas vinculadas para aplicar al presupuesto. Vinculá filas en la columna &quot;Rubro vinculado&quot; antes de aplicar.
                     </p>
                   ) : (
                     <div className="max-h-[360px] overflow-y-auto rounded-[10px] border border-slate-200 mb-5">

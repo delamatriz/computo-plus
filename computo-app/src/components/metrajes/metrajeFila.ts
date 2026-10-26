@@ -83,7 +83,8 @@ export interface ResultadoAplicarComputo {
   tieneContratoOCertificaciones: boolean;
   // Rubros cuya cantidad vino del cómputo y ya no tienen ninguna fila
   // vinculada: "Aplicar" no los toca (conservan la cantidad), se avisa.
-  rubrosSinFilas: string[];
+  // capitulo: "Cap. 03 Albañilería" — distingue rubros con el mismo nombre.
+  rubrosSinFilas: { rubroId: string; nombre: string; capitulo: string }[];
 }
 
 export function fmtNum(v: number, decimales = 2): string {
