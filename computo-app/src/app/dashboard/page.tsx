@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Settings } from "lucide-react";
 import GraficoProyectosPorMes from "@/components/dashboard/GraficoProyectosPorMes";
 import { esSuperadmin, sesionActual } from "@/lib/sesion";
+import { SELECT_CAPITULOS_RESUMEN, totalPresupuestado, ultimaModificacion } from "@/lib/resumenProyecto";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -78,37 +79,14 @@ export default async function DashboardPage() {
       orderBy: { createdAt: "desc" },
       include: {
         _count: { select: { capitulos: true } },
-        capitulos: {
-          select: {
-            updatedAt: true,
-            rubros: { select: { precioUnit: true, cantidad: true, updatedAt: true, apu: { select: { actualizadoEn: true } } } },
-          },
-        },
+        capitulos: SELECT_CAPITULOS_RESUMEN,
       },
     }),
     superadmin ? db.precioMTOP.count({ where: { requiereVerificacion: true, empresaId: null } }) : Promise.resolve(0),
   ]);
 
-  function totalProyecto(p: (typeof proyectos)[number]): number {
-    return p.capitulos.reduce(
-      (a, c) => a + c.rubros.reduce((b, r) => b + r.precioUnit * r.cantidad, 0),
-      0
-    );
-  }
-
-  // Última modificación real del proyecto: Proyecto.updatedAt solo cambia al
-  // editar el proyecto en sí (nombre, estado…), no sus capítulos, rubros ni
-  // APU — se toma la fecha más reciente de todo eso.
-  function ultimaModificacion(p: (typeof proyectos)[number]): number {
-    let max = p.updatedAt.getTime();
-    for (const c of p.capitulos) {
-      max = Math.max(max, c.updatedAt.getTime());
-      for (const r of c.rubros) {
-        max = Math.max(max, r.updatedAt.getTime(), r.apu?.actualizadoEn.getTime() ?? 0);
-      }
-    }
-    return max;
-  }
+  // Total y última modificación: lib/resumenProyecto.ts (los mismos que Mis Proyectos).
+  const totalProyecto = totalPresupuestado;
   const proyectosRecientes = [...proyectos]
     .sort((a, b) => ultimaModificacion(b) - ultimaModificacion(a))
     .slice(0, 6);

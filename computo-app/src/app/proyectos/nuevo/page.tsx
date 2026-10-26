@@ -31,6 +31,7 @@ import { nombreDesdeTexto } from "@/lib/nombreDesdeTexto";
 import { esBloqueoDeCuenta, esErrorAcceso, useEstadoCuenta, type ErrorAcceso } from "@/lib/accesoCliente";
 import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
 import { mensajeCupoProyectoAsistido } from "@/lib/config-prueba";
+import { TIPOS_OBRA } from "@/lib/tiposObra";
 
 /* ─── Tipos ─────────────────────────────────────────────── */
 interface FormData {
@@ -105,14 +106,6 @@ const MAX_DOCS = 5;
 const CAPITULOS_SIEMPRE_SUGERIDOS = ["Implantación y Replanteo", "Limpieza y Retiro de Obra"];
 
 /* ─── Datos de referencia ─────────────────────────────── */
-const TIPOS_OBRA = [
-  { id: "REPARACIONES", label: "Reparaciones" },
-  { id: "REFORMA",      label: "Reforma / Ampliación" },
-  { id: "VIVIENDA",     label: "Vivienda unifamiliar" },
-  { id: "PH",           label: "Propiedad Horizontal" },
-  { id: "COMERCIAL",    label: "Local comercial" },
-  { id: "INDUSTRIAL",   label: "Industrial" },
-];
 
 const TIPOS_CONTRATACION = [
   { id: "PRIVADA", label: "Privada" },
