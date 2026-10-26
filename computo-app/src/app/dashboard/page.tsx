@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { Settings } from "lucide-react";
 import GraficoProyectosPorMes from "@/components/dashboard/GraficoProyectosPorMes";
-import { sesionActual } from "@/lib/sesion";
+import { esSuperadmin, sesionActual } from "@/lib/sesion";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -51,13 +51,16 @@ const MONEDAS_ORDEN = ["UYU", "USD"];
 // moneda es un campo real por proyecto (UYU/USD, ver Proyecto.moneda) —
 // nunca se suman entre sí (ver totalPorMoneda más abajo); el símbolo acá
 // solo decide cómo se imprime cada monto ya separado por moneda.
+// Coma decimal, como el resto de la app ("$ 1,5M", nunca "$ 1.5M").
 function fmtMoneda(n: number, moneda: string): string {
   const simbolo = moneda === "USD" ? "U$S" : "$";
+  const fmt = (v: number, decimales: number) =>
+    v.toLocaleString("es-UY", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
   return n >= 1000000
-    ? `${simbolo} ${(n / 1000000).toFixed(1)}M`
+    ? `${simbolo} ${fmt(n / 1000000, 1)}M`
     : n >= 1000
-    ? `${simbolo} ${(n / 1000).toFixed(0)}K`
-    : `${simbolo} ${n.toFixed(0)}`;
+    ? `${simbolo} ${fmt(n / 1000, 0)}K`
+    : `${simbolo} ${fmt(n, 0)}`;
 }
 
 export default async function DashboardPage() {
@@ -65,6 +68,10 @@ export default async function DashboardPage() {
   // exige sesión; esto es por si se llega igual sin ella.
   const sesion = await sesionActual();
   if (!sesion) redirect("/login");
+  // La cola de revisión es del catálogo global: solo la resuelve el
+  // SUPERADMIN (la página /configuracion/revision-precios lo exige), así que
+  // al resto ni se le cuenta ni se le muestra la tarjeta.
+  const superadmin = await esSuperadmin(sesion);
   const [proyectos, materialesPendientes] = await Promise.all([
     db.proyecto.findMany({
       where: { empresaId: sesion.empresaId },
@@ -72,13 +79,14 @@ export default async function DashboardPage() {
       include: {
         _count: { select: { capitulos: true } },
         capitulos: {
-          include: {
-            rubros: { select: { precioUnit: true, cantidad: true } },
+          select: {
+            updatedAt: true,
+            rubros: { select: { precioUnit: true, cantidad: true, updatedAt: true, apu: { select: { actualizadoEn: true } } } },
           },
         },
       },
     }),
-    db.precioMTOP.count({ where: { requiereVerificacion: true, empresaId: null } }),
+    superadmin ? db.precioMTOP.count({ where: { requiereVerificacion: true, empresaId: null } }) : Promise.resolve(0),
   ]);
 
   function totalProyecto(p: (typeof proyectos)[number]): number {
@@ -87,6 +95,23 @@ export default async function DashboardPage() {
       0
     );
   }
+
+  // Última modificación real del proyecto: Proyecto.updatedAt solo cambia al
+  // editar el proyecto en sí (nombre, estado…), no sus capítulos, rubros ni
+  // APU — se toma la fecha más reciente de todo eso.
+  function ultimaModificacion(p: (typeof proyectos)[number]): number {
+    let max = p.updatedAt.getTime();
+    for (const c of p.capitulos) {
+      max = Math.max(max, c.updatedAt.getTime());
+      for (const r of c.rubros) {
+        max = Math.max(max, r.updatedAt.getTime(), r.apu?.actualizadoEn.getTime() ?? 0);
+      }
+    }
+    return max;
+  }
+  const proyectosRecientes = [...proyectos]
+    .sort((a, b) => ultimaModificacion(b) - ultimaModificacion(a))
+    .slice(0, 6);
 
   // Nunca se suman entre monedas distintas — un acumulador por moneda, no
   // uno solo (ver el bug del dashboard viejo: sumaba UYU y USD como si
@@ -123,7 +148,9 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-semibold text-[#1A3A5C]">Panel de control</h1>
           <p className="text-slate-500 text-sm mt-1">
-            Resumen general de todos tus proyectos y del estado del catálogo de materiales.
+            {superadmin
+              ? "Resumen general de todos tus proyectos y del estado del catálogo de materiales."
+              : "Resumen general de todos tus proyectos."}
           </p>
           <p className="text-slate-400 text-xs mt-1">
             {new Date().toLocaleDateString("es-UY", {
@@ -142,8 +169,8 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Tarjetas KPI — 3 estados (PAUSADO afuera, inalcanzable) + total por moneda + cola de revisión */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+      {/* Tarjetas KPI — 3 estados (PAUSADO afuera, inalcanzable) + total por moneda + cola de revisión (solo SUPERADMIN) */}
+      <div className={`grid grid-cols-2 md:grid-cols-3 gap-4 mb-8 ${superadmin ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
         {ESTADOS_ORDEN.map((estado) => (
           <div key={estado} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
             <p className="text-3xl font-bold text-[#1A3A5C]">{contadorPorEstado[estado]}</p>
@@ -175,14 +202,16 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <Link
-          href="/configuracion/revision-precios"
-          className="bg-amber-50 border border-amber-200 rounded-xl p-5 shadow-sm hover:bg-amber-100/60 transition-colors block"
-        >
-          <p className="text-3xl font-bold text-amber-700">{materialesPendientes}</p>
-          <p className="text-sm text-amber-700 mt-1">Materiales pendientes</p>
-          <p className="text-xs text-amber-600">de revisión →</p>
-        </Link>
+        {superadmin && (
+          <Link
+            href="/configuracion/revision-precios"
+            className="bg-amber-50 border border-amber-200 rounded-xl p-5 shadow-sm hover:bg-amber-100/60 transition-colors block"
+          >
+            <p className="text-3xl font-bold text-amber-700">{materialesPendientes}</p>
+            <p className="text-sm text-amber-700 mt-1">Materiales pendientes</p>
+            <p className="text-xs text-amber-600">de revisión →</p>
+          </Link>
+        )}
       </div>
 
       {/* Proyectos creados por mes — últimos 6 meses, agregado de todos los
@@ -212,7 +241,7 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {proyectos.slice(0, 6).map((p) => {
+            {proyectosRecientes.map((p) => {
               const total = totalProyecto(p);
               return (
                 <Link
@@ -224,7 +253,7 @@ export default async function DashboardPage() {
                     <p className="font-medium text-[#1E293B] text-sm">{p.nombre}</p>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {p.cliente && `${p.cliente} · `}
-                      {p._count.capitulos} capítulos
+                      {p._count.capitulos} {p._count.capitulos === 1 ? "capítulo" : "capítulos"}
                     </p>
                   </div>
                   <div className="text-right">
