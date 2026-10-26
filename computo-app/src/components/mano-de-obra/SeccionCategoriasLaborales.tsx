@@ -316,6 +316,14 @@ export default function SeccionCategoriasLaborales() {
           return p ? { ...c, jornal: p.jornalDespues } : c;
         })
       );
+      // Los campos de "Otras categorías" también: si no, quedaban con el jornal
+      // de antes (p. ej. las de altura que la IA acaba de recalcular) y un
+      // "Guardar" posterior en esa sección los revertía en silencio.
+      setJornalesOtras((prev) => {
+        const siguiente = { ...prev };
+        for (const p of cambiosJornal) if (p.categoriaId in siguiente) siguiente[p.categoriaId] = String(p.jornalDespues);
+        return siguiente;
+      });
       setNumeroConvenio(numeroFinal);
       setNumeroGuardado(numeroFinal);
       setFechaGuardada(fechaConvenio);
