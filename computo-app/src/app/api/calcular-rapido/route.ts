@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type Anthropic from "@anthropic-ai/sdk";
 import { crearMensaje } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
-import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, buscarSubrubrosEmpresa, formatearSubrubrosParaPrompt, resolverProporcionDesglose } from "@/lib/bibliotecaApus";
+import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, buscarSubrubrosEmpresa, conCostoDirectoVigente, formatearSubrubrosParaPrompt, resolverProporcionDesglose } from "@/lib/bibliotecaApus";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
 import { esSuperadmin, requerirSesion } from "@/lib/sesion";
@@ -55,10 +55,14 @@ export async function POST(request: NextRequest) {
     // Biblioteca personal de la empresa (SubrubroEmpresa): sus rubros que tocan la descripción van
     // mezclados con los globales en una sola lista, primero los propios (ya vienen por relevancia
     // del texto). El SUPERADMIN no tiene biblioteca personal: solo ve el catálogo global.
-    const [subrubrosGlobales, subrubrosPropios] = await Promise.all([
+    const [subrubrosGlobalesBase, subrubrosPropios] = await Promise.all([
       buscarSubrubrosPorCapitulos(capitulosBiblioteca.map((c) => c.id)),
       (await esSuperadmin(sesion)) ? Promise.resolve([]) : buscarSubrubrosEmpresa(sesion.empresaId, descripcion),
     ]);
+    // Catálogo general: con su COSTO DIRECTO VIGENTE (sin Utilidad) en vez del "Precio base"
+    // guardado, y sin los que tienen algún material sin precio (ver conCostoDirectoVigente).
+    // Los de "Mi biblioteca" siguen con su precio propio.
+    const { subrubros: subrubrosGlobales, desgloses: desglosesGlobales } = await conCostoDirectoVigente(subrubrosGlobalesBase);
     const subrubrosBiblioteca = [...subrubrosPropios, ...subrubrosGlobales];
     const tablaBiblioteca = formatearSubrubrosParaPrompt(subrubrosBiblioteca);
 
@@ -220,14 +224,16 @@ Reglas:
         if (!subrubro) continue;
         // De qué biblioteca salió: la UI marca los de "Mis rubros".
         cap.fuenteBiblioteca = subrubro.fuente === "empresa" ? "empresa" : "global";
-        // Rubro de la biblioteca personal: su precio manda. Se calcula acá, sin depender de que la IA
-        // multiplique bien ni de que "corrija" un precio que le parece alto: monto = cantidad × precio propio.
+        // El monto se calcula acá, sin depender de que la IA multiplique bien ni de que "corrija" un
+        // precio que le parece alto: monto = cantidad × precio del subrubro. En "Mi biblioteca" es su
+        // precio propio; en el catálogo general, su costo directo vigente (el mismo que se le mandó).
         const montoIA = cap.monto;
-        if (subrubro.fuente === "empresa" && typeof cap.cantidad === "number" && cap.cantidad > 0) {
+        if (typeof cap.cantidad === "number" && cap.cantidad > 0) {
           cap.monto = Math.round(cap.cantidad * subrubro.precioUY * 100) / 100;
         }
 
-        const desglose = await resolverProporcionDesglose(subrubro);
+        // Catálogo general: el desglose ya se calculó junto con el costo vigente (no se repite la consulta).
+        const desglose = desglosesGlobales.get(subrubro.id) ?? (await resolverProporcionDesglose(subrubro));
         const base = desglose ? desglose.materialesTotal + desglose.manoObraTotal + desglose.equiposTotal : 0;
         if (!desglose || base <= 0) {
           // Sin desglose real: se conserva la proporción de la IA, escalada al monto nuevo para que

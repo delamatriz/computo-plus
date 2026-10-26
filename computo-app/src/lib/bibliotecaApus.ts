@@ -1,6 +1,6 @@
 import { crearMensaje } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
-import { precioConRespaldo, resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
+import { precioConRespaldo, resolverPreciosMaterialesEnLote, resolverPreciosEquiposEnLote } from "@/lib/resolverPrecioInsumo";
 import { sumManoObra } from "@/lib/apu-calc";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { raicesDelRubro } from "@/lib/materialesParaPrompt";
@@ -221,34 +221,79 @@ export async function buscarSubrubrosEmpresa(
  * vez de dejar que la IA reinvente su propio desglose materiales/mano de
  * obra en cada corrida (ver diagnóstico de variación de precio, sep-2026).
  */
-export async function resolverProporcionDesglose(
-  subrubro: SubrubroConApu
-): Promise<{ materialesTotal: number; manoObraTotal: number; equiposTotal: number } | null> {
-  if (subrubro.materiales.length === 0 && subrubro.manoObra.length === 0 && subrubro.equipos.length === 0) {
-    return null;
-  }
+export interface DesgloseVigente {
+  materialesTotal: number;
+  manoObraTotal: number;
+  equiposTotal: number;
+  /** Algún material sin precio (ni del catálogo ni de respaldo): el total queda por debajo del real. */
+  conMaterialSinPrecio: boolean;
+}
 
-  let materialesTotal = 0;
-  for (const m of subrubro.materiales) {
-    const precioMTOP = await resolverPrecioMaterial(m.descripcion);
-    materialesTotal += m.rendimiento * precioConRespaldo(precioMTOP?.precioUnitario, m.precioReferencia).precio;
-  }
+export async function resolverProporcionDesglose(subrubro: SubrubroConApu): Promise<DesgloseVigente | null> {
+  return (await resolverDesglosesEnLote([subrubro])).get(subrubro.id) ?? null;
+}
 
-  const categoriasLaborales = await db.categoriaLaboral.findMany();
+/**
+ * Lo mismo que resolverProporcionDesglose para muchos subrubros a la vez: una
+ * consulta para todos los materiales, una para todos los equipos y una para
+ * las categorías laborales (en vez de una por línea). Mismo resultado que de
+ * a uno. Subrubros sin ninguna línea de APU no figuran en el Map.
+ */
+export async function resolverDesglosesEnLote(subrubros: SubrubroConApu[]): Promise<Map<string, DesgloseVigente>> {
+  const conApu = subrubros.filter((s) => s.materiales.length > 0 || s.manoObra.length > 0 || s.equipos.length > 0);
+  const [preciosMateriales, preciosEquipos, categoriasLaborales] = await Promise.all([
+    resolverPreciosMaterialesEnLote(conApu.flatMap((s) => s.materiales.map((m) => m.descripcion))),
+    resolverPreciosEquiposEnLote(conApu.flatMap((s) => s.equipos.map((e) => e.descripcion))),
+    db.categoriaLaboral.findMany(),
+  ]);
   const jornalPorNombre = (nombre: string) =>
     categoriasLaborales.find((c) => c.nombre.trim().toLowerCase() === nombre.trim().toLowerCase())?.jornal ?? 0;
-  const manoObraTotal = sumManoObra(
-    subrubro.manoObra.map((mo) => ({ rendimiento: mo.rendimiento, jornalRef: precioConRespaldo(jornalPorNombre(mo.categoria), mo.jornalReferencia).precio })),
-    []
-  );
 
-  let equiposTotal = 0;
-  for (const eq of subrubro.equipos) {
-    const precioEquipo = await resolverPrecioEquipo(eq.descripcion);
-    equiposTotal += eq.rendimiento * precioConRespaldo(precioEquipo?.precioHora, eq.costoReferencia).precio;
+  const resultado = new Map<string, DesgloseVigente>();
+  for (const s of conApu) {
+    let materialesTotal = 0;
+    let conMaterialSinPrecio = false;
+    for (const m of s.materiales) {
+      const precio = precioConRespaldo(preciosMateriales.get(m.descripcion)?.precioUnitario, m.precioReferencia).precio;
+      if (!(precio > 0)) conMaterialSinPrecio = true;
+      materialesTotal += m.rendimiento * precio;
+    }
+    const manoObraTotal = sumManoObra(
+      s.manoObra.map((mo) => ({ rendimiento: mo.rendimiento, jornalRef: precioConRespaldo(jornalPorNombre(mo.categoria), mo.jornalReferencia).precio })),
+      []
+    );
+    let equiposTotal = 0;
+    for (const eq of s.equipos) {
+      equiposTotal += eq.rendimiento * precioConRespaldo(preciosEquipos.get(eq.descripcion)?.precioHora, eq.costoReferencia).precio;
+    }
+    resultado.set(s.id, { materialesTotal, manoObraTotal, equiposTotal, conMaterialSinPrecio });
   }
+  return resultado;
+}
 
-  return { materialesTotal, manoObraTotal, equiposTotal };
+/**
+ * Subrubros del catálogo general para el prompt de Cálculo Rápido con su
+ * COSTO DIRECTO VIGENTE (materiales + mano de obra + equipos a precios de
+ * hoy, sin Utilidad) en precioUY, en vez del "Precio base" guardado (que
+ * puede estar desactualizado y, en la mayoría, ya trae la Utilidad del APU:
+ * con el Beneficio de Cálculo Rápido el margen quedaba dos veces). Se
+ * excluyen los que tienen algún material sin precio (su costo daría de
+ * menos; son los del aviso ámbar de /rubros) o costo 0. Devuelve también el
+ * desglose de cada uno, para no volver a calcularlo.
+ */
+export async function conCostoDirectoVigente(
+  subrubros: SubrubroConApu[]
+): Promise<{ subrubros: SubrubroConApu[]; desgloses: Map<string, DesgloseVigente> }> {
+  const desgloses = await resolverDesglosesEnLote(subrubros);
+  const vigentes: SubrubroConApu[] = [];
+  for (const s of subrubros) {
+    const d = desgloses.get(s.id);
+    if (!d || d.conMaterialSinPrecio) continue;
+    const costoDirecto = Math.round((d.materialesTotal + d.manoObraTotal + d.equiposTotal) * 100) / 100;
+    if (!(costoDirecto > 0)) continue;
+    vigentes.push({ ...s, precioUY: costoDirecto });
+  }
+  return { subrubros: vigentes, desgloses };
 }
 
 export function formatearSubrubrosParaPrompt(subrubros: SubrubroConApu[]): string {

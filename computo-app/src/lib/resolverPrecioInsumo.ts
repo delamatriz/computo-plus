@@ -41,6 +41,44 @@ export async function resolverPrecioMaterial(descripcion: string): Promise<Preci
   return (await coincidenciasPrecioMaterial(descripcion))[0] ?? null;
 }
 
+// Versiones en lote de resolverPrecioMaterial/resolverPrecioEquipo: UNA sola
+// consulta para muchas descripciones (OR de "contiene") y el mismo orden de
+// arriba aplicado en memoria a cada una. Mismo resultado que llamar la
+// función de a una, sin una consulta por línea. Devuelve un Map por la
+// descripción tal cual se pidió (sin coincidencia → null).
+const contieneSinMayusculas = (texto: string, buscada: string) =>
+  texto.toLocaleLowerCase("es").includes(buscada.toLocaleLowerCase("es"));
+
+export async function resolverPreciosMaterialesEnLote(descripciones: string[]): Promise<Map<string, PrecioMTOP | null>> {
+  const buscadas = [...new Set(descripciones.map((d) => d.trim()).filter(Boolean))];
+  const resultado = new Map<string, PrecioMTOP | null>(descripciones.map((d) => [d, null]));
+  if (buscadas.length === 0) return resultado;
+  const filas = await db.precioMTOP.findMany({
+    where: { empresaId: null, OR: buscadas.map((b) => ({ descripcion: { contains: b, mode: "insensitive" as const } })) },
+  });
+  for (const d of descripciones) {
+    const b = d.trim();
+    if (!b) continue;
+    resultado.set(d, ordenarCoincidencias(b, filas.filter((f) => contieneSinMayusculas(f.descripcion, b)))[0] ?? null);
+  }
+  return resultado;
+}
+
+export async function resolverPreciosEquiposEnLote(descripciones: string[]): Promise<Map<string, PrecioEquipo | null>> {
+  const buscadas = [...new Set(descripciones.map((d) => d.trim()).filter(Boolean))];
+  const resultado = new Map<string, PrecioEquipo | null>(descripciones.map((d) => [d, null]));
+  if (buscadas.length === 0) return resultado;
+  const filas = await db.precioEquipo.findMany({
+    where: { OR: buscadas.map((b) => ({ descripcion: { contains: b, mode: "insensitive" as const } })) },
+  });
+  for (const d of descripciones) {
+    const b = d.trim();
+    if (!b) continue;
+    resultado.set(d, ordenarCoincidencias(b, filas.filter((f) => contieneSinMayusculas(f.descripcion, b)))[0] ?? null);
+  }
+  return resultado;
+}
+
 export async function resolverPrecioEquipo(descripcion: string): Promise<PrecioEquipo | null> {
   const buscada = descripcion.trim();
   if (!buscada) return null;
