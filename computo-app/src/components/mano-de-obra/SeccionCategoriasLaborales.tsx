@@ -85,6 +85,11 @@ const ROMANO_A_CODIGOS_NIVELADOS: Record<string, string[]> = {
   X: ["oficial_maquinista", "oficial_escalerista"],
 };
 
+// Categorías que no salen del laudo (ni se nivelan a una categoría): la
+// extracción con IA no puede calcularlas, así que el SUPERADMIN las edita a
+// mano en "Otras categorías", debajo del botón de actualizar.
+const CODIGOS_FUERA_DEL_LAUDO = ["vigilancia_sereno", "panolero_canchero_gruista", "sobrestante", "jefatura_obra"];
+
 function formatearJornal(n: number): string {
   return n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -120,6 +125,10 @@ export default function SeccionCategoriasLaborales() {
   const [propuesta, setPropuesta] = useState<PropuestaCategoria[] | null>(null);
   const [filasNoIdentificadas, setFilasNoIdentificadas] = useState<CategoriaExtraida[]>([]);
   const [notaAltura, setNotaAltura] = useState<string | null>(null);
+  // "Otras categorías": jornal tipeado por id, y estado del guardado.
+  const [jornalesOtras, setJornalesOtras] = useState<Record<string, string>>({});
+  const [guardandoOtras, setGuardandoOtras] = useState(false);
+  const [mensajeOtras, setMensajeOtras] = useState<{ ok: boolean; texto: string } | null>(null);
 
   useEffect(() => {
     if (!puedeEditar) return;
@@ -132,6 +141,11 @@ export default function SeccionCategoriasLaborales() {
       const dataConfig: Configuracion = await resConfig.json();
       const fecha = dataConfig.convenioFechaVigente ? dataConfig.convenioFechaVigente.slice(0, 10) : "";
       setCategorias(dataCategorias);
+      setJornalesOtras(
+        Object.fromEntries(
+          dataCategorias.filter((c) => CODIGOS_FUERA_DEL_LAUDO.includes(c.categoria)).map((c) => [c.id, String(c.jornal)])
+        )
+      );
       setConfigId(dataConfig.id);
       setFechaConvenio(fecha);
       setFechaGuardada(fecha);
@@ -311,8 +325,58 @@ export default function SeccionCategoriasLaborales() {
     }
   }
 
+  // Guarda a mano los jornales de las categorías fuera del laudo.
+  async function guardarOtras() {
+    const cambios = categorias
+      .filter((c) => CODIGOS_FUERA_DEL_LAUDO.includes(c.categoria))
+      .map((c) => ({ c, jornal: Number(String(jornalesOtras[c.id] ?? "").replace(",", ".")) }))
+      .filter(({ c, jornal }) => jornal !== c.jornal);
+    if (cambios.some(({ jornal }) => !Number.isFinite(jornal) || jornal <= 0)) {
+      setMensajeOtras({ ok: false, texto: "Cada jornal tiene que ser un número mayor a 0." });
+      return;
+    }
+    if (cambios.length === 0) {
+      setMensajeOtras({ ok: true, texto: "No hay cambios para guardar." });
+      return;
+    }
+    const confirmado = window.confirm(
+      `¿Confirmás? Se actualizan ${cambios.length} jornal${cambios.length === 1 ? "" : "es"} y van a afectar a todos los proyectos nuevos que se creen de acá en adelante.`
+    );
+    if (!confirmado) return;
+
+    setGuardandoOtras(true);
+    setMensajeOtras(null);
+    try {
+      const res = await fetch("/api/categorias-laborales", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categorias: cambios.map(({ c, jornal }) => ({ id: c.id, jornal })) }),
+      });
+      if (!res.ok) {
+        setMensajeOtras({ ok: false, texto: "No se pudieron guardar los jornales. Volvé a intentar." });
+        return;
+      }
+      setCategorias((prev) =>
+        prev.map((c) => {
+          const cambio = cambios.find((x) => x.c.id === c.id);
+          return cambio ? { ...c, jornal: cambio.jornal } : c;
+        })
+      );
+      setMensajeOtras({ ok: true, texto: `Listo: se actualizaron ${cambios.length} jornal${cambios.length === 1 ? "" : "es"}.` });
+      router.refresh();
+    } catch {
+      setMensajeOtras({ ok: false, texto: "No se pudieron guardar los jornales. Volvé a intentar." });
+    } finally {
+      setGuardandoOtras(false);
+    }
+  }
+
   // Solo SUPERADMIN. Después de todos los hooks, a propósito.
   if (!puedeEditar) return null;
+
+  const otrasCategorias = CODIGOS_FUERA_DEL_LAUDO.map((codigo) => categorias.find((c) => c.categoria === codigo)).filter(
+    (c): c is CategoriaLaboral => !!c
+  );
 
   const fechaONumeroCambiaron = fechaConvenio !== fechaGuardada || numeroConvenio.trim() !== numeroGuardado.trim();
   const hayPropuesta = !!propuesta && (propuesta.length > 0 || !!numeroPropuesto);
@@ -492,6 +556,52 @@ export default function SeccionCategoriasLaborales() {
               <span>{mensajeAvisoConvenio(fechaConvenio, numeroConvenio)}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Otras categorías — no salen del laudo, se actualizan a mano. */}
+      {!cargando && otrasCategorias.length > 0 && (
+        <div className="mt-3 bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-[#1E293B]">Otras categorías</h3>
+          <p className="text-xs text-slate-400 mt-0.5 mb-3">
+            No salen del laudo y la actualización desde el convenio no las toca: cargá su jornal a mano cuando cambia
+            el convenio.
+          </p>
+          <div className="space-y-2">
+            {otrasCategorias.map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-3">
+                <label htmlFor={`jornal-${c.id}`} className="text-sm text-[#1E293B] min-w-0">
+                  {c.nombre}
+                </label>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-sm text-slate-400">$</span>
+                  <input
+                    id={`jornal-${c.id}`}
+                    type="text"
+                    inputMode="decimal"
+                    value={jornalesOtras[c.id] ?? ""}
+                    onChange={(e) => {
+                      setJornalesOtras((prev) => ({ ...prev, [c.id]: e.target.value }));
+                      setMensajeOtras(null);
+                    }}
+                    className="w-32 text-right border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 mt-4">
+            <button
+              onClick={guardarOtras}
+              disabled={guardandoOtras}
+              className="bg-[#2563EB] text-white text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-60 transition-colors"
+            >
+              {guardandoOtras ? "Guardando..." : "Guardar"}
+            </button>
+            {mensajeOtras && (
+              <span className={mensajeOtras.ok ? "text-sm text-emerald-600" : "text-sm text-red-600"}>{mensajeOtras.texto}</span>
+            )}
+          </div>
         </div>
       )}
     </div>
