@@ -411,8 +411,8 @@ export default function LeyesSocialesPage() {
                 propietario directamente al BPS y se muestra aparte, después del Precio Final.
               </p>
               <p className="text-sm text-slate-500 mt-2">
-                El precio unitario del rubro suma además la Utilidad sobre el costo directo — por eso el precio
-                unitario del rubro va a ser mayor que estos valores.
+                El precio unitario del rubro suma además la Utilidad sobre el costo directo — por eso va a ser
+                mayor que estos valores.
               </p>
             </section>
 
