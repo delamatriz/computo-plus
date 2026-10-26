@@ -106,6 +106,14 @@ function fmtNum(v: number, decimales = 3): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: decimales });
 }
 
+// SubrubroEstandar.fechaBase se guarda "aaaa-mm" ("2026-07") → "jul-2026".
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function fmtFechaBase(fecha: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(fecha);
+  const mes = m ? MESES_CORTOS[Number(m[2]) - 1] : undefined;
+  return m && mes ? `${mes}-${m[1]}` : fecha;
+}
+
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 // ── Árbol de navegación ──────────────────────────────────────────────
@@ -274,7 +282,10 @@ function PanelDescompuesto({ data }: { data: Descompuesto }) {
           </span>
           {!!data.precioUY && (
             <span className="text-xs text-slate-400">
-              Precio SAU base ({data.fechaBase}): {fmtMoneda(data.precioUY)}
+              {/* Sin la sigla SAU por ahora: SubrubroEstandar.origen quedó mal
+                  cargado (249 rubros con origen SAU, solo 8 con el precio SAU
+                  original). Volver a mostrarla cuando se corrija el origen. */}
+              Precio base ({fmtFechaBase(data.fechaBase)}): {fmtMoneda(data.precioUY)}
             </span>
           )}
         </div>
@@ -321,6 +332,9 @@ function PanelDescompuesto({ data }: { data: Descompuesto }) {
                 {fmtMoneda(apu.precioUnitFinal)} <span className="text-xs font-medium text-slate-400">/ {data.unidad}</span>
               </span>
             </div>
+            <p className="text-[11px] text-slate-400 text-right">
+              No incluye aportes patronales — al agregar el rubro a un proyecto el precio final será mayor.
+            </p>
           </div>
         </div>
       )}
@@ -486,6 +500,7 @@ export default function BibliotecaPage() {
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   const [descompuesto, setDescompuesto] = useState<Descompuesto | null>(null);
   const [cargandoDescompuesto, setCargandoDescompuesto] = useState(false);
+  const [errorDescompuesto, setErrorDescompuesto] = useState(false);
 
   useEffect(() => {
     fetch("/api/subrubros-estandar/jerarquia")
@@ -498,9 +513,16 @@ export default function BibliotecaPage() {
     if (!seleccionadoId) return;
     setCargandoDescompuesto(true);
     setDescompuesto(null);
+    setErrorDescompuesto(false);
+    // Si falla (red o error del servidor) se muestra un mensaje — antes se
+    // quedaba cargando para siempre.
     fetch(`/api/subrubros-estandar/${seleccionadoId}/descompuesto`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => setDescompuesto(data))
+      .catch(() => setErrorDescompuesto(true))
       .finally(() => setCargandoDescompuesto(false));
   }, [seleccionadoId]);
 
@@ -530,6 +552,9 @@ export default function BibliotecaPage() {
           Explorá los rubros de obra con sus análisis de precios (APU). Hacé clic en un capítulo para ver sus
           rubros y el desglose completo de materiales, mano de obra y equipos.
           {totalRubros > 0 && <span className="text-slate-400"> {totalRubros} rubros disponibles.</span>}
+        </p>
+        <p className="text-xs text-slate-400 mt-1">
+          Para agregar un rubro a tu presupuesto, abrí el proyecto y usá &apos;+ Agregar rubro&apos; en cada capítulo.
         </p>
       </div>
 
@@ -575,6 +600,11 @@ export default function BibliotecaPage() {
             <div className="bg-white rounded-2xl border border-slate-200 border-dashed px-6 py-20 text-center">
               <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <p className="text-sm text-slate-400">Seleccioná un rubro del árbol para ver su descompuesto completo.</p>
+            </div>
+          ) : errorDescompuesto ? (
+            <div className="bg-white rounded-2xl border border-slate-200 px-6 py-20 text-center">
+              <AlertTriangle className="w-6 h-6 text-amber-500 mx-auto mb-2" />
+              <p className="text-sm text-slate-500">No se pudo cargar el descompuesto. Intentá de nuevo.</p>
             </div>
           ) : cargandoDescompuesto || !descompuesto ? (
             <div className="bg-white rounded-2xl border border-slate-200 px-6 py-20 text-center">
