@@ -79,6 +79,7 @@ import { NotaInfoIcono } from "@/components/NotaInfoIcono";
 import { nombreDesdeTexto, PREFIJO_NOMBRE_FORMULA } from "@/lib/nombreDesdeTexto";
 import { capitalizarDescripcion } from "@/lib/capitalizarDescripcion";
 import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
+import { TIPO_CAMBIO_REFERENCIA } from "@/lib/tipoCambioReferencia";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { esBloqueoDeCuenta, esErrorAcceso, type ErrorAcceso } from "@/lib/accesoCliente";
 import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
@@ -891,8 +892,11 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
   XLSX.writeFile(wb, `Presupuesto-${nombreProyectoParaMostrar(proyecto.nombre).replace(/\s+/g, "-")}.xlsx`);
 }
 
-/** Tipo de cambio de referencia U$S → $UY, igual al usado en /calcular */
-const TCU = 42.5;
+/** Tipo de cambio U$S → $UY: el dólar BCU guardado, el mismo que usa /calcular
+ *  (GET /api/tipo-cambio, ver lib/tipoCambio.ts). Arranca con el de referencia
+ *  y la página lo reemplaza al cargar; lo leen precioDesdeSubrubro y
+ *  guardarEnBibliotecaGlobal, que se llaman desde varios componentes. */
+let TCU = TIPO_CAMBIO_REFERENCIA;
 
 /**
  * Precio del rubro a partir de un subrubro típico (precio base en $UY, fechaBase).
@@ -3420,6 +3424,15 @@ export default function ProyectoPage() {
   const [subrubrosPorCapitulo, setSubrubrosPorCapitulo] = useState<Record<string, SubrubroEstandar[]>>({});
   const [cargandoSubrubros, setCargandoSubrubros] = useState(false);
   const [tabActiva, setTabActiva] = useState<"presupuesto" | "gestion-obra">("presupuesto");
+  // Dólar BCU vigente para las conversiones U$S ↔ $UY de esta página (ver TCU).
+  useEffect(() => {
+    fetch("/api/tipo-cambio")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { valor?: number } | null) => {
+        if (data?.valor && data.valor > 0) TCU = data.valor;
+      })
+      .catch(() => {});
+  }, []);
   // Deep-link desde "Obras en curso": ?tab=gestion-obra abre esa pestaña
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("tab") === "gestion-obra") setTabActiva("gestion-obra");

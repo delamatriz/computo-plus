@@ -2,6 +2,7 @@ import { crearMensaje, ErrorFuncionNoDisponible } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
 import { generarApuParaRubro } from "@/lib/apu";
 import { clonarApuAlRubro } from "@/lib/clonarApu";
+import { tipoCambioVigente } from "@/lib/tipoCambio";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 
 
@@ -71,6 +72,10 @@ async function generarRubrosDesdeCalculoRapido(
     },
   });
   if (!proyecto || proyecto.titulos.length === 0) return;
+
+  // Dólar BCU vigente: se lee una sola vez y solo si hace falta (proyecto en USD).
+  let tipoCambio: number | null = null;
+  const obtenerTipoCambio = async () => (tipoCambio ??= (await tipoCambioVigente()).valor);
 
   let capitulos = proyecto.capitulos;
   const tituloDefaultId = capitulos[0]?.tituloId ?? proyecto.titulos[0].id;
@@ -225,7 +230,11 @@ async function generarRubrosDesdeCalculoRapido(
       // vez adentro del precio de biblioteca, otra vez a nivel de proyecto.
       // No hay cantidad/unidad propia en el desglose original de Cálculo
       // Rápido, así que no hay otra forma de anclarla.
-      const cantidad = costoDirecto > 0 ? item.monto / costoDirecto : 1;
+      // El costo directo del APU copiado está en pesos; si la estimación (y el
+      // proyecto) es en dólares, el monto se pasa a pesos con el dólar BCU
+      // guardado (el mismo que usó la estimación) antes de dividir.
+      const montoEnPesos = proyecto.moneda === "USD" ? item.monto * (await obtenerTipoCambio()) : item.monto;
+      const cantidad = costoDirecto > 0 ? montoEnPesos / costoDirecto : 1;
       await db.rubro.update({
         where: { id: rubro.id },
         data: { cantidad: Math.round(cantidad * 100) / 100 },

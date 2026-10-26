@@ -23,6 +23,7 @@ import { db } from "@/lib/db";
 import type Anthropic from "@anthropic-ai/sdk";
 import { crearMensaje } from "@/lib/anthropic-client";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { tipoCambioVigente } from "@/lib/tipoCambio";
 
 
 const SYSTEM_PROMPT = `Eres un asistente que verifica precios de materiales de construcción en el
@@ -63,7 +64,6 @@ type ResultadoModelo = {
   url_referencia: string | null;
 };
 
-const USD_UYU = 40.85;
 
 async function consultarPrecio(
   proveedor: string,
@@ -263,8 +263,11 @@ export async function verificarPrecioMTOP(codigo: string, escribir = true, empre
     return salida;
   }
 
+  // Precio encontrado en dólares: se pasa a pesos con el dólar BCU guardado (ver lib/tipoCambio.ts).
   const precioNuevoUYU =
-    resultado.moneda === "USD" ? Math.round(resultado.precio_encontrado * USD_UYU * 100) / 100 : resultado.precio_encontrado;
+    resultado.moneda === "USD"
+      ? Math.round(resultado.precio_encontrado * (await tipoCambioVigente()).valor * 100) / 100
+      : resultado.precio_encontrado;
   const variacionPct = Math.abs((precioNuevoUYU - item.precioUnitario) / item.precioUnitario) * 100;
   const umbral = item.umbralAlertaPorcentaje;
 
