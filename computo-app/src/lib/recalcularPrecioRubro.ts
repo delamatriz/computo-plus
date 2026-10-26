@@ -5,7 +5,8 @@
 // Es la versión "un solo rubro, on-demand" de la lógica que ya usamos en
 // la clonación de APU desde la Biblioteca (clonar-apu/route.ts, matching
 // exacto por nombre) y en los scripts de migración masiva
-// (recalcular-jornales-sunca-2026.ts, matching por bucket para variantes
+// (scripts/_historico/recalcular-jornales-sunca-2026.ts, ya aplicado y no
+// se vuelve a correr; matching por bucket para variantes
 // sueltas de datos reales) — pensada para el flujo de "actualizar al
 // precio vigente" de un rubro con precio pactado/congelado (ver
 // Rubro.precioCongelado en schema.prisma).
@@ -43,7 +44,7 @@ type RubroConAPU = {
 // Mapea texto suelto de ManoObraAPU.categoria a la clave real de
 // CategoriaLaboral.categoria, para variantes que no matchean exacto contra
 // CategoriaLaboral.nombre — mismo relevamiento de datos reales que
-// recalcular-jornales-sunca-2026.ts, extendido acá para cubrir también los
+// scripts/_historico/recalcular-jornales-sunca-2026.ts, extendido acá para cubrir también los
 // oficios que ese script excluía a propósito (electricista/gasista/
 // escalerista/capataz general), porque este recálculo es general y no debe
 // dejar ninguna línea real sin resolver.

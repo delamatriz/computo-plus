@@ -5,10 +5,11 @@ import SeccionCategoriasLaborales from "@/components/mano-de-obra/SeccionCategor
 import SeccionConvenioFirmado from "@/components/mano-de-obra/SeccionConvenioFirmado";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 
-// Jornales sourced en vivo desde CategoriaLaboral (misma tabla que ya
-// actualiza Configuración) — nunca cachear como contenido estático, si no
-// una actualización de convenio (ver seed-jornales-sunca-2026.ts) no se
-// reflejaría acá hasta el próximo build.
+// Jornales sourced en vivo desde CategoriaLaboral — nunca cachear como
+// contenido estático, si no una actualización de convenio no se reflejaría
+// acá hasta el próximo build. Hoy el convenio se actualiza desde esta misma
+// página, con la extracción con IA del SUPERADMIN (SeccionCategoriasLaborales);
+// el script de carga inicial 2026 quedó en scripts/_historico/.
 export const dynamic = "force-dynamic";
 
 // Las 12 categorías oficiales del laudo, en orden — se muestran estas (no
@@ -31,7 +32,10 @@ const CATEGORIAS_LAUDO = [
 
 // Oficios propios de la app, nivelados a una categoría fija del laudo —
 // listados aparte porque se buscan por nombre de oficio, no por número
-// romano (ver rubroCompatibleConFila / seed-jornales-sunca-2026.ts).
+// romano (ver rubroCompatibleConFila). La nivelación la aplica la
+// actualización con IA de esta página (ROMANO_A_CODIGOS_NIVELADOS en
+// SeccionCategoriasLaborales); la carga inicial 2026 la hizo
+// scripts/_historico/seed-jornales-sunca-2026.ts.
 const OFICIOS_ESPECIALIZADOS = [
   "electricista_oficial",
   "oficial_gasista",
