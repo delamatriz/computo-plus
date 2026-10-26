@@ -34,6 +34,7 @@ export default function ConfiguracionPage() {
   });
   const [guardandoEmpresa, setGuardandoEmpresa] = useState(false);
   const [empresaGuardada, setEmpresaGuardada] = useState(false);
+  const [errorEmpresa, setErrorEmpresa] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [cargando, setCargando] = useState(true);
 
@@ -68,16 +69,26 @@ export default function ConfiguracionPage() {
   async function guardarEmpresa() {
     setGuardandoEmpresa(true);
     setEmpresaGuardada(false);
-
-    await fetch("/api/empresa/perfil", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(empresaForm),
-    });
-
-    setGuardandoEmpresa(false);
-    setEmpresaGuardada(true);
-    setTimeout(() => setEmpresaGuardada(false), 2500);
+    setErrorEmpresa(null);
+    try {
+      const res = await fetch("/api/empresa/perfil", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(empresaForm),
+      });
+      if (!res.ok) {
+        // El servidor manda `mensaje` (RUT duplicado) o `error` (ej. 403 de rol); si no, uno genérico.
+        const data = await res.json().catch(() => null);
+        setErrorEmpresa(data?.mensaje ?? (res.status === 403 ? data?.error : null) ?? "No se pudieron guardar los cambios. Probá de nuevo.");
+        return;
+      }
+      setEmpresaGuardada(true);
+      setTimeout(() => setEmpresaGuardada(false), 2500);
+    } catch {
+      setErrorEmpresa("No se pudieron guardar los cambios. Probá de nuevo.");
+    } finally {
+      setGuardandoEmpresa(false);
+    }
   }
 
   if (cargando) {
@@ -142,7 +153,7 @@ export default function ConfiguracionPage() {
                 value={empresaForm.nombre}
                 onChange={(e) => setEmpresaForm((prev) => ({ ...prev, nombre: e.target.value }))}
                 placeholder="ej: Constructora ABC SRL"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
               />
             </div>
             <div>
@@ -152,7 +163,7 @@ export default function ConfiguracionPage() {
                 value={empresaForm.rut}
                 onChange={(e) => setEmpresaForm((prev) => ({ ...prev, rut: e.target.value }))}
                 placeholder="ej: 21.123.456-0012"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
               />
             </div>
             <div className="col-span-2">
@@ -162,7 +173,7 @@ export default function ConfiguracionPage() {
                 value={empresaForm.direccion}
                 onChange={(e) => setEmpresaForm((prev) => ({ ...prev, direccion: e.target.value }))}
                 placeholder="ej: Av. Italia 1234, Montevideo"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
               />
             </div>
             <div>
@@ -172,7 +183,7 @@ export default function ConfiguracionPage() {
                 value={empresaForm.telefono}
                 onChange={(e) => setEmpresaForm((prev) => ({ ...prev, telefono: e.target.value }))}
                 placeholder="ej: 099 123 456"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
               />
             </div>
             <div>
@@ -182,7 +193,7 @@ export default function ConfiguracionPage() {
                 value={empresaForm.email}
                 onChange={(e) => setEmpresaForm((prev) => ({ ...prev, email: e.target.value }))}
                 placeholder="ej: contacto@empresa.com.uy"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
               />
             </div>
             <div className="col-span-2">
@@ -192,7 +203,7 @@ export default function ConfiguracionPage() {
                 value={empresaForm.web}
                 onChange={(e) => setEmpresaForm((prev) => ({ ...prev, web: e.target.value }))}
                 placeholder="ej: www.empresa.com.uy"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -213,6 +224,7 @@ export default function ConfiguracionPage() {
           {empresaGuardada && (
             <span className="text-sm text-emerald-600">Cambios guardados</span>
           )}
+          {errorEmpresa && <span className="text-sm text-red-600">{errorEmpresa}</span>}
         </div>
         )}
       </section>

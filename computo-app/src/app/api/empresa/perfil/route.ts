@@ -52,6 +52,13 @@ export async function PATCH(request: Request) {
     });
     return NextResponse.json(actualizada);
   } catch (err) {
+    // Empresa.rut es @unique: otro RUT igual ya registrado → mensaje claro, no "Error interno".
+    if ((err as { code?: string })?.code === "P2002") {
+      return NextResponse.json(
+        { error: "rut_duplicado", mensaje: "Este RUT ya está registrado en otra empresa." },
+        { status: 409 }
+      );
+    }
     console.error("[PATCH /api/empresa/perfil]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
