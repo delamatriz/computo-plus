@@ -85,10 +85,18 @@ const ROMANO_A_CODIGOS_NIVELADOS: Record<string, string[]> = {
   X: ["oficial_maquinista", "oficial_escalerista"],
 };
 
-// Categorías que no salen del laudo (ni se nivelan a una categoría): la
-// extracción con IA no puede calcularlas, así que el SUPERADMIN las edita a
-// mano en "Otras categorías", debajo del botón de actualizar.
-const CODIGOS_FUERA_DEL_LAUDO = ["vigilancia_sereno", "panolero_canchero_gruista", "sobrestante", "jefatura_obra"];
+// Categorías que el SUPERADMIN edita a mano en "Otras categorías", debajo del
+// botón de actualizar: las que no salen del laudo (sereno, pañolero,
+// sobrestante, jefatura de obra) y las de trabajo en altura, que la extracción
+// con IA solo recalcula si encuentra el % de recargo en el documento.
+const CODIGOS_FUERA_DEL_LAUDO = [
+  "oficial_altura",
+  "medio_oficial_altura",
+  "vigilancia_sereno",
+  "panolero_canchero_gruista",
+  "sobrestante",
+  "jefatura_obra",
+];
 
 function formatearJornal(n: number): string {
   return n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -564,8 +572,8 @@ export default function SeccionCategoriasLaborales() {
         <div className="mt-3 bg-white rounded-xl border border-slate-200 p-5">
           <h3 className="text-sm font-semibold text-[#1E293B]">Otras categorías</h3>
           <p className="text-xs text-slate-400 mt-0.5 mb-3">
-            No salen del laudo y la actualización desde el convenio no las toca: cargá su jornal a mano cuando cambia
-            el convenio.
+            La actualización desde el convenio no las calcula (las de altura, solo si encuentra el % de recargo):
+            cargá su jornal a mano cuando cambia el convenio.
           </p>
           <div className="space-y-2">
             {otrasCategorias.map((c) => (

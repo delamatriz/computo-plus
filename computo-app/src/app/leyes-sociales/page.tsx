@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { AUC_PCT_DEFAULT } from "@/lib/auc";
@@ -13,12 +14,14 @@ const fmtPct = (pct: number) =>
 const fmtMonto = (n: number) =>
   n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const JORNAL_EJEMPLO = 2176.19; // Medio Oficial Albañil (Categoría V)
+// El ejemplo usa el jornal vigente de Medio Oficial Albañil (Categoría V),
+// leído de CategoriaLaboral como el resto de la app — nunca un número fijo:
+// quedaba viejo con cada convenio.
+const CODIGO_JORNAL_EJEMPLO = "sunca_cat_v";
 const AUC_PCT_PUNTOS = AUC_PCT_DEFAULT * 100;
 // Total de referencia sobre el jornal: AUC (lo paga el propietario) + los
 // aportes patronales (los paga la empresa).
 const TOTAL_REFERENCIA_PCT = AUC_PCT_PUNTOS + APORTES_PATRONALES_PCT_LEGAL_DEFAULT;
-const COSTO_REAL_EJEMPLO = JORNAL_EJEMPLO * (1 + TOTAL_REFERENCIA_PCT / 100);
 
 // Info general de BPS (no el texto de una ley puntual) — base de esta
 // sección práctica.
@@ -114,6 +117,24 @@ function Tabla({
 }
 
 export default function LeyesSocialesPage() {
+  // null mientras carga o si no se pudo leer: el ejemplo muestra "—".
+  const [jornalEjemplo, setJornalEjemplo] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/categorias-laborales")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((cats: { categoria: string; jornal: number }[]) => {
+        const c = Array.isArray(cats) ? cats.find((x) => x.categoria === CODIGO_JORNAL_EJEMPLO) : undefined;
+        if (!cancelado && c) setJornalEjemplo(c.jornal);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+  const costoRealEjemplo = jornalEjemplo != null ? jornalEjemplo * (1 + TOTAL_REFERENCIA_PCT / 100) : null;
+  const montoEjemplo = (n: number | null) => (n != null ? `$${fmtMonto(n)}` : "—");
+
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto">
       <BotonVolverAlProyecto />
@@ -337,12 +358,12 @@ export default function LeyesSocialesPage() {
                 Ejemplo
               </h3>
               <p className="text-sm text-slate-500 mb-1">
-                Medio Oficial Albañil (Categoría V), jornal ${fmtMonto(JORNAL_EJEMPLO)}:
+                Medio Oficial Albañil (Categoría V), jornal vigente {montoEjemplo(jornalEjemplo)}:
               </p>
               <p className="text-sm text-slate-700">
-                Costo real de mano de obra por jornada ≈ ${fmtMonto(JORNAL_EJEMPLO)} ×{" "}
+                Costo real de mano de obra por jornada ≈ {montoEjemplo(jornalEjemplo)} ×{" "}
                 {(1 + TOTAL_REFERENCIA_PCT / 100).toLocaleString("es-UY", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ≈{" "}
-                <span className="font-bold text-[#2563EB]">${fmtMonto(COSTO_REAL_EJEMPLO)}</span>
+                <span className="font-bold text-[#2563EB]">{montoEjemplo(costoRealEjemplo)}</span>
               </p>
             </section>
 

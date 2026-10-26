@@ -104,7 +104,10 @@ export default function SeccionConvenioFirmado({
           Convenio firmado SUNCA{fechaConvenio ? ` (${fechaConvenio})` : ""}
         </h2>
         <p className="text-sm text-slate-500 mt-0.5">
-          Descargá el convenio vigente del sitio del SUNCA y subilo a CÓMPUTO+ para que puedan consultarlo.
+          {/* Subir es solo del SUPERADMIN: al resto no se le pide. */}
+          {puedeSubir
+            ? "Descargá el convenio vigente del sitio del SUNCA y subilo a CÓMPUTO+ para que puedan consultarlo."
+            : "Consultá el convenio vigente en el sitio del SUNCA."}
         </p>
         <a
           href={URL_SUNCA}
@@ -139,7 +142,11 @@ export default function SeccionConvenioFirmado({
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-[#1E293B]">Decreto del Convenio firmado</h2>
-            <p className="text-sm text-slate-500 mt-0.5">Documento disponible para tu empresa.</p>
+            {!cargando && (
+              <p className="text-sm text-slate-500 mt-0.5">
+                {tieneArchivo ? "Documento disponible para tu empresa." : "Todavía no hay documento cargado."}
+              </p>
+            )}
           </div>
         </div>
 
