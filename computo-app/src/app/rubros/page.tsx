@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowLeft,
   Search,
   ChevronRight,
@@ -289,6 +290,18 @@ function PanelDescompuesto({ data }: { data: Descompuesto }) {
           <SeccionMateriales materiales={apu.materiales} />
           <SeccionManoObra manoObra={apu.manoObra} unidad={data.unidad} />
           {apu.equipos.length > 0 && <SeccionEquipos equipos={apu.equipos} />}
+
+          {/* Solo informa: un material a $0 ("sin precio") deja el total por
+              debajo del real. No bloquea la consulta. */}
+          {apu.materiales.some((m) => m.precioUnit === 0) && (
+            <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-amber-800">
+                Este rubro tiene materiales sin precio cargado — el precio unitario mostrado está incompleto. Los precios
+                faltantes se actualizan desde Materiales.
+              </p>
+            </div>
+          )}
 
           {/* Resumen final */}
           <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 space-y-1.5">
