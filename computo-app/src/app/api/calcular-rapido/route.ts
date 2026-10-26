@@ -7,15 +7,12 @@ import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
 import { esSuperadmin, requerirSesion } from "@/lib/sesion";
 import { tipoCambioVigente } from "@/lib/tipoCambio";
+import { nombreTipoObra } from "@/lib/tiposObra";
 import { consumirFuncionAsistida, devolverConsumo, respuestaFuncionNoDisponible } from "@/lib/acceso";
 import { listaMTOPVigente } from "@/lib/listaMTOPVigente";
 import { detalleListaMTOP } from "@/lib/listaMTOP";
 
 
-const TIPOS_LABEL: Record<string, string> = {
-  reparaciones: "Reparaciones",
-  reforma: "Reforma / Ampliación",
-};
 
 export async function POST(request: NextRequest) {
   const sesion = await requerirSesion();
@@ -36,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (consumo instanceof NextResponse) return consumo;
     consumoId = consumo.consumoId;
 
-    const tipoLabel = TIPOS_LABEL[tipo] ?? tipo;
+    const tipoLabel = nombreTipoObra(String(tipo).toUpperCase());
     // Dólar BCU del último cierre guardado (o el de referencia), el mismo que muestra la pantalla.
     const tc = (await tipoCambioVigente()).valor;
     const monedaLabel = moneda === "UYU" ? "pesos uruguayos" : `dólares americanos (usar TC ${tc})`;
@@ -50,7 +47,7 @@ export async function POST(request: NextRequest) {
       clasificarCapitulosBiblioteca(descripcion, empresaIdLog),
     ]);
 
-    // Subrubros reales de la biblioteca SAU para los capítulos que matchean
+    // Subrubros reales de la biblioteca de rubros para los capítulos que matchean
     // la descripción — acotado (nunca la biblioteca completa), con su APU
     // real (materiales + mano de obra + equipos), no solo el precio final.
     // Vacío si la descripción no matchea ningún capítulo con biblioteca —
@@ -85,7 +82,7 @@ PRECIOS DE REFERENCIA MTOP (${listaMTOP ? `Lista ${detalleListaMTOP(listaMTOP)},
 ${tablaMateriales}
 ${
   tablaBiblioteca
-    ? `\nSUBRUBROS REALES DE BIBLIOTECA (Sociedad de Arquitectos del Uruguay — precios y composiciones reales, no estimados). Para cada capítulo que generes, si alguno de estos aplica al trabajo descripto, USALO como base (podés ajustar cantidades/escala a lo que describe la tarea, pero no inventes una composición nueva si ya hay una real que cubre el trabajo). Cuando dos o más subrubros de esta lista cubren la misma necesidad (mismo tipo de material/sistema, distinto nivel de prestación), MIRÁ el precio "$...UY" de cada uno y ELEGÍ EL MÁS BARATO por defecto — no el más caro ni el que te resulte más familiar. Subí a una opción más cara SOLO si el texto del usuario la pide explícitamente (nombra la característica premium) o la exige técnicamente:\n${tablaBiblioteca}\n`
+    ? `\nSUBRUBROS REALES DE BIBLIOTECA (biblioteca de rubros de CÓMPUTO+ — precios y composiciones reales, no estimados). Para cada capítulo que generes, si alguno de estos aplica al trabajo descripto, USALO como base (podés ajustar cantidades/escala a lo que describe la tarea, pero no inventes una composición nueva si ya hay una real que cubre el trabajo). Cuando dos o más subrubros de esta lista cubren la misma necesidad (mismo tipo de material/sistema, distinto nivel de prestación), MIRÁ el precio "$...UY" de cada uno y ELEGÍ EL MÁS BARATO por defecto — no el más caro ni el que te resulte más familiar. Subí a una opción más cara SOLO si el texto del usuario la pide explícitamente (nombra la característica premium) o la exige técnicamente:\n${tablaBiblioteca}\n`
     : ""
 }
 TAREA A PRESUPUESTAR:

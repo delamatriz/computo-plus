@@ -24,18 +24,10 @@ import { nombreDesdeTexto } from "@/lib/nombreDesdeTexto";
 import { esBloqueoDeCuenta, esErrorAcceso, useEstadoCuenta, type ErrorAcceso } from "@/lib/accesoCliente";
 import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
 import { mensajeCupoCalculoRapido } from "@/lib/config-prueba";
+import { TIPOS_OBRA } from "@/lib/tiposObra";
 import { TIPO_CAMBIO_REFERENCIA, type TipoCambioVigente } from "@/lib/tipoCambioReferencia";
 
 /* ─── Datos de referencia ─────────────────────────────────── */
-const TIPOS_OBRA = [
-  { id: "reparaciones", label: "Reparaciones" },
-  { id: "reforma",      label: "Reforma / Ampliación" },
-  { id: "vivienda",     label: "Vivienda unifamiliar" },
-  { id: "ph",           label: "Propiedad Horizontal" },
-  { id: "comercial",    label: "Local comercial" },
-  { id: "industrial",   label: "Industrial" },
-];
-
 const CALIDADES = [
   { id: "basica",   label: "Económica" },
   { id: "estandar", label: "Media" },
@@ -48,13 +40,14 @@ const ZONAS = [
   { id: "costa",      label: "Costa / Punta del Este" },
 ];
 
+// Por tipo de obra (ids de lib/tiposObra.ts, los mismos que Proyecto.tipo).
 const PRECIOS_BASE: Record<string, Record<string, number>> = {
-  reparaciones: { basica: 200,  estandar: 350,  premium: 500  },
-  reforma:      { basica: 350,  estandar: 550,  premium: 800  },
-  vivienda:     { basica: 550,  estandar: 750,  premium: 1100 },
-  ph:           { basica: 600,  estandar: 800,  premium: 1200 },
-  comercial:    { basica: 500,  estandar: 700,  premium: 1000 },
-  industrial:   { basica: 300,  estandar: 450,  premium: 650  },
+  REPARACIONES: { basica: 200,  estandar: 350,  premium: 500  },
+  REFORMA:      { basica: 350,  estandar: 550,  premium: 800  },
+  VIVIENDA:     { basica: 550,  estandar: 750,  premium: 1100 },
+  PH:           { basica: 600,  estandar: 800,  premium: 1200 },
+  COMERCIAL:    { basica: 500,  estandar: 700,  premium: 1000 },
+  INDUSTRIAL:   { basica: 300,  estandar: 450,  premium: 650  },
 };
 
 const ZONA_MULT: Record<string, number> = {
@@ -82,7 +75,7 @@ const CAPITULOS_RAW = [
   { nombre: "Cubierta",                      pct: 0.07, matPct: 0.70, moPct: 0.30, color: "#1D4ED8" },
   { nombre: "Instalación sanitaria",         pct: 0.07, matPct: 0.65, moPct: 0.35, color: "#3B82F6" },
   { nombre: "Instalación eléctrica",         pct: 0.06, matPct: 0.60, moPct: 0.40, color: "#60A5FA" },
-  { nombre: "Revoques y enlucidos",          pct: 0.06, matPct: 0.35, moPct: 0.65, color: "#93C5FD" },
+  { nombre: "Revoques",                      pct: 0.06, matPct: 0.35, moPct: 0.65, color: "#93C5FD" },
   { nombre: "Revestimientos y pisos",        pct: 0.08, matPct: 0.65, moPct: 0.35, color: "#BFDBFE" },
   { nombre: "Carpintería",                   pct: 0.07, matPct: 0.75, moPct: 0.25, color: "#DBEAFE" },
   { nombre: "Pintura",                       pct: 0.04, matPct: 0.40, moPct: 0.60, color: "#EFF6FF" },
@@ -121,7 +114,7 @@ interface CapituloIA {
   materiales: number;
   manoObra: number;
   // "biblioteca" = la IA tomó como base un subrubro real de la
-  // biblioteca SAU; "estimado" = lo generó con su criterio (MTOP +
+  // biblioteca de rubros; "estimado" = lo generó con su criterio (MTOP +
   // jornales SUNCA). Validado server-side, no autocertificado por la
   // IA — ver /api/calcular-rapido.
   origen?: "biblioteca" | "estimado";
@@ -201,7 +194,7 @@ function comprimirImagen(file: File): Promise<string> {
 
 export default function CalcularPage() {
   const router = useRouter();
-  const [tipo, setTipo]       = useState("reparaciones");
+  const [tipo, setTipo]       = useState("REPARACIONES");
   const [calidad, setCalidad] = useState("estandar");
   const areaRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
@@ -264,8 +257,8 @@ export default function CalcularPage() {
   // estimación nueva, nunca se arrastra el ok de una anterior.
   const [confirmoEstimacionLibre, setConfirmoEstimacionLibre] = useState(false);
 
-  const esDescriptivo = tipo === "reparaciones" || tipo === "reforma";
-  const esPH          = tipo === "ph";
+  const esDescriptivo = tipo === "REPARACIONES" || tipo === "REFORMA";
+  const esPH          = tipo === "PH";
 
   const areaNum     = parseFloat(area) || 0;
   const unidadesNum = parseFloat(unidades) || 0;
@@ -475,7 +468,7 @@ export default function CalcularPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nombre,
-          tipo: tipo.toUpperCase(),
+          tipo,
           moneda,
           area: areaTotal > 0 ? areaTotal : null,
           descripcion: descripcion.trim() || undefined,
@@ -542,7 +535,7 @@ export default function CalcularPage() {
                     onClick={() => {
                       setTipo(t.id);
                       setTimeout(() => {
-                        if (t.id === "reparaciones" || t.id === "reforma") {
+                        if (t.id === "REPARACIONES" || t.id === "REFORMA") {
                           descRef.current?.focus();
                         } else {
                           areaRef.current?.focus();
@@ -1401,7 +1394,7 @@ export default function CalcularPage() {
 
                 <button
                   onClick={() => {
-                    setTipo("reparaciones");
+                    setTipo("REPARACIONES");
                     setCalidad("estandar");
                     setZona("montevideo");
                     setArea("");
