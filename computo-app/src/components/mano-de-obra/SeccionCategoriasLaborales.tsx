@@ -603,6 +603,20 @@ export default function SeccionCategoriasLaborales() {
             La actualización desde el convenio no las calcula (las de altura, solo si encuentra el % de recargo):
             cargá su jornal a mano cuando cambia el convenio.
           </p>
+          {/* Visible solo para el SUPERADMIN: todo el componente devuelve null para el resto. */}
+          <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 mb-3">
+            <p className="font-medium text-slate-600 mb-1">Fuentes para actualizar cada año:</p>
+            <ul className="list-disc pl-4 space-y-0.5">
+              <li>
+                Oficial y Medio oficial trabajo en altura: recargo del 10% sobre Cat. VII y Cat. V del laudo SUNCA Grupo 9.
+              </li>
+              <li>Vigilancia presencial (Sereno): laudo del Grupo de Vigilancia, publicado por separado en el BPS.</li>
+              <li>
+                Pañolero/Canchero/Gruista y Sobrestante: convenio completo SUNCA Grupo 9 (categorías adicionales).
+              </li>
+              <li>Jefatura de obra (Arquitecto o Ingeniero): honorario de referencia SAU o acuerdo de mercado.</li>
+            </ul>
+          </div>
           <div className="space-y-2">
             {otrasCategorias.map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-3">
