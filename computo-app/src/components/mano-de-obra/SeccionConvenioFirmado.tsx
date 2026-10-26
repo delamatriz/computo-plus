@@ -142,11 +142,8 @@ export default function SeccionConvenioFirmado({
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-[#1E293B]">Decreto del Convenio firmado</h2>
-            {!cargando && (
-              <p className="text-sm text-slate-500 mt-0.5">
-                {tieneArchivo ? "Documento disponible para tu empresa." : "Todavía no hay documento cargado."}
-              </p>
-            )}
+            {/* Sin PDF, el aviso va solo abajo, en el lugar del botón. */}
+            {!cargando && tieneArchivo && <p className="text-sm text-slate-500 mt-0.5">Documento disponible para tu empresa.</p>}
           </div>
         </div>
 
