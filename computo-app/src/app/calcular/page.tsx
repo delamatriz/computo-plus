@@ -251,6 +251,8 @@ export default function CalcularPage() {
   const [iniciandoProyecto, setIniciandoProyecto] = useState(false);
   const [avisoFotos, setAvisoFotos] = useState<string | null>(null);
   const [guardandoAnteproyecto, setGuardandoAnteproyecto] = useState(false);
+  const [exportandoPDF, setExportandoPDF] = useState(false);
+  const [errorPDF, setErrorPDF] = useState<string | null>(null);
   const [errorAnteproyecto, setErrorAnteproyecto] = useState<string | null>(null);
   // Solo se pide cuando proporcionBiblioteca < UMBRAL_PROPORCION_BIBLIOTECA_BAJA
   // (ver botón "Iniciar proyecto completo") — se resetea con cada
@@ -407,6 +409,60 @@ export default function CalcularPage() {
       setErrorIA("No pudimos calcular la estimación. Probá de nuevo.");
     } finally {
       setCalculandoIA(false);
+    }
+  };
+
+  // "Exportar estimación en PDF" — la estimación no se guarda en la base: se
+  // mandan los números de pantalla a POST /api/calcular-rapido/pdf, que arma
+  // el documento (y recalcula GG, Beneficio, IVA y Precio Final con la misma
+  // fórmula). Solo con una estimación calculada (desglose).
+  const exportarPDF = async () => {
+    if (!desglose || exportandoPDF) return;
+    setExportandoPDF(true);
+    setErrorPDF(null);
+    try {
+      const res = await fetch("/api/calcular-rapido/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipoObra: TIPOS_OBRA.find((t) => t.id === tipo)?.label ?? tipo,
+          zona: ZONAS.find((z) => z.id === zona)?.label ?? zona,
+          nivel: CALIDADES.find((c) => c.id === calidad)?.label ?? calidad,
+          area: !esDescriptivo && areaTotal > 0 ? areaTotal : null,
+          descripcion: esDescriptivo ? descripcion.trim() : null,
+          moneda,
+          tipoCambio,
+          costoDirecto: desglose.total,
+          materiales: desglose.totalMateriales,
+          manoObra: desglose.totalManoObra,
+          capitulos: desglose.capitulos.map((c) => ({
+            nombre: c.nombre,
+            monto: c.monto,
+            materiales: c.materiales,
+            manoObra: c.manoObra,
+            fuente: c.origen === "biblioteca" ? (c.fuenteBiblioteca === "empresa" ? "empresa" : "biblioteca") : null,
+          })),
+          pctGG: pctGGNum,
+          pctBeneficio: pctBeneficioNum,
+          // Mismo rango que muestra la pantalla en el camino por m².
+          rango: resultado ? { minimo: resultado.total * 0.88, maximo: resultado.total * 1.15 } : null,
+          proporcionBiblioteca: resultadoIA?.proporcionBiblioteca ?? null,
+          advertencia: resultadoIA?.advertencia ?? null,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Estimacion-Calculo-Rapido-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[exportarPDF]", err);
+      setErrorPDF("No se pudo generar el PDF. Probá de nuevo.");
+    } finally {
+      setExportandoPDF(false);
     }
   };
 
@@ -1387,10 +1443,16 @@ export default function CalcularPage() {
                   <p className="text-xs text-red-600 text-center -mt-1">{errorAnteproyecto}</p>
                 )}
 
-                <button className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-border text-text-secondary hover:text-text-primary hover:border-slate-300 font-medium text-sm transition-colors bg-bg-card">
-                  <Download className="w-4 h-4" />
-                  Exportar estimación en PDF
+                <button
+                  onClick={exportarPDF}
+                  disabled={!desglose || exportandoPDF}
+                  title={!desglose ? "Calculá una estimación para poder exportarla" : undefined}
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-border text-text-secondary hover:text-text-primary hover:border-slate-300 disabled:opacity-50 disabled:hover:text-text-secondary disabled:hover:border-border font-medium text-sm transition-colors bg-bg-card"
+                >
+                  {exportandoPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {exportandoPDF ? "Generando PDF…" : "Exportar estimación en PDF"}
                 </button>
+                {errorPDF && <p className="text-xs text-red-600 text-center">{errorPDF}</p>}
 
                 <button
                   onClick={() => {
