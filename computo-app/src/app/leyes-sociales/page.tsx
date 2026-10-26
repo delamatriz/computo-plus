@@ -243,11 +243,11 @@ export default function LeyesSocialesPage() {
                     "La paga el propietario y se recauda junto con el AUC, sobre el mismo monto imponible. En Cómputo+ es solo informativa: no entra a ningún precio",
                   ],
                   [
-                    "Aportes patronales (FOCER — Fondo de Cesantía y Retiro, FSC/FOCAP — Fondo de Capacitación, FOSVOC, FRL — Fondo de Reconversión Laboral, Fondo de Garantía de Créditos Laborales)",
+                    "Aportes patronales (FOCER — Fondo de Cesantía y Retiro, FSC — Fondo Social de la Construcción / FOCAP — Fondo de Capacitación, FOSVOC — Fondo Social de Vivienda Obrera de la Construcción, FRL — Fondo de Reconversión Laboral, Fondo de Garantía de Créditos Laborales)",
                     "Los paga la empresa. Van dentro del costo de la mano de obra de cada rubro, como un % solo sobre la mano de obra",
                   ],
                   [
-                    "Aportes personales (FOCER personal 0,5%, SNIS adicional)",
+                    "Aportes personales (FOCER personal 0,5%, SNIS — Sistema Nacional Integrado de Salud — adicional)",
                     "Los paga el trabajador: se le descuentan del jornal. No son un costo de la empresa y no entran al precio (se muestran como informativos)",
                   ],
                 ]}
