@@ -83,6 +83,7 @@ interface Descompuesto {
   unidad: string;
   precioUY: number;
   fechaBase: string;
+  origen: string;
   capitulo: string | null;
   subcapitulo: string | null;
   apu: {
@@ -105,6 +106,9 @@ function fmtMoneda(v: number): string {
 function fmtNum(v: number, decimales = 3): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: decimales });
 }
+
+// SubrubroEstandar.origen de los rubros que conservan el precio de la lista SAU.
+const ORIGEN_SAU = "sau_ago2022";
 
 // SubrubroEstandar.fechaBase se guarda "aaaa-mm" ("2026-07") → "jul-2026".
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -282,10 +286,10 @@ function PanelDescompuesto({ data }: { data: Descompuesto }) {
           </span>
           {!!data.precioUY && (
             <span className="text-xs text-slate-400">
-              {/* Sin la sigla SAU por ahora: SubrubroEstandar.origen quedó mal
-                  cargado (249 rubros con origen SAU, solo 8 con el precio SAU
-                  original). Volver a mostrarla cuando se corrija el origen. */}
-              Precio base ({fmtFechaBase(data.fechaBase)}): {fmtMoneda(data.precioUY)}
+              {/* La sigla SAU solo si el rubro conserva el precio de la lista
+                  SAU (origen "sau_ago2022"); el resto es "Precio base". */}
+              {data.origen === ORIGEN_SAU ? "Precio SAU (Sociedad de Arquitectos del Uruguay) base" : "Precio base"} (
+              {fmtFechaBase(data.fechaBase)}): {fmtMoneda(data.precioUY)}
             </span>
           )}
         </div>

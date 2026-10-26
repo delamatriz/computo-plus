@@ -44,6 +44,10 @@ export async function GET(
       unidad: subrubro.unidad,
       precioUY: subrubro.precioUY,
       fechaBase: subrubro.fechaBase,
+      // "sau_ago2022" = conserva el precio de la lista SAU (corregido el
+      // 2026-10-26, ver scripts/_historico/corregir-origen-sau-2026-10.ts):
+      // /rubros muestra la sigla SAU solo en ese caso.
+      origen: subrubro.origen,
       capitulo: subrubro.capituloCatalogo?.nombre ?? null,
       subcapitulo: subrubro.subcapituloCatalogo?.nombre ?? null,
     };
