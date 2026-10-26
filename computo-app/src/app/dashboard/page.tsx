@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Settings } from "lucide-react";
 import GraficoProyectosPorMes from "@/components/dashboard/GraficoProyectosPorMes";
 import { esSuperadmin, sesionActual } from "@/lib/sesion";
-import { SELECT_CAPITULOS_RESUMEN, totalPresupuestado, ultimaModificacion } from "@/lib/resumenProyecto";
+import { SELECT_CAPITULOS_RESUMEN, nombreProyectoParaMostrar, totalPresupuestado, ultimaModificacion } from "@/lib/resumenProyecto";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -228,7 +228,7 @@ export default async function DashboardPage() {
                   className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors"
                 >
                   <div>
-                    <p className="font-medium text-[#1E293B] text-sm">{p.nombre}</p>
+                    <p className="font-medium text-[#1E293B] text-sm">{nombreProyectoParaMostrar(p.nombre)}</p>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {p.cliente && `${p.cliente} · `}
                       {p._count.capitulos} {p._count.capitulos === 1 ? "capítulo" : "capítulos"}
