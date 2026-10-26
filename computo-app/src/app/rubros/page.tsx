@@ -109,6 +109,8 @@ function fmtNum(v: number, decimales = 3): string {
 
 // SubrubroEstandar.origen de los rubros que conservan el precio de la lista SAU.
 const ORIGEN_SAU = "sau_ago2022";
+// @default de SubrubroEstandar.fechaBase (schema.prisma).
+const FECHA_BASE_DEFAULT = "2022-08";
 
 // SubrubroEstandar.fechaBase se guarda "aaaa-mm" ("2026-07") → "jul-2026".
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -287,9 +289,13 @@ function PanelDescompuesto({ data }: { data: Descompuesto }) {
           {!!data.precioUY && (
             <span className="text-xs text-slate-400">
               {/* La sigla SAU solo si el rubro conserva el precio de la lista
-                  SAU (origen "sau_ago2022"); el resto es "Precio base". */}
-              {data.origen === ORIGEN_SAU ? "Precio SAU (Sociedad de Arquitectos del Uruguay) base" : "Precio base"} (
-              {fmtFechaBase(data.fechaBase)}): {fmtMoneda(data.precioUY)}
+                  SAU (origen "sau_ago2022"); el resto es "Precio base". La
+                  fecha "2022-08" es el @default de fechaBase: en un rubro no
+                  SAU no es real (nadie la cargó), así que no se muestra. */}
+              {data.origen === ORIGEN_SAU ? "Precio SAU (Sociedad de Arquitectos del Uruguay) base" : "Precio base"}
+              {(data.origen === ORIGEN_SAU || data.fechaBase !== FECHA_BASE_DEFAULT) &&
+                ` (${fmtFechaBase(data.fechaBase)})`}
+              : {fmtMoneda(data.precioUY)}
             </span>
           )}
         </div>
@@ -336,9 +342,12 @@ function PanelDescompuesto({ data }: { data: Descompuesto }) {
                 {fmtMoneda(apu.precioUnitFinal)} <span className="text-xs font-medium text-slate-400">/ {data.unidad}</span>
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 text-right">
-              No incluye aportes patronales — al agregar el rubro a un proyecto el precio final será mayor.
-            </p>
+            {/* Los aportes patronales van solo sobre la mano de obra: sin MO, el precio no cambia en el proyecto. */}
+            {apu.manoObra.length > 0 && (
+              <p className="text-[11px] text-slate-400 text-right">
+                No incluye aportes patronales — al agregar el rubro a un proyecto el precio final será mayor.
+              </p>
+            )}
           </div>
         </div>
       )}
