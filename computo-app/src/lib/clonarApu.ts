@@ -59,9 +59,10 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
       (c) => c.nombre.trim().toLowerCase() === nombre.trim().toLowerCase()
     )?.jornal ?? 0;
 
-  // Aportes patronales por defecto (si el rubro todavía no tiene APU): los
-  // del proyecto. Se leen afuera de la transacción; adentro solo se usan si
-  // al bloquear el rubro sigue sin haber APU.
+  // Aportes patronales y Utilidad por defecto (si el rubro todavía no tiene
+  // APU): los del proyecto — la Utilidad del catálogo solo si el proyecto no
+  // tiene una propia. Se leen afuera de la transacción; adentro solo se usan
+  // si al bloquear el rubro sigue sin haber APU.
   const rubroConProyecto = await db.rubro.findUnique({
     where: { id: rubroId },
     select: {
@@ -69,6 +70,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
         select: {
           proyecto: {
             select: {
+              utilidadPctDefault: true,
               leyesSociales: {
                 select: {
                   focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
@@ -82,6 +84,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
     },
   });
   const aportesPatronalesDelProyecto = sumarAportesPatronalesPct(rubroConProyecto?.capitulo?.proyecto?.leyesSociales);
+  const utilidadDelProyecto = rubroConProyecto?.capitulo?.proyecto?.utilidadPctDefault ?? apuEstandar.utilidadPct;
 
   // Filas a insertar, ya resueltas contra el catálogo (fuera de la transacción).
   const materialesData: Omit<Prisma.MaterialAPUCreateManyInput, "apuId">[] = [];
@@ -153,7 +156,9 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
             where: { rubroId },
             data: {
               gastosGeneralesPct: 0,
-              utilidadPct: apuEstandar.utilidadPct,
+              // Reemplazar el rubro por otro del catálogo no pisa su Utilidad
+              // (igual que los aportes patronales).
+              utilidadPct: apuExistente.utilidadPct,
               aportesPatronalesPct: apuExistente.aportesPatronalesPct ?? aportesPatronalesDelProyecto,
               porcentajePiedra: apuEstandar.porcentajePiedra,
             },
@@ -162,7 +167,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
             data: {
               rubroId,
               gastosGeneralesPct: 0,
-              utilidadPct: apuEstandar.utilidadPct,
+              utilidadPct: utilidadDelProyecto,
               aportesPatronalesPct: aportesPatronalesDelProyecto,
               porcentajePiedra: apuEstandar.porcentajePiedra,
             },

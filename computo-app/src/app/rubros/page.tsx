@@ -342,12 +342,11 @@ function PanelDescompuesto({ data }: { data: Descompuesto }) {
                 {fmtMoneda(apu.precioUnitFinal)} <span className="text-xs font-medium text-slate-400">/ {data.unidad}</span>
               </span>
             </div>
-            {/* Los aportes patronales van solo sobre la mano de obra: sin MO, el precio no cambia en el proyecto. */}
-            {apu.manoObra.length > 0 && (
-              <p className="text-[11px] text-slate-400 text-right">
-                No incluye aportes patronales — al agregar el rubro a un proyecto el precio final será mayor.
-              </p>
-            )}
+            {/* En todos los rubros: al clonarlo, el proyecto suma aportes patronales
+                (sobre la mano de obra) y usa su propia Utilidad (ver clonarApu.ts). */}
+            <p className="text-[11px] text-slate-400 text-right">
+              El precio en el proyecto puede diferir — incluye aportes patronales y usa la Utilidad configurada en ese proyecto.
+            </p>
           </div>
         </div>
       )}
