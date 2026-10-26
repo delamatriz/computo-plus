@@ -246,7 +246,8 @@ export default async function ManoDeObraPage() {
             Otras categorías
           </h3>
           <p className="text-xs text-slate-400 mb-1">
-            Trabajo en altura (10% de recargo sobre Oficial y Medio oficial), vigilancia y dirección de obra.
+            Las categorías de altura tienen recargo sobre Oficial y Medio oficial según el convenio vigente —
+            actualizalas a mano si cambia el porcentaje.
           </p>
           <Tabla encabezados={["Categoría", "Jornal", "Hora"]} filas={filasOtras} />
         </div>

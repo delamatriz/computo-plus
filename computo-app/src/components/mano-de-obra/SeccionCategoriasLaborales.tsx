@@ -102,6 +102,20 @@ function formatearJornal(n: number): string {
   return n.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Lee un jornal tipeado a mano, con coma o punto decimal. Con coma, los puntos
+// son de miles ("2.393,81" → 2393.81, "2,50" → 2.5). Sin coma, un punto
+// seguido de exactamente 3 dígitos es de miles ("2.500" → 2500, nunca 2,5) y
+// si no, es decimal ("2393.81"). Cualquier otra cosa → NaN.
+function parsearJornal(texto: string): number {
+  const s = texto.replace(/[\s$]/g, "");
+  if (/^\d{1,3}(\.\d{3})*,\d{1,2}$/.test(s) || /^\d+,\d{1,2}$/.test(s)) {
+    return Number(s.replace(/\./g, "").replace(",", "."));
+  }
+  if (/^\d{1,3}(\.\d{3})+$/.test(s)) return Number(s.replace(/\./g, ""));
+  if (/^\d+(\.\d{1,2})?$/.test(s)) return Number(s);
+  return NaN;
+}
+
 const MENSAJE_ERROR_EXTRACCION =
   "No pude extraer los jornales con certeza. Intentá con una imagen más clara o con el PDF del convenio.";
 
@@ -151,7 +165,7 @@ export default function SeccionCategoriasLaborales() {
       setCategorias(dataCategorias);
       setJornalesOtras(
         Object.fromEntries(
-          dataCategorias.filter((c) => CODIGOS_FUERA_DEL_LAUDO.includes(c.categoria)).map((c) => [c.id, String(c.jornal)])
+          dataCategorias.filter((c) => CODIGOS_FUERA_DEL_LAUDO.includes(c.categoria)).map((c) => [c.id, formatearJornal(c.jornal)])
         )
       );
       setConfigId(dataConfig.id);
@@ -321,7 +335,7 @@ export default function SeccionCategoriasLaborales() {
       // "Guardar" posterior en esa sección los revertía en silencio.
       setJornalesOtras((prev) => {
         const siguiente = { ...prev };
-        for (const p of cambiosJornal) if (p.categoriaId in siguiente) siguiente[p.categoriaId] = String(p.jornalDespues);
+        for (const p of cambiosJornal) if (p.categoriaId in siguiente) siguiente[p.categoriaId] = formatearJornal(p.jornalDespues);
         return siguiente;
       });
       setNumeroConvenio(numeroFinal);
@@ -345,10 +359,10 @@ export default function SeccionCategoriasLaborales() {
   async function guardarOtras() {
     const cambios = categorias
       .filter((c) => CODIGOS_FUERA_DEL_LAUDO.includes(c.categoria))
-      .map((c) => ({ c, jornal: Number(String(jornalesOtras[c.id] ?? "").replace(",", ".")) }))
+      .map((c) => ({ c, jornal: parsearJornal(jornalesOtras[c.id] ?? "") }))
       .filter(({ c, jornal }) => jornal !== c.jornal);
     if (cambios.some(({ jornal }) => !Number.isFinite(jornal) || jornal <= 0)) {
-      setMensajeOtras({ ok: false, texto: "Cada jornal tiene que ser un número mayor a 0." });
+      setMensajeOtras({ ok: false, texto: "Cada jornal tiene que ser un número mayor a 0, por ejemplo 2.393,81." });
       return;
     }
     if (cambios.length === 0) {
@@ -378,6 +392,12 @@ export default function SeccionCategoriasLaborales() {
           return cambio ? { ...c, jornal: cambio.jornal } : c;
         })
       );
+      // Reescribe lo tipeado con el formato de la app ("2500" → "2.500,00").
+      setJornalesOtras((prev) => {
+        const siguiente = { ...prev };
+        for (const { c, jornal } of cambios) siguiente[c.id] = formatearJornal(jornal);
+        return siguiente;
+      });
       setMensajeOtras({ ok: true, texto: `Listo: se actualizaron ${cambios.length} jornal${cambios.length === 1 ? "" : "es"}.` });
       router.refresh();
     } catch {
