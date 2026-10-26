@@ -54,7 +54,7 @@ export async function GET(
     const membreteTitulo =
       membrete === "empresa"
         ? empresa?.nombre || "Mi Empresa"
-        : proyecto.clienteRazonSocial || proyecto.cliente || proyecto.nombre;
+        : proyecto.clienteRazonSocial || proyecto.cliente || nombreProyectoParaMostrar(proyecto.nombre);
 
     const elemento = React.createElement(OrdenCompraPDF, {
       membreteTitulo,
