@@ -96,7 +96,10 @@ export default async function ProyectosPage() {
                   </span>
                   <span className="text-xs text-slate-400 text-right">{detalle}</span>
                 </div>
-                <h2 className="font-semibold text-[#1E293B] mb-1 line-clamp-2">{nombreProyectoParaMostrar(p.nombre)}</h2>
+                {/* Jerarquía: el nombre es lo principal (más grande que el total). */}
+                <h2 className="text-lg font-bold leading-snug text-[#1E293B] mb-1 line-clamp-2">
+                  {nombreProyectoParaMostrar(p.nombre)}
+                </h2>
                 {p.estado === "ANTEPROYECTO" && (
                   <p className="text-xs text-violet-500 mb-1">Creado con Cálculo Rápido</p>
                 )}
@@ -104,7 +107,7 @@ export default async function ProyectosPage() {
                 {/* Costo Directo + Utilidad, sin Gastos Generales ni IVA — el mismo total que el Panel de control. */}
                 {total > 0 && (
                   <p
-                    className="text-lg font-bold text-[#2563EB] mt-1 mb-3 tabular-nums"
+                    className="text-base font-semibold text-[#2563EB] mt-1 mb-3 tabular-nums"
                     title="Costo Directo + Utilidad — sin Gastos Generales ni IVA"
                   >
                     {fmtTotal(total, p.moneda)}
