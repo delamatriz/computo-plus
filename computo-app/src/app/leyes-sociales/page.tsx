@@ -1,9 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
-import { AUC_PCT_DEFAULT } from "@/lib/auc";
+import {
+  AUC_PCT_DEFAULT,
+  AUC_PCT_JUBILATORIO_PATRONAL,
+  AUC_PCT_JUBILATORIO_PERSONAL,
+  AUC_PCT_CARGAS_SALARIALES,
+  AUC_PCT_FONASA_PATRONAL,
+  AUC_PCT_FONASA_PERSONAL,
+  AUC_PCT_BSE,
+} from "@/lib/auc";
 import { FONDOS_PATRONALES, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/aportesPatronales";
 
 // Los porcentajes de los aportes patronales salen de aportesPatronales.ts
@@ -29,7 +38,7 @@ const referencias: ReferenciaLink[] = [
   {
     titulo: "Leyes Sociales — BPS",
     descripcion: "Aportes patronales y personales de la construcción",
-    url: "https://www.bps.gub.uy",
+    url: "https://www.bps.gub.uy/837/regimen-construccion.html",
   },
   {
     titulo: "Pequeñas Obras de Mantenimiento — BPS",
@@ -132,6 +141,11 @@ export default function LeyesSocialesPage() {
       cancelado = true;
     };
   }, []);
+  // Se separa lo que entra al APU del rubro (jornal + aportes patronales) de lo
+  // que paga el propietario aparte (AUC): si no, el ejemplo no se parece en
+  // nada a la mano de obra que el usuario ve en su APU.
+  const enApuEjemplo = jornalEjemplo != null ? jornalEjemplo * (1 + APORTES_PATRONALES_PCT_LEGAL_DEFAULT / 100) : null;
+  const aucEjemplo = jornalEjemplo != null ? jornalEjemplo * AUC_PCT_DEFAULT : null;
   const costoRealEjemplo = jornalEjemplo != null ? jornalEjemplo * (1 + TOTAL_REFERENCIA_PCT / 100) : null;
   const montoEjemplo = (n: number | null) => (n != null ? `$${fmtMonto(n)}` : "—");
 
@@ -142,7 +156,8 @@ export default function LeyesSocialesPage() {
         Leyes Sociales
       </h1>
       <p className="text-slate-500 mb-8">
-        Referencia general de aportes BPS, AUC y fondos de la industria de la
+        Referencia general de aportes al BPS (Banco de Previsión Social), el AUC
+        (Aporte Unificado de la Construcción) y los fondos de la industria de la
         construcción.
       </p>
 
@@ -164,8 +179,8 @@ export default function LeyesSocialesPage() {
           </p>
           <p className="text-sm text-slate-600">
             Es el monto en pesos que corresponde a una categoría puntual de
-            trabajador — por ejemplo, $2.176,19 para un Medio Oficial
-            Albañil. El laudo (o convenio SUNCA) es la tabla completa con
+            trabajador — por ejemplo, {montoEjemplo(jornalEjemplo)} para un
+            Medio Oficial Albañil (Categoría V). El laudo (o convenio SUNCA) es la tabla completa con
             los jornales de todas las categorías; el jornal es el valor
             específico de una categoría dentro de esa tabla.
           </p>
@@ -228,7 +243,7 @@ export default function LeyesSocialesPage() {
                     "La paga el propietario y se recauda junto con el AUC, sobre el mismo monto imponible. En Cómputo+ es solo informativa: no entra a ningún precio",
                   ],
                   [
-                    "Aportes patronales (FOCER, FSC/FOCAP, FOSVOC, FRL, Fondo de Garantía de Créditos Laborales)",
+                    "Aportes patronales (FOCER — Fondo de Cesantía y Retiro, FSC/FOCAP — Fondo de Capacitación, FOSVOC, FRL — Fondo de Reconversión Laboral, Fondo de Garantía de Créditos Laborales)",
                     "Los paga la empresa. Van dentro del costo de la mano de obra de cada rubro, como un % solo sobre la mano de obra",
                   ],
                   [
@@ -248,17 +263,17 @@ export default function LeyesSocialesPage() {
                 Lo paga el propietario directamente al BPS.
               </p>
               <p className="text-sm font-semibold text-slate-700 mb-1">
-                Total: 71,8% sobre el jornal.
+                Total: {fmtPct(AUC_PCT_PUNTOS)}% sobre el jornal.
               </p>
               <Tabla
                 encabezados={["Concepto", "%"]}
                 filas={[
-                  ["Jubilatorio — patronal", "9%"],
-                  ["Jubilatorio — personal", "17,9%"],
-                  ["Cargas salariales (aguinaldo, licencia, salario vacacional)", "29,9%"],
-                  ["Salud (SNIS) — patronal", "5,5%"],
-                  ["Salud (SNIS) — personal", "3,5%"],
-                  ["BSE (accidentes de trabajo)", "6%"],
+                  ["Jubilatorio — patronal", `${fmtPct(AUC_PCT_JUBILATORIO_PATRONAL * 100)}%`],
+                  ["Jubilatorio — personal", `${fmtPct(AUC_PCT_JUBILATORIO_PERSONAL * 100)}%`],
+                  ["Cargas salariales (aguinaldo, licencia, salario vacacional)", `${fmtPct(AUC_PCT_CARGAS_SALARIALES * 100)}%`],
+                  ["Salud (SNIS) — patronal", `${fmtPct(AUC_PCT_FONASA_PATRONAL * 100)}%`],
+                  ["Salud (SNIS) — personal", `${fmtPct(AUC_PCT_FONASA_PERSONAL * 100)}%`],
+                  ["BSE (Banco de Seguros del Estado) — accidentes de trabajo", `${fmtPct(AUC_PCT_BSE * 100)}%`],
                 ]}
               />
               <p className="text-sm text-slate-500 mt-3">
@@ -357,13 +372,30 @@ export default function LeyesSocialesPage() {
               <h3 className="text-base font-bold text-[#1A3A5C] mb-1">
                 Ejemplo
               </h3>
-              <p className="text-sm text-slate-500 mb-1">
+              <p className="text-sm text-slate-500 mb-2">
                 Medio Oficial Albañil (Categoría V), jornal vigente {montoEjemplo(jornalEjemplo)}:
               </p>
-              <p className="text-sm text-slate-700">
-                Costo real de mano de obra por jornada ≈ {montoEjemplo(jornalEjemplo)} ×{" "}
-                {(1 + TOTAL_REFERENCIA_PCT / 100).toLocaleString("es-UY", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ≈{" "}
-                <span className="font-bold text-[#2563EB]">{montoEjemplo(costoRealEjemplo)}</span>
+              <ul className="text-sm text-slate-700 space-y-1.5">
+                <li>
+                  <strong>Lo que entra al APU del rubro:</strong> jornal × aportes patronales (
+                  {fmtPct(APORTES_PATRONALES_PCT_LEGAL_DEFAULT)}%) = {montoEjemplo(jornalEjemplo)} ×{" "}
+                  {(1 + APORTES_PATRONALES_PCT_LEGAL_DEFAULT / 100).toLocaleString("es-UY", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ≈{" "}
+                  <span className="font-bold text-[#2563EB]">{montoEjemplo(enApuEjemplo)}</span>
+                </li>
+                <li>
+                  <strong>Lo que paga el propietario aparte, fuera del Precio Final:</strong> AUC (
+                  {fmtPct(AUC_PCT_PUNTOS)}%) ≈ {montoEjemplo(aucEjemplo)}
+                </li>
+                <li className="text-slate-500">
+                  Costo total de la jornada, sumando las dos partes ≈ {montoEjemplo(jornalEjemplo)} ×{" "}
+                  {(1 + TOTAL_REFERENCIA_PCT / 100).toLocaleString("es-UY", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ≈{" "}
+                  {montoEjemplo(costoRealEjemplo)}
+                </li>
+              </ul>
+              <p className="text-sm text-slate-500 mt-3">
+                Si comparás este ejemplo con el APU de un rubro, los números no van a coincidir: en el APU
+                solo está la primera parte (jornal + aportes patronales). El AUC no entra al APU — lo paga el
+                propietario directamente al BPS y se muestra aparte, después del Precio Final.
               </p>
             </section>
 
@@ -401,8 +433,8 @@ export default function LeyesSocialesPage() {
                 Para refacciones equivalentes a hasta 30 jornadas de medio
                 oficial albañil, se puede optar por el régimen de industria
                 y comercio en vez del AUC — con aportes de 15% personal +
-                7,5% patronal + FONASA (4,5-6%) + FRL (0,1%), bastante menor
-                al 71,8% del AUC.
+                7,5% patronal + FONASA (Fondo Nacional de Salud, 4,5-6%) + FRL (0,1%), bastante menor
+                al {fmtPct(AUC_PCT_PUNTOS)}% del AUC.
               </p>
             </section>
 
@@ -417,8 +449,11 @@ export default function LeyesSocialesPage() {
                 depende del tipo de actividad (construcción), no de quién
                 contrata. Lo que sí puede variar en una licitación pública
                 son otros aspectos (garantías, RUPE, retenciones, ajuste
-                paramétrico) — ver guía aparte de Obra Pública
-                (próximamente).
+                paramétrico) — ver la{" "}
+                <Link href="/referencias#guia-obra-publica" className="font-medium text-[#2563EB] hover:underline">
+                  guía de Obra Pública
+                </Link>
+                .
               </p>
             </section>
 
@@ -447,18 +482,24 @@ export default function LeyesSocialesPage() {
                 presupuesto. Cada rubro guarda, en el momento en que se crea o
                 se vuelve a generar su Análisis de Precio Unitario, el
                 porcentaje de Aportes Patronales vigente en ese momento — y lo
-                mantiene así aunque después edites el porcentaje general. Solo
-                los rubros que agregues <strong>después</strong> del cambio
-                van a usar el porcentaje nuevo.
+                mantiene así aunque después edites el porcentaje general. Los
+                rubros que agregues <strong>después</strong> del cambio usan el
+                porcentaje nuevo; para los que ya estaban, usá el botón que se
+                explica abajo.
               </div>
 
               <p className="text-sm text-slate-500 mb-3">
                 Es la misma lógica que ya usa Cómputo+ para Gastos Generales y
                 Utilidad: un presupuesto que ya armaste (o que ya le entregaste
                 a un cliente) no tiene que cambiar de precio solo porque en
-                otro lado se actualizó una tasa. Si necesitás que un rubro
-                puntual tome el porcentaje nuevo, hay que volver a generar su
-                Análisis de Precio Unitario a mano.
+                otro lado se actualizó una tasa. Si necesitás que los rubros ya
+                cargados tomen el porcentaje nuevo, usá el botón{" "}
+                <strong className="text-slate-700">
+                  &quot;Aplicar aportes patronales a rubros existentes&quot;
+                </strong>{" "}
+                de la tarjeta Leyes Sociales/BPS del proyecto: muestra una vista
+                previa antes de aplicar y no toca los rubros con precio
+                congelado ni los proyectos finalizados.
               </p>
 
               <p className="text-sm text-slate-500 mb-2">
@@ -475,7 +516,7 @@ export default function LeyesSocialesPage() {
                   ],
                   [
                     "Dentro de cada rubro (dentro de su precio unitario)",
-                    "Congelado al crear o regenerar ese rubro puntual",
+                    "Congelado al crear o regenerar ese rubro, o al usar \"Aplicar aportes patronales a rubros existentes\"",
                   ],
                 ]}
               />

@@ -618,7 +618,7 @@ export default function SeccionCategoriasLaborales() {
               <li>
                 Pañolero/Canchero/Gruista y Sobrestante: convenio completo SUNCA Grupo 9 (categorías adicionales).
               </li>
-              <li>Jefatura de obra (Arquitecto o Ingeniero): honorario de referencia SAU o acuerdo de mercado.</li>
+              <li>Jefatura de obra (Arquitecto o Ingeniero): honorario de referencia SAU (Sociedad de Arquitectos del Uruguay) o acuerdo de mercado.</li>
             </ul>
           </div>
           <div className="space-y-2">

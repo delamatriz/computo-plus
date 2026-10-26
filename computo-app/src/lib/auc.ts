@@ -13,9 +13,16 @@
 // El AUC es solo informativo: no entra al precio de ningún rubro (se muestra
 // aparte, después del Precio Final).
 
-export const AUC_PCT_JUBILATORIOS = 0.09 + 0.179; // patronal 9% + personal 17,9%
+// Partes patronal y personal por separado: la guía /leyes-sociales las lista
+// una por una; la tarjeta Leyes Sociales/BPS usa las sumas de abajo.
+export const AUC_PCT_JUBILATORIO_PATRONAL = 0.09;
+export const AUC_PCT_JUBILATORIO_PERSONAL = 0.179;
+export const AUC_PCT_FONASA_PATRONAL = 0.055;
+export const AUC_PCT_FONASA_PERSONAL = 0.035;
+
+export const AUC_PCT_JUBILATORIOS = AUC_PCT_JUBILATORIO_PATRONAL + AUC_PCT_JUBILATORIO_PERSONAL; // 26,9%
 export const AUC_PCT_CARGAS_SALARIALES = 0.299; // licencia, aguinaldo, salario vacacional
-export const AUC_PCT_FONASA = 0.055 + 0.035; // SNIS: patronal 5,5% + obrero 3,5%
+export const AUC_PCT_FONASA = AUC_PCT_FONASA_PATRONAL + AUC_PCT_FONASA_PERSONAL; // SNIS: 9%
 export const AUC_PCT_BSE = 0.06; // accidentes de trabajo
 
 // Total legal (71,8%). Escrito como literal: es el valor que se guarda en
