@@ -18,6 +18,12 @@ interface EmpresaPerfil {
   logo: string | null;
 }
 
+// Límite del logo: se guarda en la base (data URL) y va a todos los PDF.
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// RUT: solo números, 10 a 12 dígitos (se aceptan puntos, guiones y espacios al tipear; se ignoran).
+const soloDigitosRut = (rut: string) => rut.replace(/[\s.-]/g, "");
+
 export default function ConfiguracionPage() {
   // Editar el perfil: solo ADMIN y SUPERADMIN (el servidor también lo exige). Un USUARIO lo ve en
   // solo lectura; null (cargando) cuenta como "no".
@@ -37,11 +43,21 @@ export default function ConfiguracionPage() {
   const [errorEmpresa, setErrorEmpresa] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState(false);
+  const [errorLogo, setErrorLogo] = useState<string | null>(null);
+  const [erroresCampo, setErroresCampo] = useState<{ rut?: string; email?: string }>({});
 
   useEffect(() => {
     async function cargar() {
-      const resEmpresa = await fetch("/api/empresa/perfil");
-      const dataEmpresa: EmpresaPerfil = await resEmpresa.json();
+      let dataEmpresa: EmpresaPerfil;
+      try {
+        const resEmpresa = await fetch("/api/empresa/perfil");
+        if (!resEmpresa.ok) throw new Error(`HTTP ${resEmpresa.status}`);
+        dataEmpresa = await resEmpresa.json();
+      } catch {
+        setErrorCarga(true);
+        return;
+      }
 
       setEmpresaForm({
         nombre: dataEmpresa.nombre || "",
@@ -60,6 +76,12 @@ export default function ConfiguracionPage() {
   function manejarSeleccionLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];
     if (!archivo) return;
+    e.target.value = "";
+    if (archivo.size > LOGO_MAX_BYTES) {
+      setErrorLogo("El logo no puede superar 2MB. Usá una imagen más chica.");
+      return;
+    }
+    setErrorLogo(null);
 
     const reader = new FileReader();
     reader.onload = () => setEmpresaForm((prev) => ({ ...prev, logo: reader.result as string }));
@@ -67,6 +89,13 @@ export default function ConfiguracionPage() {
   }
 
   async function guardarEmpresa() {
+    const errores: { rut?: string; email?: string } = {};
+    const rut = soloDigitosRut(empresaForm.rut);
+    if (!/^\d{10,12}$/.test(rut)) errores.rut = "El RUT tiene que tener solo números, entre 10 y 12 dígitos.";
+    if (empresaForm.email.trim() && !EMAIL_VALIDO.test(empresaForm.email.trim())) errores.email = "Ingresá un email válido.";
+    setErroresCampo(errores);
+    if (errores.rut || errores.email) return;
+
     setGuardandoEmpresa(true);
     setEmpresaGuardada(false);
     setErrorEmpresa(null);
@@ -74,7 +103,7 @@ export default function ConfiguracionPage() {
       const res = await fetch("/api/empresa/perfil", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(empresaForm),
+        body: JSON.stringify({ ...empresaForm, rut, email: empresaForm.email.trim() }),
       });
       if (!res.ok) {
         // El servidor manda `mensaje` (RUT duplicado) o `error` (ej. 403 de rol); si no, uno genérico.
@@ -93,15 +122,19 @@ export default function ConfiguracionPage() {
 
   if (cargando) {
     return (
-      <div className="p-8">
+      <div className="p-6 md:p-8">
         <BotonVolverAlProyecto />
-        <p className="text-slate-500">Cargando configuración...</p>
+        {errorCarga ? (
+          <p className="text-red-600">No se pudo cargar la configuración. Recargá la página.</p>
+        ) : (
+          <p className="text-slate-500">Cargando configuración...</p>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-6 md:p-8 max-w-3xl">
       <BotonVolverAlProyecto />
       <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Configuración</h1>
       <p className="text-slate-500 mb-8">
@@ -111,12 +144,12 @@ export default function ConfiguracionPage() {
       <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
         <h2 className="text-lg font-semibold text-[#1E293B] mb-1">Perfil de la Empresa</h2>
         <p className="text-sm text-slate-500 mb-4">
-          Estos datos aparecen en la portada del PDF de presupuesto.
+          Estos datos aparecen en los PDF de presupuesto, Cálculo Rápido y órdenes de compra.
         </p>
 
         {/* fieldset disabled: todos los campos y botones quedan en solo lectura para un USUARIO. */}
         <fieldset disabled={!puedeEditar} className="contents">
-        <div className="flex items-start gap-5 mb-5">
+        <div className="flex flex-col sm:flex-row items-start gap-5 mb-5">
           <div className="flex flex-col items-center gap-2">
             <div className="w-20 h-20 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
               {empresaForm.logo ? (
@@ -141,9 +174,10 @@ export default function ConfiguracionPage() {
                 Subir logo
               </button>
             )}
+            {errorLogo && <p className="text-xs text-red-600 max-w-[160px] text-center">{errorLogo}</p>}
           </div>
 
-          <div className="flex-1 grid grid-cols-2 gap-4">
+          <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-[#1E293B] mb-1.5">
                 Nombre de la empresa
@@ -162,11 +196,12 @@ export default function ConfiguracionPage() {
                 type="text"
                 value={empresaForm.rut}
                 onChange={(e) => setEmpresaForm((prev) => ({ ...prev, rut: e.target.value }))}
-                placeholder="ej: 21.123.456-0012"
+                placeholder="ej: 211234560012"
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
               />
+              {erroresCampo.rut && <p className="text-xs text-red-600 mt-1">{erroresCampo.rut}</p>}
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-[#1E293B] mb-1.5">Dirección</label>
               <input
                 type="text"
@@ -195,8 +230,9 @@ export default function ConfiguracionPage() {
                 placeholder="ej: contacto@empresa.com.uy"
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
               />
+              {erroresCampo.email && <p className="text-xs text-red-600 mt-1">{erroresCampo.email}</p>}
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-[#1E293B] mb-1.5">Sitio web</label>
               <input
                 type="text"
