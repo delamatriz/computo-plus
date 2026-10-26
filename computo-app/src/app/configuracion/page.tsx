@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import SeccionAplicarPreciosVigentes from "@/components/configuracion/SeccionAplicarPreciosVigentes";
 import SeccionIndiceICCV from "@/components/configuracion/SeccionIndiceICCV";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
+import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
+import { useRolUsuario } from "@/hooks/useSuperadmin";
 
 interface EmpresaPerfil {
   id: string;
@@ -17,6 +19,10 @@ interface EmpresaPerfil {
 }
 
 export default function ConfiguracionPage() {
+  // Editar el perfil: solo ADMIN y SUPERADMIN (el servidor también lo exige). Un USUARIO lo ve en
+  // solo lectura; null (cargando) cuenta como "no".
+  const rol = useRolUsuario();
+  const puedeEditar = rol === "ADMIN" || rol === "SUPERADMIN";
   const [empresaForm, setEmpresaForm] = useState({
     nombre: "",
     rut: "",
@@ -97,6 +103,8 @@ export default function ConfiguracionPage() {
           Estos datos aparecen en la portada del PDF de presupuesto.
         </p>
 
+        {/* fieldset disabled: todos los campos y botones quedan en solo lectura para un USUARIO. */}
+        <fieldset disabled={!puedeEditar} className="contents">
         <div className="flex items-start gap-5 mb-5">
           <div className="flex flex-col items-center gap-2">
             <div className="w-20 h-20 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
@@ -114,12 +122,14 @@ export default function ConfiguracionPage() {
               className="hidden"
               onChange={manejarSeleccionLogo}
             />
-            <button
-              onClick={() => logoInputRef.current?.click()}
-              className="text-xs font-medium text-[#2563EB] hover:underline"
-            >
-              Subir logo
-            </button>
+            {puedeEditar && (
+              <button
+                onClick={() => logoInputRef.current?.click()}
+                className="text-xs font-medium text-[#2563EB] hover:underline"
+              >
+                Subir logo
+              </button>
+            )}
           </div>
 
           <div className="flex-1 grid grid-cols-2 gap-4">
@@ -188,6 +198,10 @@ export default function ConfiguracionPage() {
           </div>
         </div>
 
+        </fieldset>
+
+        {rol !== null && !puedeEditar && <AvisoSoloAdministrador texto="Solo el administrador de tu empresa puede modificar esto." />}
+        {puedeEditar && (
         <div className="flex items-center gap-3">
           <button
             onClick={guardarEmpresa}
@@ -200,11 +214,12 @@ export default function ConfiguracionPage() {
             <span className="text-sm text-emerald-600">Cambios guardados</span>
           )}
         </div>
+        )}
       </section>
 
-      <SeccionIndiceICCV />
-
       <SeccionAplicarPreciosVigentes />
+
+      <SeccionIndiceICCV />
     </div>
   );
 }

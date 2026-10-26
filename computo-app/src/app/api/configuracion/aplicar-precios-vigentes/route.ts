@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aplicarPrecioVigenteRubro, calcularPrecioVigenteRubro } from "@/lib/recalcularPrecioRubro";
-import { requerirSesion, requerirProyecto } from "@/lib/sesion";
+import { requerirAdminOSuperadmin, requerirSesion, requerirProyecto } from "@/lib/sesion";
 
 interface RubroSinDesglose {
   rubroId: string;
@@ -49,7 +49,32 @@ export async function POST(req: NextRequest) {
       });
       rubroIds = rubrosDelProyecto.map((r) => r.id);
     } else {
+      // Modo Configuración ("Aplicar a presupuestos existentes"): solo ADMIN o SUPERADMIN.
+      if (!dryRun) {
+        const admin = await requerirAdminOSuperadmin("Solo el administrador de tu empresa puede modificar esto.");
+        if (admin instanceof NextResponse) return admin;
+      }
       rubroIds = Array.isArray(body?.rubroIds) ? body.rubroIds : [];
+      // Igual que aplicar-computo y propagar-aportes-patronales: si algún proyecto de la selección ya
+      // tiene contrato, certificaciones o liquidación final, aplicar exige confirmarContrato.
+      if (!dryRun && rubroIds.length > 0 && body?.confirmarContrato !== true) {
+        const contratados = await db.proyecto.count({
+          where: {
+            empresaId: sesion.empresaId,
+            capitulos: { some: { rubros: { some: { id: { in: rubroIds } } } } },
+            OR: [{ contrato: { isNot: null } }, { liquidacionFinal: { isNot: null } }, { certificaciones: { some: {} } }],
+          },
+        });
+        if (contratados > 0) {
+          return NextResponse.json(
+            {
+              error: "requiere_confirmacion_contrato",
+              mensaje: "Algún proyecto tiene certificaciones o contratos: cambiar los precios puede afectar los totales. Confirmá para continuar.",
+            },
+            { status: 409 }
+          );
+        }
+      }
     }
 
     if (rubroIds.length === 0) {

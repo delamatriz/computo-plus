@@ -88,9 +88,9 @@ export default function SeccionIndiceICCV() {
         <div className="flex items-center gap-2.5">
           <TrendingUp className="w-4 h-4 text-[#2563EB]" />
           <div>
-            <h2 className="text-lg font-semibold text-[#1E293B]">Índice ICCV mensual</h2>
+            <h2 className="text-lg font-semibold text-[#1E293B]">Índice de Costo de la Construcción (ICCV)</h2>
             <p className="text-sm text-slate-500">
-              Carga manual del índice publicado por el INE — usado por &quot;Actualizar por ICCV&quot; en cada proyecto.
+              Cargá el índice mensual que publica el INE para actualizar presupuestos por variación de costos.
             </p>
           </div>
         </div>

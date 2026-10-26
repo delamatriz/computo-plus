@@ -4,6 +4,9 @@ import { useMemo, useState } from "react";
 import { Lock, Loader2, RefreshCw, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
+import { capitalizarDescripcion } from "@/lib/capitalizarDescripcion";
+import { useRolUsuario } from "@/hooks/useSuperadmin";
+import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
 
 interface RubroAfectado {
   rubroId: string;
@@ -21,6 +24,7 @@ interface ProyectoAfectado {
   nombre: string;
   moneda: string;
   finalizado: boolean;
+  tieneContratoOCertificaciones: boolean;
   rubros: RubroAfectado[];
 }
 
@@ -42,6 +46,9 @@ function fmtMoneda(v: number, moneda: string): string {
 }
 
 export default function SeccionAplicarPreciosVigentes() {
+  // Solo ADMIN y SUPERADMIN (el servidor también lo exige); null (cargando) cuenta como "no".
+  const rol = useRolUsuario();
+  const puedeAplicar = rol === "ADMIN" || rol === "SUPERADMIN";
   const [estado, setEstado] = useState<"cerrado" | "revisando">("cerrado");
   const [cargandoDryRun, setCargandoDryRun] = useState(false);
   const [datos, setDatos] = useState<DryRunResultado | null>(null);
@@ -114,6 +121,12 @@ export default function SeccionAplicarPreciosVigentes() {
     return datos.proyectos.filter((p) => p.rubros.some((r) => seleccionados.has(r.rubroId))).length;
   }, [datos, seleccionados]);
 
+  // Algún proyecto de la selección con contrato o certificaciones: se avisa y se confirma explícitamente.
+  const seleccionConContrato = useMemo(
+    () => !!datos?.proyectos.some((p) => p.tieneContratoOCertificaciones && p.rubros.some((r) => seleccionados.has(r.rubroId))),
+    [datos, seleccionados]
+  );
+
   const aplicarSeleccionados = async () => {
     setAplicando(true);
     setError(null);
@@ -121,7 +134,8 @@ export default function SeccionAplicarPreciosVigentes() {
       const res = await fetch("/api/configuracion/aplicar-precios-vigentes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rubroIds: Array.from(seleccionados) }),
+        // El usuario ya vio el aviso de contrato/certificaciones en la confirmación (si lo había).
+        body: JSON.stringify({ rubroIds: Array.from(seleccionados), confirmarContrato: seleccionConContrato }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: ResultadoApply = await res.json();
@@ -139,18 +153,19 @@ export default function SeccionAplicarPreciosVigentes() {
     <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
       <h2 className="text-lg font-semibold text-[#1E293B] mb-1">Aplicar a presupuestos existentes</h2>
       <p className="text-sm text-slate-500 mb-4">
-        Revisá y actualizá los presupuestos ya entregados cuyos materiales o jornales quedaron desactualizados
-        respecto a la Lista MTOP y el Convenio SUNCA vigentes.
+        Revisá y actualizá los rubros con precio congelado de proyectos que se entregaron, cuando cambian los
+        materiales o jornales del catálogo.
       </p>
 
       <button
         onClick={abrirRevision}
-        disabled={cargandoDryRun}
+        disabled={cargandoDryRun || !puedeAplicar}
         className="inline-flex items-center gap-2 bg-[#2563EB] text-white text-sm font-medium px-3.5 py-2 rounded-lg hover:bg-[#1d4ed8] disabled:opacity-60 transition-colors"
       >
         {cargandoDryRun ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
         {cargandoDryRun ? "Revisando presupuestos…" : "Aplicar a presupuestos existentes"}
       </button>
+      {rol !== null && !puedeAplicar && <AvisoSoloAdministrador texto="Solo el administrador de tu empresa puede modificar esto." />}
 
       {error && !datos && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-800 rounded-lg px-3 py-2.5 mt-3 text-sm">
@@ -257,7 +272,7 @@ export default function SeccionAplicarPreciosVigentes() {
                                   />
                                 </td>
                                 <td className="py-2 px-2">
-                                  <p className="text-[#1E293B]">{r.descripcion}</p>
+                                  <p className="text-[#1E293B]">{capitalizarDescripcion(r.descripcion)}</p>
                                   <div className="flex items-center gap-1.5 mt-0.5">
                                     {r.cambiaMateriales && (
                                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
@@ -341,6 +356,15 @@ export default function SeccionAplicarPreciosVigentes() {
               en <strong>{proyectosConSeleccion}</strong> proyecto{proyectosConSeleccion === 1 ? "" : "s"}. Esta
               acción no se puede deshacer masivamente — solo rubro por rubro, a mano, desde cada proyecto. ¿Continuar?
             </p>
+            {seleccionConContrato && (
+              <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 -mt-3 mb-6 text-sm text-amber-800">
+                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>
+                  Este proyecto tiene certificaciones o contratos. Cambiar los precios puede afectar los totales. ¿Querés
+                  continuar?
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => setMostrarConfirm(false)}

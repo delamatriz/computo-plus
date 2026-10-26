@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requerirSesion } from "@/lib/sesion";
+import { requerirAdminOSuperadmin, requerirSesion } from "@/lib/sesion";
 
 // La empresa es la del usuario logueado (tenant). Siempre existe: el
 // usuario no puede crearse sin empresa (User.empresaId es obligatorio).
@@ -17,8 +17,9 @@ export async function GET() {
   }
 }
 
+// Editar el perfil: solo ADMIN o SUPERADMIN (un USUARIO lo ve en solo lectura).
 export async function PATCH(request: Request) {
-  const sesion = await requerirSesion();
+  const sesion = await requerirAdminOSuperadmin("Solo el administrador de tu empresa puede modificar esto.");
   if (sesion instanceof NextResponse) return sesion;
   try {
     const body = await request.json();

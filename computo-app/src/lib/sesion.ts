@@ -158,12 +158,14 @@ export async function esSuperadmin(sesion: SesionUsuario): Promise<boolean> {
  * Sesión + rol ADMIN o SUPERADMIN (importar listas de precios). El rol se lee de la base, no del
  * JWT. Devuelve la sesión con `rol` ya resuelto; con otro rol (USUARIO) → 403.
  */
-export async function requerirAdminOSuperadmin(): Promise<SesionUsuario | NextResponse> {
+export async function requerirAdminOSuperadmin(
+  mensaje = "Solo un administrador puede importar listas de precios"
+): Promise<SesionUsuario | NextResponse> {
   const sesion = await resolverSesion();
   if (sesion instanceof NextResponse) return sesion;
   const user = await db.user.findUnique({ where: { id: sesion.id }, select: { rol: true } });
   if (!user || !esRol(user.rol) || (user.rol !== "SUPERADMIN" && user.rol !== "ADMIN")) {
-    return NextResponse.json({ error: "Solo un administrador puede importar listas de precios" }, { status: 403 });
+    return NextResponse.json({ error: mensaje }, { status: 403 });
   }
   return { ...sesion, rol: user.rol };
 }

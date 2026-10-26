@@ -26,6 +26,9 @@ export async function GET() {
         nombre: true,
         moneda: true,
         estado: true,
+        contrato: { select: { id: true } },
+        liquidacionFinal: { select: { id: true } },
+        _count: { select: { certificaciones: true } },
         capitulos: {
           select: {
             rubros: {
@@ -42,6 +45,8 @@ export async function GET() {
       nombre: string;
       moneda: string;
       finalizado: boolean;
+      // Contrato, certificaciones o liquidación final: la pantalla avisa antes de aplicar.
+      tieneContratoOCertificaciones: boolean;
       rubros: {
         rubroId: string;
         codigo: string;
@@ -87,6 +92,7 @@ export async function GET() {
           nombre: p.nombre,
           moneda: p.moneda,
           finalizado: p.estado === "FINALIZADO",
+          tieneContratoOCertificaciones: !!p.contrato || !!p.liquidacionFinal || p._count.certificaciones > 0,
           rubros: rubrosAfectados,
         });
       }
