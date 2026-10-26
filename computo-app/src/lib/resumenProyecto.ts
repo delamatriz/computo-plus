@@ -23,6 +23,16 @@ export const SELECT_CAPITULOS_RESUMEN = {
   },
 } as const;
 
+/**
+ * Qué cuenta como "obra en curso" (Obras en curso y el link del Panel de control):
+ * un proyecto En curso que ya tiene contrato o al menos una certificación. Un
+ * proyecto En curso sin ninguno de los dos es un presupuesto en elaboración.
+ */
+export const WHERE_OBRA_EN_CURSO = {
+  estado: "EN_CURSO",
+  OR: [{ contrato: { isNot: null } }, { certificaciones: { some: {} } }],
+};
+
 /** Total presupuestado: Costo Directo + Utilidad (Σ precioUnit × cantidad), sin Gastos Generales ni IVA. */
 export function totalPresupuestado(p: Pick<ProyectoResumen, "capitulos">): number {
   return p.capitulos.reduce((a, c) => a + c.rubros.reduce((b, r) => b + r.precioUnit * r.cantidad, 0), 0);

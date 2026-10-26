@@ -3,7 +3,13 @@ import Link from "next/link";
 import { Settings } from "lucide-react";
 import GraficoProyectosPorMes from "@/components/dashboard/GraficoProyectosPorMes";
 import { esSuperadmin, sesionActual } from "@/lib/sesion";
-import { SELECT_CAPITULOS_RESUMEN, nombreProyectoParaMostrar, totalPresupuestado, ultimaModificacion } from "@/lib/resumenProyecto";
+import {
+  SELECT_CAPITULOS_RESUMEN,
+  WHERE_OBRA_EN_CURSO,
+  nombreProyectoParaMostrar,
+  totalPresupuestado,
+  ultimaModificacion,
+} from "@/lib/resumenProyecto";
 import { redirect } from "next/navigation";
 import { fechaUruguay, partesFechaUruguay } from "@/lib/fechaUruguay";
 
@@ -74,7 +80,7 @@ export default async function DashboardPage() {
   // SUPERADMIN (la página /configuracion/revision-precios lo exige), así que
   // al resto ni se le cuenta ni se le muestra la tarjeta.
   const superadmin = await esSuperadmin(sesion);
-  const [proyectos, materialesPendientes] = await Promise.all([
+  const [proyectos, materialesPendientes, obrasEnCurso] = await Promise.all([
     db.proyecto.findMany({
       where: { empresaId: sesion.empresaId },
       orderBy: { createdAt: "desc" },
@@ -84,6 +90,8 @@ export default async function DashboardPage() {
       },
     }),
     superadmin ? db.precioMTOP.count({ where: { requiereVerificacion: true, empresaId: null } }) : Promise.resolve(0),
+    // Mismo criterio que /obras-en-curso: el link solo aparece si hay alguna.
+    db.proyecto.count({ where: { empresaId: sesion.empresaId, ...WHERE_OBRA_EN_CURSO } }),
   ]);
 
   // Total y última modificación: lib/resumenProyecto.ts (los mismos que Mis Proyectos).
@@ -193,6 +201,15 @@ export default async function DashboardPage() {
           </Link>
         )}
       </div>
+
+      {/* Acceso discreto a Obras en curso: solo si hay alguna (mismo criterio que esa página). */}
+      {obrasEnCurso > 0 && (
+        <div className="-mt-5 mb-8 flex justify-end">
+          <Link href="/obras-en-curso" className="text-sm text-[#2563EB] hover:underline">
+            Ver obras en curso ({obrasEnCurso}) →
+          </Link>
+        </div>
+      )}
 
       {/* Proyectos creados por mes — últimos 6 meses, agregado de todos los
           proyectos (no la curva S de un proyecto puntual, esa vive en

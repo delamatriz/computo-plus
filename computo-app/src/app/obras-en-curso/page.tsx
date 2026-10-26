@@ -65,7 +65,10 @@ export default function ObrasEnCursoPage() {
           <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
             <HardHat className="w-6 h-6 text-[#2563EB]" />
           </div>
-          <p className="text-base font-semibold text-[#1A3A5C]">No tenés obras en curso</p>
+          <p className="text-base font-semibold text-[#1A3A5C]">Todavía no tenés obras en curso.</p>
+          <p className="text-sm text-slate-500 mt-1 max-w-md">
+            Un proyecto pasa a ser una obra cuando tiene contrato o certificaciones cargadas en Gestión de Obra.
+          </p>
         </div>
       ) : (
         <ul className="space-y-3">
