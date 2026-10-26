@@ -79,6 +79,10 @@ export const FONDOS_PATRONALES: readonly FondoPatronal[] = [
 export const SNIS_ADICIONAL_PERSONAL_PCT = 0.5;
 /** FOCER personal (código 146), retención al obrero. Antes 3,0 sin fuente. */
 export const FOCER_PERSONAL_PCT = 0.5;
+/** FOCER patronal reducido (Ley 18.236 art. 16): si el trabajador tiene derecho
+ *  a indemnización por despido y la empresa lo declara. El default es el 5% de
+ *  FONDOS_PATRONALES; este valor se carga a mano por proyecto. */
+export const FOCER_PATRONAL_PCT_REDUCIDO = 0.5;
 
 // Valores históricos (antes de oct-2026), en fracción — para que el script
 // reconozca "exactamente los valores viejos" y no pise lo personalizado.

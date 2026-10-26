@@ -13,7 +13,14 @@ import {
   AUC_PCT_FONASA_PERSONAL,
   AUC_PCT_BSE,
 } from "@/lib/auc";
-import { FONDOS_PATRONALES, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/aportesPatronales";
+import {
+  FONDOS_PATRONALES,
+  APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
+  FOCER_PERSONAL_PCT,
+  FOCER_PATRONAL_PCT_REDUCIDO,
+  SNIS_ADICIONAL_PERSONAL_PCT,
+} from "@/lib/aportesPatronales";
+import { CAJA_PROFESIONALES_PCT } from "@/lib/cajaProfesionales";
 
 // Los porcentajes de los aportes patronales salen de aportesPatronales.ts
 // (única fuente, la misma que usan los rubros nuevos y la tarjeta Leyes
@@ -31,6 +38,10 @@ const AUC_PCT_PUNTOS = AUC_PCT_DEFAULT * 100;
 // Total de referencia sobre el jornal: AUC (lo paga el propietario) + los
 // aportes patronales (los paga la empresa).
 const TOTAL_REFERENCIA_PCT = AUC_PCT_PUNTOS + APORTES_PATRONALES_PCT_LEGAL_DEFAULT;
+// FOCER patronal por defecto (5%), de la misma lista que suma los aportes.
+const FOCER_PATRONAL_PCT = FONDOS_PATRONALES.find((f) => f.campo === "focerPatronalPct")!.pct;
+const CAJA_ARQ = fmtPct(CAJA_PROFESIONALES_PCT.ARQUITECTURA);
+const CAJA_ING = fmtPct(CAJA_PROFESIONALES_PCT.INGENIERIA);
 
 // Info general de BPS (no el texto de una ley puntual) — base de esta
 // sección práctica.
@@ -180,7 +191,7 @@ export default function LeyesSocialesPage() {
           <p className="text-sm text-slate-600">
             Es el monto en pesos que corresponde a una categoría puntual de
             trabajador — por ejemplo, {montoEjemplo(jornalEjemplo)} para un
-            Medio Oficial Albañil (Categoría V). El laudo (o convenio SUNCA) es la tabla completa con
+            Medio Oficial Albañil (Categoría V). El laudo (o convenio SUNCA — Sindicato Único Nacional de la Construcción y Anexos) es la tabla completa con
             los jornales de todas las categorías; el jornal es el valor
             específico de una categoría dentro de esa tabla.
           </p>
@@ -239,7 +250,7 @@ export default function LeyesSocialesPage() {
                     "Lo paga el propietario directamente al BPS. Va aparte, después del Precio Final: no entra al precio de ningún rubro",
                   ],
                   [
-                    "Caja de Profesionales (4% arquitectura / 2% ingeniería)",
+                    `Caja de Profesionales (${CAJA_ARQ}% arquitectura / ${CAJA_ING}% ingeniería)`,
                     "La paga el propietario y se recauda junto con el AUC, sobre el mismo monto imponible. En Cómputo+ es solo informativa: no entra a ningún precio",
                   ],
                   [
@@ -247,7 +258,7 @@ export default function LeyesSocialesPage() {
                     "Los paga la empresa. Van dentro del costo de la mano de obra de cada rubro, como un % solo sobre la mano de obra",
                   ],
                   [
-                    "Aportes personales (FOCER personal 0,5%, SNIS — Sistema Nacional Integrado de Salud — adicional)",
+                    `Aportes personales (FOCER personal ${fmtPct(FOCER_PERSONAL_PCT)}%, SNIS — Sistema Nacional Integrado de Salud — adicional)`,
                     "Los paga el trabajador: se le descuentan del jornal. No son un costo de la empresa y no entran al precio (se muestran como informativos)",
                   ],
                 ]}
@@ -305,10 +316,12 @@ export default function LeyesSocialesPage() {
               />
               <p className="text-sm text-slate-500 mt-3">
                 <strong className="text-slate-700">FOCER patronal:</strong>{" "}
-                es 5% por defecto y corresponde 0,5% si el trabajador tiene
+                es {fmtPct(FOCER_PATRONAL_PCT)}% por defecto y corresponde{" "}
+                {fmtPct(FOCER_PATRONAL_PCT_REDUCIDO)}% si el trabajador tiene
                 derecho a indemnización por despido y la empresa lo declara
-                (declaración jurada) — Ley 18.236, art. 16. La tabla usa el
-                5%; si en la obra corresponde el 0,5%, se edita en
+                (declaración jurada) — Ley 18.236, art. 16. La tabla usa el{" "}
+                {fmtPct(FOCER_PATRONAL_PCT)}%; si en la obra corresponde el{" "}
+                {fmtPct(FOCER_PATRONAL_PCT_REDUCIDO)}%, se edita en
                 Presupuesto → Leyes Sociales/BPS. Ojo: al cambiarlo, los
                 rubros ya creados no se modifican (cada uno guarda el % con el
                 que se creó); para actualizarlos usá el botón{" "}
@@ -322,7 +335,7 @@ export default function LeyesSocialesPage() {
                 <strong className="text-slate-700">SNIS adicional:</strong>{" "}
                 no es un aporte patronal sino un aporte{" "}
                 <strong className="text-slate-700">personal</strong> variable
-                del trabajador (0,5% de referencia): por eso no entra en la
+                del trabajador ({fmtPct(SNIS_ADICIONAL_PERSONAL_PCT)}% de referencia): por eso no entra en la
                 tabla ni en el precio del rubro.
               </p>
               <p className="text-sm text-slate-500 mt-2">
@@ -346,7 +359,7 @@ export default function LeyesSocialesPage() {
                 Caja de Profesionales
               </h3>
               <p className="text-sm text-slate-500">
-                4% del monto imponible en obras de arquitectura (2% en
+                {CAJA_ARQ}% del monto imponible en obras de arquitectura ({CAJA_ING}% en
                 ingeniería) — Ley 17.738. Se recauda junto con el AUC y es
                 aparte de él, no lo reemplaza. En la tarjeta Leyes
                 Sociales/BPS la elegís (Arquitectura / Ingeniería / No aplica;
@@ -377,7 +390,7 @@ export default function LeyesSocialesPage() {
               </p>
               <ul className="text-sm text-slate-700 space-y-1.5">
                 <li>
-                  <strong>Lo que entra al APU del rubro:</strong> jornal × aportes patronales (
+                  <strong>Lo que entra al APU (Análisis de Precio Unitario) del rubro:</strong> jornal × aportes patronales (
                   {fmtPct(APORTES_PATRONALES_PCT_LEGAL_DEFAULT)}%) = {montoEjemplo(jornalEjemplo)} ×{" "}
                   {(1 + APORTES_PATRONALES_PCT_LEGAL_DEFAULT / 100).toLocaleString("es-UY", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ≈{" "}
                   <span className="font-bold text-[#2563EB]">{montoEjemplo(enApuEjemplo)}</span>
@@ -396,6 +409,10 @@ export default function LeyesSocialesPage() {
                 Si comparás este ejemplo con el APU de un rubro, los números no van a coincidir: en el APU
                 solo está la primera parte (jornal + aportes patronales). El AUC no entra al APU — lo paga el
                 propietario directamente al BPS y se muestra aparte, después del Precio Final.
+              </p>
+              <p className="text-sm text-slate-500 mt-2">
+                El precio unitario del rubro suma además la Utilidad sobre el costo directo — por eso el precio
+                final del rubro va a ser mayor que estos valores.
               </p>
             </section>
 
@@ -448,7 +465,7 @@ export default function LeyesSocialesPage() {
                 un particular, una empresa privada o un organismo público —
                 depende del tipo de actividad (construcción), no de quién
                 contrata. Lo que sí puede variar en una licitación pública
-                son otros aspectos (garantías, RUPE, retenciones, ajuste
+                son otros aspectos (garantías, RUPE — Registro Único de Proveedores del Estado —, retenciones, ajuste
                 paramétrico) — ver la{" "}
                 <Link href="/referencias#guia-obra-publica" className="font-medium text-[#2563EB] hover:underline">
                   guía de Obra Pública
