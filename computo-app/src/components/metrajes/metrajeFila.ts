@@ -74,6 +74,18 @@ export interface ActualizacionComputo {
   desglosePorDocumento: DesgloseDocumento[];
 }
 
+// Respuesta completa de aplicar-computo (preview y aplicado).
+export interface ResultadoAplicarComputo {
+  actualizaciones: ActualizacionComputo[];
+  // true si el proyecto ya tiene contrato, certificaciones o liquidación
+  // final: cambiar cantidades altera lo contratado, el modal avisa y el
+  // servidor exige confirmarContrato para aplicar.
+  tieneContratoOCertificaciones: boolean;
+  // Rubros cuya cantidad vino del cómputo y ya no tienen ninguna fila
+  // vinculada: "Aplicar" no los toca (conservan la cantidad), se avisa.
+  rubrosSinFilas: string[];
+}
+
 export function fmtNum(v: number, decimales = 2): string {
   return v.toLocaleString("es-UY", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
 }

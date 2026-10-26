@@ -3424,7 +3424,7 @@ export default function Visor({
               disabled={!puedeActivarMedicion}
               title={
                 documentoPrincipal.tipoArchivo !== "PDF"
-                  ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
+                  ? "Medición disponible solo para planos en PDF por ahora. Próximamente disponible para fotos."
                   : controlesMedicion?.herramienta === "LINEA"
                   ? "Midiendo — arrastrá de una punta a la otra, o hacé clic en cada punta. Esc cancela."
                   : "Medir una distancia trazando una línea sobre el plano"
@@ -3459,7 +3459,7 @@ export default function Visor({
                   {controlesMedicion?.medicionObjetivo
                     ? "No disponible mientras se está midiendo un ANCHO — cancelá con ESC o con el ícono de regla"
                     : documentoPrincipal.tipoArchivo !== "PDF"
-                    ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
+                    ? "Medición disponible solo para planos en PDF por ahora. Próximamente disponible para fotos."
                     : "Clic en cada punto. Doble clic, Enter o clic derecho para terminar. Esc cancela."}
                 </span>
               </span>
@@ -3471,7 +3471,7 @@ export default function Visor({
                 controlesMedicion?.medicionObjetivo
                   ? "No disponible mientras se está midiendo un ANCHO — cancelá con ESC o con el ícono de regla"
                   : documentoPrincipal.tipoArchivo !== "PDF"
-                  ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
+                  ? "Medición disponible solo para planos en PDF por ahora. Próximamente disponible para fotos."
                   : controlesMedicion?.herramienta !== "AREA"
                   ? "Medir una superficie dibujando un polígono sobre el plano — clic para cada vértice"
                   : controlesMedicion.puntosAreaCount < 3
@@ -3495,7 +3495,7 @@ export default function Visor({
                 controlesMedicion?.medicionObjetivo
                   ? "No disponible mientras se está midiendo un ANCHO — cancelá con ESC o con el ícono de regla"
                   : documentoPrincipal.tipoArchivo !== "PDF"
-                  ? "Medición disponible solo para planos en PDF por ahora — para fotos hace falta calibrar por cota (próxima ronda)"
+                  ? "Medición disponible solo para planos en PDF por ahora. Próximamente disponible para fotos."
                   : controlesMedicion?.herramienta !== "PUNTO"
                   ? "Contar elementos puntuales sobre el plano — clic por cada uno"
                   : controlesMedicion.puntosPuntoCount < 1

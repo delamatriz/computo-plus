@@ -33,8 +33,8 @@ const PASOS_METRAR: PasoMetrar[] = [
         En la pestaña <strong className="text-slate-700">Presupuesto</strong>,
         abrí <strong className="text-slate-700">Documentación para metrar</strong> y
         subí tu plano en la bandeja{" "}
-        <strong className="text-slate-700">Planos y documentos</strong> (PDF,
-        imagen o DWG). Después hacé clic en{" "}
+        <strong className="text-slate-700">Planos y documentos</strong> (PDF
+        o imagen). Después hacé clic en{" "}
         <strong className="text-slate-700">
           Ir al visor y planilla de metraje
         </strong>
@@ -52,8 +52,7 @@ const PASOS_METRAR: PasoMetrar[] = [
         escribila tal como figura en el plano (ej.{" "}
         <strong className="text-slate-700">1:100</strong>) — sin este paso
         las herramientas de medir quedan bloqueadas. Por ahora la
-        calibración funciona sobre planos en PDF; para imagen y DWG está en
-        camino.
+        calibración funciona sobre planos en PDF; para imagen, próximamente.
       </>
     ),
   },
@@ -104,8 +103,8 @@ const PASOS_METRAR: PasoMetrar[] = [
         Con <strong className="text-slate-700">Aplicar al presupuesto</strong>,
         arriba de la Planilla, vas a ver antes de nada un resumen —
         cantidad actual y cantidad nueva de cada rubro afectado — para
-        confirmar. Ojo: aplica todas las filas vinculadas pendientes del
-        proyecto, no solo la última que mediste.
+        confirmar. Ojo: aplica todas las filas vinculadas al presupuesto,
+        no solo la última que mediste.
       </>
     ),
   },

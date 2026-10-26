@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { subtotalFila, type ActualizacionComputo, type DesgloseDocumento } from "@/components/metrajes/metrajeFila";
+import {
+  subtotalFila,
+  type ActualizacionComputo,
+  type DesgloseDocumento,
+  type ResultadoAplicarComputo,
+} from "@/components/metrajes/metrajeFila";
 import { requerirProyecto } from "@/lib/sesion";
 
 // "Aplicar al presupuesto" — botón único en la cabecera de la Planilla de
@@ -14,6 +19,11 @@ import { requerirProyecto } from "@/lib/sesion";
 // cantidadActual en la respuesta siempre es el valor de Rubro.cantidad
 // ANTES de este request — en el modo aplicar, eso es justo el "antes"
 // que necesita el modal de resultado para el antes/después.
+// Igual que propagar-aportes-patronales: si el proyecto ya tiene contrato,
+// certificaciones o liquidación final, la preview lo avisa y aplicar exige
+// `confirmarContrato: true` (cambiar cantidades altera lo contratado).
+// Además se informan los rubros cuya cantidad vino del cómputo y ya no
+// tienen ninguna fila vinculada: no se tocan (conservan la cantidad).
 async function calcularActualizaciones(proyectoId: string): Promise<ActualizacionComputo[]> {
   const filas = await db.filaMetraje.findMany({
     where: { documento: { proyectoId }, rubroId: { not: null } },
@@ -80,6 +90,34 @@ async function calcularActualizaciones(proyectoId: string): Promise<Actualizacio
   return actualizaciones.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
+async function calcularResultado(proyectoId: string): Promise<ResultadoAplicarComputo> {
+  const [actualizaciones, proyecto, rubrosDeComputo] = await Promise.all([
+    calcularActualizaciones(proyectoId),
+    db.proyecto.findUnique({
+      where: { id: proyectoId },
+      select: {
+        contrato: { select: { id: true } },
+        liquidacionFinal: { select: { id: true } },
+        _count: { select: { certificaciones: true } },
+      },
+    }),
+    db.rubro.findMany({
+      where: { capitulo: { proyectoId }, cantidadOrigen: "COMPUTO", cantidad: { not: 0 } },
+      select: { id: true, descripcion: true },
+    }),
+  ]);
+  const conFilas = new Set(actualizaciones.map((a) => a.rubroId));
+  return {
+    actualizaciones,
+    tieneContratoOCertificaciones:
+      !!proyecto?.contrato || !!proyecto?.liquidacionFinal || (proyecto?._count.certificaciones ?? 0) > 0,
+    rubrosSinFilas: rubrosDeComputo
+      .filter((r) => !conFilas.has(r.id))
+      .map((r) => r.descripcion || "Rubro sin nombre")
+      .sort((a, b) => a.localeCompare(b, "es")),
+  };
+}
+
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -90,6 +128,7 @@ export async function POST(
     if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
     const confirmar = body?.confirmar === true;
+    const confirmarContrato = body?.confirmarContrato === true;
 
     // El preview (confirmar:false) no escribe nada — se deja pasar
     // siempre. El bloqueo real es solo sobre la escritura de verdad.
@@ -106,10 +145,22 @@ export async function POST(
       }
     }
 
-    const actualizaciones = await calcularActualizaciones(id);
+    const resultado = await calcularResultado(id);
+    const { actualizaciones } = resultado;
 
     if (!confirmar) {
-      return NextResponse.json({ actualizaciones });
+      return NextResponse.json(resultado);
+    }
+
+    if (resultado.tieneContratoOCertificaciones && !confirmarContrato) {
+      return NextResponse.json(
+        {
+          error: "requiere_confirmacion_contrato",
+          mensaje:
+            "Este proyecto tiene certificaciones o contratos: cambiar las cantidades puede afectar los totales. Confirmá explícitamente para continuar.",
+        },
+        { status: 409 }
+      );
     }
 
     if (actualizaciones.length > 0) {
@@ -123,7 +174,7 @@ export async function POST(
       );
     }
 
-    return NextResponse.json({ aplicado: true, actualizaciones });
+    return NextResponse.json({ aplicado: true, ...resultado });
   } catch (err) {
     console.error("[POST /api/proyectos/[id]/aplicar-computo]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });

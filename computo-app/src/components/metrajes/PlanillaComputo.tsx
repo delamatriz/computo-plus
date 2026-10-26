@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, Plus, X, ChevronDown, ChevronUp, Loader2, Calculator, AlertTriangle, CheckCircle2, Ruler, Trash2, FolderPlus, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fmtNum, fmtUnidad, subtotalFila, rubroCompatibleConFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ActualizacionComputo } from "./metrajeFila";
+import { fmtNum, fmtUnidad, subtotalFila, rubroCompatibleConFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ResultadoAplicarComputo } from "./metrajeFila";
 
 // Estado del modal de "Aplicar al presupuesto" — dos pasos (preview sin
 // tocar la base → confirmar y aplicar de verdad) más los estados de
@@ -12,9 +12,9 @@ import { fmtNum, fmtUnidad, subtotalFila, rubroCompatibleConFila, type MetrajeFi
 // POST /api/proyectos/[id]/aplicar-computo.
 type EstadoModalAplicar =
   | { paso: "cargando" }
-  | { paso: "preview"; actualizaciones: ActualizacionComputo[] }
-  | { paso: "aplicando"; actualizaciones: ActualizacionComputo[] }
-  | { paso: "resultado"; actualizaciones: ActualizacionComputo[] }
+  | { paso: "preview"; resultado: ResultadoAplicarComputo }
+  | { paso: "aplicando"; resultado: ResultadoAplicarComputo }
+  | { paso: "resultado"; resultado: ResultadoAplicarComputo }
   | { paso: "error"; mensaje: string };
 
 // Input de Largo/Ancho/Alto/Cantidad — comparten el mismo problema: un
@@ -133,8 +133,9 @@ export default function PlanillaComputo({
   onAgregarFila: (seccionId?: string | null) => void;
   onEliminarFila: (id: string) => void;
   onExportarExcel: () => void;
-  onAplicarComputoPreview: () => Promise<ActualizacionComputo[]>;
-  onAplicarComputoConfirmar: () => Promise<ActualizacionComputo[]>;
+  onAplicarComputoPreview: () => Promise<ResultadoAplicarComputo>;
+  /** confirmarContrato: el usuario vio el aviso de contrato/certificaciones y eligió continuar. */
+  onAplicarComputoConfirmar: (confirmarContrato: boolean) => Promise<ResultadoAplicarComputo>;
   /** Arranca el modo "medir ANCHO hacia esta fila" directo en el plano
    * (ícono de regla, ver Visor.tsx ControlesMedicion.medicionObjetivo) —
    * undefined mientras el Visor no expuso sus controles todavía (recién
@@ -163,18 +164,22 @@ export default function PlanillaComputo({
   const abrirModalAplicar = async () => {
     setModalAplicar({ paso: "cargando" });
     try {
-      const actualizaciones = await onAplicarComputoPreview();
-      setModalAplicar({ paso: "preview", actualizaciones });
+      const resultado = await onAplicarComputoPreview();
+      setModalAplicar({ paso: "preview", resultado });
     } catch {
       setModalAplicar({ paso: "error", mensaje: "No se pudo calcular la actualización. Probá de nuevo." });
     }
   };
 
   const confirmarAplicar = async () => {
-    setModalAplicar((m) => (m && m.paso === "preview" ? { paso: "aplicando", actualizaciones: m.actualizaciones } : m));
+    // Solo se llega acá desde el botón del preview: si había aviso de
+    // contrato/certificaciones, el usuario lo vio y eligió continuar.
+    const confirmarContrato =
+      modalAplicar?.paso === "preview" && modalAplicar.resultado.tieneContratoOCertificaciones;
+    setModalAplicar((m) => (m && m.paso === "preview" ? { paso: "aplicando", resultado: m.resultado } : m));
     try {
-      const actualizaciones = await onAplicarComputoConfirmar();
-      setModalAplicar({ paso: "resultado", actualizaciones });
+      const resultado = await onAplicarComputoConfirmar(confirmarContrato);
+      setModalAplicar({ paso: "resultado", resultado });
     } catch {
       setModalAplicar({ paso: "error", mensaje: "No se pudo aplicar al presupuesto. Probá de nuevo." });
     }
@@ -664,11 +669,31 @@ export default function PlanillaComputo({
                   </h3>
                   <p className="text-sm text-slate-600 mb-4">
                     {modalAplicar.paso === "resultado"
-                      ? `${modalAplicar.actualizaciones.length} ${modalAplicar.actualizaciones.length === 1 ? "rubro actualizado" : "rubros actualizados"}.`
+                      ? `${modalAplicar.resultado.actualizaciones.length} ${modalAplicar.resultado.actualizaciones.length === 1 ? "rubro con cantidad aplicada" : "rubros con cantidad aplicada"}.`
                       : "Suma las filas de la Planilla vinculadas a cada rubro, cruzando todos los documentos del proyecto."}
                   </p>
-
-                  {modalAplicar.actualizaciones.length === 0 ? (
+                  {modalAplicar.paso !== "resultado" && modalAplicar.resultado.tieneContratoOCertificaciones && (
+                    <div className="flex items-start gap-2 rounded-[10px] bg-amber-50 border border-amber-200 px-4 py-3 mb-4">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-amber-800">
+                        Este proyecto tiene certificaciones o contratos. Cambiar las cantidades puede afectar los totales. ¿Querés continuar?
+                      </p>
+                    </div>
+                  )}
+                  {modalAplicar.resultado.rubrosSinFilas.length > 0 && (
+                    <div className="flex items-start gap-2 rounded-[10px] bg-slate-50 border border-slate-200 px-4 py-3 mb-4">
+                      <AlertTriangle className="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                      <div className="text-xs text-slate-600 space-y-1">
+                        {modalAplicar.resultado.rubrosSinFilas.map((nombre) => (
+                          <p key={nombre}>
+                            El rubro {nombre} no tiene filas vinculadas — su cantidad no cambió. Si querés quitarle la
+                            cantidad, editalo a mano en el presupuesto.
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {modalAplicar.resultado.actualizaciones.length === 0 ? (
                     <p className="text-sm text-slate-500 py-4">
                       No hay filas vinculadas a ningún rubro todavía — vinculá filas en la columna &quot;Rubro vinculado&quot; antes de aplicar.
                     </p>
@@ -683,7 +708,7 @@ export default function PlanillaComputo({
                           </tr>
                         </thead>
                         <tbody>
-                          {modalAplicar.actualizaciones.map((a) => (
+                          {modalAplicar.resultado.actualizaciones.map((a) => (
                             <tr key={a.rubroId} className={cn("border-t border-slate-100", a.requiereConfirmacion && "bg-amber-50")}>
                               <td className="px-3 py-2 align-top">
                                 <p className="text-slate-700">{a.nombre}</p>
@@ -737,7 +762,7 @@ export default function PlanillaComputo({
                         </button>
                         <button
                           onClick={confirmarAplicar}
-                          disabled={modalAplicar.paso === "aplicando" || modalAplicar.actualizaciones.length === 0}
+                          disabled={modalAplicar.paso === "aplicando" || modalAplicar.resultado.actualizaciones.length === 0}
                           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-medium hover:bg-[#1A3A5C] transition-colors disabled:opacity-60"
                         >
                           {modalAplicar.paso === "aplicando" && <Loader2 className="w-4 h-4 animate-spin" />}

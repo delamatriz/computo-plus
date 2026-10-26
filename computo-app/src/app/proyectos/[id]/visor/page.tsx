@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import * as XLSX from "xlsx";
 import { Loader2, ArrowLeft, AlertTriangle, Info } from "lucide-react";
-import { subtotalFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ActualizacionComputo } from "@/components/metrajes/metrajeFila";
+import { subtotalFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ResultadoAplicarComputo } from "@/components/metrajes/metrajeFila";
 import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, Anotacion } from "@/components/metrajes/documentoMetraje";
 import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion, ControlesMedicion } from "@/components/metrajes/Visor";
 
@@ -718,26 +718,26 @@ export default function VisorProyectoPage() {
      solo preview (no toca la base), con `confirmar: true` aplica de
      verdad. El modal en PlanillaComputo.tsx llama primero a la preview y
      recién en el segundo click a la de aplicar. */
-  async function aplicarComputoPreview(): Promise<ActualizacionComputo[]> {
+  async function aplicarComputoPreview(): Promise<ResultadoAplicarComputo> {
     const res = await fetch(`/api/proyectos/${proyectoId}/aplicar-computo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
     if (!res.ok) throw new Error("No se pudo calcular la actualización");
-    const data = await res.json();
-    return data.actualizaciones as ActualizacionComputo[];
+    return (await res.json()) as ResultadoAplicarComputo;
   }
 
-  async function aplicarComputoConfirmar(): Promise<ActualizacionComputo[]> {
+  // confirmarContrato: el usuario ya vio en el modal el aviso de contrato o
+  // certificaciones (si lo había) y eligió continuar.
+  async function aplicarComputoConfirmar(confirmarContrato: boolean): Promise<ResultadoAplicarComputo> {
     const res = await fetch(`/api/proyectos/${proyectoId}/aplicar-computo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ confirmar: true }),
+      body: JSON.stringify({ confirmar: true, confirmarContrato }),
     });
     if (!res.ok) throw new Error("No se pudo aplicar al presupuesto");
-    const data = await res.json();
-    return data.actualizaciones as ActualizacionComputo[];
+    return (await res.json()) as ResultadoAplicarComputo;
   }
 
   return (
