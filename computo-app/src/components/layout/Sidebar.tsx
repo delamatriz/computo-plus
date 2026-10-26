@@ -56,8 +56,8 @@ const navItems = [
 // presupuestación. Mismo estilo de ítem que el resto.
 const ITEM_MIS_PROYECTOS = { href: "/proyectos", label: "Mis Proyectos" };
 
-// /metrajes redirige a /proyectos/[id]/metrajes (ver /app/metrajes/page.tsx):
-// esa ruta es de Metrajes, no de Mis Proyectos.
+// /proyectos/[id]/metrajes (ruta vieja, hoy redirige a /metrajes) es de
+// Metrajes, no de Mis Proyectos.
 const RUTA_METRAJES_DE_PROYECTO = /^\/proyectos\/[^/]+\/metrajes(\/|$)/;
 
 function coincide(pathname: string, href: string): boolean {
@@ -81,11 +81,9 @@ function esActivo(pathname: string, href: string): boolean {
 }
 
 // Ítems que saben volver al proyecto de origen (ver
-// BotonVolverAlProyecto) — Metrajes SÍ entra acá: su redirect propio
-// (/metrajes → /proyectos/[id]/metrajes) resultó no saber en qué proyecto
-// estaba el usuario, mandando siempre al más viejo de la base (ver
-// /app/metrajes/page.tsx) — ahora usa este mismo ?from= para saber a dónde
-// volver, en vez de asumirlo. Mis Proyectos/Panel de control/Cálculo
+// BotonVolverAlProyecto) — Metrajes SÍ entra acá: /metrajes es una guía
+// general (ya no redirige a ningún proyecto) y usa este mismo ?from= solo
+// para "Volver al proyecto". Mis Proyectos/Panel de control/Cálculo
 // rápido/Nuevo proyecto quedan afuera: no son pantallas de referencia a
 // las que tenga sentido "volver".
 const ITEMS_CON_VOLVER_AL_PROYECTO = new Set([
