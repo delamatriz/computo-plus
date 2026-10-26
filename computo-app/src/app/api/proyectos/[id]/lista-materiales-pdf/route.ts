@@ -4,6 +4,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { ListaMaterialesPDF, FilaMaterialPDF } from "@/components/ListaMaterialesPDF";
 import React from "react";
 import { requerirProyecto } from "@/lib/sesion";
+import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -80,13 +81,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }, 0);
 
     const elemento = React.createElement(ListaMaterialesPDF, {
-      nombreProyecto: proyecto.nombre,
+      nombreProyecto: nombreProyectoParaMostrar(proyecto.nombre),
       filas,
       total,
     }) as Parameters<typeof renderToBuffer>[0];
     const buffer = await renderToBuffer(elemento);
 
-    const nombreBase = proyecto.nombre.replace(/\s+/g, "-");
+    const nombreBase = nombreProyectoParaMostrar(proyecto.nombre).replace(/\s+/g, "-");
     const nombreAscii = nombreBase.replace(/[^\x20-\x7E]/g, "").replace(/-+/g, "-") || "proyecto";
     const nombreArchivoAscii = `Lista-Materiales-${nombreAscii}.pdf`;
     const nombreArchivoUtf8 = encodeURIComponent(`Lista-Materiales-${nombreBase}.pdf`);

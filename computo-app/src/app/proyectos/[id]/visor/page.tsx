@@ -9,6 +9,7 @@ import { Loader2, ArrowLeft, AlertTriangle, Info } from "lucide-react";
 import { subtotalFila, type MetrajeFila, type SeccionPlanilla, type RubroOption, type ResultadoAplicarComputo } from "@/components/metrajes/metrajeFila";
 import type { DocumentoResumen, DocumentoDetalle, MedicionDocumento, Anotacion } from "@/components/metrajes/documentoMetraje";
 import type { NuevaMedicionInput, NuevaAnotacionInput, CambiosAnotacion, ControlesMedicion } from "@/components/metrajes/Visor";
+import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
 
 // Visor y PlanillaComputo (vía Visor) importan react-pdf (pdf.js), que
 // revienta con "DOMMatrix is not defined" si su módulo se evalúa en el
@@ -122,7 +123,8 @@ export default function VisorProyectoPage() {
       }
       if (resProyecto.status === "fulfilled" && resProyecto.value.ok) {
         const data = await resProyecto.value.json();
-        setProyectoNombre(data.nombre ?? "");
+        // Ya para mostrar: lo usan el encabezado, el Excel de metrajes y el PDF del visor.
+        setProyectoNombre(nombreProyectoParaMostrar(data.nombre ?? ""));
         setSoloLectura(data.estado === "FINALIZADO");
         setNotas(data.notas ?? "");
         const nombrePorTituloId = new Map<string, string>(

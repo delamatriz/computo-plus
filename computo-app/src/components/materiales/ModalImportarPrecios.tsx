@@ -17,6 +17,7 @@ import {
   precioUnitarioDeLista,
   type EncabezadoLista,
 } from "@/lib/listaMTOP";
+import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
 
 interface Props {
   // El SUPERADMIN importa sobre el catálogo global (puede marcar "Lista oficial MTOP" y usar PDF).
@@ -567,7 +568,7 @@ export default function ModalImportarPrecios({ esSuperadmin, proveedoresExistent
                         >
                           {a.descripcion}
                         </a>
-                        <span className="text-slate-500"> — {a.proyectoNombre} / {a.rubroNombre}</span>
+                        <span className="text-slate-500"> — {nombreProyectoParaMostrar(a.proyectoNombre)} / {a.rubroNombre}</span>
                         <span className="block text-slate-400 mt-0.5">
                           {a.candidatos.length} coincidencias: {a.candidatos.map((c) => c.descripcion).join(", ")}
                         </span>

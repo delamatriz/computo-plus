@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { proyectoIdDesdeParams } from "@/lib/proyectoActual";
+import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
 
 const CLASE_DEFAULT =
   "inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#2563EB] transition-colors mb-4";
@@ -61,7 +62,7 @@ function BotonVolverAlProyectoInner({ className }: { className?: string }) {
     <Link href={`/proyectos/${encodeURIComponent(proyectoOrigenId)}`} className={className ?? CLASE_DEFAULT}>
       <ArrowLeft className="w-4 h-4 flex-shrink-0" />
       <span className="truncate">
-        Volver al proyecto{actual?.nombre ? <> <span className="font-semibold text-slate-700">{actual.nombre}</span></> : null}
+        Volver al proyecto{actual?.nombre ? <> <span className="font-semibold text-slate-700">{nombreProyectoParaMostrar(actual.nombre)}</span></> : null}
       </span>
     </Link>
   );

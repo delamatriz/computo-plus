@@ -4,6 +4,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { ActaCierrePDF } from "@/components/ActaCierrePDF";
 import React from "react";
 import { requerirProyecto } from "@/lib/sesion";
+import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
 
 // GET — genera el PDF imprimible del Acta de Cierre y Recepción de
 // Obra, para firmar en papel en el momento de la recepción (sin
@@ -46,7 +47,7 @@ export async function GET(
 
     const elemento = React.createElement(ActaCierrePDF, {
       empresaNombreHeader: proyecto.empresa?.nombre || "Mi Empresa",
-      proyectoNombre: proyecto.nombre,
+      proyectoNombre: nombreProyectoParaMostrar(proyecto.nombre),
       fechaCierre: acta.fechaCierre ? acta.fechaCierre.toISOString() : null,
       comitente: {
         nombre: proyecto.cliente,
@@ -76,7 +77,7 @@ export async function GET(
     }) as Parameters<typeof renderToBuffer>[0];
     const buffer = await renderToBuffer(elemento);
 
-    const nombreBase = `Acta-Cierre-${proyecto.nombre}`.replace(/\s+/g, "-");
+    const nombreBase = `Acta-Cierre-${nombreProyectoParaMostrar(proyecto.nombre)}`.replace(/\s+/g, "-");
     const nombreAscii = nombreBase.replace(/[^\x20-\x7E]/g, "").replace(/-+/g, "-") || "acta-cierre";
     const nombreArchivoAscii = `${nombreAscii}.pdf`;
     const nombreArchivoUtf8 = encodeURIComponent(`${nombreBase}.pdf`);

@@ -4,6 +4,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { OrdenCompraPDF } from "@/components/OrdenCompraPDF";
 import React from "react";
 import { requerirProyecto } from "@/lib/sesion";
+import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
 
 type Membrete = "empresa" | "proyecto";
 const MEMBRETES_VALIDOS: Membrete[] = ["empresa", "proyecto"];
@@ -61,7 +62,7 @@ export async function GET(
       fecha: (orden.fechaPedido ?? orden.createdAt).toISOString(),
       fechaEsDePedido: orden.fechaPedido != null,
       proveedor: orden.proveedor,
-      proyectoNombre: proyecto.nombre,
+      proyectoNombre: nombreProyectoParaMostrar(proyecto.nombre),
       estado: orden.estado,
       nota: orden.descripcion,
       items: orden.items.map((it) => ({

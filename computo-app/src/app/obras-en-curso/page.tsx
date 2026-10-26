@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, HardHat, Loader2 } from "lucide-react";
+import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
 
 // Obras en curso — proyectos EN_CURSO de la empresa con su avance certificado
 // (ver GET /api/obras-en-curso) y acceso directo a la pestaña Gestión de Obra.
@@ -71,7 +72,7 @@ export default function ObrasEnCursoPage() {
           {obras.map((o) => (
             <li key={o.id} className="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 flex flex-col md:flex-row md:items-center gap-4">
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-[#1E293B] truncate">{o.nombre.trim()}</p>
+                <p className="text-base font-semibold text-[#1E293B] truncate">{nombreProyectoParaMostrar(o.nombre)}</p>
                 {o.cliente && <p className="text-xs text-slate-400 truncate mt-0.5">{o.cliente}</p>}
                 {o.avancePct != null ? (
                   <div className="mt-3 flex items-center gap-3">

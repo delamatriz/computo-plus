@@ -768,7 +768,7 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
   }
 
   // Header del proyecto
-  let r = pushRow([`PRESUPUESTO — ${proyecto.nombre}`]);
+  let r = pushRow([`PRESUPUESTO — ${nombreProyectoParaMostrar(proyecto.nombre)}`]);
   styleRow(r, styBold);
   merges.push({ s: { r, c: 0 }, e: { r, c: NUM_COLS - 1 } });
 
@@ -888,7 +888,7 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
   });
 
   XLSX.utils.book_append_sheet(wb, ws, "Presupuesto");
-  XLSX.writeFile(wb, `Presupuesto-${proyecto.nombre.replace(/\s+/g, "-")}.xlsx`);
+  XLSX.writeFile(wb, `Presupuesto-${nombreProyectoParaMostrar(proyecto.nombre).replace(/\s+/g, "-")}.xlsx`);
 }
 
 /** Tipo de cambio de referencia U$S → $UY, igual al usado en /calcular */
@@ -6196,7 +6196,7 @@ export default function ProyectoPage() {
         {/* ── Memoria del presupuesto ──────────────────────── */}
         <SeccionMemoriaDescriptiva
           proyectoId={proyectoActivo.id}
-          proyectoNombre={proyectoActivo.nombre}
+          proyectoNombre={nombreProyectoParaMostrar(proyectoActivo.nombre)}
           memoriaInicial={proyectoActivo.memoriaDescriptiva ?? null}
         />
 
@@ -6318,7 +6318,7 @@ export default function ProyectoPage() {
           >
             <SeccionComputoGlobalMateriales
               proyectoId={proyectoActivo.id}
-              proyectoNombre={proyectoActivo.nombre}
+              proyectoNombre={nombreProyectoParaMostrar(proyectoActivo.nombre)}
               filas={filasMateriales}
               total={totalMateriales}
             />

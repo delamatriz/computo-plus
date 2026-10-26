@@ -6,6 +6,7 @@ import { calcularTotalCertificadoAgregado, calcularCruceCertificacion } from "@/
 import { INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
 import React from "react";
 import { requerirProyecto } from "@/lib/sesion";
+import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
 
 function calcularTotalLiquidado(presupuestoOriginal: number, ajustes: { monto: number; tipo: string }[]): number {
   const sumaAdicionales = ajustes.filter((a) => a.tipo === "Adicional").reduce((s, a) => s + a.monto, 0);
@@ -55,7 +56,7 @@ export async function GET(
 
     const elemento = React.createElement(LiquidacionFinalPDF, {
       empresaNombreHeader: proyecto.empresa?.nombre || "Mi Empresa",
-      proyectoNombre: proyecto.nombre,
+      proyectoNombre: nombreProyectoParaMostrar(proyecto.nombre),
       fechaLiquidacion: liquidacion.fechaLiquidacion ? liquidacion.fechaLiquidacion.toISOString() : null,
       presupuestoOriginal: liquidacion.presupuestoOriginalSnapshot,
       ajustes: liquidacion.ajustes.map((a) => ({
@@ -75,7 +76,7 @@ export async function GET(
     }) as Parameters<typeof renderToBuffer>[0];
     const buffer = await renderToBuffer(elemento);
 
-    const nombreBase = `Liquidacion-Final-${proyecto.nombre}`.replace(/\s+/g, "-");
+    const nombreBase = `Liquidacion-Final-${nombreProyectoParaMostrar(proyecto.nombre)}`.replace(/\s+/g, "-");
     const nombreAscii = nombreBase.replace(/[^\x20-\x7E]/g, "").replace(/-+/g, "-") || "liquidacion-final";
     const nombreArchivoAscii = `${nombreAscii}.pdf`;
     const nombreArchivoUtf8 = encodeURIComponent(`${nombreBase}.pdf`);

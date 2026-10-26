@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Lock, Loader2, RefreshCw, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
 
 interface RubroAfectado {
   rubroId: string;
@@ -228,7 +229,7 @@ export default function SeccionAplicarPreciosVigentes() {
                               onChange={() => toggleProyecto(p)}
                               className="rounded border-slate-300 disabled:opacity-40"
                             />
-                            <span className="text-sm font-semibold text-[#1E293B] truncate">{p.nombre}</span>
+                            <span className="text-sm font-semibold text-[#1E293B] truncate">{nombreProyectoParaMostrar(p.nombre)}</span>
                             <span className="text-xs text-slate-400 flex-shrink-0">
                               ({p.rubros.length} rubro{p.rubros.length === 1 ? "" : "s"})
                             </span>

@@ -6,6 +6,7 @@ import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcul
 import { calcularDiasObra } from "@/lib/diasObra";
 import React from "react";
 import { requerirProyecto } from "@/lib/sesion";
+import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
 
 const MODOS_VALIDOS: ModoPDF[] = ["cerrado", "abierto", "interno"];
 
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const datos: ProyectoConCapitulos = {
       id: proyecto.id,
-      nombre: proyecto.nombre,
+      nombre: nombreProyectoParaMostrar(proyecto.nombre),
       subtitulo: proyecto.subtitulo,
       cliente: proyecto.cliente,
       clienteRut: proyecto.clienteRut,
@@ -162,7 +163,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const buffer = await renderToBuffer(elemento);
 
     // Nombre de archivo seguro para el header (ASCII) + versión UTF-8 (RFC 5987) para nombres con tildes/símbolos
-    const nombreBase = proyecto.nombre.replace(/\s+/g, "-");
+    const nombreBase = nombreProyectoParaMostrar(proyecto.nombre).replace(/\s+/g, "-");
     const nombreAscii = nombreBase.replace(/[^\x20-\x7E]/g, "").replace(/-+/g, "-") || "presupuesto";
     const nombreArchivoAscii = `Presupuesto-${nombreAscii}.pdf`;
     const nombreArchivoUtf8 = encodeURIComponent(`Presupuesto-${nombreBase}.pdf`);
