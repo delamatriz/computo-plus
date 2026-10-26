@@ -227,9 +227,12 @@ Reglas:
         // El monto se calcula acá, sin depender de que la IA multiplique bien ni de que "corrija" un
         // precio que le parece alto: monto = cantidad × precio del subrubro. En "Mi biblioteca" es su
         // precio propio; en el catálogo general, su costo directo vigente (el mismo que se le mandó).
+        // El precio del subrubro está siempre en pesos: si la estimación es en dólares, se pasa a USD
+        // con el mismo tipo de cambio que se le indicó a la IA (tc).
         const montoIA = cap.monto;
         if (typeof cap.cantidad === "number" && cap.cantidad > 0) {
-          cap.monto = Math.round(cap.cantidad * subrubro.precioUY * 100) / 100;
+          const precioEnMoneda = moneda === "USD" ? subrubro.precioUY / tc : subrubro.precioUY;
+          cap.monto = Math.round(cap.cantidad * precioEnMoneda * 100) / 100;
         }
 
         // Catálogo general: el desglose ya se calculó junto con el costo vigente (no se repite la consulta).
