@@ -6,6 +6,7 @@ import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, buscarSubru
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
 import { esSuperadmin, requerirSesion } from "@/lib/sesion";
+import { tipoCambioVigente } from "@/lib/tipoCambio";
 import { consumirFuncionAsistida, devolverConsumo, respuestaFuncionNoDisponible } from "@/lib/acceso";
 import { listaMTOPVigente } from "@/lib/listaMTOPVigente";
 import { detalleListaMTOP } from "@/lib/listaMTOP";
@@ -36,7 +37,9 @@ export async function POST(request: NextRequest) {
     consumoId = consumo.consumoId;
 
     const tipoLabel = TIPOS_LABEL[tipo] ?? tipo;
-    const monedaLabel = moneda === "UYU" ? "pesos uruguayos" : "dólares americanos (usar TC 42.5)";
+    // Dólar BCU del último cierre guardado (o el de referencia), el mismo que muestra la pantalla.
+    const tc = (await tipoCambioVigente()).valor;
+    const monedaLabel = moneda === "UYU" ? "pesos uruguayos" : `dólares americanos (usar TC ${tc})`;
 
     const [categorias, preciosMTOP, capitulosBiblioteca] = await Promise.all([
       db.categoriaLaboral.findMany({ orderBy: { nombre: "asc" } }),

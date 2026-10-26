@@ -1,0 +1,16 @@
+name: Tipo de cambio BCU
+
+on:
+  schedule:
+    - cron: '0 11 * * *'  # Todos los días 11am UTC (8am Uruguay): toma el cierre del día hábil anterior
+  workflow_dispatch:      # permite correrlo manualmente
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar endpoint del tipo de cambio
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://computo-plus.onrender.com/api/admin/actualizar-tipo-cambio

@@ -1803,3 +1803,19 @@ model Suscripcion {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 }
+
+// Tipo de cambio oficial del BCU (Banco Central del Uruguay), dólar billete
+// (código 2225). Lo guarda el job diario POST /api/admin/actualizar-tipo-cambio
+// (GitHub Actions): una fila por fecha de cierre. Cálculo Rápido usa la más
+// reciente (ver lib/tipoCambio.ts); si no hay ninguna, el valor de referencia.
+model TipoCambio {
+  id          String   @id @default(cuid())
+  fecha       DateTime // fecha del cierre del BCU (medianoche UTC)
+  moneda      String   // "USD"
+  valorCompra Float    // TCC
+  valorVenta  Float    // TCV — el que usa la app
+  fuente      String   @default("BCU")
+  createdAt   DateTime @default(now())
+
+  @@unique([fecha, moneda, fuente])
+}

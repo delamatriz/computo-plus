@@ -28,6 +28,7 @@ const PREFIJOS_PUBLICOS = ["/api/auth/", "/api/registro"];
 const API_CON_SECRETO = [
   "/api/admin/limpiar-pruebas-vencidas",
   "/api/admin/procesar-vencimientos-prueba",
+  "/api/admin/actualizar-tipo-cambio",
   "/api/pagos/webhook",
 ];
 // Escrituras que una empresa VENCIDA SÍ puede hacer: contratar un plan es justamente cómo sale de

@@ -24,6 +24,7 @@ import { nombreDesdeTexto } from "@/lib/nombreDesdeTexto";
 import { esBloqueoDeCuenta, esErrorAcceso, useEstadoCuenta, type ErrorAcceso } from "@/lib/accesoCliente";
 import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
 import { mensajeCupoCalculoRapido } from "@/lib/config-prueba";
+import { TIPO_CAMBIO_REFERENCIA, type TipoCambioVigente } from "@/lib/tipoCambioReferencia";
 
 /* ─── Datos de referencia ─────────────────────────────────── */
 const TIPOS_OBRA = [
@@ -96,7 +97,8 @@ const MO_FACTOR  = CAPITULOS.reduce((acc, c) => acc + c.pct * c.moPct, 0);
 const MAX_PCT    = Math.max(...CAPITULOS.map((c) => c.pct));
 const PALETA_COLORES = CAPITULOS.map((c) => c.color);
 
-const TCU = 42.5;
+// "2026-10-23" → "23/10/2026"
+const fmtFechaCierre = (f: string) => f.split("-").reverse().join("/");
 const MAX_FOTOS = 5;
 
 // Arrancan en 0: el precio de Cálculo Rápido es materiales y mano de obra; Gastos Generales y
@@ -214,6 +216,26 @@ export default function CalcularPage() {
   // un resize manual por arrastre que el usuario ya haya hecho en desktop.
   const [descripcionExpandida, setDescripcionExpandida] = useState(false);
   const [moneda, setMoneda]   = useState<"USD" | "UYU">("UYU");
+  // Dólar BCU del último cierre guardado (job diario, ver lib/tipoCambio.ts);
+  // mientras carga, o si falla, el de referencia.
+  const [tipoCambio, setTipoCambio] = useState<TipoCambioVigente>({
+    valor: TIPO_CAMBIO_REFERENCIA,
+    fecha: null,
+    fuente: "referencia",
+  });
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/tipo-cambio")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: TipoCambioVigente | null) => {
+        if (!cancelado && data && data.valor > 0) setTipoCambio(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+  const tcu = tipoCambio.valor;
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
   // Edición libre (no slider) — mismos defaults que gastosGeneralesPctDefault/
   // utilidadPctDefault del presupuesto completo. Compartidos entre las 2
@@ -284,12 +306,12 @@ export default function CalcularPage() {
     // el campo editable de más abajo.
     const precioBase = precioBaseMercado * FACTOR_SIN_GG;
     const totalUSD   = areaTotal * precioBase * mult;
-    const totalUYU   = totalUSD * TCU;
+    const totalUYU   = totalUSD * tcu;
     const total      = moneda === "USD" ? totalUSD : totalUYU;
     const totalMateriales = total * MAT_FACTOR;
     const totalManoObra   = total * MO_FACTOR;
     return { totalUSD, totalUYU, total, precioM2: precioBase * mult, totalMateriales, totalManoObra };
-  }, [esDescriptivo, areaTotal, tipo, calidad, zona, moneda]);
+  }, [esDescriptivo, areaTotal, tipo, calidad, zona, moneda, tcu]);
 
   const fmt = (v: number) =>
     moneda === "USD"
@@ -777,11 +799,16 @@ export default function CalcularPage() {
                       </button>
                     ))}
                   </div>
-                  {moneda === "UYU" && (
-                    <p className="text-xs text-text-muted mt-2">
-                      TC ref.: $ {TCU}/dólar
-                    </p>
-                  )}
+                  {/* El tipo de cambio aplica en las dos monedas (en USD, para el "≈ $ … UYU"). */}
+                  <p className="text-xs text-text-muted mt-2">
+                    Tipo de cambio: ${" "}
+                    {tcu.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}/dólar
+                  </p>
+                  <p className="text-[11px] text-text-muted">
+                    {tipoCambio.fuente === "BCU" && tipoCambio.fecha
+                      ? `Dólar BCU al ${fmtFechaCierre(tipoCambio.fecha)}`
+                      : "Tipo de cambio de referencia"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -894,7 +921,7 @@ export default function CalcularPage() {
                       <p className="text-sm text-white/50">
                         {areaTotal.toLocaleString("es-UY")} m² · ~{moneda === "USD"
                           ? `U$S ${Math.round(resultado.precioM2).toLocaleString("es-UY")}`
-                          : `$ ${Math.round(resultado.precioM2 * TCU).toLocaleString("es-UY")}`}/m²
+                          : `$ ${Math.round(resultado.precioM2 * tcu).toLocaleString("es-UY")}`}/m²
                       </p>
                       {moneda === "USD" && (
                         <p className="text-xs text-white/35 mt-1">
