@@ -17,13 +17,6 @@ interface CategoriaGlosario {
   terminos: Termino[];
 }
 
-// Marca inline de "todavía no construido" — mismo criterio de color que
-// el badge ámbar "Requiere verificación" de /rubros, reusado acá para
-// mantener el mismo lenguaje visual de "pendiente" en toda la app.
-function Proximamente() {
-  return <span className="text-amber-600 font-semibold">Próximamente</span>;
-}
-
 // Guía de Obra Pública — mismo patrón de sub-índice + scroll manual que
 // /leyes-sociales (el click nativo en <a href="#id"> dentro de este
 // layout con <main overflow-y-auto> saltaba al fondo de la página en vez
@@ -82,10 +75,10 @@ function TablaObraPublica({ encabezados, filas }: { encabezados: string[]; filas
   );
 }
 
-// Estructura del sistema — relevamiento real de qué existe hoy en
-// producción (recorrido del Sidebar completo + el detalle de proyecto),
-// confirmado antes de redactar. No es el roadmap: si algo todavía no
-// está construido, se marca con <Proximamente /> en vez de omitirlo.
+// Estructura del sistema — relevamiento real de qué existe hoy (Sidebar
+// completo + las dos pestañas del detalle de proyecto), confirmado contra
+// el código antes de redactar. Solo lo que existe: lo que todavía no está
+// construido no se menciona.
 interface ItemEstructura {
   nombre: string;
   contenido: React.ReactNode;
@@ -93,17 +86,41 @@ interface ItemEstructura {
 
 const navPrincipal: ItemEstructura[] = [
   {
+    nombre: "Cálculo rápido",
+    contenido: (
+      <>
+        El botón de arriba del menú: una estimación de la obra por m² en un
+        minuto, sin armar un presupuesto. La podés exportar en PDF, guardarla
+        como anteproyecto o convertirla en un proyecto completo con capítulos
+        y rubros ya estimados.
+      </>
+    ),
+  },
+  {
     nombre: "Mis Proyectos",
-    contenido: <>La lista de todos tus proyectos, con acceso a cada uno.</>,
+    contenido: (
+      <>
+        La lista de todos tus proyectos, con su estado y su total, y acceso a
+        cada uno. Debajo del botón Nuevo proyecto.
+      </>
+    ),
+  },
+  {
+    nombre: "Panel de control",
+    contenido: (
+      <>
+        La vista general: proyectos activos, total presupuestado, obras en
+        curso y los últimos proyectos en los que trabajaste.
+      </>
+    ),
   },
   {
     nombre: "Metrajes",
     contenido: (
       <>
-        Hoy te lleva directo a tu proyecto más reciente. La idea de tener
-        acá una Biblioteca de Metrajes (consultar cómo se midió en obras
-        anteriores) está <Proximamente />. Para medir un proyecto puntual
-        hoy, entrá a ese proyecto y usá la pestaña Presupuesto.
+        La guía paso a paso para metrar un proyecto: subir los planos,
+        calibrarlos, medir y volcar las cantidades a los rubros. La medición
+        en sí se hace dentro de cada proyecto, en la pestaña Presupuesto.
       </>
     ),
   },
@@ -112,9 +129,19 @@ const navPrincipal: ItemEstructura[] = [
     contenido: (
       <>
         El catálogo maestro con cientos de rubros ya armados, cada uno con
-        su descompuesto completo (materiales, mano de obra, equipos). Es
-        de consulta — sirve para ver cómo está armado un precio antes de
-        usarlo en tu presupuesto.
+        su descompuesto completo (materiales, mano de obra, equipos). Sirve
+        para ver cómo está armado un precio antes de usarlo en tu
+        presupuesto.
+      </>
+    ),
+  },
+  {
+    nombre: "Mis rubros",
+    contenido: (
+      <>
+        Tus rubros guardados, con su APU completo, listos para reutilizar en
+        los próximos proyectos. Se guardan desde la fila del rubro, dentro de
+        un proyecto.
       </>
     ),
   },
@@ -122,9 +149,10 @@ const navPrincipal: ItemEstructura[] = [
     nombre: "Materiales",
     contenido: (
       <>
-        Hoy tiene links a fuentes oficiales de precios (Lista MTOP, Índice
-        ICCV del INE). El catálogo propio de materiales de Cómputo+ está{" "}
-        <Proximamente />.
+        El catálogo de materiales con precios de referencia (Lista Oficial
+        MTOP y otros proveedores) y los links a las fuentes oficiales. El
+        administrador de tu empresa puede además importar listas de su
+        proveedor, que quedan privadas para tu empresa.
       </>
     ),
   },
@@ -132,8 +160,8 @@ const navPrincipal: ItemEstructura[] = [
     nombre: "Mano de Obra",
     contenido: (
       <>
-        Hoy tiene el link al Convenio SUNCA. El catálogo propio de
-        categorías laborales y jornales está <Proximamente />.
+        Los jornales SUNCA vigentes por categoría, con la fecha de vigencia
+        del convenio.
       </>
     ),
   },
@@ -150,11 +178,21 @@ const navPrincipal: ItemEstructura[] = [
     ),
   },
   {
+    nombre: "Obras en curso",
+    contenido: (
+      <>
+        Tus proyectos en ejecución (con contrato firmado o certificaciones
+        cargadas), con el avance certificado hasta hoy.
+      </>
+    ),
+  },
+  {
     nombre: "Configuración",
     contenido: (
       <>
-        Los datos de tu empresa, las categorías laborales (jornales SUNCA)
-        y algunos precios de referencia que podés ajustar vos mismo.
+        El perfil de tu empresa (los datos que salen en los PDF), la carga
+        mensual del Índice ICCV del INE y la opción de aplicar los precios
+        vigentes del catálogo a presupuestos que ya tenías armados.
       </>
     ),
   },
@@ -162,10 +200,9 @@ const navPrincipal: ItemEstructura[] = [
     nombre: "Biblioteca",
     contenido: (
       <>
-        Hoy tiene el texto de las leyes puntuales más relevantes para
-        presupuestar (tercerización, régimen de aportes, responsabilidad
-        por defectos de construcción). Las guías y procedimientos propios
-        de Cómputo+ están <Proximamente />.
+        El texto de las leyes puntuales más relevantes para presupuestar
+        (tercerización, régimen de aportes, responsabilidad por defectos de
+        construcción).
       </>
     ),
   },
@@ -173,8 +210,9 @@ const navPrincipal: ItemEstructura[] = [
     nombre: "Referencias",
     contenido: (
       <>
-        Donde estás parado ahora: el glosario de términos de obra, y más
-        adelante tutoriales y ejemplos de uso.
+        Donde estás parado ahora: esta guía, el tutorial de medición a
+        presupuesto, el glosario de términos de obra y la guía de Obra
+        Pública.
       </>
     ),
   },
@@ -182,8 +220,8 @@ const navPrincipal: ItemEstructura[] = [
     nombre: "Sugerencias",
     contenido: (
       <>
-        Pensado para que mandes ideas o reportes problemas. Todavía{" "}
-        <Proximamente />.
+        Para mandarnos ideas, reportar un problema o pedir lo que le falta a
+        la app.
       </>
     ),
   },
@@ -192,10 +230,15 @@ const navPrincipal: ItemEstructura[] = [
 const dentroDePresupuesto: ItemEstructura[] = [
   {
     nombre: "Capítulos y rubros",
-    contenido: <>El presupuesto en sí, la tabla que armás rubro por rubro.</>,
+    contenido: (
+      <>
+        El presupuesto en sí, la tabla que armás rubro por rubro. Cada rubro
+        tiene su APU (descompuesto) con materiales, mano de obra y equipos.
+      </>
+    ),
   },
   {
-    nombre: "Documentación para metrar, Planilla de Cómputo, Calculadora y Visor de planos",
+    nombre: "Metrajes: documentación para metrar, Planilla de Cómputo, Calculadora y Visor de planos",
     contenido: (
       <>
         Acá subís los planos, los medís, y volcás las cantidades directo a
@@ -204,7 +247,15 @@ const dentroDePresupuesto: ItemEstructura[] = [
     ),
   },
   {
-    nombre: "Leyes Sociales de este presupuesto",
+    nombre: "Documentación del llamado",
+    contenido: <>Pliegos y demás documentos de la licitación, guardados junto al presupuesto.</>,
+  },
+  {
+    nombre: "Gastos Generales y Beneficio",
+    contenido: <>Los gastos generales de la obra y el porcentaje de beneficio.</>,
+  },
+  {
+    nombre: "Leyes Sociales / BPS de este presupuesto",
     contenido: (
       <>
         A diferencia de la guía general del menú, esta calcula el aporte
@@ -214,16 +265,12 @@ const dentroDePresupuesto: ItemEstructura[] = [
     ),
   },
   {
+    nombre: "Días estimados de obra y Notas",
+    contenido: <>El plazo estimado a partir de la mano de obra, y tus notas del proyecto.</>,
+  },
+  {
     nombre: "Resumen del presupuesto",
-    contenido: <>Gastos generales y utilidad.</>,
-  },
-  {
-    nombre: "Garantías",
-    contenido: <>Fiel cumplimiento y afines.</>,
-  },
-  {
-    nombre: "Certificaciones",
-    contenido: <>Vas registrando el avance de obra, con fotos, mes a mes.</>,
+    contenido: <>El total de la obra con gastos generales, beneficio e IVA.</>,
   },
   {
     nombre: "Comparativo de ofertas",
@@ -236,23 +283,54 @@ const dentroDePresupuesto: ItemEstructura[] = [
     contenido: <>Te avisa si parece faltar algo en el presupuesto.</>,
   },
   {
-    nombre: "Cronograma",
-    contenido: <>Un Gantt armado a partir de tus capítulos y certificaciones.</>,
-  },
-  {
     nombre: "Memoria del presupuesto",
     contenido: <>Genera el texto de memoria descriptiva de la obra.</>,
   },
   {
-    nombre: "Actualización de precios por índice ICCV",
-    contenido: <>Para actualizar precios viejos con el índice del INE.</>,
+    nombre: "Actualización de precios del presupuesto",
+    contenido: <>Para actualizar precios viejos, por ejemplo con el índice ICCV del INE.</>,
+  },
+];
+
+// Pestaña Gestión de Obra: los 5 bloques en el mismo orden que la pantalla.
+const dentroDeGestionObra: ItemEstructura[] = [
+  {
+    nombre: "1. Fase Preliminar y Contractual",
+    contenido: <>Contrato de obra, e inscripción y trámites legales.</>,
   },
   {
-    nombre: "Cómputo global de materiales",
+    nombre: "2. Planificación y Técnica",
     contenido: (
       <>
-        La lista de materiales de todos los documentos del proyecto,
-        juntada en un solo lugar.
+        Cómputo global de materiales (la lista de materiales de todo el
+        proyecto, junta) y Cronograma (Gantt de capítulos y rubros).
+      </>
+    ),
+  },
+  {
+    nombre: "3. Ejecución y Control en Terreno",
+    contenido: (
+      <>
+        Bitácora / diario de obra, personal y cuadrillas, subcontratistas y
+        gremios, y órdenes de compra con su recepción.
+      </>
+    ),
+  },
+  {
+    nombre: "4. Control Económico y Administrativo",
+    contenido: (
+      <>
+        Certificaciones (el avance de obra mes a mes, con fotos), control de
+        costos y flujo de caja.
+      </>
+    ),
+  },
+  {
+    nombre: "5. Cierre y Post-Obra",
+    contenido: (
+      <>
+        Cierre de obra, liquidación final, garantías (fiel cumplimiento y
+        afines) y manuales y planos as-built.
       </>
     ),
   },
@@ -411,7 +489,7 @@ const tutorialFlujoPrincipal: PasoTutorial[] = [
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-amber-800">
           <span className="font-semibold">Ojo con esto:</span> el botón
           aplica <span className="font-semibold">todas</span> las filas
-          vinculadas que tengas pendientes en el proyecto, no solo la que
+          vinculadas al presupuesto, no solo la que
           acabás de medir. Si venís acumulando mediciones de varios planos o
           de varios días, revisá bien el resumen antes de confirmar — se van
           a actualizar todos los rubros que aparezcan en esa lista, de una
@@ -534,7 +612,7 @@ const glosario: CategoriaGlosario[] = [
               dimensiones parciales, subtotales y total.
             </p>
             <p className="mt-2 text-xs font-semibold text-slate-500">
-              Formato típico — Rubro: Hormigón en columnas
+              Formato típico — Rubro: Hormigón en pilares
             </p>
             <div className="overflow-x-auto rounded-xl border border-slate-200 mt-1.5">
               <table className="w-full text-sm">
@@ -611,7 +689,7 @@ const glosario: CategoriaGlosario[] = [
               <li>Materiales (con rendimiento y precio unitario)</li>
               <li>Mano de obra (con categoría y rendimiento)</li>
               <li>Equipos/herramientas (con costo de uso)</li>
-              <li>Gastos generales (porcentaje)</li>
+              <li>Aportes patronales — porcentaje que se suma al costo de mano de obra</li>
               <li>Beneficio/utilidad (porcentaje)</li>
             </ul>
             <p className="mt-1.5">El APU determina el precio unitario del rubro.</p>
@@ -636,7 +714,7 @@ const glosario: CategoriaGlosario[] = [
         contenido: (
           <p>
             Cantidad de insumo necesaria por unidad de rubro. Ej: 0.35 m³
-            de hormigón por m³ de columna (considerando pérdidas).
+            de hormigón por m³ de pilar (considerando pérdidas).
           </p>
         ),
       },
@@ -880,21 +958,32 @@ export default function ReferenciasPage() {
         </h3>
         <div className="bg-white rounded-xl border border-slate-200 p-5 mb-3">
           <p className="text-sm text-slate-600 leading-relaxed">
-            Al entrar a un proyecto puntual hay tres pestañas:{" "}
-            <strong className="text-slate-700">Presupuesto</strong>,{" "}
-            <strong className="text-slate-700">Gestión de Obra</strong> y{" "}
-            <strong className="text-slate-700">Certificación</strong>. Hoy
-            casi todo vive en <strong className="text-slate-700">Presupuesto</strong> —
-            Gestión de Obra y Certificación, como pestañas propias, todavía
-            están <Proximamente />.
+            Al entrar a un proyecto puntual hay dos pestañas:{" "}
+            <strong className="text-slate-700">Presupuesto</strong>, para
+            armar y medir la obra, y{" "}
+            <strong className="text-slate-700">Gestión de Obra</strong>, para
+            llevarla adelante una vez contratada.
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-5 mb-3">
           <p className="text-sm font-semibold text-slate-700 mb-3.5">
             Dentro de Presupuesto encontrás, todo en una misma pantalla:
           </p>
           <dl className="space-y-3.5">
             {dentroDePresupuesto.map((item) => (
+              <div key={item.nombre}>
+                <dt className="text-sm font-semibold text-[#1E293B]">{item.nombre}</dt>
+                <dd className="text-sm text-slate-600 leading-relaxed mt-0.5">{item.contenido}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <p className="text-sm font-semibold text-slate-700 mb-3.5">
+            Dentro de Gestión de Obra, en 5 bloques que siguen la vida de la obra:
+          </p>
+          <dl className="space-y-3.5">
+            {dentroDeGestionObra.map((item) => (
               <div key={item.nombre}>
                 <dt className="text-sm font-semibold text-[#1E293B]">{item.nombre}</dt>
                 <dd className="text-sm text-slate-600 leading-relaxed mt-0.5">{item.contenido}</dd>

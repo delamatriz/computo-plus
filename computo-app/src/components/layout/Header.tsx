@@ -48,7 +48,7 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     pregunta: "¿Qué son Capítulo, Rubro y APU?",
     tipo: "respuesta",
     respuesta:
-      "Capítulo es la agrupación mayor de trabajo (ej. Estructura, Mampostería). Rubro es un ítem puntual dentro de un capítulo, con unidad, cantidad y precio unitario. APU es el desglose del precio de ese rubro: materiales, mano de obra, equipos y beneficio.",
+      "Capítulo es la agrupación mayor de trabajo (ej. Estructura, Mampostería). Rubro es un ítem puntual dentro de un capítulo, con unidad, cantidad y precio unitario. APU es el desglose del precio de ese rubro: materiales, mano de obra (con sus aportes patronales), equipos y beneficio.",
     href: "/referencias#glosario",
     hrefLabel: "Ver glosario completo",
   },
@@ -67,7 +67,7 @@ const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     pregunta: "¿Dónde consigo precios oficiales de materiales y jornales actualizados?",
     tipo: "respuesta",
     respuesta:
-      "Materiales tiene el catálogo con precios de referencia actualizados y el link al Índice ICCV del INE. Mano de Obra tiene el link al Convenio SUNCA vigente.",
+      "Materiales tiene el catálogo con precios de referencia actualizados. Mano de Obra tiene los jornales SUNCA vigentes. El Índice ICCV del INE se carga en Configuración.",
   },
   {
     pregunta: "¿Qué cambia si presupuesto para el Estado (Obra Pública)?",
