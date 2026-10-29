@@ -6207,22 +6207,10 @@ export default function ProyectoPage() {
           el ciclo de vida real de la obra (ver BloqueGestionObra arriba):
           1. Fase Preliminar y Contractual, 2. Planificación y Técnica,
           3. Ejecución y Control en Terreno, 4. Control Económico y
-          Administrativo, 5. Cierre y Post-Obra. Los módulos funcionales
-          (Cómputo Global de Materiales, Cronograma, Certificaciones,
-          Garantías) están migrados desde Presupuesto sin cambios de
-          lógica; el resto son placeholders "Próximamente" — sin diseñar
-          todavía. ── */}
+          Administrativo, 5. Cierre y Post-Obra. Todos los módulos están
+          implementados. ── */}
       {tabActiva === "gestion-obra" && (
         <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
-          {/* Banner de "en construcción" — bloque aislado a propósito,
-              sin lógica ni condición más allá de estar en esta pestaña,
-              para poder sacarlo de un solo lugar cuando la sección esté
-              terminada. */}
-          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2.5 mb-4 text-sm">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <p>Esta sección está en construcción — algunas partes todavía no están disponibles.</p>
-          </div>
-
           {/* Fecha de inicio (se carga desde /editar, acá es de solo
               lectura) + placeholder de Plazo de obra — a futuro se calcula
               solo a partir de los jornales de mano de obra del presupuesto,
