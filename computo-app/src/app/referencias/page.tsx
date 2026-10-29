@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Search, FileText } from "lucide-react";
 
 // Glosario — migrado tal cual del contenido de dominio aprobado (sección
@@ -221,8 +222,8 @@ const navPrincipal: ItemEstructura[] = [
     contenido: (
       <>
         Para hacernos una consulta, mandarnos ideas, reportar un problema o
-        pedir lo que le falta a la app. Llega directo al equipo de CÓMPUTO+
-        y te respondemos por email.
+        pedir lo que le falta a la app. Llega directo al equipo de CÓMPUTO+.
+        Revisamos periódicamente.
       </>
     ),
   },
@@ -271,7 +272,7 @@ const dentroDePresupuesto: ItemEstructura[] = [
   },
   {
     nombre: "Resumen del presupuesto",
-    contenido: <>El total de la obra con gastos generales, beneficio e IVA.</>,
+    contenido: <>El total de la obra con gastos generales, beneficio, IVA y Leyes Sociales / BPS.</>,
   },
   {
     nombre: "Comparativo de ofertas",
@@ -1034,8 +1035,11 @@ export default function ReferenciasPage() {
             <FileText className="w-4 h-4 text-[#2563EB]" />
           </div>
           <p className="text-sm text-slate-500">
-            Este es el primer tutorial de esta sección. Más tutoriales y
-            ejemplos de uso van a ir apareciendo en rondas futuras.
+            ¿Tenés dudas o querés ver más ejemplos? Escribinos en{" "}
+            <Link href="/sugerencias" className="font-medium text-[#2563EB] hover:underline">
+              Preguntas y sugerencias
+            </Link>
+            .
           </p>
         </div>
       </div>
