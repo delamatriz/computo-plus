@@ -38,6 +38,7 @@ model Empresa {
   subrubrosEmpresa SubrubroEmpresa[]
   // Materiales importados por un ADMIN de esta empresa (PrecioMTOP.empresaId)
   preciosMTOP PrecioMTOP[]
+  importacionesPrecios ImportacionPrecios[]
 
   // Registro público + prueba gratis (oct-2026). Las empresas dadas de alta
   // desde /admin (y las anteriores a esto) son ACTIVA; las que nacen del
@@ -86,6 +87,7 @@ model User {
   emailVerificado Boolean @default(false)
   // Avisos de plataforma que este usuario creó (solo SUPERADMIN, ver Aviso).
   avisosCreados Aviso[]
+  importacionesPrecios ImportacionPrecios[]
 }
 
 model Proyecto {
@@ -1496,6 +1498,11 @@ model PrecioMTOP {
   empresaId String?
   empresa   Empresa? @relation(fields: [empresaId], references: [id], onDelete: Cascade)
 
+  // Última importación que creó o actualizó este material. null = cargado
+  // antes de existir ImportacionPrecios (o a mano / por script).
+  importacionId String?
+  importacion   ImportacionPrecios? @relation(fields: [importacionId], references: [id], onDelete: SetNull)
+
   // Lado opuesto de MaterialAPU.precioMTOP — sin uso directo hoy, Prisma
   // exige declarar ambos lados de una relación explícita.
   materialesAPU MaterialAPU[]
@@ -1503,6 +1510,26 @@ model PrecioMTOP {
   // El único sigue siendo (codigo, proveedor): para que dos empresas no choquen, el importador
   // de ADMIN prefija el código con la empresa (ver codigoParaEmpresa en lib/catalogoPrecios.ts).
   @@unique([codigo, proveedor])
+  @@index([empresaId])
+  @@index([importacionId])
+}
+
+// Una importación de lista de precios (Lista MTOP oficial o lista de un
+// proveedor). empresaId null = catálogo global (Administrador); con valor =
+// lista privada de esa empresa (rol Empresa).
+model ImportacionPrecios {
+  id          String   @id @default(cuid())
+  fecha       DateTime @default(now())
+  // null = Lista Oficial MTOP (mismo criterio que PrecioMTOP.proveedor)
+  proveedor   String?
+  descripcion String?
+  empresaId   String?
+  empresa     Empresa? @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  creadoPorId String?
+  creadoPor   User?    @relation(fields: [creadoPorId], references: [id], onDelete: SetNull)
+
+  materiales PrecioMTOP[]
+
   @@index([empresaId])
 }
 

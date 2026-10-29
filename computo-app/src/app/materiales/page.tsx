@@ -7,6 +7,7 @@ import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferen
 import { BadgeVerificacion, type FuenteMaterial } from "@/components/BadgeVerificacion";
 import ModalImportarPrecios from "@/components/materiales/ModalImportarPrecios";
 import SeccionActualizacionDatos from "@/components/materiales/SeccionActualizacionDatos";
+import SeccionListasImportadas from "@/components/materiales/SeccionListasImportadas";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { anclaDeFiltro, EVENTO_FILTRO_MATERIALES, type AnclaFiltroMateriales } from "@/lib/filtrosMateriales";
 import { detalleListaMTOP, type ListaMTOPVigente } from "@/lib/listaMTOP";
@@ -195,6 +196,8 @@ function MaterialesPageInner() {
   // más abajo que decide si corresponde prender filtroPendiente.
   const filtroAutoAplicado = useRef(false);
   const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
+  // Sube después de cada importación para que "Listas importadas" se recargue.
+  const [versionListas, setVersionListas] = useState(0);
   // Material cuyo precio está en edición inline (click-to-edit) — mismo
   // patrón que precioEditId en DrawerAPU (proyectos/[id]/page.tsx).
   const [precioEditId, setPrecioEditId] = useState<string | null>(null);
@@ -414,6 +417,13 @@ function MaterialesPageInner() {
         {/* La tarjeta de la Lista MTOP (link al Ministerio) es para mantener el catálogo: solo SUPERADMIN. */}
         <ListaReferencias items={esSuperadmin ? referenciasConLista(listaMTOP) : REFERENCIAS_FIJAS} />
       </div>
+
+      {/* Mismo permiso que importar: Administrador (catálogo global) y rol Empresa (sus listas). */}
+      {puedeImportar && (
+        <div className="mb-6">
+          <SeccionListasImportadas esSuperadmin={esSuperadmin} version={versionListas} onEliminada={cargar} />
+        </div>
+      )}
 
       {/* Buscador justo debajo de las tarjetas de referencia, y debajo los
           filtros en su propia fila: sin el buscador al lado entran en una línea
@@ -668,7 +678,10 @@ function MaterialesPageInner() {
           esSuperadmin={puedeEditar}
           proveedoresExistentes={proveedoresExistentes}
           onClose={() => setModalImportarAbierto(false)}
-          onImportado={cargar}
+          onImportado={() => {
+            cargar();
+            setVersionListas((v) => v + 1);
+          }}
         />
       )}
     </div>

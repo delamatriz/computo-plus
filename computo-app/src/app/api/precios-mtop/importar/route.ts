@@ -72,6 +72,11 @@ function esFilaValida(f: unknown): f is FilaImportacion {
 // lista oficial. Un ADMIN solo puede importar la lista de un proveedor comercial y lo que sube
 // queda a nombre de su empresa (empresaId): solo ella lo ve, y nada de lo global se toca. Para
 // el ADMIN el proveedor es obligatorio y listaOficial: true se rechaza.
+//
+// Cada importación deja un registro ImportacionPrecios (sección "Listas importadas" de
+// /materiales). Solo los materiales NUEVOS quedan vinculados a él: un material que ya existía y
+// esta importación actualiza sigue en la importación que lo creó (o sin ninguna), para que
+// eliminar una lista no se lleve materiales que estaban desde antes.
 export async function POST(req: NextRequest) {
   const sesion = await requerirAdminOSuperadmin();
   if (sesion instanceof NextResponse) return sesion;
@@ -115,6 +120,11 @@ export async function POST(req: NextRequest) {
     if (esOficial) {
       return await importarListaOficial(filas, filasCrudas.length, body, sesion.empresaId, sesion.id);
     }
+
+    const importacion = await db.importacionPrecios.create({
+      data: { proveedor, empresaId: empresaDuenia, creadoPorId: sesion.id },
+      select: { id: true },
+    });
 
     // Candidatos del mismo proveedor — una sola consulta para toda la
     // importación (no una por fila). Se va descartando el candidato ya
@@ -171,6 +181,7 @@ export async function POST(req: NextRequest) {
         proveedor,
         numeroLista: 0,
         fechaLista,
+        importacionId: importacion.id,
         ...datosCorreccionPrecio(fila.precioUnitario, null),
       };
 
@@ -283,6 +294,16 @@ async function importarListaOficial(
 ) {
   const numeroLista = numeroListaONormalizado(body.numeroLista);
   const fechaLista = fechaListaONormalizada(body.fechaLista);
+  // Lista oficial: proveedor null y catálogo global. No se puede eliminar desde /materiales.
+  const importacion = await db.importacionPrecios.create({
+    data: {
+      proveedor: null,
+      empresaId: null,
+      creadoPorId: usuarioId,
+      descripcion: numeroLista > 0 ? `Lista Oficial MTOP N° ${numeroLista} (${fechaLista})` : `Lista Oficial MTOP (${fechaLista})`,
+    },
+    select: { id: true },
+  });
 
   // Presentación ilegible ("kg" sí vale, "" no): no se puede derivar el precio por unidad.
   const parseadas = filasValidas.map((f) => ({ fila: f, u: parsearUnidadMTOP(f.unidad) }));
@@ -361,6 +382,7 @@ async function importarListaOficial(
         proveedor: null,
         numeroLista,
         fechaLista,
+        importacionId: importacion.id,
         ...datosCorreccionPrecio(precioUnit, null),
         precioConIva: fila.precioUnitario,
       },
