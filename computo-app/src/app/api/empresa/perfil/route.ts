@@ -19,7 +19,7 @@ export async function GET() {
 
 // Editar el perfil: solo ADMIN o SUPERADMIN (un USUARIO lo ve en solo lectura).
 export async function PATCH(request: Request) {
-  const sesion = await requerirAdminOSuperadmin("Solo el administrador de tu empresa puede modificar esto.");
+  const sesion = await requerirAdminOSuperadmin("Solo un usuario con rol Empresa puede modificar esto.");
   if (sesion instanceof NextResponse) return sesion;
   try {
     const body = await request.json();

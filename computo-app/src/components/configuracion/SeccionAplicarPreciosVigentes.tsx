@@ -165,7 +165,7 @@ export default function SeccionAplicarPreciosVigentes() {
         {cargandoDryRun ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
         {cargandoDryRun ? "Revisando presupuestos…" : "Aplicar a presupuestos existentes"}
       </button>
-      {rol !== null && !puedeAplicar && <AvisoSoloAdministrador texto="Solo el administrador de tu empresa puede modificar esto." />}
+      {rol !== null && !puedeAplicar && <AvisoSoloAdministrador texto="Solo un usuario con rol Empresa puede modificar esto." />}
 
       {error && !datos && (
         <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-800 rounded-lg px-3 py-2.5 mt-3 text-sm">

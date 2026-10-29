@@ -151,8 +151,8 @@ const navPrincipal: ItemEstructura[] = [
     contenido: (
       <>
         El catálogo de materiales con precios de referencia (Lista Oficial
-        MTOP y otros proveedores) y los links a las fuentes oficiales. El
-        administrador de tu empresa puede además importar listas de su
+        MTOP y otros proveedores) y los links a las fuentes oficiales. Un
+        usuario con rol Empresa puede además importar listas de su
         proveedor, que quedan privadas para tu empresa.
       </>
     ),

@@ -248,7 +248,7 @@ export default function ConfiguracionPage() {
 
         </fieldset>
 
-        {rol !== null && !puedeEditar && <AvisoSoloAdministrador texto="Solo el administrador de tu empresa puede modificar esto." />}
+        {rol !== null && !puedeEditar && <AvisoSoloAdministrador texto="Solo un usuario con rol Empresa puede modificar esto." />}
         {puedeEditar && (
         <div className="flex items-center gap-3">
           <button

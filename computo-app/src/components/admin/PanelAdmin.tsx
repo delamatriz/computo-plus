@@ -75,8 +75,8 @@ const ETIQUETA_PLAN: Record<Plan, string> = {
 };
 
 const ETIQUETA_ROL: Record<string, string> = {
-  SUPERADMIN: "Superadmin",
-  ADMIN: "Admin",
+  SUPERADMIN: "Administrador",
+  ADMIN: "Empresa",
   USUARIO: "Usuario",
 };
 

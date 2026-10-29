@@ -159,7 +159,7 @@ export async function esSuperadmin(sesion: SesionUsuario): Promise<boolean> {
  * JWT. Devuelve la sesión con `rol` ya resuelto; con otro rol (USUARIO) → 403.
  */
 export async function requerirAdminOSuperadmin(
-  mensaje = "Solo un administrador puede importar listas de precios"
+  mensaje = "Solo un usuario con rol Empresa o el Administrador de CÓMPUTO+ puede importar listas de precios"
 ): Promise<SesionUsuario | NextResponse> {
   const sesion = await resolverSesion();
   if (sesion instanceof NextResponse) return sesion;
@@ -175,7 +175,7 @@ export async function requerirSuperadmin(): Promise<SesionUsuario | NextResponse
   const sesion = await resolverSesion();
   if (sesion instanceof NextResponse) return sesion;
   if (!(await esSuperadmin(sesion))) {
-    return NextResponse.json({ error: "Solo un SUPERADMIN puede hacer esto" }, { status: 403 });
+    return NextResponse.json({ error: "Solo el Administrador de CÓMPUTO+ puede hacer esto" }, { status: 403 });
   }
   return { ...sesion, rol: "SUPERADMIN" };
 }

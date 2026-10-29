@@ -100,7 +100,7 @@ export default function RevisionPreciosPage() {
       </p>
 
       {superadmin === false ? (
-        <AvisoSoloAdministrador texto="Esta sección es solo para el administrador de CÓMPUTO+" />
+        <AvisoSoloAdministrador texto="Esta sección es solo para el Administrador de CÓMPUTO+" />
       ) : superadmin === null || cargando ? (
         <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
           <Loader2 className="w-4 h-4 animate-spin" /> Cargando…

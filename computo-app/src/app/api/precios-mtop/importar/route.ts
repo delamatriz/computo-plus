@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: body?.listaOficial === true
-            ? "Solo el administrador de CÓMPUTO+ puede importar la lista oficial"
+            ? "Solo el Administrador de CÓMPUTO+ puede importar la lista oficial"
             : "Falta proveedor",
         },
         { status: 400 }

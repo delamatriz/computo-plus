@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `La contraseña tiene que tener al menos ${LARGO_MINIMO_PASSWORD} caracteres` }, { status: 400 });
     }
     if (!(ROLES_ASIGNABLES as readonly string[]).includes(rol)) {
-      return NextResponse.json({ error: "Rol inválido (ADMIN o USUARIO)" }, { status: 400 });
+      return NextResponse.json({ error: "Rol inválido (Empresa o Usuario)" }, { status: 400 });
     }
     if (!(await db.empresa.findUnique({ where: { id: empresaId }, select: { id: true } }))) {
       return NextResponse.json({ error: "La empresa no existe" }, { status: 400 });

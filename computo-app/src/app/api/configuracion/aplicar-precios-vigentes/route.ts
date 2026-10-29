@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     } else {
       // Modo Configuración ("Aplicar a presupuestos existentes"): solo ADMIN o SUPERADMIN.
       if (!dryRun) {
-        const admin = await requerirAdminOSuperadmin("Solo el administrador de tu empresa puede modificar esto.");
+        const admin = await requerirAdminOSuperadmin("Solo un usuario con rol Empresa puede modificar esto.");
         if (admin instanceof NextResponse) return admin;
       }
       rubroIds = Array.isArray(body?.rubroIds) ? body.rubroIds : [];

@@ -16,7 +16,7 @@ export default async function AdminPage() {
           <ShieldAlert className="w-10 h-10 text-[#2563EB] mx-auto mb-4" />
           <h1 className="text-lg font-semibold text-[#1A3A5C]">Acceso restringido</h1>
           <p className="text-sm text-slate-500 mt-2">
-            El panel de administración es solo para usuarios SUPERADMIN.
+            El panel de administración es solo para el Administrador de CÓMPUTO+.
           </p>
         </div>
       </div>
