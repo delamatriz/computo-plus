@@ -217,11 +217,12 @@ const navPrincipal: ItemEstructura[] = [
     ),
   },
   {
-    nombre: "Sugerencias",
+    nombre: "Preguntas y sugerencias",
     contenido: (
       <>
-        Para mandarnos ideas, reportar un problema o pedir lo que le falta a
-        la app.
+        Para hacernos una consulta, mandarnos ideas, reportar un problema o
+        pedir lo que le falta a la app. Llega directo al equipo de CÓMPUTO+
+        y te respondemos por email.
       </>
     ),
   },

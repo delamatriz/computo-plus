@@ -46,7 +46,7 @@ const navItems = [
       { href: "/configuracion", label: "Configuración" },
       { href: "/biblioteca", label: "Biblioteca" },
       { href: "/referencias", label: "Referencias" },
-      { href: "/sugerencias", label: "Sugerencias" },
+      { href: "/sugerencias", label: "Preguntas y sugerencias" },
     ],
   },
 ];

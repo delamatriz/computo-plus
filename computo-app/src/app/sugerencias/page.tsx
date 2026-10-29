@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ChevronDown, Loader2, Send } from "lucide-react";
+import { useSuperadmin } from "@/hooks/useSuperadmin";
 
 interface Sugerencia {
   id: string;
@@ -21,24 +22,31 @@ function fmtFecha(iso: string): string {
   });
 }
 
+// El checkbox de "resuelta" y el nombre de la empresa son solo para el
+// SUPERADMIN (resolver es trabajo del equipo; el servidor también lo exige).
 function ItemSugerencia({
   sugerencia,
+  superadmin,
   actualizando,
   onToggle,
 }: {
   sugerencia: Sugerencia;
+  superadmin: boolean;
   actualizando: boolean;
   onToggle: (id: string, valor: boolean) => void;
 }) {
   return (
     <div className="flex items-start gap-3 bg-white rounded-xl border border-slate-200 p-4">
-      <input
-        type="checkbox"
-        checked={sugerencia.resuelta}
-        disabled={actualizando}
-        onChange={(e) => onToggle(sugerencia.id, e.target.checked)}
-        className="mt-1 w-4 h-4 flex-shrink-0 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB] disabled:opacity-50"
-      />
+      {superadmin && (
+        <input
+          type="checkbox"
+          checked={sugerencia.resuelta}
+          disabled={actualizando}
+          onChange={(e) => onToggle(sugerencia.id, e.target.checked)}
+          title={sugerencia.resuelta ? "Marcar como pendiente" : "Marcar como resuelta"}
+          className="mt-1 w-4 h-4 flex-shrink-0 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB] disabled:opacity-50"
+        />
+      )}
       <div className="min-w-0 flex-1">
         <p
           className={`text-sm leading-relaxed whitespace-pre-wrap ${
@@ -47,15 +55,25 @@ function ItemSugerencia({
         >
           {sugerencia.mensaje}
         </p>
-        <p className="text-xs text-slate-400 mt-1.5">{fmtFecha(sugerencia.createdAt)}</p>
+        <p className="text-xs text-slate-400 mt-1.5">
+          {superadmin && sugerencia.empresaNombre && (
+            <span className="font-medium text-slate-600">{sugerencia.empresaNombre} · </span>
+          )}
+          {fmtFecha(sugerencia.createdAt)}
+          {!superadmin && sugerencia.resuelta && (
+            <span className="ml-2 text-emerald-600 font-medium">Resuelta</span>
+          )}
+        </p>
       </div>
     </div>
   );
 }
 
 export default function SugerenciasPage() {
+  const superadmin = useSuperadmin() === true;
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState(false);
@@ -67,9 +85,10 @@ export default function SugerenciasPage() {
     (async () => {
       try {
         const res = await fetch("/api/sugerencias");
-        if (res.ok) setSugerencias(await res.json());
+        if (!res.ok) throw new Error();
+        setSugerencias(await res.json());
       } catch {
-        // silencioso — la lista simplemente queda vacía
+        setErrorCarga(true);
       } finally {
         setCargando(false);
       }
@@ -127,17 +146,17 @@ export default function SugerenciasPage() {
   const resueltas = sugerencias.filter((s) => s.resuelta);
 
   return (
-    <div className="p-8 max-w-3xl">
-      <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Sugerencias</h1>
+    <div className="p-6 md:p-8 max-w-3xl">
+      <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Preguntas y sugerencias</h1>
       <p className="text-slate-500 mb-8">
-        Buzón de feedback hacia el equipo de Cómputo+.
+        Tu consulta o sugerencia llega directamente al equipo de CÓMPUTO+. Te respondemos por email.
       </p>
 
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-8">
         <textarea
           value={mensaje}
           onChange={(e) => setMensaje(e.target.value)}
-          placeholder="Mandá una idea, reportá un bug o pedí lo que le falta a la app…"
+          placeholder="Hacé una pregunta, mandá una idea, reportá un bug o pedí lo que le falta a la app…"
           rows={4}
           className="w-full px-3.5 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-none"
         />
@@ -167,22 +186,27 @@ export default function SugerenciasPage() {
 
       {cargando ? (
         <p className="text-sm text-slate-400">Cargando…</p>
+      ) : errorCarga ? (
+        <p className="text-sm text-red-600 text-center py-10">
+          No se pudieron cargar las preguntas y sugerencias. Recargá la página para intentar de nuevo.
+        </p>
       ) : sugerencias.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-10">
-          Todavía no se mandó ninguna sugerencia.
+          Todavía no hay preguntas ni sugerencias.
         </p>
       ) : (
         <>
           <div className="space-y-3">
             {pendientes.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-6">
-                No hay sugerencias pendientes.
+                No hay preguntas ni sugerencias pendientes.
               </p>
             ) : (
               pendientes.map((s) => (
                 <ItemSugerencia
                   key={s.id}
                   sugerencia={s}
+                  superadmin={superadmin}
                   actualizando={actualizandoIds.has(s.id)}
                   onToggle={toggleResuelta}
                 />
@@ -207,6 +231,7 @@ export default function SugerenciasPage() {
                     <ItemSugerencia
                       key={s.id}
                       sugerencia={s}
+                      superadmin={superadmin}
                       actualizando={actualizandoIds.has(s.id)}
                       onToggle={toggleResuelta}
                     />

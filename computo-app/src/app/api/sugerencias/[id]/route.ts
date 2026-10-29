@@ -1,23 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { esSuperadmin, requerirSesion } from "@/lib/sesion";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 // Único campo editable hoy: resuelta (el checkbox de la lista). El
 // mensaje en sí no tiene edición — es un buzón, no un documento.
-// Sugerencia de otra empresa → 404 (salvo SUPERADMIN), igual que el resto
-// de las rutas multi-tenant.
+// Solo SUPERADMIN: resolver una consulta es trabajo del equipo de
+// CÓMPUTO+, no de quien la mandó (otro rol → 403).
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const sesion = await requerirSesion();
+    const sesion = await requerirSuperadmin();
     if (sesion instanceof NextResponse) return sesion;
     const { id } = await params;
     const body = await req.json();
     if (typeof body.resuelta !== "boolean") {
       return NextResponse.json({ error: "resuelta debe ser boolean" }, { status: 400 });
     }
-    const superadmin = await esSuperadmin(sesion);
-    const where = superadmin ? { id } : { id, empresaId: sesion.empresaId };
-    const existente = await db.sugerencia.findFirst({ where, select: { id: true } });
+    const existente = await db.sugerencia.findFirst({ where: { id }, select: { id: true } });
     if (!existente) {
       return NextResponse.json({ error: "Sugerencia no encontrada" }, { status: 404 });
     }

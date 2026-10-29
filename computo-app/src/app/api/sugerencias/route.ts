@@ -47,10 +47,11 @@ export async function POST(req: NextRequest) {
     if (!mensaje || !String(mensaje).trim()) {
       return NextResponse.json({ error: "El mensaje es obligatorio" }, { status: 400 });
     }
-    const sugerencia = await db.sugerencia.create({
+    const { empresa, ...sugerencia } = await db.sugerencia.create({
       data: { mensaje: String(mensaje).trim(), empresaId: sesion.empresaId },
+      include: { empresa: { select: { nombre: true } } },
     });
-    return NextResponse.json(sugerencia, { status: 201 });
+    return NextResponse.json({ ...sugerencia, empresaNombre: empresa?.nombre ?? null }, { status: 201 });
   } catch (err) {
     console.error("[POST /api/sugerencias]", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
