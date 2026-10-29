@@ -12,6 +12,12 @@ interface Sugerencia {
   empresaNombre?: string | null;
 }
 
+// El Sidebar escucha este evento para refrescar el badge de pendientes
+// (mismo nombre en Sidebar.tsx; una página de Next no puede exportar constantes).
+function avisarCambio() {
+  window.dispatchEvent(new Event("sugerencias-cambiaron"));
+}
+
 function fmtFecha(iso: string): string {
   return new Date(iso).toLocaleDateString("es-UY", {
     day: "2-digit",
@@ -108,6 +114,7 @@ export default function SugerenciasPage() {
       if (!res.ok) throw new Error();
       const nueva: Sugerencia = await res.json();
       setSugerencias((prev) => [nueva, ...prev]);
+      avisarCambio();
       setMensaje("");
       setConfirmacion(true);
       setTimeout(() => setConfirmacion(false), 3000);
@@ -131,6 +138,7 @@ export default function SugerenciasPage() {
         body: JSON.stringify({ resuelta: valor }),
       });
       if (!res.ok) throw new Error();
+      avisarCambio();
     } catch {
       setSugerencias((prev) => prev.map((s) => (s.id === id ? { ...s, resuelta: !valor } : s)));
     } finally {
@@ -149,7 +157,7 @@ export default function SugerenciasPage() {
     <div className="p-6 md:p-8 max-w-3xl">
       <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Preguntas y sugerencias</h1>
       <p className="text-slate-500 mb-8">
-        Tu consulta o sugerencia llega directamente al equipo de CÓMPUTO+. Te respondemos por email.
+        Tu consulta o sugerencia llega directamente al equipo de CÓMPUTO+. Revisamos periódicamente y te contactamos si necesitamos más información.
       </p>
 
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-8">

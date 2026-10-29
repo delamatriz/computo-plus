@@ -1,11 +1,12 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { proyectoIdDesdePath } from "@/lib/proyectoActual";
+import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { motion, AnimatePresence } from "framer-motion";
 
 // "Mis Proyectos" también vive como píldora en el nav central del Header
@@ -132,8 +133,34 @@ export function Sidebar({
   // proyecto" desde ahí apuntaría a /proyectos/nuevo (nada que volver).
   const proyectoIdActual = proyectoIdDesdePath(pathname);
 
+  // Badge rojo de "Preguntas y sugerencias": solo SUPERADMIN, cuenta las sin
+  // resolver de todas las empresas. Se refresca al navegar y cuando la página
+  // /sugerencias avisa que se envió o se marcó una (evento de window).
+  const superadmin = useSuperadmin() === true;
+  const [sugerenciasPendientes, setSugerenciasPendientes] = useState(0);
+  useEffect(() => {
+    if (!superadmin) return;
+    let cancelado = false;
+    const cargar = () => {
+      fetch("/api/sugerencias/pendientes")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!cancelado && data) setSugerenciasPendientes(data.pendientes ?? 0);
+        })
+        .catch(() => {});
+    };
+    cargar();
+    window.addEventListener("sugerencias-cambiaron", cargar);
+    return () => {
+      cancelado = true;
+      window.removeEventListener("sugerencias-cambiaron", cargar);
+    };
+  }, [superadmin, pathname]);
+
   const renderItem = (item: { href: string; label: string; dividerBefore?: boolean }) => {
     const active = esActivo(pathname, item.href);
+    const badge = item.href === "/sugerencias" ? sugerenciasPendientes : 0;
+    const textoBadge = badge > 99 ? "99+" : String(badge);
     const href =
       proyectoIdActual && ITEMS_CON_VOLVER_AL_PROYECTO.has(item.href)
         ? `${item.href}?from=${proyectoIdActual}`
@@ -149,8 +176,9 @@ export function Sidebar({
           <Link
             href={href}
             title={collapsed ? item.label : undefined}
+            aria-label={badge > 0 ? `${item.label}: ${badge} sin resolver` : undefined}
             className={cn(
-              "flex items-center rounded-[8px] transition-colors text-sm font-medium",
+              "relative flex items-center rounded-[8px] transition-colors text-sm font-medium",
               collapsed ? "justify-center p-2.5" : "px-3 py-2.5",
               active
                 ? "bg-white/15 text-white"
@@ -168,6 +196,19 @@ export function Sidebar({
               </span>
             ) : (
               <span>{item.label}</span>
+            )}
+            {/* Mismo estilo que el badge de la campanita (Header.tsx); con el
+                Sidebar colapsado va en la esquina, como en la campanita. */}
+            {badge > 0 && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none tabular-nums flex items-center justify-center",
+                  collapsed ? "absolute top-0.5 right-0.5 border-2 border-bg-sidebar" : "ml-auto"
+                )}
+              >
+                {textoBadge}
+              </span>
             )}
           </Link>
         </li>
