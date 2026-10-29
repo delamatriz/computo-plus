@@ -16,6 +16,8 @@ export interface ImportacionListada {
   descripcion: string | null;
   creadoPor: string | null;
   materiales: number;
+  /** Cuántos de esos materiales usa algún APU (no se borrarían al eliminar la lista). */
+  enUso: number;
   /** Lista Oficial MTOP (proveedor null): no se puede eliminar desde la pantalla. */
   esOficial: boolean;
 }
@@ -34,6 +36,15 @@ export async function listarImportaciones(db: PrismaClient, empresaId: string | 
       _count: { select: { materiales: true } },
     },
   });
+  const materiales = await db.precioMTOP.findMany({
+    where: { importacionId: { in: filas.map((f) => f.id) } },
+    select: { id: true, importacionId: true },
+  });
+  const usados = await idsEnUso(db, materiales.map((m) => m.id));
+  const enUsoPorLista = new Map<string, number>();
+  for (const m of materiales) {
+    if (m.importacionId && usados.has(m.id)) enUsoPorLista.set(m.importacionId, (enUsoPorLista.get(m.importacionId) ?? 0) + 1);
+  }
   return filas.map((f) => ({
     id: f.id,
     fecha: f.fecha.toISOString(),
@@ -41,6 +52,7 @@ export async function listarImportaciones(db: PrismaClient, empresaId: string | 
     descripcion: f.descripcion,
     creadoPor: f.creadoPor?.nombre ?? null,
     materiales: f._count.materiales,
+    enUso: enUsoPorLista.get(f.id) ?? 0,
     esOficial: f.proveedor === null,
   }));
 }

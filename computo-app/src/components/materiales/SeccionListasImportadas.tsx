@@ -81,7 +81,9 @@ export default function SeccionListasImportadas({
       const r = await pedir(lista.id, false);
       setEstado(lista.id, null);
       setResultado(
-        `${nombreLista(lista)}: se ${r.borrados === 1 ? "borró 1 material" : `borraron ${r.borrados} materiales`}.` +
+        r.borrados === 0 && r.protegidos === 0
+          ? `${nombreLista(lista)}: se eliminó la lista; no tenía materiales propios.`
+          : `${nombreLista(lista)}: se ${r.borrados === 1 ? "borró 1 material" : `borraron ${r.borrados} materiales`}.` +
           (r.protegidos > 0
             ? ` ${r.protegidos === 1 ? "Quedó 1 protegido" : `Quedaron ${r.protegidos} protegidos`} porque ${r.protegidos === 1 ? "lo usa" : "los usa"} algún APU; la lista sigue acá con ${r.protegidos === 1 ? "él" : "ellos"}.`
             : "")
@@ -141,8 +143,8 @@ export default function SeccionListasImportadas({
                           {fechaUruguay(new Date(lista.fecha))}
                           {lista.creadoPor && <> · {lista.creadoPor}</>} ·{" "}
                           <span className="tabular-nums">
-                            {lista.materiales} material{lista.materiales === 1 ? "" : "es"} nuevo
-                            {lista.materiales === 1 ? "" : "s"}
+                            {lista.materiales} material{lista.materiales === 1 ? "" : "es"}{" "}
+                            {soloEnUso(lista) ? "en uso" : lista.materiales === 1 ? "nuevo" : "nuevos"}
                           </span>
                         </p>
                       </div>
@@ -193,6 +195,13 @@ export default function SeccionListasImportadas({
       )}
     </div>
   );
+}
+
+// Todos los materiales que le quedan a la lista los usa algún APU: es lo que
+// queda después de eliminarla con protegidos (o una lista cuyos materiales ya
+// se usan todos). Se muestran como "en uso" en vez de "nuevos".
+function soloEnUso(lista: ImportacionListada): boolean {
+  return lista.materiales > 0 && lista.enUso === lista.materiales;
 }
 
 function nombreLista(lista: ImportacionListada): string {
