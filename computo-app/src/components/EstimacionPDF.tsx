@@ -32,7 +32,7 @@ export interface EstimacionPDFProps {
   nivel: string;
   /** m² (camino por m²) o null. */
   area: number | null;
-  /** Texto de los trabajos (Reparaciones / Reforma) o null. */
+  /** Texto de los trabajos (Reparaciones / Reforma) o descripción de la obra (tipos por área), o null. */
   descripcion: string | null;
   moneda: "UYU" | "USD";
   tipoCambio: { valor: number; fecha: string | null; fuente: "BCU" | "referencia" };
@@ -164,7 +164,10 @@ export function EstimacionPDF(props: EstimacionPDFProps) {
         </View>
         {props.descripcion ? (
           <View style={{ marginTop: 2 }}>
-            <Text style={[styles.datoLabel, { marginBottom: 3 }]}>Trabajos</Text>
+            <Text style={[styles.datoLabel, { marginBottom: 3 }]}>
+              {/* Con área es un tipo por área (Vivienda, PH, Local, Industrial); sin área, Reparaciones/Reforma. */}
+              {props.area != null ? "Descripción de la obra" : "Trabajos"}
+            </Text>
             <Text style={styles.descripcion}>{props.descripcion}</Text>
           </View>
         ) : null}

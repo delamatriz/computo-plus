@@ -433,7 +433,7 @@ export default function CalcularPage() {
           zona: ZONAS.find((z) => z.id === zona)?.label ?? zona,
           nivel: CALIDADES.find((c) => c.id === calidad)?.label ?? calidad,
           area: !esDescriptivo && areaTotal > 0 ? areaTotal : null,
-          descripcion: esDescriptivo ? descripcion.trim() : null,
+          descripcion: descripcion.trim() || null,
           moneda,
           tipoCambio,
           costoDirecto: desglose.total,
@@ -597,6 +597,8 @@ export default function CalcularPage() {
                   <button
                     key={t.id}
                     onClick={() => {
+                      // La descripción es de un tipo de obra puntual: al cambiar de tipo no se arrastra.
+                      if (t.id !== tipo) setDescripcion("");
                       setTipo(t.id);
                       setTimeout(() => {
                         if (t.id === "REPARACIONES" || t.id === "REFORMA") {
