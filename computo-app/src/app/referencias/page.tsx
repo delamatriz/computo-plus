@@ -201,7 +201,9 @@ const navPrincipal: ItemEstructura[] = [
     nombre: "Biblioteca",
     contenido: (
       <>
-        El texto de las leyes puntuales más relevantes para presupuestar
+        Documentación técnica de apoyo a la construcción: normas y
+        reglamentos, manuales técnicos y artículos para consultar y
+        descargar, más los links a las leyes puntuales más relevantes
         (tercerización, régimen de aportes, responsabilidad por defectos de
         construcción).
       </>

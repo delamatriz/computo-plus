@@ -1846,3 +1846,19 @@ model TipoCambio {
 
   @@unique([fecha, moneda, fuente])
 }
+
+// Biblioteca de documentos técnicos (/biblioteca): global, curada por el
+// SUPERADMIN. Todos los usuarios logueados ven y descargan; solo el
+// SUPERADMIN sube y borra. `archivo` es la URL (privada) en Vercel Blob:
+// la descarga pasa por GET /api/biblioteca/[id]/archivo.
+model DocumentoBiblioteca {
+  id            String   @id @default(cuid())
+  titulo        String
+  descripcion   String?
+  categoria     String // "normas" | "manuales" | "articulos" | "otros"
+  archivo       String // URL en Vercel Blob
+  nombreArchivo String // nombre original del archivo
+  tamanio       Int // bytes
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+}

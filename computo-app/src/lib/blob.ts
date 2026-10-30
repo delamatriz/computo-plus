@@ -28,6 +28,18 @@ export async function subirArchivoABlob(pathname: string, dataUrl: string): Prom
   return blob.url;
 }
 
+// Igual que subirArchivoABlob, para un archivo que llega como File en un
+// FormData (Biblioteca), sin pasar por base64.
+export async function subirFileABlob(pathname: string, archivo: File, contentType: string): Promise<string> {
+  const buffer = Buffer.from(await archivo.arrayBuffer());
+  const blob = await put(pathname, buffer, {
+    access: ACCESS,
+    contentType,
+    addRandomSuffix: true,
+  });
+  return blob.url;
+}
+
 // Elimina uno o más archivos de Vercel Blob por su URL. No lanza si alguna
 // URL ya no existe — evita que un archivo huérfano bloquee el borrado del
 // registro en la base.
