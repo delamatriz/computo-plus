@@ -5,6 +5,8 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
+  CheckCircle2,
+  Plus,
   Search,
   ChevronRight,
   ChevronDown,
@@ -20,6 +22,8 @@ import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto
 import { EncabezadosAPU, textoRendimientoMO } from "@/components/shared/EncabezadosAPU";
 import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { fmtRendimiento } from "@/lib/formatoNumeros";
+import { ModalNuevoRubro } from "@/components/rubros/ModalNuevoRubro";
+import type { RubroCatalogoCreado } from "@/lib/rubroCatalogoNuevo";
 
 // ── Tipos ──────────────────────────────────────────────────────────────
 
@@ -513,13 +517,38 @@ export default function BibliotecaPage() {
   const [descompuesto, setDescompuesto] = useState<Descompuesto | null>(null);
   const [cargandoDescompuesto, setCargandoDescompuesto] = useState(false);
   const [errorDescompuesto, setErrorDescompuesto] = useState(false);
+  const esSuperadmin = useSuperadmin() === true;
+  const [modalNuevoAbierto, setModalNuevoAbierto] = useState(false);
+  const [aviso, setAviso] = useState<{ texto: string; advertencia: boolean } | null>(null);
 
-  useEffect(() => {
+  const cargarArbol = () =>
     fetch("/api/subrubros-estandar/jerarquia")
       .then((r) => r.json())
       .then((data) => setCapitulos(data))
       .finally(() => setCargandoArbol(false));
+
+  useEffect(() => {
+    cargarArbol();
   }, []);
+
+  useEffect(() => {
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(null), aviso.advertencia ? 8000 : 3500);
+    return () => clearTimeout(t);
+  }, [aviso]);
+
+  // Rubro creado: se recarga el árbol (sin recargar la página) y, si quedó
+  // activo, se abre su descompuesto.
+  const alCrearRubro = async (creado: RubroCatalogoCreado) => {
+    setModalNuevoAbierto(false);
+    await cargarArbol();
+    if (creado.activo) setSeleccionadoId(creado.id);
+    setAviso(
+      creado.lineasSinPrecio.length > 0
+        ? { texto: `Rubro ${creado.codigo} creado. Sin precio: ${creado.lineasSinPrecio.join(", ")}.`, advertencia: true }
+        : { texto: creado.activo ? `Rubro ${creado.codigo} creado.` : `Rubro ${creado.codigo} creado como inactivo (no aparece en el catálogo).`, advertencia: false }
+    );
+  };
 
   useEffect(() => {
     if (!seleccionadoId) return;
@@ -559,7 +588,19 @@ export default function BibliotecaPage() {
           </Link>
           <BotonVolverAlProyecto className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#2563EB] transition-colors" />
         </div>
-        <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-1">Catálogo de Rubros</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+          <h1 className="text-2xl font-semibold text-[#1A3A5C]">Catálogo de Rubros</h1>
+          {esSuperadmin && (
+            <button
+              onClick={() => setModalNuevoAbierto(true)}
+              disabled={cargandoArbol}
+              className="flex items-center gap-2 px-4 py-2 rounded-[8px] text-sm font-semibold text-white bg-[#2563EB] hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" />
+              Nuevo rubro
+            </button>
+          )}
+        </div>
         <p className="text-slate-500 text-sm">
           Explorá los rubros de obra con sus análisis de precios (APU). Hacé clic en un capítulo para ver sus
           rubros y el desglose completo de materiales, mano de obra y equipos.
@@ -627,6 +668,31 @@ export default function BibliotecaPage() {
           )}
         </div>
       </div>
+
+      {modalNuevoAbierto && (
+        <ModalNuevoRubro
+          capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre }))}
+          onClose={() => setModalNuevoAbierto(false)}
+          onCreado={alCrearRubro}
+        />
+      )}
+
+      {aviso && (
+        <div
+          role="status"
+          className={cn(
+            "fixed bottom-5 left-1/2 -translate-x-1/2 z-[130] flex items-center gap-2 rounded-[10px] px-4 py-2.5 shadow-lg max-w-[calc(100vw-32px)] border",
+            aviso.advertencia ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"
+          )}
+        >
+          {aviso.advertencia ? (
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          )}
+          <span className={cn("text-sm font-medium", aviso.advertencia ? "text-amber-800" : "text-emerald-800")}>{aviso.texto}</span>
+        </div>
+      )}
     </div>
   );
 }
