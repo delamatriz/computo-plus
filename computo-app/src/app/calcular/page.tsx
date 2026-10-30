@@ -203,6 +203,9 @@ export default function CalcularPage() {
   const [area, setArea]       = useState<string>("");
   const [unidades, setUnidades] = useState<string>("1");
   const [descripcion, setDescripcion] = useState<string>("");
+  // Nombre opcional (solo tipos descriptivos, junto a la descripción): si
+  // está vacío, el nombre del anteproyecto sale del texto como siempre.
+  const [nombreCalculo, setNombreCalculo] = useState("");
   // Fallback táctil del resize-y del textarea de descripción — en mobile
   // el tirador de arrastre nativo no responde al touch (limitación de los
   // navegadores móviles, no del CSS). Se controla imperativamente sobre
@@ -489,9 +492,13 @@ export default function CalcularPage() {
       const tipoLabel = TIPOS_OBRA.find((t) => t.id === tipo)?.label ?? tipo;
       const zonaLabel = ZONAS.find((z) => z.id === zona)?.label ?? zona;
       const calidadLabel = CALIDADES.find((c) => c.id === calidad)?.label ?? calidad;
-      // El nombre sale del texto que escribió el usuario (60 caracteres
-      // como máximo); sin texto, la fórmula de siempre.
-      const nombre = nombreDesdeTexto(descripcion) ?? `Anteproyecto — ${tipoLabel} en ${zonaLabel}`;
+      // El nombre que escribió el usuario; si no, sale del texto de la
+      // descripción (60 caracteres como máximo); sin texto, la fórmula de
+      // siempre. El campo Nombre solo se ve en los tipos descriptivos.
+      const nombre =
+        (esDescriptivo ? nombreCalculo.trim() : "") ||
+        nombreDesdeTexto(descripcion) ||
+        `Anteproyecto — ${tipoLabel} en ${zonaLabel}`;
 
       const resumenCalculoRapido = [
         `Estimación de Cálculo Rápido — ${new Date().toLocaleDateString("es-UY")}`,
@@ -615,6 +622,17 @@ export default function CalcularPage() {
             {/* Área / Descripción */}
             {esDescriptivo ? (
               <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
+                <label htmlFor="nombre-calculo" className="block text-sm font-semibold text-text-primary mb-3">
+                  Nombre
+                </label>
+                <input
+                  id="nombre-calculo"
+                  type="text"
+                  value={nombreCalculo}
+                  onChange={(e) => setNombreCalculo(e.target.value)}
+                  placeholder="Ej: Reforma baño principal"
+                  className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all mb-5"
+                />
                 <div className="flex items-center justify-between mb-3">
                   <label className="block text-sm font-semibold text-text-primary">
                     Descripción de los trabajos
@@ -1369,6 +1387,10 @@ export default function CalcularPage() {
 
                     try {
                       sessionStorage.setItem("calculoRapido_descripcion", descripcion);
+                      // Nombre sugerido para el asistente; vacío o tipo no descriptivo → se deriva de la descripción.
+                      const nombreSugerido = esDescriptivo ? nombreCalculo.trim() : "";
+                      if (nombreSugerido) sessionStorage.setItem("calculoRapido_nombre", nombreSugerido);
+                      else sessionStorage.removeItem("calculoRapido_nombre");
                       // %GG y %Beneficio que el usuario dejó cargados: el asistente los manda al crear el
                       // proyecto (mismo criterio que "Guardar como anteproyecto").
                       sessionStorage.setItem(

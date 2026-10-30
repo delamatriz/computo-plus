@@ -248,12 +248,14 @@ function NuevoProyectoContent() {
     const descripcion = sessionStorage.getItem("calculoRapido_descripcion");
     if (descripcion) {
       set("trabajos", descripcion);
-      // "Iniciar proyecto completo": el nombre arranca con el texto que el
-      // usuario escribió en Cálculo Rápido (editable, como cualquier campo).
-      const nombre = nombreDesdeTexto(descripcion);
+      // "Iniciar proyecto completo": el nombre arranca con el que el usuario
+      // escribió en Cálculo Rápido o, si no puso ninguno, con el texto de la
+      // descripción (editable, como cualquier campo).
+      const nombre = sessionStorage.getItem("calculoRapido_nombre")?.trim() || nombreDesdeTexto(descripcion);
       if (nombre) setForm((prev) => (prev.nombre.trim() ? prev : { ...prev, nombre }));
       sessionStorage.removeItem("calculoRapido_descripcion");
     }
+    sessionStorage.removeItem("calculoRapido_nombre");
 
     const resultadoRaw = sessionStorage.getItem("calculoRapido_resultado");
     if (resultadoRaw) {
