@@ -5119,7 +5119,7 @@ export default function ProyectoPage() {
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") toggleCapituloConSubrubros(cap);
           }}
-          className={cn("w-full grid items-center px-5 py-3 transition-colors text-left group cursor-pointer", PALETA.capituloFila)}
+          className={cn("w-full hidden md:grid items-center px-5 py-3 transition-colors text-left group cursor-pointer", PALETA.capituloFila)}
           style={{ gridTemplateColumns: GRID_CAPITULO }}
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -5199,6 +5199,27 @@ export default function ProyectoPage() {
           </div>
         </div>
 
+        {/* Header capítulo — mobile (< md): número, nombre, total y flecha;
+            el nombre se edita desde la vista desktop. */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => toggleCapituloConSubrubros(cap)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") toggleCapituloConSubrubros(cap);
+          }}
+          className={cn("flex md:hidden items-center gap-3 px-4 py-3 cursor-pointer", PALETA.capituloFila)}
+        >
+          <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: PALETA.capituloTexto }}>
+            {codigoMostrado}
+          </span>
+          <span className={cn("flex-1 min-w-0 text-sm font-semibold truncate", PALETA.capituloTextoClase)}>{cap.nombre}</span>
+          <span className="text-sm font-bold tabular-nums flex-shrink-0" style={{ color: totalCap > 0 ? PALETA.capituloTexto : "#CBD5E1" }}>
+            {totalCap > 0 ? fmtMoneda(totalCap, moneda) : "—"}
+          </span>
+          <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform", expandido && "rotate-180")} />
+        </div>
+
         {/* Panel expandido — rubros */}
         <AnimatePresence initial={false}>
           {expandido && (
@@ -5210,7 +5231,7 @@ export default function ProyectoPage() {
               className="overflow-hidden"
             >
               <div className="border-t border-slate-100 overflow-x-auto">
-                <div className="min-w-[800px]">
+                <div className="md:min-w-[800px]">
 
                 {capituloVacio(cap) ? (
                   <>
@@ -5250,6 +5271,8 @@ export default function ProyectoPage() {
                   </>
                 ) : (
                 <>
+                {/* Tabla de rubros — desktop (md+). En mobile se ve el card view de abajo. */}
+                <div className="hidden md:block">
                 {/* Header de columnas — usa GRID_RUBRO, comparte Total/% Incid. con GRID_CAPITULO */}
                 <div className="grid items-center bg-slate-50 border-b border-slate-200 px-5" style={{ height: 28, gridTemplateColumns: GRID_RUBRO }}>
                   <div style={stickyIcono("#F8FAFC")} />
@@ -5563,8 +5586,149 @@ export default function ProyectoPage() {
                   <div />
                   <div />
                 </div>
+                </div>
 
-                {/* Botón agregar rubro */}
+                {/* Card view rubros — mobile (< md). Mismos handlers que la
+                    tabla desktop; el precio pactado (precioCongelado) se
+                    decide en el mismo modal, al tocar el precio. */}
+                <div className="block md:hidden px-3 py-2 space-y-2">
+                  {cap.rubros.map((rubro) => {
+                    const decisionPrecio = decisionesPrecioRubro[rubro.id];
+                    const pendienteDecisionPrecio = !soloLectura && rubro.precioCongelado != null && !decisionPrecio;
+                    const precioBloqueado = pendienteDecisionPrecio || decisionPrecio === "mantener";
+                    const campoCard =
+                      "w-full min-w-0 rounded-[6px] border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300 disabled:bg-slate-50 disabled:text-slate-400";
+                    return (
+                      <div key={rubro.id} className="bg-white border border-slate-200 rounded-xl p-3">
+                        <div className="flex items-start gap-2 mb-2">
+                          <input
+                            type="text"
+                            value={descripcionEnFoco === rubro.id ? rubro.descripcion : toTitleCase(rubro.descripcion)}
+                            onChange={(e) => actualizarRubro(cap.id, rubro.id, "descripcion", e.target.value)}
+                            onFocus={() => setDescripcionEnFoco(rubro.id)}
+                            onBlur={() => { setDescripcionEnFoco(null); sugerirAPU(cap.id, rubro.id); }}
+                            placeholder="Descripción del rubro"
+                            disabled={soloLectura}
+                            aria-label="Descripción del rubro"
+                            className="flex-1 min-w-0 text-sm font-medium text-[#1A3A5C] bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300 disabled:cursor-default"
+                          />
+                          {apuGenerando.has(rubro.id) && (
+                            <span className="flex-shrink-0 mt-2 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Generando APU…" />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setDrawerRubroId(rubro.id)}
+                            disabled={rubro.id.startsWith("temp-")}
+                            className="flex-shrink-0 p-1.5 rounded-lg bg-blue-50 text-[#2563EB] hover:bg-blue-100 disabled:opacity-40"
+                            title="Ver descompuesto (APU)"
+                            aria-label="Ver descompuesto (APU)"
+                          >
+                            <LayoutList className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-[56px_minmax(0,1fr)_minmax(0,1.3fr)] gap-2 text-[11px] text-slate-400 mb-1">
+                          <span>Unidad</span>
+                          <span className="text-right">Cant.</span>
+                          <span className="text-right">P. unit.</span>
+                        </div>
+                        <div className="grid grid-cols-[56px_minmax(0,1fr)_minmax(0,1.3fr)] gap-2">
+                          <input
+                            type="text"
+                            value={rubro.unidad}
+                            onChange={(e) => actualizarRubro(cap.id, rubro.id, "unidad", e.target.value)}
+                            onBlur={() => sugerirAPU(cap.id, rubro.id)}
+                            placeholder="m²"
+                            disabled={soloLectura}
+                            aria-label="Unidad"
+                            className={cn(campoCard, "text-center")}
+                          />
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={
+                              cantidadEnFoco?.id === rubro.id
+                                ? cantidadEnFoco.texto
+                                : (rubro.cantidad != null ? fmtRendimiento(rubro.cantidad) : "")
+                            }
+                            onChange={(e) => {
+                              setCantidadEnFoco({ id: rubro.id, texto: e.target.value });
+                              actualizarRubro(cap.id, rubro.id, "cantidad", e.target.value);
+                            }}
+                            onFocus={() => setCantidadEnFoco({ id: rubro.id, texto: rubro.cantidad != null ? String(rubro.cantidad) : "" })}
+                            onBlur={() => setCantidadEnFoco(null)}
+                            onClick={() => { if (pendienteDecisionPrecio) abrirModalPrecioCongelado(cap.id, rubro); }}
+                            placeholder="0"
+                            disabled={soloLectura}
+                            readOnly={pendienteDecisionPrecio}
+                            aria-label="Cantidad"
+                            className={cn(campoCard, "text-right tabular-nums", pendienteDecisionPrecio && "text-amber-600")}
+                          />
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={
+                              precioUnitEnFoco?.id === rubro.id
+                                ? precioUnitEnFoco.texto
+                                : (rubro.precioUnit != null && rubro.precioUnit > 0 ? fmtMon(rubro.precioUnit) : "")
+                            }
+                            onChange={(e) => {
+                              setPrecioUnitEnFoco({ id: rubro.id, texto: e.target.value });
+                              actualizarRubro(cap.id, rubro.id, "precioUnit", e.target.value);
+                            }}
+                            onFocus={() => setPrecioUnitEnFoco({ id: rubro.id, texto: rubro.precioUnit != null ? String(rubro.precioUnit) : "" })}
+                            onBlur={() => setPrecioUnitEnFoco(null)}
+                            onClick={() => { if (precioBloqueado) abrirModalPrecioCongelado(cap.id, rubro); }}
+                            placeholder="0.00"
+                            disabled={soloLectura}
+                            readOnly={precioBloqueado}
+                            aria-label="Precio unitario"
+                            className={cn(
+                              campoCard,
+                              "text-right tabular-nums",
+                              pendienteDecisionPrecio ? "text-amber-600" : decisionPrecio === "mantener" && "text-slate-400"
+                            )}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between gap-2 mt-3 pt-2 border-t border-slate-100">
+                          {!soloLectura ? (
+                            <button
+                              type="button"
+                              onClick={() => eliminarRubro(cap.id, rubro.id, rubro.descripcion)}
+                              className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              Eliminar
+                            </button>
+                          ) : (
+                            <span />
+                          )}
+                          <span className="text-right">
+                            <span className="text-[11px] text-slate-400 mr-1.5">Total</span>
+                            <span className={cn("text-sm font-bold tabular-nums", totalRubro(rubro) > 0 ? "text-[#1A3A5C]" : "text-slate-300")}>
+                              {totalRubro(rubro) > 0 ? fmtMoneda(totalRubro(rubro), moneda) : "—"}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className={cn("flex items-center justify-between rounded-xl px-3 py-2", PALETA.subtotalFila)}>
+                    <span className={cn("text-[11px] font-semibold uppercase tracking-wider truncate", PALETA.subtotalTextoClase)}>Subtotal</span>
+                    <span className={cn("text-sm font-bold tabular-nums", PALETA.subtotalTextoClase)}>{fmtMoneda(totalCap, moneda)}</span>
+                  </div>
+                  {!soloLectura && (
+                    <button
+                      type="button"
+                      onClick={() => agregarRubro(cap.id)}
+                      className="w-full py-3 text-sm font-medium text-[#2563EB] border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Agregar rubro
+                    </button>
+                  )}
+                </div>
+
+                {/* Botón agregar rubro (en mobile, "+ Agregar rubro" es el botón grande de arriba) */}
                 {!soloLectura && (
                   <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
                     {cap.capituloCatalogoId && (
@@ -5585,7 +5749,7 @@ export default function ProyectoPage() {
                     </button>
                     <button
                       onClick={() => agregarRubro(cap.id)}
-                      className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                      className="hidden md:flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
                     >
                       <Plus className="w-3 h-3" /> Agregar rubro
                     </button>
@@ -6041,7 +6205,9 @@ export default function ProyectoPage() {
               aplastar el nombre a nada. Mismo criterio que ya usa la tabla
               de rubros expandida (overflow-x-auto + min-w-[800px]) más abajo. */}
           <div className="overflow-x-auto">
-            <div className="min-w-[560px]">
+            {/* El piso de 560px solo en md+: en mobile cada fila de capítulo
+                (y de título) tiene su propio header angosto, sin columnas fijas. */}
+            <div className="md:min-w-[560px]">
               {/* Cabecera de la tabla — usa GRID_CAPITULO, la misma plantilla de columnas que la fila de Capítulo más abajo y que comparte Total/% Incid. con GRID_RUBRO.
                   Con modoMultiTitulo, esta celda queda vacía a propósito
                   (Total/% Incid. siguen aplicando bien a la fila de Título
@@ -6049,7 +6215,7 @@ export default function ProyectoPage() {
                   como si describiera esa fila de Título — ver relevamiento.
                   La etiqueta correcta vive repetida más abajo, justo
                   arriba de cada lista 1.1/1.2 real, ver capsDelTitulo.map). */}
-              <div className="grid border-b border-slate-200 px-5 py-2.5" style={{ gridTemplateColumns: GRID_CAPITULO }}>
+              <div className="hidden md:grid border-b border-slate-200 px-5 py-2.5" style={{ gridTemplateColumns: GRID_CAPITULO }}>
                 <div className="flex items-center gap-3">
                   <span className="w-6 flex-shrink-0" />
                   {!modoMultiTitulo && (
@@ -6097,7 +6263,7 @@ export default function ProyectoPage() {
                       return next;
                     });
                   }}
-                  className={cn("w-full grid items-center px-5 py-3 transition-colors text-left group cursor-pointer", PALETA.tituloFila)}
+                  className={cn("w-full hidden md:grid items-center px-5 py-3 transition-colors text-left group cursor-pointer", PALETA.tituloFila)}
                   style={{ gridTemplateColumns: GRID_CAPITULO, borderBottom: `1px solid ${PALETA.tituloBorde}` }}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -6147,6 +6313,40 @@ export default function ProyectoPage() {
                   <div className="flex items-center justify-center text-slate-400 group-hover:text-slate-600 transition-colors">
                     {tituloExpandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </div>
+                </div>
+
+                {/* Header de título — mobile (< md) */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setTitulosExpandidos((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(titulo.id)) next.delete(titulo.id);
+                      else next.add(titulo.id);
+                      return next;
+                    });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    setTitulosExpandidos((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(titulo.id)) next.delete(titulo.id);
+                      else next.add(titulo.id);
+                      return next;
+                    });
+                  }}
+                  className={cn("flex md:hidden items-center gap-3 px-4 py-3 cursor-pointer", PALETA.tituloFila)}
+                  style={{ borderBottom: `1px solid ${PALETA.tituloBorde}` }}
+                >
+                  <span className="text-xs font-bold tabular-nums w-6 text-right flex-shrink-0" style={{ color: titulo.color ?? "#2563EB" }}>
+                    {tituloIdx + 1}
+                  </span>
+                  <span className="flex-1 min-w-0 text-sm font-bold text-[#1A3A5C] truncate uppercase tracking-wide">{titulo.nombre}</span>
+                  <span className="text-sm font-bold tabular-nums text-[#1A3A5C] flex-shrink-0">
+                    {totalTitulo > 0 ? fmtMoneda(totalTitulo, moneda) : "—"}
+                  </span>
+                  <ChevronDown className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform", tituloExpandido && "rotate-180")} />
                 </div>
 
                 <AnimatePresence initial={false}>
