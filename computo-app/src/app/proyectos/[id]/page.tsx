@@ -5807,16 +5807,22 @@ export default function ProyectoPage() {
         )}
 
         {/* ── Documentación para metrar + Planilla de cómputo + Calculadora + Visor
-            (ver UI_UX_REDESIGN.md sección 2quater — antes vivía en /proyectos/[id]/metrajes) ── */}
-        <SeccionMetrajesPresupuesto
-          proyectoId={proyectoActivo.id}
-          documentacionLlamado={<SeccionDocumentacionLlamado proyectoId={proyectoActivo.id} />}
-        />
+            (ver UI_UX_REDESIGN.md sección 2quater — antes vivía en /proyectos/[id]/metrajes).
+            Mientras es anteproyecto, la pestaña muestra solo el banner y la
+            estimación: metrajes y todo el presupuesto (tabla, totales en $0,
+            secciones) aparecen recién al convertir. ── */}
+        {!esAnteproyecto && (
+          <SeccionMetrajesPresupuesto
+            proyectoId={proyectoActivo.id}
+            documentacionLlamado={<SeccionDocumentacionLlamado proyectoId={proyectoActivo.id} />}
+          />
+        )}
 
         {avisoAsistencia && (
           <AvisoAcceso mensaje={avisoAsistencia.mensaje} contacto={avisoAsistencia.contacto} onCerrar={() => setAvisoAsistencia(null)} />
         )}
 
+        {!esAnteproyecto && (<>
         <div className="bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
 
           {/* Barra de título + "Agregar título". Los capítulos se agregan
@@ -6199,6 +6205,7 @@ export default function ProyectoPage() {
           }
           ultimaActualizacionIndice={proyectoActivo.ultimaActualizacionIndice ?? null}
         />
+        </>)}
 
       </div>
       )}
