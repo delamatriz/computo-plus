@@ -482,7 +482,7 @@ function MaterialesPageInner() {
           color="azul"
           title="Materiales importados por tu empresa desde tus propias listas de precios"
         >
-          Mis fuentes ({cantidadMisFuentes})
+          Proveedores ({cantidadMisFuentes})
         </BotonFiltro>
       </div>
 

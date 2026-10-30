@@ -35,7 +35,7 @@ const SELECT_CATALOGO_COMPLETO = {
   requiereVerificacion: true,
   motivoVerificacion: true,
   // null = catálogo global; con valor = importado por la empresa de quien
-  // consulta (el filtro "Mis fuentes" de /materiales). La consulta ya trae
+  // consulta (el filtro "Proveedores" de /materiales). La consulta ya trae
   // solo lo global + lo de la propia empresa, no expone otras.
   empresaId: true,
   // Para la fecha general "Catálogo actualizado al" de /materiales —

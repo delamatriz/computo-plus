@@ -18,6 +18,7 @@ import {
   type EncabezadoLista,
 } from "@/lib/listaMTOP";
 import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
+import { codigoSinPrefijoEmpresa } from "@/lib/catalogoPrecios";
 
 interface Props {
   // El SUPERADMIN importa sobre el catálogo global (puede marcar "Lista oficial MTOP" y usar PDF).
@@ -117,7 +118,7 @@ interface FilaBase {
 
 interface FilaVistaPrevia extends FilaBase {
   coincidencia: CoincidenciaImportacion | null;
-  // Solo lista oficial: si el match fue por código exacto o por similitud de descripción
+  // Si el match fue por código exacto (SKU) o por similitud de descripción
   via?: "codigo" | "descripcion";
   // Solo lista oficial: el código ya apareció antes en el archivo — el servidor toma el primero
   duplicada?: boolean;
@@ -301,10 +302,21 @@ export default function ModalImportarPrecios({ esSuperadmin, proveedoresExistent
     const res = await fetch(`/api/precios-mtop?proveedorExacto=${encodeURIComponent(proveedorActual)}`);
     const candidatos: CandidatoImportacion[] = res.ok ? await res.json() : [];
     setCandidatosCache(candidatos);
-    return filasBase.map((f) => {
-      const valida = f.descripcion.trim().length > 0 && f.unidad.trim().length > 0 && f.precioUnitario != null && f.precioUnitario > 0;
-      const coincidencia = valida ? mejorCoincidencia(f.descripcion, candidatos) : null;
-      return { ...f, coincidencia, valida, incluida: f.confianza !== "baja" };
+    const validas = filasBase.map(
+      (f) => f.descripcion.trim().length > 0 && f.unidad.trim().length > 0 && f.precioUnitario != null && f.precioUnitario > 0
+    );
+    // Mismo criterio que el servidor: código exacto primero, después descripción. Los
+    // códigos de una empresa se guardan con su prefijo; acá se comparan sin él.
+    const comparables = esSuperadmin ? candidatos : candidatos.map((c) => ({ ...c, codigo: codigoSinPrefijoEmpresa(c.codigo) }));
+    const idx = filasBase.map((_, i) => i).filter((i) => validas[i]);
+    const coincidencias = clasificarListaOficial(
+      idx.map((i) => ({ codigo: filasBase[i].codigo, descripcion: filasBase[i].descripcion })),
+      comparables
+    );
+    const porIndice = new Map(idx.map((i, k) => [i, coincidencias[k]]));
+    return filasBase.map((f, i) => {
+      const c = porIndice.get(i) ?? null;
+      return { ...f, coincidencia: c, via: c?.via, valida: validas[i], incluida: f.confianza !== "baja" };
     });
   }
 
@@ -446,7 +458,14 @@ export default function ModalImportarPrecios({ esSuperadmin, proveedoresExistent
           actualizada.unidad.trim().length > 0 &&
           actualizada.precioUnitario != null &&
           actualizada.precioUnitario > 0;
-        actualizada.coincidencia = actualizada.valida ? mejorCoincidencia(actualizada.descripcion, candidatosCache) : null;
+        // Una coincidencia por código no depende de lo que se edite en la fila.
+        if (actualizada.via !== "codigo") {
+          actualizada.coincidencia = actualizada.valida ? mejorCoincidencia(actualizada.descripcion, candidatosCache) : null;
+          actualizada.via = actualizada.coincidencia ? "descripcion" : undefined;
+        } else if (!actualizada.valida) {
+          actualizada.coincidencia = null;
+          actualizada.via = undefined;
+        }
         return actualizada;
       });
     });
@@ -537,9 +556,18 @@ export default function ModalImportarPrecios({ esSuperadmin, proveedoresExistent
                 <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
                 <p className="text-sm font-semibold text-[#1A3A5C] mb-1">Importación aplicada</p>
                 <p className="text-sm text-slate-500">
-                  {resumen.actualizados} material{resumen.actualizados !== 1 ? "es" : ""} actualizado
-                  {resumen.actualizados !== 1 ? "s" : ""}, {resumen.nuevos} nuevo{resumen.nuevos !== 1 ? "s" : ""} — de{" "}
-                  {resumen.total} fila{resumen.total !== 1 ? "s" : ""} válida{resumen.total !== 1 ? "s" : ""}.
+                  {resumen.actualizados > 0 ? (
+                    <>
+                      {resumen.actualizados} precio{resumen.actualizados !== 1 ? "s" : ""} actualizado
+                      {resumen.actualizados !== 1 ? "s" : ""} · {resumen.nuevos} material{resumen.nuevos !== 1 ? "es" : ""}{" "}
+                      nuevo{resumen.nuevos !== 1 ? "s" : ""}
+                    </>
+                  ) : (
+                    <>
+                      {resumen.actualizados} materiales actualizados, {resumen.nuevos} nuevo{resumen.nuevos !== 1 ? "s" : ""} — de{" "}
+                      {resumen.total} fila{resumen.total !== 1 ? "s" : ""} válida{resumen.total !== 1 ? "s" : ""}.
+                    </>
+                  )}
                 </p>
                 <p className="text-xs text-slate-400 mt-3 max-w-md mx-auto">
                   Los precios y número de lista se actualizan en el momento de la importación. Si algún material

@@ -25,3 +25,8 @@ export function visibleParaEmpresa(empresaId: string | null | undefined) {
 export function codigoParaEmpresa(empresaId: string, codigoArchivo: string): string {
   return `E${empresaId.slice(-6)}-${codigoArchivo.trim()}`;
 }
+
+/** Inverso de codigoParaEmpresa, para la vista previa del importador (el cliente no conoce el id de la empresa). */
+export function codigoSinPrefijoEmpresa(codigo: string): string {
+  return codigo.replace(/^E[a-z0-9]{6}-/i, "");
+}

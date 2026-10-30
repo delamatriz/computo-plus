@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { datosCorreccionPrecio } from "@/lib/resolverPrecioMTOP";
-import { mejorCoincidencia, type CandidatoImportacion } from "@/lib/similitudDescripcion";
+import type { CandidatoImportacion } from "@/lib/similitudDescripcion";
 import { buscarCoincidenciasPorTexto } from "@/lib/recalcularPrecioRubro";
 import { requerirAdminOSuperadmin } from "@/lib/sesion";
 import { codigoParaEmpresa } from "@/lib/catalogoPrecios";
@@ -38,7 +38,7 @@ interface DetalleFila {
   precioAnterior?: number;
   precioNuevo: number;
   nota?: string;
-  /** Solo lista oficial: cómo se encontró el material existente */
+  /** Cómo se encontró el material existente: por código (SKU) o por descripción */
   via?: "codigo" | "descripcion";
 }
 
@@ -127,31 +127,48 @@ export async function POST(req: NextRequest) {
     });
 
     // Candidatos del mismo proveedor — una sola consulta para toda la
-    // importación (no una por fila). Se va descartando el candidato ya
-    // usado a medida que se matchea, para que dos filas del archivo no
+    // importación (no una por fila). Mismo criterio que la lista oficial:
+    // primero código exacto (el SKU del proveedor, que se mantiene de un mes
+    // a otro aunque cambie el nombre), después similitud de descripción. Un
+    // candidato se usa una sola vez, para que dos filas del archivo no
     // terminen las dos actualizando el mismo material existente.
-    const candidatosDisponibles: CandidatoImportacion[] = await db.precioMTOP.findMany({
+    const candidatos: CandidatoImportacion[] = await db.precioMTOP.findMany({
       where: { proveedor, empresaId: empresaDuenia },
       select: { id: true, codigo: true, descripcion: true, precioUnitario: true },
     });
+    // El código guardado de una empresa lleva su prefijo (codigoParaEmpresa):
+    // se compara contra el del archivo con el mismo prefijo.
+    const coincidencias = clasificarListaOficial(
+      filas.map((f: FilaImportacion) => {
+        const c = f.codigo?.trim();
+        return {
+          codigo: c ? (empresaDuenia ? codigoParaEmpresa(empresaDuenia, c) : c) : undefined,
+          descripcion: f.descripcion.trim(),
+        };
+      }),
+      candidatos
+    );
 
     const fechaLista = mesUruguayISO(); // "YYYY-MM", mes actual en Uruguay
     const detalle: DetalleFila[] = [];
     let actualizados = 0;
     let nuevos = 0;
 
-    for (const fila of filas) {
+    for (const [i, fila] of filas.entries()) {
       const descripcion = fila.descripcion.trim();
       const unidad = fila.unidad.trim();
-      const coincidencia = mejorCoincidencia(descripcion, candidatosDisponibles);
+      const coincidencia = coincidencias[i];
 
       if (coincidencia) {
-        const idx = candidatosDisponibles.findIndex((c) => c.id === coincidencia.candidato.id);
-        if (idx >= 0) candidatosDisponibles.splice(idx, 1); // no reusar este candidato en otra fila
-
+        // Por código el nombre puede haber cambiado en la lista nueva: se toma
+        // el del archivo. Por descripción se deja el que ya tenía.
+        const cambiaNombre = coincidencia.via === "codigo" && coincidencia.candidato.descripcion !== descripcion;
         const actualizado = await db.precioMTOP.update({
           where: { id: coincidencia.candidato.id },
-          data: datosCorreccionPrecio(fila.precioUnitario, coincidencia.candidato.precioUnitario),
+          data: {
+            ...datosCorreccionPrecio(fila.precioUnitario, coincidencia.candidato.precioUnitario),
+            ...(cambiaNombre ? { descripcion } : {}),
+          },
         });
         actualizados++;
         detalle.push({
@@ -160,6 +177,7 @@ export async function POST(req: NextRequest) {
           codigo: actualizado.codigo,
           precioAnterior: coincidencia.candidato.precioUnitario,
           precioNuevo: fila.precioUnitario,
+          via: coincidencia.via,
         });
         continue;
       }
