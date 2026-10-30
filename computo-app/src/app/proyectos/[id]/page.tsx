@@ -82,6 +82,8 @@ import { TIPO_CAMBIO_REFERENCIA } from "@/lib/tipoCambioReferencia";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { esBloqueoDeCuenta, esErrorAcceso, type ErrorAcceso } from "@/lib/accesoCliente";
 import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
+import { PanelMisRubros } from "@/components/mi-biblioteca/PanelMisRubros";
+import type { SubrubroEmpresa } from "@/components/mi-biblioteca/DescompuestoEmpresa";
 
 // JSON de una función asistida: null si falló; si el motivo es el cupo de la
 // prueba o una función no disponible, se lo pasa a onAcceso para avisarlo en
@@ -870,6 +872,54 @@ let TCU = TIPO_CAMBIO_REFERENCIA;
  * En UYU se usa el precio base directo; en USD se convierte con el TC de referencia.
  * La actualización a precios vigentes la hace el usuario con "Consultar ICCV".
  */
+// Respuesta de los clonar-apu (catálogo global y Mis rubros) → APU del estado local.
+function apuDesdeClonado(apuClonado: {
+  gastosGeneralesPct: number;
+  utilidadPct: number;
+  aportesPatronalesPct: number | null;
+  porcentajePiedra: number | null;
+  dosificacion?: APU["dosificacion"];
+  materiales: InsumoAPU[];
+  manoObra: ManoObraAPU[];
+  equipos: EquipoAPU[];
+}): APU {
+  return {
+    gastosGeneralesPct: apuClonado.gastosGeneralesPct,
+    utilidadPct: apuClonado.utilidadPct,
+    aportesPatronalesPct: apuClonado.aportesPatronalesPct ?? APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
+    porcentajePiedra: apuClonado.porcentajePiedra ?? 0.30,
+    // Dosificación es del APU, no del subrubro estándar (que
+    // nunca la tuvo) — se preserva la que ya tuviera este rubro
+    // si clonar-apu no la toca (ver comentario en esa ruta).
+    dosificacion: apuClonado.dosificacion ?? null,
+    materiales: apuClonado.materiales.map((m: InsumoAPU) => ({
+      id: m.id,
+      descripcion: m.descripcion,
+      unidad: m.unidad,
+      rendimiento: m.rendimiento,
+      precioUnit: m.precioUnit,
+      motivoVerificacion: m.motivoVerificacion,
+      proveedor: m.proveedor,
+      fechaUltimaVerificacion: m.fechaUltimaVerificacion,
+    })),
+    manoObra: apuClonado.manoObra.map((mo: ManoObraAPU) => ({
+      id: mo.id,
+      categoria: mo.categoria,
+      jornadaHs: mo.jornadaHs,
+      rendimiento: mo.rendimiento,
+      jornalRef: mo.jornalRef,
+    })),
+    equipos: apuClonado.equipos.map((eq: EquipoAPU) => ({
+      id: eq.id,
+      descripcion: eq.descripcion,
+      unidad: eq.unidad,
+      rendimiento: eq.rendimiento,
+      costoUnit: eq.costoUnit,
+      motivoVerificacion: eq.motivoVerificacion,
+    })),
+  };
+}
+
 function precioDesdeSubrubro(sub: SubrubroEstandar, moneda: string): number {
   const precio = moneda === "USD" ? sub.precioUY / TCU : sub.precioUY;
   return parseFloat(precio.toFixed(2));
@@ -1354,6 +1404,10 @@ function PanelSubrubrosEstandar({
   capituloIdImplantacion,
   onSeleccionar,
   onCerrar,
+  pestana = "catalogo",
+  onCambiarPestana,
+  conCatalogo = true,
+  panelMisRubros,
 }: {
   subrubros: SubrubroEstandar[];
   cargando: boolean;
@@ -1365,6 +1419,13 @@ function PanelSubrubrosEstandar({
   capituloIdImplantacion?: string;
   onSeleccionar: (s: SubrubroEstandar) => void;
   onCerrar: () => void;
+  // Pestañas "Catálogo" (subrubros del capítulo, el comportamiento de
+  // siempre) y "Mis rubros" (biblioteca de la empresa, PanelMisRubros). Sin
+  // capítulo del catálogo (conCatalogo false) solo está "Mis rubros".
+  pestana?: "catalogo" | "mis-rubros";
+  onCambiarPestana?: (p: "catalogo" | "mis-rubros") => void;
+  conCatalogo?: boolean;
+  panelMisRubros?: React.ReactNode;
 }) {
   // Antes se distinguía por prefijo de código ("impl-eq-") — dejó de ser
   // seguro con la renumeración a "{capítulo}.{item}" (el código ya no
@@ -1467,11 +1528,36 @@ function PanelSubrubrosEstandar({
 
   return (
     <div className="mx-4 my-2 rounded-lg border border-blue-100 bg-[#F0F7FF] p-2 space-y-1.5">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between gap-2">
+        {panelMisRubros ? (
+          <div className="flex items-center gap-1" role="tablist">
+            {(conCatalogo ? (["catalogo", "mis-rubros"] as const) : (["mis-rubros"] as const)).map((p) => (
+              <button
+                key={p}
+                type="button"
+                role="tab"
+                aria-selected={pestana === p}
+                onClick={() => onCambiarPestana?.(p)}
+                className={cn(
+                  "px-2.5 py-1 rounded-[6px] text-[11px] font-semibold transition-colors",
+                  pestana === p ? "bg-white text-[#1A3A5C] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                {p === "catalogo" ? "Catálogo" : "Mis rubros"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span />
+        )}
         <button type="button" onClick={onCerrar} className="text-slate-400 hover:text-slate-600 transition-colors">
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
+      {pestana === "mis-rubros" && panelMisRubros ? (
+        panelMisRubros
+      ) : (
+      <>
       <div className="max-h-64 overflow-y-auto rounded-[6px] border border-slate-100 bg-white">
         {cargando && (
           <div className="px-3 py-2 text-xs text-slate-400 italic">Cargando…</div>
@@ -1501,6 +1587,8 @@ function PanelSubrubrosEstandar({
         <p className="px-1 text-[10px] text-slate-400">
           Precios de referencia — actualizar según ICCV.
         </p>
+      )}
+      </>
       )}
     </div>
   );
@@ -3393,6 +3481,10 @@ export default function ProyectoPage() {
   const [guardandoLeyes, setGuardandoLeyes] = useState(false);
   const [apuGenerando, setApuGenerando] = useState<Set<string>>(new Set());
   const [panelSubrubrosCapId, setPanelSubrubrosCapId] = useState<string | null>(null);
+  // Pestaña del panel de subrubros abierto (panelSubrubrosCapId).
+  const [pestanaPanel, setPestanaPanel] = useState<"catalogo" | "mis-rubros">("catalogo");
+  // Rubro de Mis rubros que se está agregando a un capítulo.
+  const [agregandoMisRubroId, setAgregandoMisRubroId] = useState<string | null>(null);
   const [subrubrosPorCapitulo, setSubrubrosPorCapitulo] = useState<Record<string, SubrubroEstandar[]>>({});
   const [cargandoSubrubros, setCargandoSubrubros] = useState(false);
   const [tabActiva, setTabActiva] = useState<"presupuesto" | "gestion-obra">("presupuesto");
@@ -4218,6 +4310,7 @@ export default function ProyectoPage() {
 
   const abrirSubrubrosPanel = useCallback(async (cap: Capitulo) => {
     setPanelSubrubrosCapId(cap.id);
+    setPestanaPanel("catalogo");
     if (subrubrosPorCapitulo[cap.id]) return;
 
     setCargandoSubrubros(true);
@@ -4292,6 +4385,27 @@ export default function ProyectoPage() {
     abrirSubrubrosPanel(cap);
   }, [panelSubrubrosCapId, abrirSubrubrosPanel]);
 
+  // "Mis rubros" en el pie del capítulo: abre el panel en esa pestaña (o lo
+  // cierra si ya estaba abierto ahí).
+  const toggleMisRubrosPanel = useCallback((cap: Capitulo) => {
+    if (panelSubrubrosCapId === cap.id && pestanaPanel === "mis-rubros") {
+      setPanelSubrubrosCapId(null);
+      return;
+    }
+    setPanelSubrubrosCapId(cap.id);
+    setPestanaPanel("mis-rubros");
+    setExpandidos((prev) => new Set([...prev, cap.id]));
+  }, [panelSubrubrosCapId, pestanaPanel]);
+
+  const cambiarPestanaPanel = useCallback((cap: Capitulo, p: "catalogo" | "mis-rubros") => {
+    if (p === "catalogo") {
+      abrirSubrubrosPanel(cap);
+      return;
+    }
+    setPanelSubrubrosCapId(cap.id);
+    setPestanaPanel("mis-rubros");
+  }, [abrirSubrubrosPanel]);
+
   // Al expandir un capítulo sin rubros (o con rubros sin descripción), mostrar automáticamente la biblioteca de subrubros típicos
   const toggleCapituloConSubrubros = useCallback((cap: Capitulo) => {
     const yaExpandido = expandidos.has(cap.id);
@@ -4360,41 +4474,7 @@ export default function ProyectoPage() {
           });
           if (resClon.ok) {
             const { apu: apuClonado, rubro: rubroActualizado } = await resClon.json();
-            const nuevoAPU: APU = {
-              gastosGeneralesPct: apuClonado.gastosGeneralesPct,
-              utilidadPct: apuClonado.utilidadPct,
-              aportesPatronalesPct: apuClonado.aportesPatronalesPct ?? APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
-              porcentajePiedra: apuClonado.porcentajePiedra ?? 0.30,
-              // Dosificación es del APU, no del subrubro estándar (que
-              // nunca la tuvo) — se preserva la que ya tuviera este rubro
-              // si clonar-apu no la toca (ver comentario en esa ruta).
-              dosificacion: apuClonado.dosificacion ?? null,
-              materiales: apuClonado.materiales.map((m: InsumoAPU) => ({
-                id: m.id,
-                descripcion: m.descripcion,
-                unidad: m.unidad,
-                rendimiento: m.rendimiento,
-                precioUnit: m.precioUnit,
-                motivoVerificacion: m.motivoVerificacion,
-                proveedor: m.proveedor,
-                fechaUltimaVerificacion: m.fechaUltimaVerificacion,
-              })),
-              manoObra: apuClonado.manoObra.map((mo: ManoObraAPU) => ({
-                id: mo.id,
-                categoria: mo.categoria,
-                jornadaHs: mo.jornadaHs,
-                rendimiento: mo.rendimiento,
-                jornalRef: mo.jornalRef,
-              })),
-              equipos: apuClonado.equipos.map((eq: EquipoAPU) => ({
-                id: eq.id,
-                descripcion: eq.descripcion,
-                unidad: eq.unidad,
-                rendimiento: eq.rendimiento,
-                costoUnit: eq.costoUnit,
-                motivoVerificacion: eq.motivoVerificacion,
-              })),
-            };
+            const nuevoAPU = apuDesdeClonado(apuClonado);
             setApuData((prev) => ({ ...prev, [rubroId]: nuevoAPU }));
             setCapitulos((prev) =>
               prev.map((c) =>
@@ -4478,6 +4558,69 @@ export default function ProyectoPage() {
       );
     }
   }, [proyecto?.moneda, proyecto?.tipo, capitulos, moneda]);
+
+  // Rubro de Mis rubros (SubrubroEmpresa) → rubro nuevo en el capítulo, con
+  // su APU copiado (POST /api/mi-biblioteca/[id]/clonar-apu: precios fijos de
+  // Mis rubros, utilidad y aportes patronales del proyecto). Mismo esquema
+  // optimista que agregarRubroDesdeSubrubro.
+  const agregarRubroDesdeMisRubros = useCallback(async (capId: string, sub: SubrubroEmpresa) => {
+    setAgregandoMisRubroId(sub.id);
+    const precioEnMoneda = parseFloat((proyecto?.moneda === "USD" ? sub.precioUY / TCU : sub.precioUY).toFixed(2));
+    const tempId = `temp-${Date.now()}`;
+    setCapitulos((prev) =>
+      prev.map((c) =>
+        c.id !== capId ? c : {
+          ...c,
+          rubros: [...c.rubros, { id: tempId, descripcion: sub.nombre, unidad: sub.unidad, cantidad: null, precioUnit: precioEnMoneda }],
+        }
+      )
+    );
+    setExpandidos((prev) => new Set([...prev, capId]));
+
+    try {
+      const res = await fetch(`/api/capitulos/${capId}/rubros`, { method: "POST" });
+      if (!res.ok) throw new Error("Error al crear rubro");
+      const rubroId: string = (await res.json()).id;
+      setCapitulos((prev) =>
+        prev.map((c) =>
+          c.id !== capId ? c : { ...c, rubros: c.rubros.map((r) => (r.id === tempId ? { ...r, id: rubroId } : r)) }
+        )
+      );
+
+      // Nombre y unidad primero: si la copia del APU fallara, el rubro igual queda con ellos.
+      await fetch(`/api/rubros/${rubroId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descripcion: sub.nombre, unidad: sub.unidad }),
+      });
+
+      const resClon = await fetch(`/api/mi-biblioteca/${sub.id}/clonar-apu`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rubroId }),
+      });
+      if (!resClon.ok) throw new Error(`clonar-apu HTTP ${resClon.status}`);
+      const { apu: apuClonado, rubro: rubroActualizado } = await resClon.json();
+      setApuData((prev) => ({ ...prev, [rubroId]: apuDesdeClonado(apuClonado) }));
+      setCapitulos((prev) =>
+        prev.map((c) =>
+          c.id !== capId ? c : {
+            ...c,
+            rubros: c.rubros.map((r) => (r.id !== rubroId ? r : { ...r, precioUnit: rubroActualizado.precioUnit })),
+          }
+        )
+      );
+      setPanelSubrubrosCapId(null);
+    } catch (err) {
+      console.error("[agregarRubroDesdeMisRubros]", err);
+      setCapitulos((prev) =>
+        prev.map((c) => (c.id !== capId ? c : { ...c, rubros: c.rubros.filter((r) => r.id !== tempId) }))
+      );
+      window.alert("No se pudo agregar el rubro de Mis rubros. Probá de nuevo.");
+    } finally {
+      setAgregandoMisRubroId(null);
+    }
+  }, [proyecto?.moneda]);
 
   const actualizarRubro = useCallback((capId: string, rubroId: string, field: keyof Rubro, value: string) => {
     // Actualización optimista en UI
@@ -5071,7 +5214,7 @@ export default function ProyectoPage() {
 
                 {capituloVacio(cap) ? (
                   <>
-                    {cap.capituloCatalogoId && !soloLectura && (
+                    {!soloLectura && (cap.capituloCatalogoId || panelSubrubrosCapId === cap.id) && (
                       <PanelSubrubrosEstandar
                         subrubros={subrubrosPorCapitulo[cap.id] ?? []}
                         cargando={cargandoSubrubros}
@@ -5079,10 +5222,23 @@ export default function ProyectoPage() {
                         capituloIdImplantacion={catalogoCapitulosRef.current?.get("Implantación y Replanteo")?.id}
                         onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
                         onCerrar={() => setPanelSubrubrosCapId(null)}
+                        pestana={panelSubrubrosCapId === cap.id ? pestanaPanel : cap.capituloCatalogoId ? "catalogo" : "mis-rubros"}
+                        onCambiarPestana={(p) => cambiarPestanaPanel(cap, p)}
+                        conCatalogo={!!cap.capituloCatalogoId}
+                        panelMisRubros={
+                          <PanelMisRubros agregandoId={agregandoMisRubroId} onAgregar={(s) => agregarRubroDesdeMisRubros(cap.id, s)} />
+                        }
                       />
                     )}
                     {!soloLectura && (
-                      <div className="flex items-center pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
+                      <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
+                        <button
+                          onClick={() => toggleMisRubrosPanel(cap)}
+                          title="Elegir un rubro de Mis rubros"
+                          className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          Mis rubros
+                        </button>
                         <button
                           onClick={() => agregarRubro(cap.id)}
                           className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
@@ -5421,6 +5577,13 @@ export default function ProyectoPage() {
                       </button>
                     )}
                     <button
+                      onClick={() => toggleMisRubrosPanel(cap)}
+                      title="Elegir un rubro de Mis rubros"
+                      className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      Mis rubros
+                    </button>
+                    <button
                       onClick={() => agregarRubro(cap.id)}
                       className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
                     >
@@ -5437,6 +5600,12 @@ export default function ProyectoPage() {
                     capituloIdImplantacion={catalogoCapitulosRef.current?.get("Implantación y Replanteo")?.id}
                     onSeleccionar={(s) => agregarRubroDesdeSubrubro(cap.id, s)}
                     onCerrar={() => setPanelSubrubrosCapId(null)}
+                    pestana={pestanaPanel}
+                    onCambiarPestana={(p) => cambiarPestanaPanel(cap, p)}
+                    conCatalogo={!!cap.capituloCatalogoId}
+                    panelMisRubros={
+                      <PanelMisRubros agregandoId={agregandoMisRubroId} onAgregar={(s) => agregarRubroDesdeMisRubros(cap.id, s)} />
+                    }
                   />
                 )}
                 </>
