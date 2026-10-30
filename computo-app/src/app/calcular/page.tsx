@@ -619,6 +619,25 @@ export default function CalcularPage() {
               </div>
             </div>
 
+            {/* Descripción de la obra (tipos por área) — mismo estado que la
+                descripción de los trabajos; viaja a /proyectos/nuevo con
+                "Iniciar proyecto completo" y al anteproyecto. */}
+            {!esDescriptivo && (
+              <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
+                <label htmlFor="descripcion-obra" className="block text-sm font-semibold text-text-primary mb-3">
+                  Descripción de la obra
+                </label>
+                <textarea
+                  id="descripcion-obra"
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                  rows={3}
+                  placeholder="Ej: vivienda de dos plantas, 3 dormitorios, garage, terminaciones medias..."
+                  className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-y min-h-[86px] max-h-[420px]"
+                />
+              </div>
+            )}
+
             {/* Área / Descripción */}
             {esDescriptivo ? (
               <div className="bg-white rounded-[14px] border border-slate-300 p-5 shadow-sm">
