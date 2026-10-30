@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { campo, EditorAPU, ID_LISTA_UNIDADES, useEditorAPU } from "@/components/rubros/EditorAPU";
+import { campo, DescripcionYSugerirAPU, EditorAPU, ID_LISTA_UNIDADES, useEditorAPU } from "@/components/rubros/EditorAPU";
 import type { RubroCatalogoCreado, RubroCatalogoNuevo } from "@/lib/rubroCatalogoNuevo";
 
 // Alta de un rubro en el catálogo global (/rubros) — solo SUPERADMIN.
@@ -27,6 +27,8 @@ export function ModalNuevoRubro({
   const [descripcion, setDescripcion] = useState("");
   const [unidad, setUnidad] = useState("");
   const [activo, setActivo] = useState(true);
+  // Solo para "Sugerir APU" (no se guarda con el rubro).
+  const [detalle, setDetalle] = useState("");
   const editor = useEditorAPU();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export function ModalNuevoRubro({
 
   const puedeGuardar =
     !guardando &&
+    !editor.sugiriendo &&
     payload.descripcion.length > 0 &&
     payload.unidad.length > 0 &&
     (!esCapituloNuevo || (payload.capituloNuevo ?? "").length > 0) &&
@@ -111,6 +114,14 @@ export function ModalNuevoRubro({
               <input value={unidad} onChange={(e) => setUnidad(e.target.value)} className={campo} placeholder="m2, ml, m3, u, gl, kg" list={ID_LISTA_UNIDADES} />
             </label>
           </div>
+          <DescripcionYSugerirAPU
+            editor={editor}
+            nombre={descripcion}
+            unidad={unidad}
+            descripcion={detalle}
+            onDescripcion={setDetalle}
+            deshabilitado={guardando}
+          />
           <label className="inline-flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
             <input type="checkbox" checked={activo} onChange={(e) => setActivo(e.target.checked)} className="w-4 h-4 accent-[#2563EB]" />
             Activo <span className="text-xs text-slate-400">(un rubro inactivo no aparece en el catálogo ni en Cálculo Rápido)</span>

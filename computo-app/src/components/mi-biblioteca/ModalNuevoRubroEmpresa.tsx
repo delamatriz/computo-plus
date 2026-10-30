@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, X } from "lucide-react";
-import { campo, EditorAPU, ID_LISTA_UNIDADES, useEditorAPU } from "@/components/rubros/EditorAPU";
+import { campo, DescripcionYSugerirAPU, EditorAPU, ID_LISTA_UNIDADES, useEditorAPU } from "@/components/rubros/EditorAPU";
 import type { RubroEmpresaCreado, RubroEmpresaNuevo } from "@/lib/rubroEmpresaNuevo";
 
 // Alta de un rubro desde cero en Mis rubros (/mi-biblioteca), sin pasar por
@@ -19,12 +19,14 @@ export function ModalNuevoRubroEmpresa<TSubrubro>({
 }) {
   const [nombre, setNombre] = useState("");
   const [unidad, setUnidad] = useState("");
+  // Solo para "Sugerir APU" (no se guarda con el rubro).
+  const [detalle, setDetalle] = useState("");
   const editor = useEditorAPU();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const payload: RubroEmpresaNuevo = { nombre: nombre.trim(), unidad: unidad.trim(), ...editor.lineas };
-  const puedeGuardar = !guardando && payload.nombre.length > 0 && payload.unidad.length > 0 && editor.cantidadLineas > 0;
+  const puedeGuardar = !guardando && !editor.sugiriendo && payload.nombre.length > 0 && payload.unidad.length > 0 && editor.cantidadLineas > 0;
 
   const guardar = async () => {
     if (editor.errorLineas) {
@@ -70,6 +72,14 @@ export function ModalNuevoRubroEmpresa<TSubrubro>({
               <input value={unidad} onChange={(e) => setUnidad(e.target.value)} className={campo} placeholder="m2, ml, u, gl, kg" list={ID_LISTA_UNIDADES} />
             </label>
           </div>
+          <DescripcionYSugerirAPU
+            editor={editor}
+            nombre={nombre}
+            unidad={unidad}
+            descripcion={detalle}
+            onDescripcion={setDetalle}
+            deshabilitado={guardando}
+          />
 
           <EditorAPU
             editor={editor}

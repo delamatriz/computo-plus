@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Hammer, Package, Plus, Trash2, Wrench } from "lucide-react";
+import { Hammer, Loader2, Package, Plus, Sparkles, Trash2, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { EquipoRubroNuevo, ManoObraRubroNuevo, MaterialRubroNuevo } from "@/lib/rubroCatalogoNuevo";
+import type { ApuSugerido, EquipoRubroNuevo, ManoObraRubroNuevo, MaterialRubroNuevo } from "@/lib/rubroCatalogoNuevo";
 
 // Editor de APU en filas simples (materiales, mano de obra, equipos) para dar
 // de alta un rubro desde cero — lo usan el catálogo global (/rubros, solo
@@ -38,6 +38,8 @@ const numeroOpcional = (s: string) => {
   const n = aNumero(s);
   return n > 0 ? n : null;
 };
+// 0.035 → "0,035" (coma decimal, sin separador de miles: aNumero lo vuelve a leer igual).
+const aTexto = (n: number) => n.toLocaleString("es-UY", { maximumFractionDigits: 4, useGrouping: false });
 
 export const campo =
   "w-full rounded-[8px] border border-slate-200 px-3 py-2 text-sm text-[#1E293B] placeholder:text-slate-300 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100";
@@ -103,6 +105,35 @@ export function useEditorAPU() {
     return invalida ? `Revisá la línea "${invalida}": necesita unidad y una cantidad mayor que 0.` : null;
   })();
 
+  // "Sugerir APU" (POST /api/sugerir-apu-rubro): reemplaza todas las filas
+  // por las que sugiere la IA, sin precios (se resuelven al crear el rubro).
+  const [sugiriendo, setSugiriendo] = useState(false);
+  const [errorSugerencia, setErrorSugerencia] = useState<string | null>(null);
+
+  const sugerirAPU = async (datos: { nombre: string; descripcion: string; unidad: string }) => {
+    setSugiriendo(true);
+    setErrorSugerencia(null);
+    try {
+      const res = await fetch("/api/sugerir-apu-rubro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datos),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.mensaje || data?.error || "No se pudo sugerir el APU. Probá de nuevo.");
+      const apu = data as ApuSugerido;
+      const materialesSugeridos = apu.materiales.map((m) => ({ descripcion: m.descripcion, unidad: m.unidad, rendimiento: aTexto(m.cantidad), precio: "" }));
+      const manoObraSugerida = apu.manoObra.map((m) => ({ categoria: m.categoria, rendimiento: aTexto(m.rendimiento) }));
+      setMateriales(materialesSugeridos.length > 0 ? materialesSugeridos : [filaMaterialVacia()]);
+      setManoObra(manoObraSugerida.length > 0 ? manoObraSugerida : [filaManoObraVacia()]);
+      setEquipos(apu.equipos.map((e) => ({ descripcion: e.descripcion, unidad: e.unidad, rendimiento: aTexto(e.cantidad), costo: "" })));
+    } catch (err) {
+      setErrorSugerencia((err as Error).message);
+    } finally {
+      setSugiriendo(false);
+    }
+  };
+
   return {
     materiales, setMateriales,
     manoObra, setManoObra,
@@ -111,6 +142,9 @@ export function useEditorAPU() {
     lineas,
     cantidadLineas,
     errorLineas,
+    sugerirAPU,
+    sugiriendo,
+    errorSugerencia,
   };
 }
 
@@ -203,6 +237,61 @@ export function EditorAPU({
         ))}
       </SeccionLineas>
     </>
+  );
+}
+
+/**
+ * Descripción opcional del rubro + botón "Sugerir APU" (IA). La descripción
+ * solo se usa para la sugerencia; no se guarda con el rubro.
+ */
+export function DescripcionYSugerirAPU({
+  editor,
+  nombre,
+  unidad,
+  descripcion,
+  onDescripcion,
+  deshabilitado = false,
+}: {
+  editor: EstadoEditorAPU;
+  nombre: string;
+  unidad: string;
+  descripcion: string;
+  onDescripcion: (valor: string) => void;
+  deshabilitado?: boolean;
+}) {
+  const { sugerirAPU, sugiriendo, errorSugerencia, cantidadLineas } = editor;
+  const puedeSugerir = !deshabilitado && !sugiriendo && nombre.trim().length > 0;
+  return (
+    <div className="space-y-2">
+      <label className="block">
+        <span className="block text-xs font-medium text-slate-600 mb-1">
+          Descripción <span className="font-normal text-slate-400">(opcional)</span>
+        </span>
+        <textarea
+          value={descripcion}
+          onChange={(e) => onDescripcion(e.target.value)}
+          rows={2}
+          className={cn(campo, "resize-y")}
+          placeholder="Ej: muro de ticholo de 12 cm, incluye revoque de ambas caras con mortero común"
+        />
+      </label>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <button
+          type="button"
+          onClick={() => sugerirAPU({ nombre: nombre.trim(), descripcion: descripcion.trim(), unidad: unidad.trim() })}
+          disabled={!puedeSugerir}
+          title={nombre.trim() ? undefined : "Cargá el nombre del rubro para sugerir su APU"}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-sm font-medium text-[#2563EB] bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:hover:bg-blue-50"
+        >
+          {sugiriendo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {sugiriendo ? "Sugiriendo APU…" : "Sugerir APU"}
+        </button>
+        <span className="text-xs text-slate-400">
+          {cantidadLineas > 0 ? "Reemplaza las líneas cargadas abajo. " : ""}Revisá cantidades y rendimientos antes de crear el rubro.
+        </span>
+      </div>
+      {errorSugerencia && <p className="text-sm text-red-600">{errorSugerencia}</p>}
+    </div>
   );
 }
 

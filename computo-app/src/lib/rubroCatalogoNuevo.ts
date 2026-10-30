@@ -48,3 +48,11 @@ export interface RubroCatalogoCreado {
   /** Líneas que quedaron sin precio (no resuelven contra el catálogo y no tienen respaldo). */
   lineasSinPrecio: string[];
 }
+
+/** Respuesta de POST /api/sugerir-apu-rubro: APU sugerido por IA para llenar el editor (sin precios). */
+export interface ApuSugerido {
+  materiales: { descripcion: string; unidad: string; cantidad: number }[];
+  /** categoria = nombre exacto de una CategoriaLaboral (validado en el servidor). */
+  manoObra: { categoria: string; rendimiento: number }[];
+  equipos: { descripcion: string; unidad: string; cantidad: number }[];
+}
