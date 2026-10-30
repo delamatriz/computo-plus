@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bookmark, ChevronDown, ChevronRight, Hammer, Loader2, Package, Search, Trash2, Wrench } from "lucide-react";
+import { AlertTriangle, Bookmark, CheckCircle2, ChevronDown, ChevronRight, Hammer, Loader2, Package, Plus, Search, Trash2, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { EncabezadosAPU, textoRendimientoMO } from "@/components/shared/EncabezadosAPU";
+import { ModalNuevoRubroEmpresa } from "@/components/mi-biblioteca/ModalNuevoRubroEmpresa";
+import type { RubroEmpresaCreado } from "@/lib/rubroEmpresaNuevo";
 
 // Biblioteca personal de rubros de la empresa (SubrubroEmpresa) — se llena
-// desde "Guardar en Mis rubros" en cada fila de rubro del proyecto. Solo
-// consulta y eliminación por ahora (sin edición).
+// desde "Guardar en Mis rubros" en cada fila de rubro del proyecto o con
+// "Nuevo rubro" (alta desde cero). Consulta, alta y eliminación (sin edición).
 
 // ── Tipos (respuesta de GET /api/mi-biblioteca) ────────────────────────
 
@@ -259,7 +261,7 @@ function CardSubrubro({ subrubro, onEliminado }: { subrubro: SubrubroEmpresa; on
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-semibold text-[#1E293B] break-words sm:truncate">{subrubro.nombre}</span>
               <span className="block text-xs text-slate-400 mt-0.5">
-                {subrubro.codigo && <>Rubro {subrubro.codigo} · </>}Guardado el {fmtFecha(subrubro.createdAt)}
+                {subrubro.codigo && <>Rubro {subrubro.codigo} · </>}{subrubro.codigo ? "Guardado" : "Creado"} el {fmtFecha(subrubro.createdAt)}
               </span>
             </span>
             <span className="flex-shrink-0 self-end sm:self-auto text-right">
@@ -315,6 +317,14 @@ export default function MiBibliotecaPage() {
   const [filtro, setFiltro] = useState("");
   // Total sin filtro: distingue "biblioteca vacía" de "la búsqueda no encontró nada".
   const [hayAlguno, setHayAlguno] = useState(false);
+  const [modalNuevoAbierto, setModalNuevoAbierto] = useState(false);
+  const [aviso, setAviso] = useState<{ texto: string; advertencia: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(null), aviso.advertencia ? 8000 : 3500);
+    return () => clearTimeout(t);
+  }, [aviso]);
 
   useEffect(() => {
     const q = filtro.trim();
@@ -352,13 +362,36 @@ export default function MiBibliotecaPage() {
     if (!filtro.trim()) setHayAlguno(siguiente.length > 0);
   };
 
+  // Rubro creado desde cero: se suma a la lista sin recargar. Con una
+  // búsqueda activa se limpia el filtro (la lista se vuelve a pedir entera).
+  const alCrearRubro = ({ subrubro, lineasSinPrecio }: RubroEmpresaCreado<SubrubroEmpresa>) => {
+    setModalNuevoAbierto(false);
+    setHayAlguno(true);
+    if (filtro.trim()) setFiltro("");
+    else setSubrubros((lista) => [...lista, subrubro].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")));
+    setAviso(
+      lineasSinPrecio.length > 0
+        ? { texto: `Rubro creado. Sin precio: ${lineasSinPrecio.join(", ")}.`, advertencia: true }
+        : { texto: "Rubro creado en Mis rubros.", advertencia: false }
+    );
+  };
+
   const vacia = !cargando && !error && !hayAlguno && !filtro.trim();
 
   return (
     <div className="p-6 md:p-8 max-w-4xl">
       <div className="mb-6">
         <BotonVolverAlProyecto />
-        <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-1">Mis rubros</h1>
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <h1 className="text-2xl font-semibold text-[#1A3A5C]">Mis rubros</h1>
+          <button
+            onClick={() => setModalNuevoAbierto(true)}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] text-sm font-semibold text-white bg-[#2563EB] hover:bg-[#1D4ED8] transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo rubro
+          </button>
+        </div>
         <p className="text-slate-500 text-sm">
           Tus rubros favoritos, listos para reutilizar. Guardá cualquier rubro desde un proyecto y aparece acá con
           su APU completo.
@@ -369,7 +402,8 @@ export default function MiBibliotecaPage() {
         {/* "Guardar en Mis rubros" es el tooltip exacto del botón de cada fila de rubro del presupuesto. */}
         <p className="text-slate-400 text-xs mt-1">
           Para guardar un rubro abrí cualquier proyecto, entrá al presupuesto y usá el botón{" "}
-          <span className="font-medium text-slate-500">Guardar en Mis rubros</span> que aparece en cada rubro.
+          <span className="font-medium text-slate-500">Guardar en Mis rubros</span> que aparece en cada rubro, o
+          creá uno desde cero con <span className="font-medium text-slate-500">Nuevo rubro</span>.
         </p>
       </div>
 
@@ -379,7 +413,7 @@ export default function MiBibliotecaPage() {
             <Bookmark className="w-5 h-5 text-[#2563EB]" />
           </div>
           <p className="text-sm text-slate-500 max-w-sm">
-            Todavía no guardaste ningún rubro. Guardalos desde tus proyectos para reutilizarlos.
+            Todavía no guardaste ningún rubro. Guardalos desde tus proyectos para reutilizarlos, o creá uno con Nuevo rubro.
           </p>
         </div>
       ) : (
@@ -415,6 +449,27 @@ export default function MiBibliotecaPage() {
             </div>
           )}
         </>
+      )}
+
+      {modalNuevoAbierto && (
+        <ModalNuevoRubroEmpresa<SubrubroEmpresa> onClose={() => setModalNuevoAbierto(false)} onCreado={alCrearRubro} />
+      )}
+
+      {aviso && (
+        <div
+          role="status"
+          className={cn(
+            "fixed bottom-5 left-1/2 -translate-x-1/2 z-[130] flex items-center gap-2 rounded-[10px] px-4 py-2.5 shadow-lg max-w-[calc(100vw-32px)] border",
+            aviso.advertencia ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"
+          )}
+        >
+          {aviso.advertencia ? (
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          )}
+          <span className={cn("text-sm font-medium", aviso.advertencia ? "text-amber-800" : "text-emerald-800")}>{aviso.texto}</span>
+        </div>
       )}
     </div>
   );
