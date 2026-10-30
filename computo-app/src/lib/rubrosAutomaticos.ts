@@ -4,6 +4,9 @@ import { generarApuParaRubro } from "@/lib/apu";
 import { clonarApuAlRubro } from "@/lib/clonarApu";
 import { tipoCambioVigente } from "@/lib/tipoCambio";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
+import { randomUUID } from "crypto";
+import { calcularPrecioUnitario, redondearPrecio, sumarAportesPatronalesPct } from "@/lib/apu-calc";
+import { costoDirectoUnitario } from "@/lib/costoAgregado";
 
 
 interface RubroSugerido {
@@ -23,7 +26,32 @@ export interface CapituloConMonto {
   materiales?: number;
   manoObra?: number;
   origen?: "biblioteca" | "estimado";
+  // Código del subrubro usado: de la biblioteca global ("6.6.8") o de la
+  // personal de la empresa ("MB-" + primeros 8 caracteres del id de
+  // SubrubroEmpresa, ver buscarSubrubrosEmpresa en bibliotecaApus.ts).
   codigoSubrubro?: string | null;
+  // Cantidad de la unidad del subrubro que pidió la IA (null si es estimado).
+  cantidad?: number | null;
+  // Capítulo al que pertenece el ítem, si el desglose lo trae. Hoy Cálculo
+  // Rápido no lo devuelve (cada elemento ES el ítem): se busca por `nombre`.
+  nombreCapitulo?: string;
+}
+
+// Palabras que no sirven para reconocer un capítulo del catálogo por nombre.
+const PALABRAS_GENERICAS_CAPITULO = new Set([
+  "de", "del", "la", "las", "el", "los", "y", "e", "en", "a", "con", "para", "por",
+  "obra", "obras", "instalacion", "instalaciones", "trabajos", "otros", "general", "varios",
+]);
+
+// Raíces (5 letras, sin tildes) de las palabras significativas de un nombre.
+function raicesNombreCapitulo(texto: string): string[] {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9ñ]+/)
+    .filter((p) => p.length >= 3 && !PALABRAS_GENERICAS_CAPITULO.has(p))
+    .map((p) => p.slice(0, 5));
 }
 
 // Capítulo de proyecto donde caen los ítems de Cálculo Rápido sin
@@ -31,6 +59,9 @@ export interface CapituloConMonto {
 // capítulo pertenecen (el nombre del ítem es un rubro, no un capítulo), así
 // que quedan agrupados acá, visibles y editables, sin bloquear el flujo.
 const NOMBRE_CAPITULO_VERIFICAR = "Ítems a verificar";
+// Capítulo de los rubros de "Mi biblioteca" cuyo nombre no corresponde a
+// ningún capítulo del catálogo (SubrubroEmpresa no tiene capítulo propio).
+const NOMBRE_CAPITULO_RUBROS_PROPIOS = "Rubros propios";
 
 /* ─── Genera los rubros iniciales de un proyecto recién creado.
    Si viene con capitulosConMontos (desglose de Cálculo Rápido), clona los
@@ -69,6 +100,9 @@ async function generarRubrosDesdeCalculoRapido(
     include: {
       capitulos: true,
       titulos: { orderBy: { createdAt: "asc" } },
+      leyesSociales: {
+        select: { focerPatronalPct: true, fscFocapPct: true, fosvocPct: true, frlPct: true, fondoGarantiaPct: true },
+      },
     },
   });
   if (!proyecto || proyecto.titulos.length === 0) return;
@@ -93,9 +127,12 @@ async function generarRubrosDesdeCalculoRapido(
     return `R${String(n).padStart(3, "0")}`;
   };
 
-  const obtenerOCrearCapituloVerificar = async () => {
+  const obtenerOCrearCapituloVerificar = () => obtenerOCrearCapituloPorNombre(NOMBRE_CAPITULO_VERIFICAR);
+
+  // Capítulo propio del proyecto (sin capítulo de catálogo) por nombre exacto.
+  const obtenerOCrearCapituloPorNombre = async (nombre: string) => {
     const existente = capitulos.find(
-      (c) => c.nombre.trim().toLowerCase() === NOMBRE_CAPITULO_VERIFICAR.toLowerCase()
+      (c) => c.nombre.trim().toLowerCase() === nombre.toLowerCase()
     );
     if (existente) return existente;
 
@@ -104,7 +141,7 @@ async function generarRubrosDesdeCalculoRapido(
       data: {
         proyectoId,
         tituloId: tituloDefaultId,
-        nombre: NOMBRE_CAPITULO_VERIFICAR,
+        nombre,
         codigo: String(orden + 1).padStart(2, "0"),
         orden,
       },
@@ -149,8 +186,46 @@ async function generarRubrosDesdeCalculoRapido(
     return nuevo;
   };
 
+  // Capítulo del catálogo que corresponde a un nombre: igual (sin tildes ni
+  // mayúsculas) o, si no, el que comparte más raíces de palabra con él
+  // ("Pintura interior" → Pinturas, "Reparación de cañería sanitaria" →
+  // Instalación Sanitaria). Empate o ninguna coincidencia → null.
+  let capitulosCatalogo: { id: string; nombre: string }[] | null = null;
+  const capituloCatalogoPorNombre = async (nombre: string) => {
+    capitulosCatalogo ??= await db.capituloCatalogo.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true },
+    });
+    const normalizar = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+    const igual = capitulosCatalogo.find((c) => normalizar(c.nombre) === normalizar(nombre));
+    if (igual) return igual;
+
+    const raicesItem = new Set(raicesNombreCapitulo(nombre));
+    let mejor: { id: string; nombre: string } | null = null;
+    let mejorScore = 0;
+    let empate = false;
+    for (const c of capitulosCatalogo) {
+      const score = raicesNombreCapitulo(c.nombre).filter((r) => raicesItem.has(r)).length;
+      if (score > mejorScore) {
+        mejor = c;
+        mejorScore = score;
+        empate = false;
+      } else if (score > 0 && score === mejorScore) {
+        empate = true;
+      }
+    }
+    return empate ? null : mejor;
+  };
+
+  // Capítulo real para un ítem sin subrubro de catálogo: el del catálogo que
+  // corresponde a su nombre; si no hay uno claro, "Ítems a verificar".
+  const capituloParaItem = async (nombre: string) => {
+    const capituloCatalogo = await capituloCatalogoPorNombre(nombre);
+    return capituloCatalogo ? obtenerOCrearCapituloReal(capituloCatalogo) : obtenerOCrearCapituloVerificar();
+  };
+
   const crearRubroEstimado = async (item: CapituloConMonto) => {
-    const capitulo = await obtenerOCrearCapituloVerificar();
+    const capitulo = await capituloParaItem(item.nombreCapitulo ?? item.nombre);
     const codigo = await siguienteCodigoRubro(capitulo.id);
     const monto = Math.round(item.monto);
 
@@ -250,9 +325,121 @@ async function generarRubrosDesdeCalculoRapido(
     );
   };
 
+  // Rubro de "Mi biblioteca" (SubrubroEmpresa): copia su APU real al rubro.
+  // SubrubroEmpresa no tiene capítulo: va al del catálogo que corresponde a
+  // su nombre o, si no hay uno claro, a "Rubros propios" — nunca a "Ítems a
+  // verificar", porque es un precio real de la empresa. Devuelve false si el
+  // subrubro no existe (o no tiene APU) en la empresa del proyecto.
+  const crearRubroDesdeBibliotecaEmpresa = async (item: CapituloConMonto, prefijoId: string) => {
+    if (!proyecto.empresaId || prefijoId.length < 8) return false;
+    const subrubro = await db.subrubroEmpresa.findFirst({
+      where: { empresaId: proyecto.empresaId, id: { startsWith: prefijoId } },
+      include: {
+        apus: {
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          include: { materiales: true, manoObra: true, equipos: true },
+        },
+      },
+    });
+    const apuEmpresa = subrubro?.apus[0];
+    if (!subrubro || !apuEmpresa) return false;
+
+    const capituloCatalogo = await capituloCatalogoPorNombre(item.nombreCapitulo ?? subrubro.nombre);
+    const capitulo = capituloCatalogo
+      ? await obtenerOCrearCapituloReal(capituloCatalogo)
+      : await obtenerOCrearCapituloPorNombre(NOMBRE_CAPITULO_RUBROS_PROPIOS);
+    const codigo = await siguienteCodigoRubro(capitulo.id);
+
+    const utilidadPct = proyecto.utilidadPctDefault ?? apuEmpresa.utilidadPct;
+    // Misma correspondencia que guardar-en-mi-biblioteca, al revés:
+    // cantidad ↔ rendimiento, jornal ↔ jornalRef, jornadasHoras ↔ jornadaHs.
+    const equipoIdMap = new Map(apuEmpresa.equipos.map((e) => [e.id, randomUUID()]));
+    const apu = await db.aPU.create({
+      data: {
+        gastosGeneralesPct: 0,
+        utilidadPct,
+        aportesPatronalesPct: sumarAportesPatronalesPct(proyecto.leyesSociales),
+        rubro: {
+          create: {
+            capituloId: capitulo.id,
+            codigo,
+            descripcion: subrubro.nombre.trim(),
+            unidad: subrubro.unidad,
+            cantidad: 1,
+            precioUnit: 0,
+          },
+        },
+        materiales: {
+          create: apuEmpresa.materiales.map((m, i) => ({
+            descripcion: m.descripcion,
+            unidad: m.unidad,
+            rendimiento: m.cantidad,
+            precioUnit: m.precioUnit,
+            orden: i,
+            precioMTOPId: m.precioMTOPId,
+          })),
+        },
+        equipos: {
+          create: apuEmpresa.equipos.map((e, i) => ({
+            id: equipoIdMap.get(e.id),
+            descripcion: e.descripcion,
+            unidad: e.unidad,
+            rendimiento: e.cantidad,
+            costoUnit: e.costoUnit,
+            orden: i,
+          })),
+        },
+      },
+      include: { rubro: true },
+    });
+    // La mano de obra después de los equipos: equipoRelacionadoId apunta a ellos.
+    if (apuEmpresa.manoObra.length > 0) {
+      await db.manoObraAPU.createMany({
+        data: apuEmpresa.manoObra.map((mo, i) => ({
+          apuId: apu.id,
+          categoria: mo.categoria,
+          jornadaHs: mo.jornadasHoras ?? 8,
+          rendimiento: mo.cantidad,
+          jornalRef: mo.jornal,
+          orden: i,
+          equipoRelacionadoId: mo.equipoId ? equipoIdMap.get(mo.equipoId) ?? null : null,
+        })),
+      });
+    }
+
+    const apuCompleto = await db.aPU.findUniqueOrThrow({
+      where: { id: apu.id },
+      include: { materiales: true, manoObra: true, equipos: true },
+    });
+    const costoDirecto = costoDirectoUnitario(apuCompleto);
+    // La cantidad que pidió la IA (el monto de Cálculo Rápido es cantidad ×
+    // precio propio); sin ella, se despeja del monto como en el catálogo global.
+    const montoEnPesos = proyecto.moneda === "USD" ? item.monto * (await obtenerTipoCambio()) : item.monto;
+    const cantidad =
+      typeof item.cantidad === "number" && item.cantidad > 0
+        ? item.cantidad
+        : costoDirecto > 0 ? montoEnPesos / costoDirecto : 1;
+    await db.rubro.update({
+      where: { id: apu.rubro.id },
+      data: {
+        cantidad: Math.round(cantidad * 100) / 100,
+        precioUnit: redondearPrecio(calcularPrecioUnitario(costoDirecto, utilidadPct)),
+      },
+    });
+    return true;
+  };
+
   for (const item of items) {
     try {
       const codigoSubrubro = item.codigoSubrubro?.trim();
+
+      if (codigoSubrubro?.startsWith("MB-")) {
+        const copiado = await crearRubroDesdeBibliotecaEmpresa(item, codigoSubrubro.slice(3));
+        if (!copiado) await crearRubroEstimado(item);
+        continue;
+      }
+
       const subrubro = codigoSubrubro
         ? await db.subrubroEstandar.findUnique({
             where: { codigo: codigoSubrubro },
