@@ -163,7 +163,7 @@ async function generarRubrosDesdeCalculoRapido(
         cantidad: 1,
         // Sin utilidad ni aportes patronales, precioUnit colapsa al monto
         // estimado por Cálculo Rápido — no hace falta pasar por
-        // calcularPrecioUnitario para un único material a rendimiento 1.
+        // calcularPrecioUnitario: materiales + mano de obra suman el monto.
         precioUnit: monto,
       },
     });
@@ -178,17 +178,76 @@ async function generarRubrosDesdeCalculoRapido(
       },
     });
 
-    await db.materialAPU.create({
-      data: {
-        apuId: apu.id,
-        descripcion: item.nombre.trim(),
-        unidad: "gl",
-        rendimiento: 1,
-        precioUnit: monto,
-        orden: 0,
-        motivoVerificacion: "sin_precio_referencia",
-      },
+    // Apertura materiales / mano de obra que trae la estimación. Anteproyectos
+    // viejos (o un ítem sin apertura) → un único material GL por el monto,
+    // como siempre. La apertura se escala al monto para que el APU siga
+    // sumando exactamente el precioUnit del rubro.
+    const mat = item.materiales;
+    const mo = item.manoObra;
+    const conApertura =
+      typeof mat === "number" && typeof mo === "number" &&
+      Number.isFinite(mat) && Number.isFinite(mo) && mat >= 0 && mo >= 0 && mat + mo > 0;
+    const montoManoObra = conApertura ? Math.round((monto * mo) / (mat + mo)) : 0;
+    const montoMateriales = monto - montoManoObra;
+
+    if (montoMateriales > 0 || !conApertura) {
+      await db.materialAPU.create({
+        data: {
+          apuId: apu.id,
+          descripcion: item.nombre.trim(),
+          unidad: "gl",
+          rendimiento: 1,
+          precioUnit: montoMateriales,
+          orden: 0,
+          motivoVerificacion: "sin_precio_referencia",
+        },
+      });
+    }
+
+    if (montoManoObra > 0) {
+      const categoria = await categoriaParaManoObra(item.nombre);
+      const jornal = categoria?.jornal ?? 0;
+      // Costo de MO en el APU = jornalRef / rendimiento (rendimiento = gl por
+      // jornada), así que rendimiento = 1 / jornadas, con jornadas = monto / jornal.
+      // Sin jornal: 1 jornada a un jornal igual al monto.
+      await db.manoObraAPU.create({
+        data: {
+          apuId: apu.id,
+          categoria: categoria?.nombre ?? "Oficial albañil",
+          jornadaHs: 8,
+          rendimiento: jornal > 0 ? jornal / montoManoObra : 1,
+          jornalRef: jornal > 0 ? jornal : montoManoObra,
+          orden: 0,
+        },
+      });
+    }
+  };
+
+  // Categoría SUNCA más cercana al ítem, por palabras clave del nombre
+  // (pintura → Pintor oficial, sanitaria → Plomero oficial, …); si no hay
+  // pista, Oficial albañil; si tampoco existe, la primera de la tabla.
+  // CategoriaLaboral es global (no por empresa). Se lee una sola vez.
+  let categoriasLaborales: { nombre: string; categoria: string; jornal: number }[] | null = null;
+  const categoriaParaManoObra = async (nombreItem: string) => {
+    categoriasLaborales ??= await db.categoriaLaboral.findMany({
+      select: { nombre: true, categoria: true, jornal: true },
+      orderBy: { nombre: "asc" },
     });
+    const texto = nombreItem.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const pistas: [RegExp, string][] = [
+      [/pintur|pintad/, "pintor_oficial"],
+      [/sanitari|cañer|caner|desag|agua|griferi|plomer/, "plomero_oficial"],
+      [/electri|tomacorr|luminar|tablero|cablead/, "electricista_oficial"],
+      [/\bgas\b|gasist/, "oficial_gasista"],
+      [/demoli|picad|limpieza|retiro|escombr/, "peon"],
+    ];
+    const codigo = pistas.find(([re]) => re.test(texto))?.[1] ?? "oficial";
+    return (
+      categoriasLaborales.find((c) => c.categoria === codigo) ??
+      categoriasLaborales.find((c) => c.categoria === "oficial") ??
+      categoriasLaborales[0] ??
+      null
+    );
   };
 
   for (const item of items) {
