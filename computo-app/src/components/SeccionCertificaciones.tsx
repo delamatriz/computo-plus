@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState, useCallback, useMemo } from "react";
-import { ClipboardList, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Camera, X, ImagePlus } from "lucide-react";
+import { ClipboardList, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Camera, X, ImagePlus, FileDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
@@ -152,6 +152,7 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [editandoFecha, setEditandoFecha] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+  const [generandoPdf, setGenerandoPdf] = useState(false);
   const [itemFotosAbierto, setItemFotosAbierto] = useState<string | null>(null);
   const [fotosPorItem, setFotosPorItem] = useState<Record<string, FotoCert[]>>({});
   const [subiendoFotos, setSubiendoFotos] = useState<Record<string, boolean>>({});
@@ -281,8 +282,8 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
   };
 
   /* ── Guardar items (avances) ───────────────────────────── */
-  const guardarItems = async () => {
-    if (!detalle) return;
+  const guardarItems = async (): Promise<boolean> => {
+    if (!detalle) return false;
     setGuardando(true);
     try {
       const payload = detalle.items.map((it) => ({
@@ -303,11 +304,35 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
       setCertificaciones((prev) =>
         prev.map((c) => (c.id === detalle.id ? { ...c, items: data.certificacion.items } : c))
       );
+      return true;
     } catch (err) {
       console.error("[certificaciones] error guardando items", err);
+      return false;
     } finally {
       setGuardando(false);
     }
+  };
+
+  /* ── PDF del certificado ───────────────────────────────── */
+  const hayCambiosSinGuardar =
+    detalle != null && detalle.items.some((it) => (ediciones[it.rubroId] ?? it.porcentajeAvance) !== it.porcentajeAvance);
+
+  // El PDF sale de lo guardado: si hay % editados sin guardar, se guardan
+  // primero. La pestaña se abre antes del await para que el navegador no
+  // la bloquee como popup.
+  const generarPdf = async () => {
+    if (!detalle) return;
+    const url = `/api/proyectos/${proyectoId}/certificaciones/${detalle.id}/pdf`;
+    if (!hayCambiosSinGuardar) {
+      window.open(url, "_blank", "noopener");
+      return;
+    }
+    const pestana = window.open("", "_blank");
+    setGenerandoPdf(true);
+    const ok = await guardarItems();
+    setGenerandoPdf(false);
+    if (ok && pestana) pestana.location.href = url;
+    else pestana?.close();
   };
 
   /* ── Cambiar % de avance de un rubro ───────────────────── */
@@ -482,7 +507,9 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                 </div>
 
                 {/* ── Panel derecho — detalle ────────────── */}
-                <div className="flex-1 min-w-0 rounded-[10px] border border-slate-200 bg-white overflow-hidden">
+                {/* w-full: con items-start, en columna (mobile) el panel tomaba
+                    el ancho de la tabla en vez del de la pantalla. */}
+                <div className="w-full flex-1 min-w-0 rounded-[10px] border border-slate-200 bg-white overflow-hidden">
                   {!detalle ? (
                     <div className="px-6 py-10 text-center text-sm text-slate-400 italic">
                       Seleccioná o creá una certificación para ver el detalle.
@@ -490,8 +517,8 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                   ) : (
                     <>
                       {/* Header del panel */}
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
-                        <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 border-b border-slate-200 bg-slate-50">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
                           {editandoNombre ? (
                             <input
                               autoFocus
@@ -528,6 +555,15 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                           )}
                         </div>
 
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={generarPdf}
+                          disabled={generandoPdf}
+                          title={hayCambiosSinGuardar ? "Guarda los cambios y genera el PDF" : "Certificado para presentar al comitente"}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] text-xs font-semibold text-white bg-[#2563EB] hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+                        >
+                          <FileDown className="w-3.5 h-3.5" /> {generandoPdf ? "Guardando…" : "Generar PDF"}
+                        </button>
                         {confirmarEliminar ? (
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className="text-xs text-slate-500">¿Eliminar esta certificación?</span>
@@ -553,6 +589,7 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                             <Trash2 className="w-3 h-3" /> Eliminar
                           </button>
                         )}
+                        </div>
                       </div>
 
                       {/* Tabla de rubros */}
