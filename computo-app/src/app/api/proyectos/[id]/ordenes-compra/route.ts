@@ -44,6 +44,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       fechaRecepcion,
       completo,
       observacionesRecepcion,
+      recibidoPor,
       capituloIds,
     } = body as {
       proveedor?: string;
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       fechaRecepcion?: string;
       completo?: boolean | null;
       observacionesRecepcion?: string;
+      recibidoPor?: string;
       capituloIds?: string[];
     };
 
@@ -88,6 +90,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         fechaRecepcion: fechaRecepcion ? new Date(fechaRecepcion) : null,
         completo: completo ?? null,
         observacionesRecepcion: observacionesRecepcion?.trim() || null,
+        recibidoPor: recibidoPor?.trim() || null,
         capitulos: {
           create: (capituloIds ?? []).map((capituloId) => ({ capituloId })),
         },

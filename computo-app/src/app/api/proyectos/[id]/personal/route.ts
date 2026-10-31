@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { leerDatosExtraPersonal } from "@/lib/personalObra";
 import { requerirProyecto } from "@/lib/sesion";
 
 // GET — lista el personal del proyecto, con la categoría laboral
@@ -50,6 +51,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (!nombre?.trim()) {
       return NextResponse.json({ error: "Falta nombre" }, { status: 400 });
     }
+    const extra = leerDatosExtraPersonal(body as Record<string, unknown>);
+    if (typeof extra === "string") {
+      return NextResponse.json({ error: extra }, { status: 400 });
+    }
     if (!categoriaLaboralId?.trim()) {
       return NextResponse.json({ error: "Falta categoriaLaboralId" }, { status: 400 });
     }
@@ -72,6 +77,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         cuadrilla: cuadrilla?.trim() || "",
         empresaSubcontratista: empresaSubcontratista?.trim() || null,
         telefono: telefono?.trim() || null,
+        ...extra,
         activo: activo ?? true,
       },
       include: { categoriaLaboral: true },

@@ -38,6 +38,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       telefono,
       email,
       montoContratado,
+      retencionGarantiaPct,
       moneda,
       fechaInicio,
       fechaFin,
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       telefono?: string;
       email?: string;
       montoContratado?: number | null;
+      retencionGarantiaPct?: number | null;
       moneda?: string;
       fechaInicio?: string;
       fechaFin?: string;
@@ -87,6 +89,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         telefono: telefono?.trim() || null,
         email: email?.trim() || null,
         montoContratado: montoContratado ?? null,
+        retencionGarantiaPct:
+          typeof retencionGarantiaPct === "number" && retencionGarantiaPct > 0 && retencionGarantiaPct <= 100
+            ? retencionGarantiaPct
+            : null,
         moneda: moneda === "USD" ? "USD" : "UYU",
         fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
         fechaFin: fechaFin ? new Date(fechaFin) : null,

@@ -205,6 +205,10 @@ model Proyecto {
   garantiaFielCumplimiento String? @db.Text
   garantiaViciosOcultos    String? @db.Text
   garantiaResponsabilidad  String? @db.Text
+  // Vencimiento de cada garantía, para el seguimiento.
+  garantiaFielCumplimientoVence DateTime?
+  garantiaViciosOcultosVence    DateTime?
+  garantiaResponsabilidadVence  DateTime?
   // "Forma de realización de la obra" (clasificación BPS) — se carga desde
   // /editar, después de entregado el presupuesto. String simple (no enum)
   // a propósito: "POR_CONTRATO" | "POR_ADMINISTRACION" | "PARTE_Y_PARTE".
@@ -580,6 +584,12 @@ model PersonalObra {
   empresaSubcontratista String?
   telefono            String?
   activo              Boolean @default(true)
+  // Datos para BPS/MTSS y la planilla. jornal null = el de su categoría
+  // laboral (ver POST /api/proyectos/[id]/jornales).
+  cedula       String?
+  fechaIngreso DateTime?
+  fechaEgreso  DateTime?
+  jornal       Float?
 
   jornalesPagados JornalPagado[]
 
@@ -641,9 +651,12 @@ model Subcontratista {
   fechaInicio       DateTime?
   fechaFin          DateTime?
   estado            String  @default("En negociación") // "En negociación" | "Contratado" | "En obra" | "Finalizado" | "Cancelado"
+  // % retenido de cada pago hasta el fin de obra (garantía). null = sin retención.
+  retencionGarantiaPct Float?
 
   capitulos CapituloSubcontratista[]
   ajustesLiquidacion AjusteLiquidacion[]
+  movimientosCaja    MovimientoCaja[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -678,10 +691,17 @@ model OrdenCompra {
   fechaRecepcion       DateTime?
   completo             Boolean?
   observacionesRecepcion String? @db.Text
+  recibidoPor          String?
+  // Remito de la recepción (un archivo), en Vercel Blob privado — se sirve
+  // por .../ordenes-compra/[ordenId]/remito.
+  remitoUrlBlob        String? @db.Text
+  remitoNombreArchivo  String?
+  remitoTipoArchivo    String?
 
   capitulos CapituloOrdenCompra[]
   items     ItemOrdenCompra[]
   ajustesLiquidacion AjusteLiquidacion[]
+  movimientosCaja    MovimientoCaja[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -838,6 +858,8 @@ model LiquidacionFinal {
   // liquidó, no un valor que se mueve si el presupuesto se edita
   // después. Ver GET/POST de /api/proyectos/[id]/liquidacion-final.
   presupuestoOriginalSnapshot Float
+  // % del total liquidado que se retiene como garantía al cierre. null = sin retención.
+  retencionGarantiaPct Float?
 
   ajustes AjusteLiquidacion[]
 
@@ -952,6 +974,22 @@ model MovimientoCaja {
   // movimientos cargados antes de nov-2026 no tienen y se muestran como
   // "Sin categoría".
   categoria String?
+  // Nº de factura / comprobante / transferencia.
+  referencia String?
+  // Comprobante adjunto (factura, recibo) en Vercel Blob privado — se sirve
+  // por .../flujo-caja/[movId]/comprobante.
+  comprobanteUrlBlob       String? @db.Text
+  comprobanteNombreArchivo String?
+  comprobanteTipoArchivo   String?
+  // Vínculo opcional con la entidad que origina el movimiento: un egreso con
+  // su orden de compra o subcontratista, un ingreso con su certificación.
+  // SetNull: si la entidad se borra, el movimiento queda.
+  ordenCompraId    String?
+  ordenCompra      OrdenCompra?    @relation(fields: [ordenCompraId], references: [id], onDelete: SetNull)
+  subcontratistaId String?
+  subcontratista   Subcontratista? @relation(fields: [subcontratistaId], references: [id], onDelete: SetNull)
+  certificacionId  String?
+  certificacion    Certificacion?  @relation(fields: [certificacionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1090,6 +1128,10 @@ model Certificacion {
   fecha       DateTime @default(now())
   observaciones String @default("")
   items       CertificacionItem[]
+  // Fechas del ciclo de cobro (la fecha de corte es `fecha`).
+  fechaPresentacion   DateTime?
+  fechaCobroPrevisto  DateTime?
+  movimientosCaja     MovimientoCaja[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

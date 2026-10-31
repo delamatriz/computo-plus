@@ -1,7 +1,21 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { PackageCheck, ChevronDown, ChevronRight, Plus, Pencil, X, Search, Trash2, Check, Download } from "lucide-react";
+import {
+  PackageCheck,
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  Pencil,
+  X,
+  Search,
+  Trash2,
+  Check,
+  Download,
+  Paperclip,
+  FileText,
+} from "lucide-react";
+import { reducirFotoObra } from "@/lib/reducirFotoObra";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { FilaMaterialGlobal } from "@/lib/materialesGlobales";
@@ -44,6 +58,8 @@ interface OrdenCompra {
   fechaRecepcion: string | null;
   completo: boolean | null;
   observacionesRecepcion: string | null;
+  recibidoPor: string | null;
+  remitoNombreArchivo: string | null;
   capitulos: CapituloVinculo[];
   items: ItemOrdenCompraTipo[];
 }
@@ -92,6 +108,7 @@ type FormState = {
   fechaEntregaPrevista: string;
   estado: Estado;
   fechaRecepcion: string;
+  recibidoPor: string;
   completo: "si" | "no" | "";
   observacionesRecepcion: string;
   capituloIds: string[];
@@ -107,6 +124,7 @@ function formVacio(): FormState {
     fechaEntregaPrevista: "",
     estado: "Pedido",
     fechaRecepcion: "",
+    recibidoPor: "",
     completo: "",
     observacionesRecepcion: "",
     capituloIds: [],
@@ -123,6 +141,7 @@ function formDesdeOrden(o: OrdenCompra): FormState {
     fechaEntregaPrevista: o.fechaEntregaPrevista ? o.fechaEntregaPrevista.slice(0, 10) : "",
     estado: o.estado,
     fechaRecepcion: o.fechaRecepcion ? o.fechaRecepcion.slice(0, 10) : "",
+    recibidoPor: o.recibidoPor ?? "",
     completo: o.completo === true ? "si" : o.completo === false ? "no" : "",
     observacionesRecepcion: o.observacionesRecepcion ?? "",
     capituloIds: o.capitulos.map((c) => c.capituloId),
@@ -212,6 +231,7 @@ export default function SeccionOrdenesCompra({ proyectoId, materialesGlobales }:
         completo: form.estado === "Recibido" ? (form.completo === "si" ? true : form.completo === "no" ? false : null) : null,
         fechaRecepcion: form.estado === "Recibido" ? form.fechaRecepcion : "",
         observacionesRecepcion: form.estado === "Recibido" ? form.observacionesRecepcion : "",
+        recibidoPor: form.estado === "Recibido" ? form.recibidoPor : "",
       };
       const res = await fetch(url, {
         method: esEdicion ? "PATCH" : "POST",
@@ -365,6 +385,53 @@ function FilaOrden({
 }) {
   const [menuPDFAbierto, setMenuPDFAbierto] = useState(false);
   const basePDF = `/api/proyectos/${proyectoId}/ordenes-compra/${orden.id}/pdf`;
+  // Remito: se maneja acá (no en el formulario) porque es un archivo que se
+  // sube al recibir, con la orden ya creada.
+  const urlRemito = `/api/proyectos/${proyectoId}/ordenes-compra/${orden.id}/remito`;
+  const [remito, setRemito] = useState<string | null>(orden.remitoNombreArchivo);
+  const [subiendoRemito, setSubiendoRemito] = useState(false);
+  const [errorRemito, setErrorRemito] = useState(false);
+
+  const subirRemito = async (file: File) => {
+    setSubiendoRemito(true);
+    setErrorRemito(false);
+    try {
+      const esImagen = file.type.startsWith("image/");
+      const archivo = esImagen
+        ? await reducirFotoObra(file)
+        : await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result as string);
+            r.onerror = reject;
+            r.readAsDataURL(file);
+          });
+      const nombre = esImagen ? file.name.replace(/\.[^.]+$/, "") + ".jpg" : file.name;
+      const res = await fetch(urlRemito, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archivo, nombreArchivoOriginal: nombre }),
+      });
+      if (!res.ok) throw new Error("No se pudo subir");
+      setRemito(nombre);
+    } catch (err) {
+      console.error("[ordenes-compra] error subiendo remito", err);
+      setErrorRemito(true);
+    } finally {
+      setSubiendoRemito(false);
+    }
+  };
+
+  const quitarRemito = async () => {
+    const anterior = remito;
+    setRemito(null);
+    try {
+      const res = await fetch(urlRemito, { method: "DELETE" });
+      if (!res.ok) throw new Error("No se pudo quitar");
+    } catch (err) {
+      console.error("[ordenes-compra] error quitando remito", err);
+      setRemito(anterior);
+    }
+  };
 
   return (
     <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3">
@@ -404,8 +471,57 @@ function FilaOrden({
             <p className="text-[11px] text-slate-400 mt-1">Pedido el {fmtFecha(orden.fechaPedido)}</p>
           )}
 
+          {orden.estado === "Recibido" && orden.recibidoPor && (
+            <p className="text-[11px] text-slate-500 mt-1">Recibido por {orden.recibidoPor}</p>
+          )}
+
           {orden.estado === "Recibido" && orden.observacionesRecepcion && (
             <p className="text-[11px] text-slate-500 mt-1 italic">&quot;{orden.observacionesRecepcion}&quot;</p>
+          )}
+
+          {orden.estado === "Recibido" && (
+            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+              {remito ? (
+                <>
+                  <a
+                    href={urlRemito}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2563EB] hover:underline"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> Remito: {remito}
+                  </a>
+                  <button
+                    onClick={quitarRemito}
+                    className="text-slate-300 hover:text-red-500 transition-colors"
+                    title="Quitar remito"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              ) : (
+                <label
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[11px] font-semibold",
+                    subiendoRemito ? "text-slate-400 cursor-wait" : "text-[#2563EB] hover:underline cursor-pointer"
+                  )}
+                >
+                  <Paperclip className="w-3.5 h-3.5" />
+                  {subiendoRemito ? "Subiendo remito…" : "Adjuntar remito"}
+                  <input
+                    type="file"
+                    accept="application/pdf,image/*"
+                    disabled={subiendoRemito}
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) subirRemito(e.target.files[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+              {errorRemito && <span className="text-[11px] text-red-600">No se pudo subir. Probá de nuevo.</span>}
+            </div>
           )}
 
           {orden.capitulos.length > 0 && (
@@ -632,6 +748,16 @@ function FormularioOrden({
                     <option value="no">Incompleto</option>
                   </select>
                 </div>
+              </div>
+              <div>
+                <label className={labelCls}>Recibido por (opcional)</label>
+                <input
+                  type="text"
+                  value={form.recibidoPor}
+                  onChange={(e) => set("recibidoPor", e.target.value)}
+                  placeholder="Quién recibió en obra"
+                  className={inputCls}
+                />
               </div>
               <div>
                 <label className={labelCls}>Observaciones de recepción (opcional)</label>

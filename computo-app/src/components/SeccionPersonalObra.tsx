@@ -23,6 +23,10 @@ interface PersonaObra {
   empresaSubcontratista: string | null;
   telefono: string | null;
   activo: boolean;
+  cedula: string | null;
+  fechaIngreso: string | null;
+  fechaEgreso: string | null;
+  jornal: number | null;
 }
 
 interface Props {
@@ -36,10 +40,33 @@ type FormState = {
   empresaSubcontratista: string;
   telefono: string;
   activo: boolean;
+  cedula: string;
+  fechaIngreso: string;
+  fechaEgreso: string;
+  jornal: string; // vacío = el de la categoría
 };
 
 function formVacio(): FormState {
-  return { nombre: "", categoriaLaboralId: "", cuadrilla: "", empresaSubcontratista: "", telefono: "", activo: true };
+  return {
+    nombre: "",
+    categoriaLaboralId: "",
+    cuadrilla: "",
+    empresaSubcontratista: "",
+    telefono: "",
+    activo: true,
+    cedula: "",
+    fechaIngreso: "",
+    fechaEgreso: "",
+    jornal: "",
+  };
+}
+
+function fmtFechaCorta(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+}
+
+function fmtJornal(v: number): string {
+  return `$ ${Math.round(v).toLocaleString("es-UY")}`;
 }
 
 function formDesdePersona(p: PersonaObra): FormState {
@@ -50,6 +77,10 @@ function formDesdePersona(p: PersonaObra): FormState {
     empresaSubcontratista: p.empresaSubcontratista ?? "",
     telefono: p.telefono ?? "",
     activo: p.activo,
+    cedula: p.cedula ?? "",
+    fechaIngreso: p.fechaIngreso ? p.fechaIngreso.slice(0, 10) : "",
+    fechaEgreso: p.fechaEgreso ? p.fechaEgreso.slice(0, 10) : "",
+    jornal: p.jornal != null ? String(p.jornal) : "",
   };
 }
 
@@ -203,8 +234,8 @@ export default function SeccionPersonalObra({ proyectoId }: Props) {
           >
             <div className="px-5 py-5 space-y-3" style={{ background: "#F8FAFC" }}>
               <p className="text-xs text-slate-500 -mt-1">
-                Registro de las personas trabajando en esta obra: quién es, su oficio y a qué cuadrilla o
-                subcontratista pertenece.
+                Registro de las personas trabajando en esta obra: quién es, su categoría SUNCA, cédula, fechas
+                en obra, jornal y a qué cuadrilla o subcontratista pertenece.
               </p>
 
               <div className="flex items-center gap-3">
@@ -314,6 +345,18 @@ function FilaPersona({
           {persona.telefono && (
             <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
               <Phone className="w-3 h-3" /> {persona.telefono}
+            </span>
+          )}
+          {persona.cedula && <span className="text-[11px] text-slate-500">C.I. {persona.cedula}</span>}
+          <span className="text-[11px] text-slate-500 tabular-nums">
+            Jornal {fmtJornal(persona.jornal ?? persona.categoriaLaboral.jornal)}
+            {persona.jornal == null && <span className="text-slate-400"> (categoría)</span>}
+          </span>
+          {(persona.fechaIngreso || persona.fechaEgreso) && (
+            <span className="text-[11px] text-slate-500">
+              {persona.fechaIngreso ? `Ingreso ${fmtFechaCorta(persona.fechaIngreso)}` : ""}
+              {persona.fechaIngreso && persona.fechaEgreso ? " · " : ""}
+              {persona.fechaEgreso ? `Egreso ${fmtFechaCorta(persona.fechaEgreso)}` : ""}
             </span>
           )}
         </div>
@@ -428,6 +471,45 @@ function FormularioPersona({
             )}
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Cédula</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.cedula}
+                onChange={(e) => set("cedula", e.target.value)}
+                placeholder="1.234.567-8"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Jornal ($/día)</label>
+              <input
+                type="number"
+                min={0}
+                value={form.jornal}
+                onChange={(e) => set("jornal", e.target.value)}
+                placeholder={(() => {
+                  const c = categorias.find((x) => x.id === form.categoriaLaboralId);
+                  return c ? `${Math.round(c.jornal)} (categoría)` : "el de la categoría";
+                })()}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Ingreso a la obra</label>
+              <input type="date" value={form.fechaIngreso} onChange={(e) => set("fechaIngreso", e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Egreso (opcional)</label>
+              <input type="date" value={form.fechaEgreso} onChange={(e) => set("fechaEgreso", e.target.value)} className={inputCls} />
+            </div>
+          </div>
+          {form.fechaIngreso && form.fechaEgreso && form.fechaEgreso < form.fechaIngreso && (
+            <p className="text-[11px] text-red-600 -mt-2">El egreso no puede ser anterior al ingreso.</p>
+          )}
+
           <div>
             <label className={labelCls}>Cuadrilla (opcional)</label>
             <input
@@ -479,7 +561,12 @@ function FormularioPersona({
           </button>
           <button
             onClick={onGuardar}
-            disabled={guardando || !form.nombre.trim() || !form.categoriaLaboralId}
+            disabled={
+              guardando ||
+              !form.nombre.trim() ||
+              !form.categoriaLaboralId ||
+              (!!form.fechaIngreso && !!form.fechaEgreso && form.fechaEgreso < form.fechaIngreso)
+            }
             className="flex-1 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-50"
           >
             {guardando ? "Guardando…" : esEdicion ? "Guardar cambios" : "Agregar persona"}

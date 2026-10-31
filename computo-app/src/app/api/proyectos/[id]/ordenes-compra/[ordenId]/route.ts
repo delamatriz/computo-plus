@@ -28,6 +28,7 @@ export async function PATCH(
       fechaRecepcion,
       completo,
       observacionesRecepcion,
+      recibidoPor,
       capituloIds,
     } = body as {
       proveedor?: string;
@@ -40,6 +41,7 @@ export async function PATCH(
       fechaRecepcion?: string;
       completo?: boolean | null;
       observacionesRecepcion?: string;
+      recibidoPor?: string;
       capituloIds?: string[];
     };
 
@@ -76,6 +78,7 @@ export async function PATCH(
         fechaRecepcion: fechaRecepcion ? new Date(fechaRecepcion) : null,
         completo: completo ?? null,
         observacionesRecepcion: observacionesRecepcion?.trim() || null,
+        recibidoPor: recibidoPor?.trim() || null,
         capitulos: {
           deleteMany: {},
           create: (capituloIds ?? []).map((capituloId) => ({ capituloId })),

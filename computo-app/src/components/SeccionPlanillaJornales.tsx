@@ -254,7 +254,7 @@ export default function SeccionPlanillaJornales({ proyectoId }: Props) {
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1.5">
                     Semana del {fmtSemana(`${semanaNueva}T00:00:00Z`)} · suma a las {personalActivo.length} personas
-                    activas con el jornal de su categoría; después completás los días.
+                    activas con su jornal (o el de su categoría); después completás los días.
                   </p>
                   {aviso && <p className="text-[11px] text-amber-700 mt-1.5">{aviso}</p>}
                 </div>

@@ -34,6 +34,7 @@ interface Subcontratista {
   email: string | null;
   montoContratado: number | null;
   moneda: string;
+  retencionGarantiaPct: number | null;
   fechaInicio: string | null;
   fechaFin: string | null;
   estado: Estado;
@@ -70,6 +71,7 @@ type FormState = {
   email: string;
   montoContratado: string;
   moneda: "UYU" | "USD";
+  retencionGarantiaPct: string;
   fechaInicio: string;
   fechaFin: string;
   estado: Estado;
@@ -86,6 +88,7 @@ function formVacio(): FormState {
     email: "",
     montoContratado: "",
     moneda: "UYU",
+    retencionGarantiaPct: "",
     fechaInicio: "",
     fechaFin: "",
     estado: "En negociación",
@@ -103,6 +106,7 @@ function formDesdeSubcontratista(s: Subcontratista): FormState {
     email: s.email ?? "",
     montoContratado: s.montoContratado != null ? String(s.montoContratado) : "",
     moneda: s.moneda === "USD" ? "USD" : "UYU",
+    retencionGarantiaPct: s.retencionGarantiaPct != null ? String(s.retencionGarantiaPct) : "",
     fechaInicio: s.fechaInicio ? s.fechaInicio.slice(0, 10) : "",
     fechaFin: s.fechaFin ? s.fechaFin.slice(0, 10) : "",
     estado: s.estado,
@@ -190,6 +194,7 @@ export default function SeccionSubcontratistas({ proyectoId }: Props) {
       const body = {
         ...form,
         montoContratado: form.montoContratado.trim() ? Number(form.montoContratado) : null,
+        retencionGarantiaPct: form.retencionGarantiaPct.trim() ? Number(form.retencionGarantiaPct) : null,
       };
       const res = await fetch(url, {
         method: esEdicion ? "PATCH" : "POST",
@@ -349,6 +354,14 @@ function FilaSubcontratista({ sub, onEditar }: { sub: Subcontratista; onEditar: 
           {sub.montoContratado != null && (
             <span className="text-sm font-bold text-[#1A3A5C]">{fmtMonto(sub.montoContratado, sub.moneda)}</span>
           )}
+          {sub.montoContratado != null && sub.retencionGarantiaPct != null && sub.retencionGarantiaPct > 0 && (
+            <span className="text-[11px] text-slate-500 text-right" title="Se retiene hasta el fin de obra">
+              Retención {sub.retencionGarantiaPct}%:{" "}
+              <span className="font-semibold text-amber-700">
+                {fmtMonto((sub.montoContratado * sub.retencionGarantiaPct) / 100, sub.moneda)}
+              </span>
+            </span>
+          )}
           <button
             onClick={onEditar}
             className="flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
@@ -471,6 +484,33 @@ function FormularioSubcontratista({
                 <option value="USD">USD</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Retención de garantía (%) — opcional</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step="0.5"
+              value={form.retencionGarantiaPct}
+              onChange={(e) => set("retencionGarantiaPct", e.target.value)}
+              placeholder="ej: 5"
+              className={inputCls}
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Porcentaje de cada pago que se retiene hasta el fin de obra.
+              {form.retencionGarantiaPct.trim() && form.montoContratado.trim() && (
+                <>
+                  {" "}
+                  Sobre el monto contratado:{" "}
+                  <span className="font-semibold text-slate-600">
+                    {fmtMonto((Number(form.montoContratado) * Number(form.retencionGarantiaPct)) / 100, form.moneda)}
+                  </span>
+                  .
+                </>
+              )}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -70,7 +70,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         personalObraId: p.id,
         semana: lunes,
         diasTrabajados: 0,
-        jornal: p.categoriaLaboral.jornal,
+        jornal: p.jornal ?? p.categoriaLaboral.jornal,
         categoria: p.categoriaLaboral.nombre,
         aportesPatronalesPct,
       })),
