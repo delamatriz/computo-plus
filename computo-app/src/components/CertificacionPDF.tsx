@@ -7,10 +7,12 @@ import { fechaUruguay } from "@/lib/fechaUruguay";
 // rubro, con el % de cada certificación INCREMENTAL (el acumulado es la
 // suma de las certificaciones anteriores + esta). Ver también
 // lib/totalCertificadoAgregado.ts.
+//
+// Sin columna de código de rubro: los rubros de proyecto tienen códigos
+// autogenerados (R001, R002…, repetidos entre capítulos), no códigos reales.
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 export interface RubroCertificacionPDF {
-  codigo: string;
   descripcion: string;
   unidad: string;
   cantidad: number;
@@ -28,7 +30,7 @@ export interface CapituloCertificacionPDF {
 export interface CertificacionPDFProps {
   empresaNombre: string;
   proyectoNombre: string;
-  comitente: string | null;
+  comitente: string;
   direccion: string | null;
   numero: number;
   nombre: string;
@@ -133,8 +135,7 @@ const styles = StyleSheet.create({
   textoCeldaMuted: { fontSize: 7.5, color: "#94A3B8" },
   textoCeldaFuerte: { fontSize: 7.5, fontFamily: "Helvetica-Bold", color: ACENTO },
 
-  colCodigo: { width: "6%" },
-  colRubro: { width: "28%", paddingRight: 4 },
+  colRubro: { width: "34%", paddingRight: 4 },
   colUnidad: { width: "5%", textAlign: "center" },
   colCant: { width: "8%", textAlign: "right" },
   colPU: { width: "9%", textAlign: "right" },
@@ -189,7 +190,6 @@ const styles = StyleSheet.create({
 function Encabezado() {
   return (
     <View style={styles.filaEncabezado} fixed>
-      <Text style={[styles.textoEncabezado, styles.colCodigo]}>Cód.</Text>
       <Text style={[styles.textoEncabezado, styles.colRubro]}>Rubro</Text>
       <Text style={[styles.textoEncabezado, styles.colUnidad]}>Ud.</Text>
       <Text style={[styles.textoEncabezado, styles.colCant]}>Cantidad</Text>
@@ -208,7 +208,6 @@ function FilaRubro({ r, moneda }: { r: RubroCertificacionPDF; moneda: string }) 
   const montoEsta = (r.pctEsta / 100) * importe(r);
   return (
     <View style={styles.filaRubro} wrap={false}>
-      <Text style={[styles.textoCeldaMuted, styles.colCodigo]}>{r.codigo}</Text>
       <Text style={[styles.textoCelda, styles.colRubro]}>{r.descripcion}</Text>
       <Text style={[styles.textoCeldaMuted, styles.colUnidad]}>{r.unidad}</Text>
       <Text style={[styles.textoCelda, styles.colCant]}>{fmtNum(r.cantidad)}</Text>
@@ -293,7 +292,7 @@ export function CertificacionPDF({
           </View>
           <View style={styles.datoCol}>
             <Text style={styles.datoLabel}>Comitente</Text>
-            <Text style={styles.datoValor}>{comitente || "—"}</Text>
+            <Text style={styles.datoValor}>{comitente}</Text>
           </View>
           <View style={styles.datoCol}>
             <Text style={styles.datoLabel}>Fecha de certificación</Text>
@@ -317,19 +316,25 @@ export function CertificacionPDF({
         <Encabezado />
         {capitulos.map((cap) => {
           const montoCap = cap.rubros.reduce((s, r) => s + (r.pctEsta / 100) * importe(r), 0);
+          const [primero, ...resto] = cap.rubros;
           return (
             <View key={`${cap.codigo}-${cap.nombre}`}>
-              <View style={styles.filaCapitulo} wrap={false} minPresenceAhead={20}>
-                <Text style={[styles.textoCapitulo, { width: "88%" }]}>
-                  {cap.codigo ? `${cap.codigo}. ` : ""}
-                  {cap.nombre}
-                </Text>
-                <Text style={[styles.textoCapitulo, styles.colEsta]}>
-                  {montoCap > 0 ? fmtMoneda(montoCap, moneda) : "—"}
-                </Text>
+              {/* El encabezado del capítulo va pegado a su primer rubro en un
+                  bloque que no se parte: nunca queda solo al pie de una página. */}
+              <View wrap={false}>
+                <View style={styles.filaCapitulo}>
+                  <Text style={[styles.textoCapitulo, { width: "88%" }]}>
+                    {cap.codigo ? `${cap.codigo}. ` : ""}
+                    {cap.nombre}
+                  </Text>
+                  <Text style={[styles.textoCapitulo, styles.colEsta]}>
+                    {montoCap > 0 ? fmtMoneda(montoCap, moneda) : "—"}
+                  </Text>
+                </View>
+                {primero && <FilaRubro r={primero} moneda={moneda} />}
               </View>
-              {cap.rubros.map((r, i) => (
-                <FilaRubro key={`${r.codigo}-${i}`} r={r} moneda={moneda} />
+              {resto.map((r, i) => (
+                <FilaRubro key={i} r={r} moneda={moneda} />
               ))}
             </View>
           );

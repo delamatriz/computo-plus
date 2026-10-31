@@ -40,8 +40,10 @@ export async function GET(
             select: {
               codigo: true,
               nombre: true,
+              // Mismo orden que la planilla (GET /api/proyectos/[id]).
               rubros: {
-                select: { id: true, codigo: true, descripcion: true, unidad: true, cantidad: true, precioUnit: true },
+                orderBy: { createdAt: "asc" },
+                select: { id: true, descripcion: true, unidad: true, cantidad: true, precioUnit: true },
               },
             },
           },
@@ -64,25 +66,26 @@ export async function GET(
       .map((cap) => ({
         codigo: cap.codigo,
         nombre: cap.nombre,
-        rubros: [...cap.rubros]
-          .sort((a, b) => a.codigo.localeCompare(b.codigo, "es", { numeric: true }))
-          .map((r) => ({
-            codigo: r.codigo,
-            descripcion: r.descripcion,
-            unidad: r.unidad,
-            cantidad: r.cantidad,
-            precioUnit: r.precioUnit,
-            pctAnterior: pctAnterior.get(r.id) ?? 0,
-            pctEsta: pctEsta.get(r.id) ?? 0,
-          })),
+        rubros: cap.rubros.map((r) => ({
+          descripcion: r.descripcion,
+          unidad: r.unidad,
+          cantidad: r.cantidad,
+          precioUnit: r.precioUnit,
+          pctAnterior: pctAnterior.get(r.id) ?? 0,
+          pctEsta: pctEsta.get(r.id) ?? 0,
+        })),
       }))
       .filter((cap) => cap.rubros.length > 0);
 
     const proyectoNombre = nombreProyectoParaMostrar(proyecto.nombre);
+    // ContratoObra no guarda el nombre del comitente (solo su domicilio): el
+    // nombre vive en los datos del cliente del proyecto. Sin cliente cargado,
+    // el nombre del proyecto — nunca "—" en un documento para cobrar.
+    const comitente = proyecto.clienteRazonSocial?.trim() || proyecto.cliente?.trim() || proyectoNombre;
     const elemento = React.createElement(CertificacionPDF, {
       empresaNombre: proyecto.empresa?.nombre || "Mi Empresa",
       proyectoNombre,
-      comitente: proyecto.clienteRazonSocial || proyecto.cliente,
+      comitente,
       direccion: proyecto.direccion,
       numero: cert.numero,
       nombre: cert.nombre,
