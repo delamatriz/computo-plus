@@ -220,7 +220,7 @@ const navPrincipal: ItemEstructura[] = [
     ),
   },
   {
-    nombre: "Preguntas y sugerencias",
+    nombre: "Preguntas y Sugerencias",
     contenido: (
       <>
         Para hacernos una consulta, mandarnos ideas, reportar un problema o
@@ -1039,7 +1039,7 @@ export default function ReferenciasPage() {
           <p className="text-sm text-slate-500">
             ¿Tenés dudas o querés ver más ejemplos? Escribinos en{" "}
             <Link href="/sugerencias" className="font-medium text-[#2563EB] hover:underline">
-              Preguntas y sugerencias
+              Preguntas y Sugerencias
             </Link>
             .
           </p>

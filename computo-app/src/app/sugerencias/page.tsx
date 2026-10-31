@@ -155,7 +155,7 @@ export default function SugerenciasPage() {
 
   return (
     <div className="p-6 md:p-8 max-w-3xl">
-      <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Preguntas y sugerencias</h1>
+      <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Preguntas y Sugerencias</h1>
       <p className="text-slate-500 mb-8">
         Tu consulta o sugerencia llega directamente al equipo de CÓMPUTO+. Revisamos periódicamente y te contactamos si necesitamos más información.
       </p>
