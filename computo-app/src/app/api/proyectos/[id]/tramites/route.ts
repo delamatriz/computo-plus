@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requerirProyecto } from "@/lib/sesion";
 import { SELECT_DOCUMENTOS } from "@/lib/documentosTramite";
 
-const ESTADOS_VALIDOS = ["Pendiente", "En trámite", "Aprobado", "Rechazado"];
+const ESTADOS_VALIDOS = ["Pendiente", "En trámite", "Aprobado", "Rechazado", "Cancelado"];
 
 // GET — lista los trámites legales del proyecto.
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {

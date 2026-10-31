@@ -745,6 +745,7 @@ model DocumentoContrato {
   contratoObra   ContratoObra @relation(fields: [contratoObraId], references: [id], onDelete: Cascade)
 
   nombre                String // "nombre/tipo" libre, ej. "Contrato firmado", "Presupuesto — Anexo económico"
+  tipo                  String? // "Contrato" | "Anexo" | "Presupuesto aprobado" | "Otro" — null en los cargados antes de nov-2026
   urlBlob               String @db.Text // URL de Vercel Blob (privado) — mismo patrón que DocumentoMetraje.archivo
   nombreArchivoOriginal String
   tipoArchivo           String // extraído del contentType, ej. "application/pdf"
@@ -902,7 +903,7 @@ model TramiteLegal {
 
   nombre        String
   organismo     String?
-  estado        String  @default("Pendiente") // "Pendiente" | "En trámite" | "Aprobado" | "Rechazado"
+  estado        String  @default("Pendiente") // "Pendiente" | "En trámite" | "Aprobado" | "Rechazado" | "Cancelado"
   fecha         DateTime?
   observaciones String? @db.Text
 

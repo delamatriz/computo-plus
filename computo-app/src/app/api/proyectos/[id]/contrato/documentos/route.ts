@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { subirArchivoABlob } from "@/lib/blob";
 import { requerirProyecto } from "@/lib/sesion";
 
+const TIPOS_DOCUMENTO = ["Contrato", "Anexo", "Presupuesto aprobado", "Otro"];
+
 // POST — sube un documento/anexo nuevo al contrato del proyecto.
 // Mismo patrón exacto que DocumentoMetraje: el cliente manda el
 // archivo como data URL base64, se sube a Vercel Blob (privado) y se
@@ -14,14 +16,20 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
-    const { nombre, archivo, nombreArchivoOriginal } = body as {
+    const { nombre, tipo, archivo, nombreArchivoOriginal } = body as {
       nombre?: string;
+      tipo?: string;
       archivo?: string;
       nombreArchivoOriginal?: string;
     };
 
-    if (!nombre?.trim()) {
-      return NextResponse.json({ error: "Falta nombre/tipo del documento" }, { status: 400 });
+    if (tipo != null && !TIPOS_DOCUMENTO.includes(tipo)) {
+      return NextResponse.json({ error: "Tipo de documento inválido" }, { status: 400 });
+    }
+    // El nombre es opcional si viene el tipo: "Contrato", "Anexo"…
+    const nombreFinal = nombre?.trim() || tipo;
+    if (!nombreFinal) {
+      return NextResponse.json({ error: "Falta el tipo del documento" }, { status: 400 });
     }
     if (!archivo || !nombreArchivoOriginal) {
       return NextResponse.json({ error: "Falta el archivo" }, { status: 400 });
@@ -50,7 +58,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const documento = await db.documentoContrato.create({
       data: {
         contratoObraId: contrato.id,
-        nombre: nombre.trim(),
+        nombre: nombreFinal,
+        tipo: tipo ?? null,
         urlBlob,
         nombreArchivoOriginal,
         tipoArchivo: contentType,

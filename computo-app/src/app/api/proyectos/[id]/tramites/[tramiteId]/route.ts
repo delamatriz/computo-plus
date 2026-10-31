@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requerirProyecto } from "@/lib/sesion";
 import { SELECT_DOCUMENTOS } from "@/lib/documentosTramite";
 
-const ESTADOS_VALIDOS = ["Pendiente", "En trámite", "Aprobado", "Rechazado"];
+const ESTADOS_VALIDOS = ["Pendiente", "En trámite", "Aprobado", "Rechazado", "Cancelado"];
 
 // PATCH — edita un trámite legal, incluido cambiar estado. Sin
 // DELETE a propósito — mismo criterio que los módulos anteriores de

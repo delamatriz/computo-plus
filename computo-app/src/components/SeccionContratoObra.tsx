@@ -18,9 +18,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PALETA } from "@/lib/paletaPresupuesto";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
+const TIPOS_DOCUMENTO = ["Contrato", "Anexo", "Presupuesto aprobado", "Otro"] as const;
+
 interface Documento {
   id: string;
   nombre: string;
+  tipo: string | null;
   nombreArchivoOriginal: string;
   tipoArchivo: string;
   tamano: number | null;
@@ -150,6 +153,7 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
   const [guardando, setGuardando] = useState(false);
 
   const [nombreDocNuevo, setNombreDocNuevo] = useState("");
+  const [tipoDocNuevo, setTipoDocNuevo] = useState<string>("Contrato");
   const [subiendoDoc, setSubiendoDoc] = useState(false);
   const [agregandoDoc, setAgregandoDoc] = useState(false);
 
@@ -231,14 +235,14 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
   };
 
   const subirDocumento = async (file: File) => {
-    if (!nombreDocNuevo.trim() || !contrato) return;
+    if (!contrato) return;
     setSubiendoDoc(true);
     try {
       const archivo = await fileToBase64(file);
       const res = await fetch(`/api/proyectos/${proyectoId}/contrato/documentos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: nombreDocNuevo.trim(), archivo, nombreArchivoOriginal: file.name }),
+        body: JSON.stringify({ tipo: tipoDocNuevo, nombre: nombreDocNuevo.trim(), archivo, nombreArchivoOriginal: file.name }),
       });
       if (!res.ok) throw new Error("No se pudo subir");
       const data: Documento = await res.json();
@@ -346,17 +350,33 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
 
                     {agregandoDoc ? (
                       <div className="space-y-2 pt-2 border-t border-slate-100">
+                        <div className="flex flex-wrap gap-1.5">
+                          {TIPOS_DOCUMENTO.map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setTipoDocNuevo(t)}
+                              className={`px-2.5 py-1.5 rounded-[8px] text-xs font-semibold border transition-colors ${
+                                tipoDocNuevo === t
+                                  ? "bg-[#EFF6FF] border-[#2563EB] text-[#2563EB]"
+                                  : "border-slate-200 text-slate-500 hover:border-slate-300"
+                              }`}
+                            >
+                              {t}
+                            </button>
+                          ))}
+                        </div>
                         <input
                           type="text"
                           value={nombreDocNuevo}
                           onChange={(e) => setNombreDocNuevo(e.target.value)}
-                          placeholder='ej: "Contrato firmado", "Presupuesto — Anexo económico"'
+                          placeholder={`Nombre (opcional) — si lo dejás vacío queda "${tipoDocNuevo}"`}
                           className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
                         />
                         <div className="flex items-center gap-2">
                           <label
                             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-[8px] text-sm font-semibold transition-colors cursor-pointer ${
-                              nombreDocNuevo.trim() && !subiendoDoc
+                              !subiendoDoc
                                 ? "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                                 : "bg-slate-100 text-slate-400 cursor-not-allowed"
                             }`}
@@ -364,7 +384,7 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
                             {subiendoDoc ? "Subiendo…" : "Elegir archivo"}
                             <input
                               type="file"
-                              disabled={!nombreDocNuevo.trim() || subiendoDoc}
+                              disabled={subiendoDoc}
                               className="hidden"
                               onChange={(e) => {
                                 if (e.target.files?.[0]) subirDocumento(e.target.files[0]);
@@ -485,6 +505,11 @@ function FilaDocumento({
         {iconoParaTipo(doc.tipoArchivo)}
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-700 truncate group-hover:text-[#2563EB] transition-colors">
+            {doc.tipo && doc.tipo !== doc.nombre && (
+              <span className="mr-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                {doc.tipo}
+              </span>
+            )}
             {doc.nombre}
           </p>
           <p className="text-[10px] text-slate-400 truncate">

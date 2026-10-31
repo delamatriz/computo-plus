@@ -21,7 +21,20 @@ import { reducirFotoObra } from "@/lib/reducirFotoObra";
 import { TAMANO_MAX_DOCUMENTO_TRAMITE } from "@/lib/documentosTramite";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
-const OPCIONES_ESTADO = ["Pendiente", "En trámite", "Aprobado", "Rechazado"] as const;
+const OPCIONES_ESTADO = ["Pendiente", "En trámite", "Aprobado", "Rechazado", "Cancelado"] as const;
+
+// Sugerencias del campo Organismo (sigue siendo texto libre).
+const ORGANISMOS_FRECUENTES = [
+  "BPS",
+  "Intendencia",
+  "SUNCA",
+  "MTSS",
+  "Bomberos",
+  "OSE",
+  "UTE",
+  "ANTEL",
+  "MTOP",
+] as const;
 type Estado = (typeof OPCIONES_ESTADO)[number];
 
 const ESTILO_ESTADO: Record<Estado, string> = {
@@ -29,6 +42,7 @@ const ESTILO_ESTADO: Record<Estado, string> = {
   "En trámite": "bg-amber-50 text-amber-600 border-amber-200",
   "Aprobado": "bg-emerald-50 text-emerald-600 border-emerald-200",
   "Rechazado": "bg-red-50 text-red-600 border-red-200",
+  "Cancelado": "bg-slate-50 text-slate-400 border-slate-200 line-through",
 };
 
 interface DocumentoTramite {
@@ -475,6 +489,23 @@ function FormularioTramite({
               placeholder="ej: Intendencia de Montevideo, BPS"
               className={inputCls}
             />
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {ORGANISMOS_FRECUENTES.map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => set("organismo", o)}
+                  className={cn(
+                    "px-2 py-1 rounded-[6px] text-[11px] font-semibold border transition-colors",
+                    form.organismo === o
+                      ? "bg-[#EFF6FF] border-[#2563EB] text-[#2563EB]"
+                      : "border-slate-200 text-slate-500 hover:border-slate-300"
+                  )}
+                >
+                  {o}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
