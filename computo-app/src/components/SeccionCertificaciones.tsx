@@ -43,6 +43,12 @@ interface CertificacionDetalle extends Omit<CertificacionResumen, "items"> {
   items: ItemCert[];
 }
 
+interface MovimientoCaja {
+  tipo: string; // "Ingreso" | "Egreso"
+  monto: number;
+  moneda: string;
+}
+
 interface CapituloInfo {
   id: string;
   nombre: string;
@@ -138,6 +144,85 @@ function TarjetaCertificacion({
   );
 }
 
+/* ─── Resumen de certificaciones ──────────────────────────── */
+// Cierra el ciclo avance/cobro: cuánto se certificó, cuánto falta
+// certificar y, si hay ingresos en Flujo de Caja, cuánto se cobró de
+// verdad. El presupuesto es la suma de rubros (sin IVA ni gastos
+// generales): la misma base con la que se calcula cada certificación, para
+// que el saldo llegue a 0 al certificar el 100%.
+function PanelResumen({
+  presupuesto,
+  certificado,
+  movimientos,
+  moneda,
+}: {
+  presupuesto: number;
+  certificado: number;
+  movimientos: MovimientoCaja[];
+  moneda: string;
+}) {
+  const ingresos = movimientos.filter((m) => m.tipo === "Ingreso" && m.moneda === moneda);
+  const cobrado = ingresos.reduce((s, m) => s + m.monto, 0);
+  const pct = (v: number) => (presupuesto > 0 ? `${fmtNum((v / presupuesto) * 100, 1)}%` : "");
+  const saldo = presupuesto - certificado;
+  const pctCertificado = presupuesto > 0 ? Math.min(100, (certificado / presupuesto) * 100) : 0;
+
+  return (
+    <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3">
+      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Resumen</p>
+      <div className="space-y-1.5">
+        <FilaResumen label="Presupuesto contratado" valor={fmtMoneda(presupuesto, moneda)} nota="Suma de rubros, sin IVA" />
+        <FilaResumen label="Total certificado" valor={fmtMoneda(certificado, moneda)} nota={pct(certificado)} destacado />
+        <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${pctCertificado}%` }} />
+        </div>
+        <FilaResumen label="Saldo a certificar" valor={fmtMoneda(saldo, moneda)} nota={pct(saldo)} />
+        {ingresos.length > 0 && (
+          <div className="pt-1.5 mt-1.5 border-t border-slate-100 space-y-1.5">
+            <FilaResumen label="Cobrado efectivamente" valor={fmtMoneda(cobrado, moneda)} nota="Ingresos en Flujo de Caja" />
+            <FilaResumen
+              label={cobrado > certificado ? "Cobrado de más" : "Certificado sin cobrar"}
+              valor={fmtMoneda(Math.abs(certificado - cobrado), moneda)}
+              alerta={certificado - cobrado > 0}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FilaResumen({
+  label,
+  valor,
+  nota,
+  destacado,
+  alerta,
+}: {
+  label: string;
+  valor: string;
+  nota?: string;
+  destacado?: boolean;
+  alerta?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500">{label}</p>
+        {nota && <p className="text-[10px] text-slate-400">{nota}</p>}
+      </div>
+      <p
+        className={cn(
+          "text-sm font-bold tabular-nums whitespace-nowrap",
+          alerta ? "text-amber-600" : destacado ? "text-[#2563EB]" : "text-[#1A3A5C]"
+        )}
+      >
+        {valor}
+      </p>
+    </div>
+  );
+}
+
 /* ─── Componente principal ────────────────────────────────── */
 export default function SeccionCertificaciones({ proyectoId, moneda, totalGeneral, capitulos }: Props) {
   const [expandido, setExpandido] = useState(false);
@@ -153,6 +238,7 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
   const [editandoFecha, setEditandoFecha] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
+  const [movimientosCaja, setMovimientosCaja] = useState<MovimientoCaja[]>([]);
   const [itemFotosAbierto, setItemFotosAbierto] = useState<string | null>(null);
   const [fotosPorItem, setFotosPorItem] = useState<Record<string, FotoCert[]>>({});
   const [subiendoFotos, setSubiendoFotos] = useState<Record<string, boolean>>({});
@@ -166,7 +252,12 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
   /* ── Carga de certificaciones ──────────────────────────── */
   const cargarLista = useCallback(async () => {
     try {
-      const res = await fetch(`/api/proyectos/${proyectoId}/certificaciones`);
+      const [res, resCaja] = await Promise.all([
+        fetch(`/api/proyectos/${proyectoId}/certificaciones`),
+        fetch(`/api/proyectos/${proyectoId}/flujo-caja`),
+      ]);
+      const caja = await resCaja.json().catch(() => []);
+      setMovimientosCaja(Array.isArray(caja) ? caja : []);
       const data: CertificacionResumen[] = await res.json();
       setCertificaciones(Array.isArray(data) ? data : []);
       if (Array.isArray(data) && data.length > 0) {
@@ -503,6 +594,18 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                         );
                       })}
                     </div>
+                  )}
+
+                  {/* Recién con el detalle cargado: los montos salen de los
+                      precios de rubros que trae (rubrosPorId); antes daría 0
+                      certificado y un "cobrado de más" falso. */}
+                  {certificaciones.length > 0 && rubrosPorId.size > 0 && (
+                    <PanelResumen
+                      presupuesto={totalGeneral}
+                      certificado={certificaciones.reduce((s, c) => s + montoCertificadoDe(c, rubrosPorId), 0)}
+                      movimientos={movimientosCaja}
+                      moneda={moneda}
+                    />
                   )}
                 </div>
 
