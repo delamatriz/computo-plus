@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirProyecto } from "@/lib/sesion";
+import { SELECT_DOCUMENTOS } from "@/lib/documentosTramite";
 
 const ESTADOS_VALIDOS = ["Pendiente", "En trámite", "Aprobado", "Rechazado"];
 
@@ -45,6 +46,7 @@ export async function PATCH(
         fecha: fecha ? new Date(fecha) : null,
         observaciones: observaciones?.trim() || null,
       },
+      include: { documentos: SELECT_DOCUMENTOS },
     });
 
     return NextResponse.json(tramite);

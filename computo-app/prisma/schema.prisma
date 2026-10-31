@@ -868,8 +868,30 @@ model TramiteLegal {
   fecha         DateTime?
   observaciones String? @db.Text
 
+  documentos DocumentoTramite[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Constancias y comprobantes de un trámite (inscripción BPS, constancia
+// MTSS, formulario SUNCA, permiso municipal…). Mismo patrón exacto que
+// DocumentoContrato: archivo en Vercel Blob (privado), servido por la
+// ruta proxy .../tramites/[tramiteId]/documentos/[docId]/archivo.
+model DocumentoTramite {
+  id             String       @id @default(cuid())
+  tramiteLegalId String
+  tramiteLegal   TramiteLegal @relation(fields: [tramiteLegalId], references: [id], onDelete: Cascade)
+
+  nombre                String // por defecto el nombre del archivo sin extensión
+  urlBlob               String @db.Text
+  nombreArchivoOriginal String
+  tipoArchivo           String
+  tamano                Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([tramiteLegalId])
 }
 
 // Flujo de caja de la obra (Gestión de Obra, "Control Económico y

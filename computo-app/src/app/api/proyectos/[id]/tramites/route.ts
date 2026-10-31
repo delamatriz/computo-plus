@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirProyecto } from "@/lib/sesion";
+import { SELECT_DOCUMENTOS } from "@/lib/documentosTramite";
 
 const ESTADOS_VALIDOS = ["Pendiente", "En trámite", "Aprobado", "Rechazado"];
 
@@ -13,6 +14,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const tramites = await db.tramiteLegal.findMany({
       where: { proyectoId: id },
       orderBy: { createdAt: "asc" },
+      include: { documentos: SELECT_DOCUMENTOS },
     });
     return NextResponse.json(tramites);
   } catch (err) {
@@ -57,6 +59,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         fecha: fecha ? new Date(fecha) : null,
         observaciones: observaciones?.trim() || null,
       },
+      include: { documentos: SELECT_DOCUMENTOS },
     });
 
     return NextResponse.json(tramite, { status: 201 });

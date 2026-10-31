@@ -1,10 +1,24 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { HardHat, ChevronDown, ChevronRight, Plus, Pencil, X } from "lucide-react";
+import {
+  HardHat,
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  Pencil,
+  X,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  File as FileIcon,
+  Trash2,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import { reducirFotoObra } from "@/lib/reducirFotoObra";
+import { TAMANO_MAX_DOCUMENTO_TRAMITE } from "@/lib/documentosTramite";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_ESTADO = ["Pendiente", "En trámite", "Aprobado", "Rechazado"] as const;
@@ -17,6 +31,14 @@ const ESTILO_ESTADO: Record<Estado, string> = {
   "Rechazado": "bg-red-50 text-red-600 border-red-200",
 };
 
+interface DocumentoTramite {
+  id: string;
+  nombre: string;
+  nombreArchivoOriginal: string;
+  tipoArchivo: string;
+  tamano: number | null;
+}
+
 interface Tramite {
   id: string;
   nombre: string;
@@ -24,6 +46,7 @@ interface Tramite {
   estado: Estado;
   fecha: string | null;
   observaciones: string | null;
+  documentos: DocumentoTramite[];
 }
 
 interface Props {
@@ -34,6 +57,28 @@ interface Props {
 function fmtFecha(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function fmtTamano(bytes: number | null): string {
+  if (bytes == null) return "";
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function iconoParaTipo(tipoArchivo: string) {
+  const cls = "w-4 h-4 text-slate-400 group-hover:text-[#2563EB] flex-shrink-0 transition-colors";
+  if (tipoArchivo === "application/pdf") return <FileText className={cls} />;
+  if (tipoArchivo.startsWith("image/")) return <ImageIcon className={cls} />;
+  return <FileIcon className={cls} />;
 }
 
 type FormState = {
@@ -67,6 +112,8 @@ export default function SeccionTramitesLegales({ proyectoId }: Props) {
   const [formularioAbierto, setFormularioAbierto] = useState<"nuevo" | string | null>(null);
   const [form, setForm] = useState<FormState>(formVacio());
   const [guardando, setGuardando] = useState(false);
+  const [subiendoEn, setSubiendoEn] = useState<string | null>(null);
+  const [errorDoc, setErrorDoc] = useState<{ tramiteId: string; mensaje: string } | null>(null);
 
   const cargarLista = useCallback(async () => {
     try {
@@ -124,6 +171,54 @@ export default function SeccionTramitesLegales({ proyectoId }: Props) {
     }
   };
 
+  /* ── Documentos del trámite (constancias, comprobantes) ──── */
+  const actualizarDocumentos = (tramiteId: string, fn: (docs: DocumentoTramite[]) => DocumentoTramite[]) =>
+    setTramites((prev) => prev.map((t) => (t.id === tramiteId ? { ...t, documentos: fn(t.documentos) } : t)));
+
+  const subirDocumentos = async (tramiteId: string, files: File[]) => {
+    setErrorDoc(null);
+    setSubiendoEn(tramiteId);
+    try {
+      for (const file of files) {
+        if (file.size > TAMANO_MAX_DOCUMENTO_TRAMITE) {
+          setErrorDoc({ tramiteId, mensaje: `"${file.name}" supera los 15 MB.` });
+          continue;
+        }
+        // Las fotos (de un formulario, de una constancia en papel) se reducen
+        // como las de Bitácora; los PDF van tal cual.
+        const esImagen = file.type.startsWith("image/");
+        const archivo = esImagen ? await reducirFotoObra(file) : await fileToBase64(file);
+        // La foto reducida es JPEG: el nombre tiene que decirlo.
+        const nombreArchivoOriginal = esImagen ? file.name.replace(/\.[^.]+$/, "") + ".jpg" : file.name;
+        const res = await fetch(`/api/proyectos/${proyectoId}/tramites/${tramiteId}/documentos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivo, nombreArchivoOriginal }),
+        });
+        if (!res.ok) {
+          setErrorDoc({ tramiteId, mensaje: `No se pudo subir "${file.name}". Probá de nuevo.` });
+          continue;
+        }
+        const doc: DocumentoTramite = await res.json();
+        actualizarDocumentos(tramiteId, (docs) => [...docs, doc]);
+      }
+    } catch (err) {
+      console.error("[tramites] error subiendo documento", err);
+      setErrorDoc({ tramiteId, mensaje: "No se pudo subir el archivo. Probá de nuevo." });
+    } finally {
+      setSubiendoEn(null);
+    }
+  };
+
+  const eliminarDocumento = async (tramiteId: string, docId: string) => {
+    actualizarDocumentos(tramiteId, (docs) => docs.filter((d) => d.id !== docId));
+    try {
+      await fetch(`/api/proyectos/${proyectoId}/tramites/${tramiteId}/documentos/${docId}`, { method: "DELETE" });
+    } catch (err) {
+      console.error("[tramites] error eliminando documento", err);
+    }
+  };
+
   return (
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
       <button
@@ -150,8 +245,8 @@ export default function SeccionTramitesLegales({ proyectoId }: Props) {
           >
             <div className="px-5 py-5 space-y-3" style={{ background: "#F8FAFC" }}>
               <p className="text-xs text-slate-500 -mt-1">
-                Trámites e inscripciones de esta obra ante organismos (BPS, Intendencia, Bomberos, etc.) y su
-                estado.
+                Trámites e inscripciones de esta obra ante organismos (BPS, Intendencia, Bomberos, etc.), su
+                estado y las constancias de cada uno.
               </p>
 
               <button
@@ -168,7 +263,16 @@ export default function SeccionTramitesLegales({ proyectoId }: Props) {
               ) : (
                 <div className="space-y-2">
                   {tramites.map((tramite) => (
-                    <FilaTramite key={tramite.id} tramite={tramite} onEditar={() => abrirEdicion(tramite)} />
+                    <FilaTramite
+                      key={tramite.id}
+                      tramite={tramite}
+                      proyectoId={proyectoId}
+                      subiendo={subiendoEn === tramite.id}
+                      error={errorDoc?.tramiteId === tramite.id ? errorDoc.mensaje : null}
+                      onEditar={() => abrirEdicion(tramite)}
+                      onSubir={(files) => subirDocumentos(tramite.id, files)}
+                      onEliminarDocumento={(docId) => eliminarDocumento(tramite.id, docId)}
+                    />
                   ))}
                 </div>
               )}
@@ -194,7 +298,23 @@ export default function SeccionTramitesLegales({ proyectoId }: Props) {
 }
 
 /* ─── Fila de trámite ─────────────────────────────────────── */
-function FilaTramite({ tramite, onEditar }: { tramite: Tramite; onEditar: () => void }) {
+function FilaTramite({
+  tramite,
+  proyectoId,
+  subiendo,
+  error,
+  onEditar,
+  onSubir,
+  onEliminarDocumento,
+}: {
+  tramite: Tramite;
+  proyectoId: string;
+  subiendo: boolean;
+  error: string | null;
+  onEditar: () => void;
+  onSubir: (files: File[]) => void;
+  onEliminarDocumento: (docId: string) => void;
+}) {
   return (
     <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
@@ -224,6 +344,65 @@ function FilaTramite({ tramite, onEditar }: { tramite: Tramite; onEditar: () => 
           <Pencil className="w-3 h-3" /> Editar
         </button>
       </div>
+
+      <div className="mt-2.5 pt-2.5 border-t border-slate-100 space-y-1.5">
+        {tramite.documentos.map((doc) => (
+          <FilaDocumento
+            key={doc.id}
+            doc={doc}
+            url={`/api/proyectos/${proyectoId}/tramites/${tramite.id}/documentos/${doc.id}/archivo`}
+            onEliminar={() => onEliminarDocumento(doc.id)}
+          />
+        ))}
+        <label
+          className={cn(
+            "inline-flex items-center gap-1.5 text-xs font-semibold transition-colors",
+            subiendo ? "text-slate-400 cursor-wait" : "text-[#2563EB] hover:text-[#1D4ED8] cursor-pointer"
+          )}
+        >
+          <Paperclip className="w-3.5 h-3.5" />
+          {subiendo
+            ? "Subiendo…"
+            : tramite.documentos.length === 0
+              ? "Adjuntar constancia o comprobante"
+              : "Adjuntar otro archivo"}
+          <input
+            type="file"
+            accept="application/pdf,image/*"
+            multiple
+            disabled={subiendo}
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) onSubir(Array.from(e.target.files));
+              e.target.value = "";
+            }}
+          />
+        </label>
+        {error && <p className="text-[11px] text-red-600">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+function FilaDocumento({ doc, url, onEliminar }: { doc: DocumentoTramite; url: string; onEliminar: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-[8px] bg-[#F8FAFC] border border-slate-100 px-2.5 py-1.5">
+      <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-2 min-w-0 flex-1 group">
+        {iconoParaTipo(doc.tipoArchivo)}
+        <span className="text-xs font-medium text-slate-700 truncate group-hover:text-[#2563EB] transition-colors">
+          {doc.nombre}
+        </span>
+        {doc.tamano != null && (
+          <span className="text-[10px] text-slate-400 flex-shrink-0">{fmtTamano(doc.tamano)}</span>
+        )}
+      </a>
+      <button
+        onClick={onEliminar}
+        className="text-slate-300 hover:text-red-500 transition-colors p-1 flex-shrink-0"
+        title="Eliminar archivo"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
     </div>
   );
 }
