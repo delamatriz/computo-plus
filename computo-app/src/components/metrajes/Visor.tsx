@@ -6,6 +6,7 @@ import { Document, Page } from "react-pdf";
 import { TransformWrapper, TransformComponent, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 import {
   X,
+  Hand,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -1093,6 +1094,14 @@ export interface ControlesMedicion {
   onTogglePolilinea: () => void;
   /** Puntos puestos de la polilínea en curso — para el texto del botón. */
   puntosPolilineaCount: number;
+  /** Botón "Mover" (mobile): con una herramienta activa, el pan del
+   * TransformWrapper queda apagado y el dedo no puede mover el plano.
+   * Modo mano lo prende sin soltar la herramienta (la medición en curso
+   * sigue ahí). hayHerramientaActiva: sin ninguna, mover ya es lo que hace
+   * el dedo, y el botón se ve prendido. */
+  modoMano: boolean;
+  hayHerramientaActiva: boolean;
+  onToggleModoMano: () => void;
 }
 
 // Medición pendiente de confirmar en el modal — Línea, Área o Punto,
@@ -1214,6 +1223,18 @@ function VisorPrincipal({
   const dprRender = calcularDprRender(multiplicadorDPR);
   const [pageDimsMM, setPageDimsMM] = useState<{ width: number; height: number } | null>(null);
   const [herramienta, setHerramienta] = useState<"LINEA" | "AREA" | "PUNTO" | "TRAZO" | "RECTA" | "TEXTO" | "POLILINEA" | null>(null);
+  // Modo mano (botón "Mover", mobile) — ver ControlesMedicion.modoMano.
+  // Solo tiene efecto con una herramienta activa (sin ninguna, el pan ya
+  // está prendido) y se apaga solo cada vez que cambia la herramienta, por
+  // el camino que sea (botón, atajo, Esc, medición terminada): ajuste de
+  // estado durante el render, sin efecto.
+  const [modoMano, setModoMano] = useState(false);
+  const [herramientaPreviaMano, setHerramientaPreviaMano] = useState(herramienta);
+  if (herramienta !== herramientaPreviaMano) {
+    setHerramientaPreviaMano(herramienta);
+    setModoMano(false);
+  }
+  const modoManoActivo = modoMano && herramienta != null;
   const [dibujoActual, setDibujoActual] = useState<{ xInicio: number; yInicio: number; xActual: number; yActual: number } | null>(null);
   // Medir con dos clics (alternativa al arrastre, que sigue siendo el modo
   // principal): un clic sin arrastrar fija el origen acá y el segundo clic
@@ -2193,28 +2214,41 @@ La fila de la Planilla no se borra: para eso está la X de la fila.`)) {
       onControlesMedicionListos(null);
       return;
     }
+    // Con modo mano prendido, tocar la herramienta que ya está activa
+    // vuelve a medir (apaga la mano) en vez de apagarla o cerrar el
+    // polígono; otra herramienta cambia `herramienta` y la mano se apaga sola.
+    const saliendoDeMano = (tipo: NonNullable<typeof herramienta>, toggle: () => void) => () => {
+      if (modoManoActivo && herramienta === tipo) {
+        setModoMano(false);
+        return;
+      }
+      toggle();
+    };
     onControlesMedicionListos({
       pageDimsListo: pageDimsMM != null,
       herramienta: herramienta === "LINEA" || herramienta === "AREA" || herramienta === "PUNTO" ? herramienta : null,
-      onToggleLinea: toggleLinea,
-      onToggleArea: toggleArea,
+      onToggleLinea: saliendoDeMano("LINEA", toggleLinea),
+      onToggleArea: saliendoDeMano("AREA", toggleArea),
       puntosAreaCount: puntosArea.length,
-      onTogglePunto: togglePunto,
+      onTogglePunto: saliendoDeMano("PUNTO", togglePunto),
       puntosPuntoCount: puntosPunto.length,
       trazoActivo: herramienta === "TRAZO",
-      onToggleTrazo: toggleTrazo,
+      onToggleTrazo: saliendoDeMano("TRAZO", toggleTrazo),
       rectaActiva: herramienta === "RECTA",
-      onToggleRecta: toggleRecta,
+      onToggleRecta: saliendoDeMano("RECTA", toggleRecta),
       textoActivo: herramienta === "TEXTO",
-      onToggleTexto: toggleTexto,
+      onToggleTexto: saliendoDeMano("TEXTO", toggleTexto),
       medicionObjetivo,
       onIniciarAsignacionAncho: iniciarAsignacionAncho,
       polilineaActiva: herramienta === "POLILINEA",
-      onTogglePolilinea: togglePolilinea,
+      onTogglePolilinea: saliendoDeMano("POLILINEA", togglePolilinea),
       puntosPolilineaCount: puntosPolilinea.length,
+      modoMano: modoManoActivo,
+      hayHerramientaActiva: herramienta != null,
+      onToggleModoMano: () => setModoMano((v) => !v),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length, puntosPunto.length, puntosPolilinea.length, medicionObjetivo]);
+  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length, puntosPunto.length, puntosPolilinea.length, medicionObjetivo, modoManoActivo]);
 
   useEffect(() => {
     return () => onControlesMedicionListos(null);
@@ -2427,7 +2461,7 @@ La fila de la Planilla no se borra: para eso está la X de la fila.`)) {
         minScale={0.3}
         maxScale={6}
         centerOnInit
-        panning={{ disabled: herramienta != null, velocityDisabled: false }}
+        panning={{ disabled: herramienta != null && !modoManoActivo, velocityDisabled: false }}
         // Con Polilínea, Área y Punto el doble clic TERMINA la medición (ver
         // onSvgDoubleClick): react-zoom-pan-pinch lo usa por defecto para
         // hacer zoom, así que se desactiva solo mientras una de esas
@@ -2444,7 +2478,7 @@ La fila de la Planilla no se borra: para eso está la X de la fila.`)) {
         {/* OJO: contentStyle NO debe forzar width/height/flex — la librería
             centra vía centerOnInit midiendo el tamaño NATURAL del
             contenido. Ver comentario histórico en el visor anterior. */}
-        <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} wrapperClass={cn("select-none", herramienta != null ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}>
+        <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} wrapperClass={cn("select-none", herramienta != null && !modoManoActivo ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}>
           <div style={{ position: "relative", display: "inline-block" }}>
             {doc.tipoArchivo === "PDF" ? (
               blob && (
@@ -2494,7 +2528,8 @@ La fila de la Planilla no se borra: para eso está la X de la fila.`)) {
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
               className="absolute inset-0 w-full h-full"
-              style={{ pointerEvents: herramienta != null ? "auto" : "none" }}
+              // Modo mano: el overlay deja pasar el dedo al TransformWrapper.
+              style={{ pointerEvents: herramienta != null && !modoManoActivo ? "auto" : "none" }}
               onMouseDown={onSvgMouseDown}
               onMouseMove={onSvgMouseMove}
               onMouseLeave={onSvgMouseLeave}
@@ -3418,6 +3453,27 @@ export default function Visor({
         {documentoPrincipal?.categoria === "PLANO" && documentoPrincipal.factorEscala != null && (
           <>
             <div className="w-px h-4 bg-slate-200 mx-1" />
+            {/* Mover (mobile) — con una herramienta activa el dedo dibuja y
+                no puede mover el plano; esto prende el pan sin soltar la
+                herramienta. Sin herramienta activa se ve prendido: mover
+                es lo que ya hace el dedo. */}
+            {controlesMedicion && (
+              <button
+                type="button"
+                onClick={controlesMedicion.onToggleModoMano}
+                disabled={!controlesMedicion.hayHerramientaActiva}
+                aria-pressed={controlesMedicion.modoMano || !controlesMedicion.hayHerramientaActiva}
+                title="Mover el plano sin soltar la herramienta"
+                className={cn(
+                  "md:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors disabled:cursor-default",
+                  controlesMedicion.modoMano || !controlesMedicion.hayHerramientaActiva
+                    ? "bg-blue-600 text-white border border-blue-600 ring-2 ring-blue-400"
+                    : "bg-white text-slate-600 border border-slate-200"
+                )}
+              >
+                <Hand className="w-3.5 h-3.5" /> Mover
+              </button>
+            )}
             {/* Herramientas de medición — Línea, Área y Punto. */}
             <button
               onClick={controlesMedicion?.onToggleLinea}
