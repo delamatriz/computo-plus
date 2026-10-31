@@ -1097,10 +1097,10 @@ export interface ControlesMedicion {
   /** Botón "Mover" (mobile): con una herramienta activa, el pan del
    * TransformWrapper queda apagado y el dedo no puede mover el plano.
    * Modo mano lo prende sin soltar la herramienta (la medición en curso
-   * sigue ahí). hayHerramientaActiva: sin ninguna, mover ya es lo que hace
-   * el dedo, y el botón se ve prendido. */
+   * sigue ahí). Toggle simple: modoMano es el estado del botón; sin
+   * herramienta activa no cambia nada (el pan ya anda solo) y se apaga
+   * al elegir una. */
   modoMano: boolean;
-  hayHerramientaActiva: boolean;
   onToggleModoMano: () => void;
 }
 
@@ -2243,12 +2243,11 @@ La fila de la Planilla no se borra: para eso está la X de la fila.`)) {
       polilineaActiva: herramienta === "POLILINEA",
       onTogglePolilinea: saliendoDeMano("POLILINEA", togglePolilinea),
       puntosPolilineaCount: puntosPolilinea.length,
-      modoMano: modoManoActivo,
-      hayHerramientaActiva: herramienta != null,
+      modoMano,
       onToggleModoMano: () => setModoMano((v) => !v),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length, puntosPunto.length, puntosPolilinea.length, medicionObjetivo, modoManoActivo]);
+  }, [doc.tipoArchivo, pageDimsMM, herramienta, puntosArea.length, puntosPunto.length, puntosPolilinea.length, medicionObjetivo, modoMano, modoManoActivo]);
 
   useEffect(() => {
     return () => onControlesMedicionListos(null);
@@ -3455,18 +3454,18 @@ export default function Visor({
             <div className="w-px h-4 bg-slate-200 mx-1" />
             {/* Mover (mobile) — con una herramienta activa el dedo dibuja y
                 no puede mover el plano; esto prende el pan sin soltar la
-                herramienta. Sin herramienta activa se ve prendido: mover
-                es lo que ya hace el dedo. */}
+                herramienta. Toggle simple: siempre presionable, prendido
+                solo con modoMano (sin herramienta activa el pan ya anda
+                solo, así que apagado es el estado neutro). */}
             {controlesMedicion && (
               <button
                 type="button"
                 onClick={controlesMedicion.onToggleModoMano}
-                disabled={!controlesMedicion.hayHerramientaActiva}
-                aria-pressed={controlesMedicion.modoMano || !controlesMedicion.hayHerramientaActiva}
+                aria-pressed={controlesMedicion.modoMano}
                 title="Mover el plano sin soltar la herramienta"
                 className={cn(
-                  "md:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors disabled:cursor-default",
-                  controlesMedicion.modoMano || !controlesMedicion.hayHerramientaActiva
+                  "md:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-xs font-semibold transition-colors",
+                  controlesMedicion.modoMano
                     ? "bg-blue-600 text-white border border-blue-600 ring-2 ring-blue-400"
                     : "bg-white text-slate-600 border border-slate-200"
                 )}
