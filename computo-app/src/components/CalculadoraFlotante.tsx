@@ -132,18 +132,25 @@ export function CalculadoraFlotante() {
           mientras está abierto. Montado siempre (nunca condicionado a
           `visible`) — ocultar con `hidden` en vez de desmontar es lo que
           deja la cuenta en curso intacta al volver a abrir. */}
+      {/* Ancho: nunca más que el viewport menos 1rem por lado. Antes era
+          `w-full max-w-sm` anclado con right: 24 — en un teléfono (375px)
+          w-full daba los 375px enteros y el corrimiento de 24px dejaba el
+          borde izquierdo afuera de la pantalla, cortando tabs y botones.
+          Alto: tope del viewport menos el espacio del botón circular, con
+          scroll interno, para que el header (y la X) siempre se vea. Con
+          `pos` (ya arrastrado) left/top inline mandan sobre right/bottom. */}
       <div
         ref={panelRef}
         hidden={!visible}
-        className="fixed z-50 bg-white rounded-[16px] w-full max-w-sm shadow-xl"
-        style={pos ? { left: pos.x, top: pos.y } : { right: 24, bottom: 96 }}
+        className="fixed z-50 bg-white rounded-[16px] w-[calc(100vw-2rem)] max-w-sm max-h-[calc(100dvh-7rem)] overflow-y-auto shadow-xl"
+        style={pos ? { left: pos.x, top: pos.y } : { right: 16, bottom: 96 }}
       >
         {/* Header — a la vez barra de arrastre (mousedown acá mueve el
             panel); el botón de cerrar corta la propagación para no
             arrastrar sin querer al hacer click en él. */}
         <div
           onMouseDown={iniciarArrastre}
-          className="flex items-center justify-between px-5 py-4 border-b border-slate-200 cursor-move select-none"
+          className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-slate-200 cursor-move select-none"
         >
           <h2 className="text-sm font-bold text-[#1A3A5C]">Calculadora de obra</h2>
           <button
@@ -157,13 +164,13 @@ export function CalculadoraFlotante() {
         </div>
 
         {/* Tabs */}
-        <div className="grid grid-cols-4 gap-1 px-3 pt-3">
+        <div className="grid grid-cols-4 gap-1 px-2 sm:px-3 pt-3">
           {MODOS.map((m) => (
             <button
               key={m.id}
               onClick={() => setModo(m.id)}
               className={cn(
-                "py-2 rounded-[8px] text-xs font-semibold transition-all text-center",
+                "py-2 px-1 rounded-[8px] text-xs font-semibold transition-all text-center min-w-0 truncate",
                 modo === m.id
                   ? "bg-blue-50 text-[#2563EB]"
                   : "text-slate-500 hover:bg-slate-50"
@@ -174,7 +181,7 @@ export function CalculadoraFlotante() {
           ))}
         </div>
 
-        <div className="p-5">
+        <div className="p-4 sm:p-5">
           {modo === "basica" && <CalculadoraBasica activo={visible} />}
           {modo === "superficie" && <CalculadoraSuperficie />}
           {modo === "volumen" && <CalculadoraVolumen />}
@@ -380,9 +387,9 @@ function CalculadoraVolumen() {
 // para mortero y hormigón, reusado en todos los casos.
 function FilaComponente({ nombre, kg, m3, bolsas }: { nombre: string; kg: number; m3?: number; bolsas?: number }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-[#1A3A5C]">{nombre}</span>
-      <span className="text-sm font-bold text-[#2563EB] tabular-nums">
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="text-sm text-[#1A3A5C] flex-shrink-0">{nombre}</span>
+      <span className="text-sm font-bold text-[#2563EB] tabular-nums text-right min-w-0">
         {fmtNum(kg, 0)} kg{bolsas != null ? ` (${fmtNum(bolsas, 1)} bolsas de 25kg)` : ""}
         {m3 != null ? ` (~${fmtNum(m3)} m³)` : ""}
       </span>
@@ -413,7 +420,10 @@ function SelectorTipo<T extends string>({
   onChange: (id: T) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    // Mobile: una opción por fila, ancho completo — en 2 columnas los
+    // nombres largos ("Revoque fino / enlucido (1:5)") se partían en 3
+    // renglones y los botones quedaban de alturas distintas.
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
       {opciones.map((o) => (
         <button
           key={o.id}
