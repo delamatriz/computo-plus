@@ -34,6 +34,7 @@ import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMate
 import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
 import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
 import { calcularDiasObra } from "@/lib/diasObra";
+import { calcularJornalesPorCategoria } from "@/lib/jornalesPorCategoria";
 import { fmtDecimalUY, fmtRendimiento } from "@/lib/formatoNumeros";
 import { LEYES_SOCIALES_DEFAULTS_FRACCION } from "@/lib/aportesPatronales";
 import { normalizarTipoCaja } from "@/lib/cajaProfesionales";
@@ -53,6 +54,7 @@ import SeccionGarantias from "@/components/SeccionGarantias";
 import SeccionNotas from "@/components/SeccionNotas";
 import SeccionEstimacionCalculoRapido from "@/components/SeccionEstimacionCalculoRapido";
 import SeccionDiasDeObra from "@/components/SeccionDiasDeObra";
+import SeccionMaterialesManoObra from "@/components/SeccionMaterialesManoObra";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
 import SeccionBitacora from "@/components/SeccionBitacora";
 import SeccionPersonalObra from "@/components/SeccionPersonalObra";
@@ -3926,6 +3928,17 @@ export default function ProyectoPage() {
     () => computarMaterialesGlobales(capitulos, apuData),
     [capitulos, apuData]
   );
+  // Tarjeta "Materiales y Mano de Obra" — mismo criterio que la Cuantía de
+  // obra para el total de MO, y jornales por categoría (ver
+  // jornalesPorCategoria.ts), todo sobre capitulos + apuData en memoria.
+  const totalManoObra = useMemo(
+    () => computarCostoManoObraTotal(capitulos, apuData),
+    [capitulos, apuData]
+  );
+  const jornalesPorCategoria = useMemo(
+    () => calcularJornalesPorCategoria(capitulos, apuData),
+    [capitulos, apuData]
+  );
 
   // Rubro activo en el drawer
   const drawerRubro = drawerRubroId
@@ -6502,6 +6515,14 @@ export default function ProyectoPage() {
             desgloseMOPorCapitulo={desgloseMOPorCapitulo}
           />
         )}
+
+        {/* ── Materiales y Mano de Obra (solo lectura) ─────────── */}
+        <SeccionMaterialesManoObra
+          moneda={moneda}
+          totalMateriales={totalMateriales}
+          totalManoObra={totalManoObra}
+          jornalesPorCategoria={jornalesPorCategoria}
+        />
 
         {/* ── Días de Obra ───────────────────────────────────── */}
         <SeccionDiasDeObra
