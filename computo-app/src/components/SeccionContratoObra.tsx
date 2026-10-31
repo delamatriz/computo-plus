@@ -86,24 +86,49 @@ function fmtTamano(bytes: number | null): string {
 }
 
 function iconoParaTipo(tipoArchivo: string) {
-  if (tipoArchivo === "application/pdf") return FileText;
-  if (tipoArchivo.startsWith("image/")) return ImageIcon;
-  return FileIcon;
+  const cls = "w-4 h-4 text-slate-400 flex-shrink-0";
+  if (tipoArchivo === "application/pdf") return <FileText className={cls} />;
+  if (tipoArchivo.startsWith("image/")) return <ImageIcon className={cls} />;
+  return <FileIcon className={cls} />;
 }
 
+// Los datos del comitente (nombre, razón social, RUT, contacto) se editan en
+// este mismo modal pero se guardan en el Proyecto (campos cliente*), ver
+// datosComitente en /api/proyectos/[id]/contrato.
+type ComitenteForm = {
+  nombre: string;
+  razonSocial: string;
+  rut: string;
+  telefono: string;
+  email: string;
+};
+
 type FormState = {
+  comitente: ComitenteForm;
   domicilioComitente: string;
   fechaFirma: string;
   monto: string;
   moneda: "UYU" | "USD";
 };
 
-function formVacio(): FormState {
-  return { domicilioComitente: "", fechaFirma: "", monto: "", moneda: "UYU" };
+function comitenteDesdePartes(partes: Partes | null): ComitenteForm {
+  const c = partes?.cliente;
+  return {
+    nombre: c?.nombre ?? "",
+    razonSocial: c?.razonSocial ?? "",
+    rut: c?.rut ?? "",
+    telefono: c?.telefono ?? "",
+    email: c?.email ?? "",
+  };
 }
 
-function formDesdeContrato(c: Contrato): FormState {
+function formVacio(partes: Partes | null): FormState {
+  return { comitente: comitenteDesdePartes(partes), domicilioComitente: "", fechaFirma: "", monto: "", moneda: "UYU" };
+}
+
+function formDesdeContrato(c: Contrato, partes: Partes | null): FormState {
   return {
+    comitente: comitenteDesdePartes(partes),
     domicilioComitente: c.domicilioComitente ?? "",
     fechaFirma: c.fechaFirma ? c.fechaFirma.slice(0, 10) : "",
     monto: c.monto != null ? String(c.monto) : "",
@@ -121,7 +146,7 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
   const [monedaProyecto, setMonedaProyecto] = useState<string>("UYU");
 
   const [formularioAbierto, setFormularioAbierto] = useState(false);
-  const [form, setForm] = useState<FormState>(formVacio());
+  const [form, setForm] = useState<FormState>(formVacio(null));
   const [guardando, setGuardando] = useState(false);
 
   const [nombreDocNuevo, setNombreDocNuevo] = useState("");
@@ -150,7 +175,7 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
 
   const abrirCrear = () => {
     setForm({
-      ...formVacio(),
+      ...formVacio(partes),
       monto: precioFinalSugerido != null ? String(Math.round(precioFinalSugerido)) : "",
       moneda: monedaProyecto === "USD" ? "USD" : "UYU",
     });
@@ -159,9 +184,12 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
 
   const abrirEditar = () => {
     if (!contrato) return;
-    setForm(formDesdeContrato(contrato));
+    setForm(formDesdeContrato(contrato, partes));
     setFormularioAbierto(true);
   };
+
+  // "Completar" de Partes: el mismo modal que "Crear contrato" / "Editar".
+  const abrirFormulario = () => (contrato ? abrirEditar() : abrirCrear());
 
   const cerrarFormulario = () => setFormularioAbierto(false);
 
@@ -178,6 +206,22 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
       if (!res.ok) throw new Error("No se pudo guardar");
       const data: Contrato = await res.json();
       setContrato(data);
+      const c = form.comitente;
+      const v = (x: string) => x.trim() || null;
+      setPartes((prev) =>
+        prev
+          ? {
+              ...prev,
+              cliente: {
+                nombre: v(c.nombre),
+                razonSocial: v(c.razonSocial),
+                rut: v(c.rut),
+                telefono: v(c.telefono),
+                email: v(c.email),
+              },
+            }
+          : prev
+      );
       setFormularioAbierto(false);
     } catch (err) {
       console.error("[contrato] error guardando", err);
@@ -247,7 +291,7 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
                 genera el contrato, solo lo organiza.
               </p>
 
-              {partes && <SeccionPartes partes={partes} proyectoId={proyectoId} />}
+              {partes && <SeccionPartes partes={partes} onCompletar={abrirFormulario} />}
 
               {!contrato ? (
                 <button
@@ -369,7 +413,7 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
 }
 
 /* ─── Sección "Partes" (solo lectura) ─────────────────────── */
-function SeccionPartes({ partes, proyectoId }: { partes: Partes; proyectoId: string }) {
+function SeccionPartes({ partes, onCompletar }: { partes: Partes; onCompletar: () => void }) {
   const faltaCliente = !partes.cliente.nombre && !partes.cliente.rut;
   return (
     <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3">
@@ -378,12 +422,15 @@ function SeccionPartes({ partes, proyectoId }: { partes: Partes; proyectoId: str
         <div>
           <p className="text-[10px] font-semibold text-slate-400 mb-1">Comitente (cliente)</p>
           {faltaCliente ? (
-            <p className="text-xs text-slate-400 italic">
-              Sin datos cargados —{" "}
-              <a href={`/proyectos/${proyectoId}/editar`} className="text-[#2563EB] hover:underline">
-                completar en Editar proyecto
-              </a>
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs text-slate-400 italic">Sin datos cargados</p>
+              <button
+                onClick={onCompletar}
+                className="flex items-center gap-1 px-2 py-1 rounded-[6px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[11px] font-semibold transition-colors"
+              >
+                <Pencil className="w-3 h-3" /> Completar
+              </button>
+            </div>
           ) : (
             <div className="space-y-0.5 text-xs text-slate-600">
               {partes.cliente.nombre && <p className="font-semibold text-slate-700">{partes.cliente.nombre}</p>}
@@ -431,12 +478,11 @@ function FilaDocumento({
   proyectoId: string;
   onEliminar: () => void;
 }) {
-  const Icono = iconoParaTipo(doc.tipoArchivo);
   const url = `/api/proyectos/${proyectoId}/contrato/documentos/${doc.id}/archivo`;
   return (
     <div className="flex items-center justify-between gap-2 rounded-[8px] border border-slate-100 px-2.5 py-2">
       <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-2 min-w-0 flex-1 group">
-        <Icono className="w-4 h-4 text-slate-400 flex-shrink-0" />
+        {iconoParaTipo(doc.tipoArchivo)}
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-700 truncate group-hover:text-[#2563EB] transition-colors">
             {doc.nombre}
@@ -481,6 +527,9 @@ function FormularioContrato({
   const inputCls =
     "w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30";
   const labelCls = "text-xs font-semibold text-slate-500 mb-1 block";
+  const seccionCls = "text-[10px] font-semibold text-slate-400 uppercase tracking-wider";
+  const setComitente = (key: keyof ComitenteForm, val: string) =>
+    setForm((prev) => ({ ...prev, comitente: { ...prev.comitente, [key]: val } }));
 
   return (
     <motion.div
@@ -495,7 +544,7 @@ function FormularioContrato({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 12 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-[16px] w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col shadow-xl"
+        className="bg-white rounded-[16px] w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col shadow-xl"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0">
           <h3 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
@@ -507,6 +556,55 @@ function FormularioContrato({
         </div>
 
         <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+          <p className={seccionCls}>Comitente</p>
+          <div>
+            <label className={labelCls}>Nombre</label>
+            <input
+              type="text"
+              value={form.comitente.nombre}
+              onChange={(e) => setComitente("nombre", e.target.value)}
+              placeholder="ej: Ana Rodríguez"
+              className={inputCls}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Razón social (opcional)</label>
+              <input
+                type="text"
+                value={form.comitente.razonSocial}
+                onChange={(e) => setComitente("razonSocial", e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>RUT / CI (opcional)</label>
+              <input
+                type="text"
+                value={form.comitente.rut}
+                onChange={(e) => setComitente("rut", e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Teléfono (opcional)</label>
+              <input
+                type="tel"
+                value={form.comitente.telefono}
+                onChange={(e) => setComitente("telefono", e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Email (opcional)</label>
+              <input
+                type="email"
+                value={form.comitente.email}
+                onChange={(e) => setComitente("email", e.target.value)}
+                className={inputCls}
+              />
+            </div>
+          </div>
           <div>
             <label className={labelCls}>Domicilio del comitente</label>
             <input
@@ -518,6 +616,7 @@ function FormularioContrato({
             />
           </div>
 
+          <p className={`${seccionCls} pt-2 border-t border-slate-100`}>Contrato</p>
           <div>
             <label className={labelCls}>Fecha de firma</label>
             <input type="date" value={form.fechaFirma} onChange={(e) => set("fechaFirma", e.target.value)} className={inputCls} />

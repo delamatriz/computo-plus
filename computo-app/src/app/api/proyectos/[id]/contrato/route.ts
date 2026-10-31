@@ -68,6 +68,32 @@ async function calcularPrecioFinalSugerido(proyectoId: string): Promise<number |
   return costoTotalAgregado + baseIVA * 0.22;
 }
 
+// Datos del comitente que viajan con el formulario del contrato. Se guardan
+// en los campos cliente* del Proyecto (los mismos que el wizard/Editar
+// proyecto), no en ContratoObra: así no hay dos copias del comitente. El
+// modal de contrato es solo otro lugar para cargarlos sin salir de Gestión
+// de Obra.
+interface ComitenteBody {
+  nombre?: string;
+  razonSocial?: string;
+  rut?: string;
+  telefono?: string;
+  email?: string;
+}
+
+function datosComitente(c: unknown) {
+  if (!c || typeof c !== "object") return null;
+  const v = c as ComitenteBody;
+  const limpio = (x: unknown) => (typeof x === "string" && x.trim() ? x.trim() : null);
+  return {
+    cliente: limpio(v.nombre),
+    clienteRazonSocial: limpio(v.razonSocial),
+    clienteRut: limpio(v.rut),
+    clienteTelefono: limpio(v.telefono),
+    clienteEmail: limpio(v.email),
+  };
+}
+
 // GET — devuelve el contrato del proyecto (o null si todavía no se
 // creó), junto con los datos de "Partes" ya existentes en
 // Proyecto/Empresa (de solo lectura, sin duplicar) y el Precio Final
@@ -131,12 +157,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
-    const { domicilioComitente, fechaFirma, monto, moneda } = body as {
+    const { domicilioComitente, fechaFirma, monto, moneda, comitente } = body as {
       domicilioComitente?: string;
       fechaFirma?: string;
       monto?: number | null;
       moneda?: string;
+      comitente?: unknown;
     };
+    const cliente = datosComitente(comitente);
 
     const proyecto = await db.proyecto.findUnique({ where: { id }, select: { id: true } });
     if (!proyecto) {
@@ -148,16 +176,19 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Este proyecto ya tiene un contrato" }, { status: 409 });
     }
 
-    const contrato = await db.contratoObra.create({
-      data: {
-        proyectoId: id,
-        domicilioComitente: domicilioComitente?.trim() || null,
-        fechaFirma: fechaFirma ? new Date(fechaFirma) : null,
-        monto: monto ?? null,
-        moneda: moneda === "USD" ? "USD" : "UYU",
-      },
-      include: { documentos: true },
-    });
+    const [contrato] = await db.$transaction([
+      db.contratoObra.create({
+        data: {
+          proyectoId: id,
+          domicilioComitente: domicilioComitente?.trim() || null,
+          fechaFirma: fechaFirma ? new Date(fechaFirma) : null,
+          monto: monto ?? null,
+          moneda: moneda === "USD" ? "USD" : "UYU",
+        },
+        include: { documentos: true },
+      }),
+      ...(cliente ? [db.proyecto.update({ where: { id }, data: cliente })] : []),
+    ]);
 
     return NextResponse.json(contrato, { status: 201 });
   } catch (err) {
@@ -173,28 +204,33 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
-    const { domicilioComitente, fechaFirma, monto, moneda } = body as {
+    const { domicilioComitente, fechaFirma, monto, moneda, comitente } = body as {
       domicilioComitente?: string;
       fechaFirma?: string;
       monto?: number | null;
       moneda?: string;
+      comitente?: unknown;
     };
+    const cliente = datosComitente(comitente);
 
     const existente = await db.contratoObra.findUnique({ where: { proyectoId: id } });
     if (!existente) {
       return NextResponse.json({ error: "Este proyecto todavía no tiene contrato" }, { status: 404 });
     }
 
-    const contrato = await db.contratoObra.update({
-      where: { proyectoId: id },
-      data: {
-        domicilioComitente: domicilioComitente?.trim() || null,
-        fechaFirma: fechaFirma ? new Date(fechaFirma) : null,
-        monto: monto ?? null,
-        moneda: moneda === "USD" ? "USD" : "UYU",
-      },
-      include: { documentos: { orderBy: { createdAt: "asc" } } },
-    });
+    const [contrato] = await db.$transaction([
+      db.contratoObra.update({
+        where: { proyectoId: id },
+        data: {
+          domicilioComitente: domicilioComitente?.trim() || null,
+          fechaFirma: fechaFirma ? new Date(fechaFirma) : null,
+          monto: monto ?? null,
+          moneda: moneda === "USD" ? "USD" : "UYU",
+        },
+        include: { documentos: { orderBy: { createdAt: "asc" } } },
+      }),
+      ...(cliente ? [db.proyecto.update({ where: { id }, data: cliente })] : []),
+    ]);
 
     return NextResponse.json(contrato);
   } catch (err) {
