@@ -56,6 +56,7 @@ import SeccionEstimacionCalculoRapido from "@/components/SeccionEstimacionCalcul
 import SeccionDiasDeObra from "@/components/SeccionDiasDeObra";
 import SeccionMaterialesManoObra from "@/components/SeccionMaterialesManoObra";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
+import SeccionDocumentosObra from "@/components/SeccionDocumentosObra";
 import SeccionPlanillaJornales from "@/components/SeccionPlanillaJornales";
 import SeccionBitacora from "@/components/SeccionBitacora";
 import SeccionPersonalObra from "@/components/SeccionPersonalObra";
@@ -6672,6 +6673,8 @@ export default function ProyectoPage() {
               </p>
             </div>
           </div>
+
+          <SeccionDocumentosObra proyectoId={proyectoActivo.id} />
 
           <BloqueGestionObra
             numero={1}
