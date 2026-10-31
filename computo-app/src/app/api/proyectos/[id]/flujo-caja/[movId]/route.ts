@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirProyecto } from "@/lib/sesion";
+import { validarCategoria } from "@/lib/categoriasCaja";
 
 const TIPOS_VALIDOS = ["Ingreso", "Egreso"];
 
@@ -15,12 +16,13 @@ export async function PATCH(
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
-    const { tipo, fecha, concepto, monto, moneda } = body as {
+    const { tipo, fecha, concepto, monto, moneda, categoria } = body as {
       tipo?: string;
       fecha?: string;
       concepto?: string;
       monto?: number;
       moneda?: string;
+      categoria?: unknown;
     };
 
     if (!tipo || !TIPOS_VALIDOS.includes(tipo)) {
@@ -34,6 +36,10 @@ export async function PATCH(
     }
     if (monto == null || monto <= 0) {
       return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
+    }
+    const categoriaValida = validarCategoria(tipo, categoria);
+    if (categoriaValida === undefined) {
+      return NextResponse.json({ error: "Categoría inválida para ese tipo" }, { status: 400 });
     }
 
     const existente = await db.movimientoCaja.findFirst({ where: { id: movId, proyectoId: id } });
@@ -49,6 +55,7 @@ export async function PATCH(
         concepto: concepto.trim(),
         monto,
         moneda: moneda === "USD" ? "USD" : "UYU",
+        categoria: categoriaValida,
       },
     });
 

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
+import { CATEGORIAS_EGRESO, SIN_CATEGORIA, categoriasDe } from "@/lib/categoriasCaja";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_TIPO = ["Ingreso", "Egreso"] as const;
@@ -18,6 +19,7 @@ interface Movimiento {
   concepto: string;
   monto: number;
   moneda: string;
+  categoria: string | null;
 }
 
 interface Props {
@@ -40,6 +42,7 @@ type SaldoPorMoneda = Record<string, number>;
 
 type FormState = {
   tipo: Tipo;
+  categoria: string;
   fecha: string;
   concepto: string;
   monto: string;
@@ -47,17 +50,24 @@ type FormState = {
 };
 
 function formVacio(): FormState {
-  return { tipo: "Ingreso", fecha: hoyUruguayISO(), concepto: "", monto: "", moneda: "UYU" };
+  return { tipo: "Egreso", categoria: "", fecha: hoyUruguayISO(), concepto: "", monto: "", moneda: "UYU" };
 }
 
 function formDesdeMovimiento(m: Movimiento): FormState {
   return {
     tipo: m.tipo,
+    categoria: m.categoria ?? "",
     fecha: m.fecha.slice(0, 10),
     concepto: m.concepto,
     monto: String(m.monto),
     moneda: m.moneda === "USD" ? "USD" : "UYU",
   };
+}
+
+// Un egreso necesita categoría (es lo que alimenta el desglose); en un
+// ingreso es opcional.
+function formCompleto(f: FormState): boolean {
+  return f.concepto.trim() !== "" && f.monto.trim() !== "" && (f.tipo === "Ingreso" || f.categoria !== "");
 }
 
 /* ─── Componente principal ────────────────────────────────── */
@@ -100,14 +110,14 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
   const cerrarFormulario = () => setFormularioAbierto(null);
 
   const guardar = async () => {
-    if (!form.concepto.trim() || !form.monto.trim()) return;
+    if (!formCompleto(form)) return;
     setGuardando(true);
     try {
       const esEdicion = formularioAbierto !== "nuevo" && formularioAbierto != null;
       const url = esEdicion
         ? `/api/proyectos/${proyectoId}/flujo-caja/${formularioAbierto}`
         : `/api/proyectos/${proyectoId}/flujo-caja`;
-      const body = { ...form, monto: Number(form.monto) };
+      const body = { ...form, monto: Number(form.monto), categoria: form.categoria || null };
       const res = await fetch(url, {
         method: esEdicion ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,13 +158,22 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
     const ingresos: SaldoPorMoneda = {};
     const egresos: SaldoPorMoneda = {};
     const saldoFinal: SaldoPorMoneda = {};
+    // Egresos por categoría, en el orden de la lista (los sin categoría al final).
+    const porCategoria = new Map<string, SaldoPorMoneda>(
+      [...CATEGORIAS_EGRESO, SIN_CATEGORIA].map((c) => [c, {}])
+    );
     for (const mov of movimientos) {
       const acumulador = mov.tipo === "Ingreso" ? ingresos : egresos;
       acumulador[mov.moneda] = (acumulador[mov.moneda] ?? 0) + mov.monto;
       const delta = mov.tipo === "Ingreso" ? mov.monto : -mov.monto;
       saldoFinal[mov.moneda] = (saldoFinal[mov.moneda] ?? 0) + delta;
+      if (mov.tipo === "Egreso") {
+        const cat = porCategoria.get(mov.categoria ?? SIN_CATEGORIA) ?? porCategoria.get(SIN_CATEGORIA)!;
+        cat[mov.moneda] = (cat[mov.moneda] ?? 0) + mov.monto;
+      }
     }
-    return { ingresos, egresos, saldoFinal };
+    const egresosPorCategoria = [...porCategoria.entries()].filter(([, v]) => Object.values(v).some((x) => x !== 0));
+    return { ingresos, egresos, saldoFinal, egresosPorCategoria };
   }, [movimientos]);
 
   return (
@@ -183,7 +202,8 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
           >
             <div className="px-5 py-5 space-y-3" style={{ background: "#F8FAFC" }}>
               <p className="text-xs text-slate-500 -mt-1">
-                Ingresos y egresos reales de esta obra, con saldo acumulado por separado en cada moneda.
+                Ingresos y egresos reales de esta obra, por categoría, con saldo acumulado por separado en cada
+                moneda.
               </p>
 
               <button
@@ -225,10 +245,34 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
                         <SaldoStack saldo={totales.egresos} colorNegativo />
                       </div>
                       <div>
-                        <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Saldo final</p>
+                        <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Saldo disponible</p>
                         <SaldoStack saldo={totales.saldoFinal} />
                       </div>
                     </div>
+
+                    {totales.egresosPorCategoria.length > 0 && (
+                      <div className="mt-2.5 pt-2.5 border-t border-slate-100">
+                        <p className="text-[10px] font-semibold text-slate-400 mb-1.5">Egresos por categoría</p>
+                        <div className="space-y-1">
+                          {totales.egresosPorCategoria.map(([cat, saldo]) => (
+                            <div key={cat} className="flex items-start justify-between gap-3">
+                              <span className={cn("text-xs", cat === SIN_CATEGORIA ? "text-slate-400 italic" : "text-slate-600")}>
+                                {cat}
+                              </span>
+                              <div className="text-right">
+                                {Object.entries(saldo)
+                                  .filter(([, v]) => v !== 0)
+                                  .map(([m, v]) => (
+                                    <p key={m} className="text-xs font-semibold tabular-nums text-slate-700">
+                                      {fmtMoneda(v, m)}
+                                    </p>
+                                  ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -308,6 +352,11 @@ function FilaMovimiento({
             >
               {mov.tipo}
             </span>
+            {mov.categoria && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 flex-shrink-0">
+                {mov.categoria}
+              </span>
+            )}
             <span className="text-[11px] text-slate-400">{fmtFecha(mov.fecha)}</span>
           </div>
           <p className="text-sm text-slate-700 font-medium mt-1">{mov.concepto}</p>
@@ -390,7 +439,14 @@ function FormularioMovimiento({
                 <button
                   key={op}
                   type="button"
-                  onClick={() => set("tipo", op)}
+                  onClick={() =>
+                    // Al cambiar el tipo, la categoría elegida puede no existir en el otro.
+                    setForm((prev) => ({
+                      ...prev,
+                      tipo: op,
+                      categoria: categoriasDe(op).includes(prev.categoria) ? prev.categoria : "",
+                    }))
+                  }
                   className={cn(
                     "py-2 rounded-[8px] text-sm font-semibold border transition-colors",
                     form.tipo === op
@@ -401,6 +457,29 @@ function FormularioMovimiento({
                   )}
                 >
                   {op}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>
+              Categoría{form.tipo === "Ingreso" ? " (opcional)" : ""}
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {categoriasDe(form.tipo).map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => set("categoria", form.categoria === cat ? "" : cat)}
+                  className={cn(
+                    "px-2.5 py-1.5 rounded-[8px] text-xs font-semibold border transition-colors",
+                    form.categoria === cat
+                      ? "bg-[#EFF6FF] border-[#2563EB] text-[#2563EB]"
+                      : "border-slate-200 text-slate-500 hover:border-slate-300"
+                  )}
+                >
+                  {cat}
                 </button>
               ))}
             </div>
@@ -452,7 +531,7 @@ function FormularioMovimiento({
           </button>
           <button
             onClick={onGuardar}
-            disabled={guardando || !form.concepto.trim() || !form.monto.trim()}
+            disabled={guardando || !formCompleto(form)}
             className="flex-1 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-50"
           >
             {guardando ? "Guardando…" : esEdicion ? "Guardar cambios" : "Agregar movimiento"}

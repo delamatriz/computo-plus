@@ -947,6 +947,10 @@ model MovimientoCaja {
   concepto String
   monto   Float
   moneda  String @default("UYU") // "UYU" | "USD"
+  // Categoría según el tipo (lista en lib/categoriasCaja.ts). Nullable: los
+  // movimientos cargados antes de nov-2026 no tienen y se muestran como
+  // "Sin categoría".
+  categoria String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
