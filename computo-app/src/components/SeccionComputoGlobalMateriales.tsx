@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronRight, ChevronDown, FileText, Download } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ChevronRight, ChevronDown, FileText, Download, Send, X, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { descargarExcelMateriales, type FilaMaterialGlobal } from "@/lib/materialesGlobales";
@@ -10,6 +10,12 @@ import { PALETA } from "@/lib/paletaPresupuesto";
 function fmtMon(v: number): string {
   return Math.round(v).toLocaleString("es-UY");
 }
+
+function fmtCantidad(v: number): string {
+  return v.toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+const claveDe = (f: FilaMaterialGlobal) => `${f.descripcion}||${f.unidad}`;
 
 interface Props {
   proyectoId: string;
@@ -20,12 +26,30 @@ interface Props {
 
 export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNombre, filas, total }: Props) {
   const [expandido, setExpandido] = useState(false);
+  // Selección para el pedido de cotización: un grupo para cada proveedor
+  // (se arma el pedido del proveedor A, se limpia, se arma el del B…).
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+  const [modalAbierto, setModalAbierto] = useState(false);
+
+  // Si el cómputo cambia (se borró un rubro), lo que ya no existe sale solo.
+  const seleccionadas = useMemo(() => filas.filter((f) => seleccion.has(claveDe(f))), [filas, seleccion]);
+  const todasSeleccionadas = filas.length > 0 && seleccionadas.length === filas.length;
+
+  const alternar = (clave: string) =>
+    setSeleccion((prev) => {
+      const s = new Set(prev);
+      if (s.has(clave)) s.delete(clave);
+      else s.add(clave);
+      return s;
+    });
+
+  const alternarTodas = () => setSeleccion(todasSeleccionadas ? new Set() : new Set(filas.map(claveDe)));
 
   if (filas.length === 0) return null;
 
   return (
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
-      <div className={`px-5 py-3 border-b border-slate-200 flex items-center justify-between ${PALETA.capituloFila}`}>
+      <div className={`px-5 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 ${PALETA.capituloFila}`}>
         <button
           onClick={() => setExpandido((p) => !p)}
           className="flex items-center gap-2.5 min-w-0 text-left group"
@@ -64,46 +88,297 @@ export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNom
             className="overflow-hidden"
           >
             <p className="text-xs text-slate-500 px-5 pt-4 pb-1">
-              Suma de materiales de todos los rubros del proyecto, agregados por nombre y unidad — la base
-              para pedir cotizaciones o cargar órdenes de compra.
+              Suma de materiales de todos los rubros del proyecto, agregados por nombre y unidad. Marcá los que le
+              querés pedir a un proveedor y generá el pedido de cotización.
             </p>
-            <div className="flex items-center px-5 py-2 bg-slate-50 border-b border-slate-200">
-              <div className="flex-1 pr-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Material</div>
-              <div style={{ width: 56 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center">Unidad</div>
-              <div style={{ width: 110 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
-              <div style={{ width: 100 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">P. unit.</div>
-              <div style={{ width: 140 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right pr-4">Costo total</div>
-            </div>
-            {filas.map((f, idx) => {
-              const costoTotal = f.precioUnit != null ? f.cantidadTotal * f.precioUnit : null;
-              return (
-                <div
-                  key={`${f.descripcion}||${f.unidad}`}
-                  className={cn("flex items-center px-5 border-b border-slate-100 last:border-0", idx % 2 === 1 ? "bg-[#F8FAFC]" : "bg-white")}
-                  style={{ minHeight: 32 }}
+
+            {/* Barra de selección — visible mientras haya algo marcado */}
+            <AnimatePresence initial={false}>
+              {seleccionadas.length > 0 && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="overflow-hidden"
                 >
-                  <div className="flex-1 pr-2 text-sm text-slate-700 font-medium truncate">{f.descripcion}</div>
-                  <div style={{ width: 56 }} className="text-sm text-slate-500 text-center">{f.unidad}</div>
-                  <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-700 font-semibold text-right">{fmtMon(f.cantidadTotal)}</div>
-                  <div style={{ width: 100 }} className="text-sm tabular-nums text-slate-500 text-right">{f.precioUnit != null ? fmtMon(f.precioUnit) : "—"}</div>
-                  <div style={{ width: 140 }} className="text-sm font-bold tabular-nums text-[#2563EB] text-right pr-4">{costoTotal != null ? fmtMon(costoTotal) : "—"}</div>
+                  <div className="mx-5 my-2 flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-blue-200 bg-[#EFF6FF] px-3.5 py-2">
+                    <span className="text-sm font-semibold text-[#1A3A5C]">
+                      {seleccionadas.length} material{seleccionadas.length !== 1 ? "es" : ""} seleccionado
+                      {seleccionadas.length !== 1 ? "s" : ""}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSeleccion(new Set())}
+                        className="px-2.5 py-1.5 rounded-[8px] text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        Limpiar
+                      </button>
+                      <button
+                        onClick={() => setModalAbierto(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-colors"
+                      >
+                        <Send className="w-3.5 h-3.5" /> Pedido de cotización
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="overflow-x-auto">
+              <div className="min-w-[640px]">
+                <div className="flex items-center px-5 py-2 bg-slate-50 border-b border-slate-200">
+                  <div style={{ width: 28 }} className="flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={todasSeleccionadas}
+                      ref={(el) => {
+                        if (el) el.indeterminate = seleccionadas.length > 0 && !todasSeleccionadas;
+                      }}
+                      onChange={alternarTodas}
+                      aria-label="Seleccionar todos los materiales"
+                      className="rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30 cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex-1 pr-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Material</div>
+                  <div style={{ width: 56 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center">Unidad</div>
+                  <div style={{ width: 110 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Cantidad</div>
+                  <div style={{ width: 100 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">P. unit.</div>
+                  <div style={{ width: 140 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right pr-4">Costo total</div>
                 </div>
-              );
-            })}
-            {/* Total materiales */}
-            <div className="flex items-center px-5 py-3 border-t-2 border-slate-300 bg-white">
-              <div className="flex-1 text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Total materiales</div>
-              <div style={{ width: 56 }} />
-              <div style={{ width: 100 }} />
-              <div style={{ width: 110 }} />
-              <div style={{ width: 100 }} />
-              <div style={{ width: 140 }} className="text-base font-bold tabular-nums text-[#1A3A5C] text-right pr-4">
-                {total > 0 ? `$ ${fmtMon(total)}` : "—"}
+                {filas.map((f, idx) => {
+                  const clave = claveDe(f);
+                  const marcada = seleccion.has(clave);
+                  const costoTotal = f.precioUnit != null ? f.cantidadTotal * f.precioUnit : null;
+                  return (
+                    <label
+                      key={clave}
+                      className={cn(
+                        "flex items-center px-5 border-b border-slate-100 last:border-0 cursor-pointer transition-colors",
+                        marcada ? "bg-[#EFF6FF]" : idx % 2 === 1 ? "bg-[#F8FAFC] hover:bg-slate-100/70" : "bg-white hover:bg-slate-50"
+                      )}
+                      style={{ minHeight: 32 }}
+                    >
+                      <div style={{ width: 28 }} className="flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={marcada}
+                          onChange={() => alternar(clave)}
+                          className="rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30 cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex-1 pr-2 text-sm text-slate-700 font-medium truncate" title={f.descripcion}>
+                        {f.descripcion}
+                      </div>
+                      <div style={{ width: 56 }} className="text-sm text-slate-500 text-center">{f.unidad}</div>
+                      <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-700 font-semibold text-right">{fmtMon(f.cantidadTotal)}</div>
+                      <div style={{ width: 100 }} className="text-sm tabular-nums text-slate-500 text-right">{f.precioUnit != null ? fmtMon(f.precioUnit) : "—"}</div>
+                      <div style={{ width: 140 }} className="text-sm font-bold tabular-nums text-[#2563EB] text-right pr-4">{costoTotal != null ? fmtMon(costoTotal) : "—"}</div>
+                    </label>
+                  );
+                })}
+                {/* Total materiales */}
+                <div className="flex items-center px-5 py-3 border-t-2 border-slate-300 bg-white">
+                  <div style={{ width: 28 }} className="flex-shrink-0" />
+                  <div className="flex-1 text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Total materiales</div>
+                  <div style={{ width: 140 }} className="text-base font-bold tabular-nums text-[#1A3A5C] text-right pr-4">
+                    {total > 0 ? `$ ${fmtMon(total)}` : "—"}
+                  </div>
+                </div>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {modalAbierto && (
+          <ModalPedidoCotizacion
+            proyectoId={proyectoId}
+            proyectoNombre={proyectoNombre}
+            materiales={seleccionadas}
+            onCerrar={() => setModalAbierto(false)}
+            onListo={() => {
+              setModalAbierto(false);
+              setSeleccion(new Set());
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+/* ─── Modal: datos del pedido y salida (PDF o texto) ──────── */
+function ModalPedidoCotizacion({
+  proyectoId,
+  proyectoNombre,
+  materiales,
+  onCerrar,
+  onListo,
+}: {
+  proyectoId: string;
+  proyectoNombre: string;
+  materiales: FilaMaterialGlobal[];
+  onCerrar: () => void;
+  onListo: () => void;
+}) {
+  const [proveedor, setProveedor] = useState("");
+  const [fechaLimite, setFechaLimite] = useState("");
+  const [nota, setNota] = useState("");
+  const [generando, setGenerando] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const listo = proveedor.trim() !== "";
+
+  // Texto para mandar por WhatsApp o mail, sin nuestros precios.
+  const comoTexto = () => {
+    const lineas = [
+      `Pedido de cotización — ${proyectoNombre}`,
+      `Proveedor: ${proveedor.trim()}`,
+      "",
+      ...materiales.map((m, i) => `${i + 1}. ${m.descripcion} — ${fmtCantidad(m.cantidadTotal)} ${m.unidad}`),
+    ];
+    if (fechaLimite) {
+      const f = new Date(`${fechaLimite}T00:00:00Z`).toLocaleDateString("es-UY", { day: "numeric", month: "long", timeZone: "UTC" });
+      lineas.push("", `Cotizar antes del ${f}.`);
+    }
+    if (nota.trim()) lineas.push("", nota.trim());
+    lineas.push("", "Por favor indicar precio unitario, plazo de entrega y condiciones de pago. Gracias.");
+    return lineas.join("\n");
+  };
+
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(comoTexto());
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      setError("No se pudo copiar. Probá con el PDF.");
+    }
+  };
+
+  const generarPdf = async () => {
+    setError(null);
+    setGenerando(true);
+    // La pestaña se abre antes del await para que el navegador no la bloquee.
+    const pestana = window.open("", "_blank");
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/pedido-cotizacion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proveedor: proveedor.trim(),
+          fechaLimite: fechaLimite || null,
+          nota,
+          items: materiales.map((m) => ({ descripcion: m.descripcion, unidad: m.unidad, cantidad: m.cantidadTotal })),
+        }),
+      });
+      if (!res.ok) throw new Error("No se pudo generar");
+      const url = URL.createObjectURL(await res.blob());
+      if (pestana) pestana.location.href = url;
+      else window.location.assign(url);
+      onListo();
+    } catch (err) {
+      console.error("[pedido-cotizacion] error generando", err);
+      pestana?.close();
+      setError("No se pudo generar el PDF. Probá de nuevo.");
+    } finally {
+      setGenerando(false);
+    }
+  };
+
+  const inputCls =
+    "w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30";
+  const labelCls = "text-xs font-semibold text-slate-500 mb-1 block";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-3 md:p-6"
+      onClick={onCerrar}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 12 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-[16px] w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col shadow-xl"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0">
+          <h3 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Pedido de cotización</h3>
+          <button onClick={onCerrar} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <X className="w-4.5 h-4.5" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+          <div>
+            <label className={labelCls}>Proveedor</label>
+            <input
+              type="text"
+              autoFocus
+              value={proveedor}
+              onChange={(e) => setProveedor(e.target.value)}
+              placeholder="ej: Barraca Montevideo"
+              className={inputCls}
+            />
+          </div>
+          <div className="sm:w-1/2">
+            <label className={labelCls}>Cotizar antes del (opcional)</label>
+            <input type="date" value={fechaLimite} onChange={(e) => setFechaLimite(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Nota para el proveedor (opcional)</label>
+            <textarea
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              rows={2}
+              placeholder="ej: entrega en obra, horario 7 a 16 h"
+              className={cn(inputCls, "resize-y")}
+            />
+          </div>
+
+          <div>
+            <p className={labelCls}>
+              {materiales.length} material{materiales.length !== 1 ? "es" : ""} — sin precios, el proveedor completa los suyos
+            </p>
+            <div className="border border-slate-200 rounded-[8px] max-h-48 overflow-y-auto divide-y divide-slate-100">
+              {materiales.map((m) => (
+                <div key={claveDe(m)} className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs">
+                  <span className="text-slate-700 truncate">{m.descripcion}</span>
+                  <span className="text-slate-500 tabular-nums flex-shrink-0">
+                    {fmtCantidad(m.cantidadTotal)} {m.unidad}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+
+        <div className="px-5 py-4 border-t border-slate-200 flex gap-2 flex-shrink-0">
+          <button
+            onClick={copiar}
+            disabled={!listo}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[10px] border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            {copiado ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+            {copiado ? "Copiado" : "Copiar como texto"}
+          </button>
+          <button
+            onClick={generarPdf}
+            disabled={!listo || generando}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-50"
+          >
+            <FileText className="w-4 h-4" /> {generando ? "Generando…" : "Generar PDF"}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
