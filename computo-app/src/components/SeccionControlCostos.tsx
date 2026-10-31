@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Scale, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { Scale, ChevronDown, ChevronRight, AlertTriangle, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import { totalesJornales, type JornalParaCalculo } from "@/lib/jornalesPagados";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface RubroCosto {
@@ -122,6 +123,17 @@ function sumarComprometidoSinCapitulo(
   return acumulado;
 }
 
+// Desglose del total por origen (Subcontratos / Órdenes de compra), solo
+// compromisos vigentes, con o sin capítulo vinculado.
+function sumarPorOrigen(items: { monto: number | null; moneda: string; estado: string }[]): ComprometidoPorMoneda {
+  const acumulado: ComprometidoPorMoneda = {};
+  for (const it of items) {
+    if (!esCompromisoVigente(it.estado) || it.monto == null) continue;
+    acumulado[it.moneda] = (acumulado[it.moneda] ?? 0) + it.monto;
+  }
+  return acumulado;
+}
+
 function sumarPorMoneda(a: ComprometidoPorMoneda, b: ComprometidoPorMoneda): ComprometidoPorMoneda {
   const r: ComprometidoPorMoneda = { ...a };
   for (const [m, v] of Object.entries(b)) r[m] = (r[m] ?? 0) + v;
@@ -154,16 +166,23 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
   const [cargado, setCargado] = useState(false);
   const [subcontratistas, setSubcontratistas] = useState<Subcontratista[]>([]);
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
+  const [jornales, setJornales] = useState<JornalParaCalculo[]>([]);
 
   const cargarDatos = useCallback(async () => {
     try {
-      const [resSub, resOrd] = await Promise.all([
+      const [resSub, resOrd, resJor] = await Promise.all([
         fetch(`/api/proyectos/${proyectoId}/subcontratistas`),
         fetch(`/api/proyectos/${proyectoId}/ordenes-compra`),
+        fetch(`/api/proyectos/${proyectoId}/jornales`),
       ]);
-      const [dataSub, dataOrd] = await Promise.all([resSub.json(), resOrd.json()]);
+      const [dataSub, dataOrd, dataJor] = await Promise.all([
+        resSub.json(),
+        resOrd.json(),
+        resJor.json().catch(() => null),
+      ]);
       setSubcontratistas(Array.isArray(dataSub) ? dataSub : []);
       setOrdenes(Array.isArray(dataOrd) ? dataOrd : []);
+      setJornales(Array.isArray(dataJor?.registros) ? dataJor.registros : []);
     } catch (err) {
       console.error("[control-costos] error cargando datos", err);
     } finally {
@@ -192,13 +211,35 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
     [subcontratistas, ordenes]
   );
 
+  // Mano de obra ejecutada (Planilla de Jornales): bruto + aportes
+  // patronales, en pesos. Los jornales se pagan por persona y semana, no por
+  // capítulo, así que entra solo al total general — mismo criterio que los
+  // compromisos sin capítulo vinculado.
+  const moEjecutada = useMemo(() => totalesJornales(jornales).total, [jornales]);
+  const moEjecutadaPorMoneda = useMemo<ComprometidoPorMoneda>(
+    () => (moEjecutada > 0 ? { UYU: moEjecutada } : ({} as ComprometidoPorMoneda)),
+    [moEjecutada]
+  );
+
   const totalPresupuestado = useMemo(() => filas.reduce((s, f) => s + f.presupuestado, 0), [filas]);
   const totalComprometido = useMemo(() => {
     let acum: ComprometidoPorMoneda = {};
     for (const f of filas) acum = sumarPorMoneda(acum, f.comprometido);
     acum = sumarPorMoneda(acum, comprometidoSinCapitulo);
+    acum = sumarPorMoneda(acum, moEjecutadaPorMoneda);
     return acum;
-  }, [filas, comprometidoSinCapitulo]);
+  }, [filas, comprometidoSinCapitulo, moEjecutadaPorMoneda]);
+  const desglose = useMemo(
+    () => [
+      {
+        label: "Subcontratos",
+        valor: sumarPorOrigen(subcontratistas.map((s) => ({ monto: s.montoContratado, moneda: s.moneda, estado: s.estado }))),
+      },
+      { label: "Órdenes de compra", valor: sumarPorOrigen(ordenes) },
+      { label: "MO ejecutada", valor: moEjecutadaPorMoneda },
+    ],
+    [subcontratistas, ordenes, moEjecutadaPorMoneda]
+  );
   const desvioTotal = useMemo(
     () => calcularDesvio(totalPresupuestado, totalComprometido, moneda),
     [totalPresupuestado, totalComprometido, moneda]
@@ -232,7 +273,8 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
           >
             <p className="text-xs text-slate-500 px-5 pt-4">
               Presupuestado (Rubros del capítulo) contra Comprometido Real (Subcontratistas + Órdenes de Compra
-              vinculados). No incluye Certificación — esa mide avance/ingreso, no compromiso de gasto.
+              vinculados) y la mano de obra ejecutada de la Planilla de Jornales. No incluye Certificación — esa
+              mide avance/ingreso, no compromiso de gasto.
             </p>
 
             {capitulos.length === 0 ? (
@@ -266,19 +308,38 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
                   </div>
                 )}
 
+                {moEjecutada > 0 && (
+                  <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-[#EFF6FF] border border-blue-100">
+                    <Info className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-[#1A3A5C]">
+                      Mano de obra ejecutada (Planilla de Jornales, con aportes patronales):{" "}
+                      <span className="font-semibold">{fmtMoneda(moEjecutada, "UYU")}</span>. Se paga por trabajador y
+                      semana, no por capítulo: está incluida en el total general de abajo, no en cada fila.
+                    </p>
+                  </div>
+                )}
+
                 {/* Footer — total general */}
                 <div className="rounded-[10px] border-2 border-slate-300 bg-white px-3.5 py-3">
                   <p className="text-[10px] font-bold text-[#1A3A5C] uppercase tracking-wide mb-1.5">Total general</p>
                   <div className="flex flex-wrap gap-x-5 gap-y-1.5">
                     <DatoResumen label="Presupuestado" valor={fmtMoneda(totalPresupuestado, moneda)} />
                     <div>
-                      <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Contratado/Comprado</p>
+                      <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Costo real comprometido</p>
                       <CeldaComprometido comprometido={totalComprometido} />
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Desvío</p>
                       <CeldaDesvio desvio={desvioTotal} />
                     </div>
+                  </div>
+                  <div className="mt-2.5 pt-2.5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-1.5">
+                    {desglose.map((d) => (
+                      <div key={d.label}>
+                        <p className="text-[10px] font-semibold text-slate-400 mb-0.5">{d.label}</p>
+                        <CeldaComprometido comprometido={d.valor} vacio="—" />
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -333,10 +394,10 @@ function DatoResumen({ label, valor }: { label: string; valor: string }) {
   );
 }
 
-function CeldaComprometido({ comprometido }: { comprometido: ComprometidoPorMoneda }) {
+function CeldaComprometido({ comprometido, vacio }: { comprometido: ComprometidoPorMoneda; vacio?: string }) {
   const entradas = Object.entries(comprometido).filter(([, v]) => v !== 0);
   if (entradas.length === 0) {
-    return <span className="text-xs text-slate-400 italic">Sin compromisos</span>;
+    return <span className="text-xs text-slate-400 italic">{vacio ?? "Sin compromisos"}</span>;
   }
   return (
     <div className="space-y-0.5">
