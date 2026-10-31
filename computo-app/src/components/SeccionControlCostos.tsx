@@ -35,10 +35,12 @@ interface Subcontratista {
 
 interface OrdenCompra {
   id: string;
+  proveedor: string;
   monto: number | null;
   moneda: string;
   estado: string;
   capitulos: CapituloVinculoCompromiso[];
+  items?: { precioUnit: number | null }[];
 }
 
 interface Props {
@@ -164,11 +166,13 @@ function calcularDesvio(
 export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: Props) {
   const [expandido, setExpandido] = useState(false);
   const [cargado, setCargado] = useState(false);
+  const [actualizando, setActualizando] = useState(false);
   const [subcontratistas, setSubcontratistas] = useState<Subcontratista[]>([]);
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
   const [jornales, setJornales] = useState<JornalParaCalculo[]>([]);
 
   const cargarDatos = useCallback(async () => {
+    setActualizando(true);
     try {
       const [resSub, resOrd, resJor] = await Promise.all([
         fetch(`/api/proyectos/${proyectoId}/subcontratistas`),
@@ -187,12 +191,16 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
       console.error("[control-costos] error cargando datos", err);
     } finally {
       setCargado(true);
+      setActualizando(false);
     }
   }, [proyectoId]);
 
+  // Se recarga cada vez que se abre: las órdenes, subcontratos y jornales se
+  // editan en otras secciones de la misma página, y con una sola carga
+  // inicial el panel mostraba compromisos viejos hasta recargar.
   const abrirSeccion = () => {
+    if (!expandido) cargarDatos();
     setExpandido((p) => !p);
-    if (!cargado) cargarDatos();
   };
 
   const filas = useMemo(
@@ -247,6 +255,15 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
 
   const hayComprometidoSinCapitulo = Object.values(comprometidoSinCapitulo).some((v) => v !== 0);
 
+  // Órdenes vigentes que el total no puede contar completas: sin monto (no
+  // suman nada) o con ítems sin precio (el monto es solo la suma de los
+  // ítems con precio, ver lib/ordenCompra.ts).
+  const ordenesVigentes = ordenes.filter((o) => esCompromisoVigente(o.estado));
+  const ordenesSinMonto = ordenesVigentes.filter((o) => o.monto == null);
+  const ordenesConItemsSinPrecio = ordenesVigentes.filter(
+    (o) => o.monto != null && (o.items ?? []).some((it) => it.precioUnit == null)
+  );
+
   return (
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
       <button
@@ -275,9 +292,12 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
               Presupuestado (Rubros del capítulo) contra Comprometido Real (Subcontratistas + Órdenes de Compra
               vinculados) y la mano de obra ejecutada de la Planilla de Jornales. No incluye Certificación — esa
               mide avance/ingreso, no compromiso de gasto.
+              {cargado && actualizando && <span className="ml-1 text-[#2563EB]">Actualizando…</span>}
             </p>
 
-            {capitulos.length === 0 ? (
+            {!cargado ? (
+              <p className="text-xs text-slate-400 italic px-5 py-5">Cargando compromisos…</p>
+            ) : capitulos.length === 0 ? (
               <p className="text-xs text-slate-400 italic px-5 py-5">
                 Todavía no hay capítulos cargados en este proyecto.
               </p>
@@ -305,6 +325,31 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
                         .join(" + ")}
                       . No se atribuyen a ninguna fila, pero sí están incluidos en el total general de abajo.
                     </p>
+                  </div>
+                )}
+
+                {(ordenesSinMonto.length > 0 || ordenesConItemsSinPrecio.length > 0) && (
+                  <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-amber-50 border border-amber-200">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-amber-700 space-y-1">
+                      {ordenesSinMonto.length > 0 && (
+                        <p>
+                          {ordenesSinMonto.length === 1 ? "1 orden de compra" : `${ordenesSinMonto.length} órdenes de compra`}{" "}
+                          sin monto, que no suman al comprometido:{" "}
+                          <span className="font-semibold">{nombresProveedores(ordenesSinMonto)}</span>. Cargales el monto
+                          o los precios de sus ítems en Órdenes de Compra.
+                        </p>
+                      )}
+                      {ordenesConItemsSinPrecio.length > 0 && (
+                        <p>
+                          {ordenesConItemsSinPrecio.length === 1
+                            ? "1 orden de compra tiene"
+                            : `${ordenesConItemsSinPrecio.length} órdenes de compra tienen`}{" "}
+                          ítems sin precio, así que su monto es parcial:{" "}
+                          <span className="font-semibold">{nombresProveedores(ordenesConItemsSinPrecio)}</span>.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -349,6 +394,10 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
       </AnimatePresence>
     </div>
   );
+}
+
+function nombresProveedores(ordenes: OrdenCompra[]): string {
+  return [...new Set(ordenes.map((o) => o.proveedor))].join(", ");
 }
 
 /* ─── Fila de capítulo ─────────────────────────────────────── */
