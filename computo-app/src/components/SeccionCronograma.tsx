@@ -52,6 +52,9 @@ interface CertificacionCronograma {
 interface Props {
   proyectoId: string;
   capitulos: CapituloCronograma[];
+  // Fecha de inicio del proyecto (Editar proyecto): base de la sugerencia de
+  // inicio del primer capítulo.
+  fechaInicioObra?: string | null;
 }
 
 type Vista = "tabla" | "gantt" | "curva";
@@ -499,6 +502,8 @@ function VistaTabla({
   inicioObra,
   finObra,
   duracionTotal,
+  inicioProyecto,
+  aplicarInicio,
 }: {
   capitulos: CapituloCronograma[];
   fechas: Record<string, FechaPar>;
@@ -514,8 +519,19 @@ function VistaTabla({
   inicioObra: string;
   finObra: string;
   duracionTotal: number | null;
+  inicioProyecto: string;
+  aplicarInicio: (capId: string, fecha: string) => void;
 }) {
   const thCls = "text-[10px] font-semibold text-slate-400 uppercase tracking-wider";
+
+  // Inicio sugerido para un capítulo sin fecha: el primero arranca con la
+  // obra; los demás, al día siguiente del fin del capítulo anterior (o con la
+  // obra, si el anterior todavía no tiene fin).
+  const sugerencia = (idx: number): string => {
+    const finAnterior = idx > 0 ? fechas[capitulos[idx - 1].id]?.fin : "";
+    if (finAnterior) return formatDate(addDias(parseLocalDate(finAnterior), 1));
+    return inicioProyecto;
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -565,6 +581,15 @@ function VistaTabla({
                     onBlur={() => guardar(cap.id)}
                     className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
                   />
+                  {!f.inicio && sugerencia(idx) && (
+                    <button
+                      onClick={() => aplicarInicio(cap.id, sugerencia(idx))}
+                      className="text-[10px] font-semibold text-[#2563EB] hover:underline mt-0.5"
+                      title={idx === 0 ? "Fecha de inicio de la obra" : "Día siguiente al fin del capítulo anterior"}
+                    >
+                      desde {fmtFecha(sugerencia(idx))}
+                    </button>
+                  )}
                 </div>
                 <div style={{ width: 150 }} className="px-1">
                   <input
@@ -642,7 +667,8 @@ function VistaTabla({
             Duración total estimada de la obra
           </div>
           <div className="text-sm text-slate-500">
-            {inicioObra ? fmtFecha(inicioObra) : "—"} — {finObra ? fmtFecha(finObra) : "—"}
+            {inicioObra ? fmtFecha(inicioObra) : inicioProyecto ? fmtFecha(inicioProyecto) : "—"} —{" "}
+            {finObra ? fmtFecha(finObra) : "—"}
           </div>
           <div className="text-base font-bold tabular-nums text-[#1A3A5C] text-right" style={{ minWidth: 110 }}>
             {duracionTotal != null ? `${duracionTotal} días` : "—"}
@@ -654,7 +680,8 @@ function VistaTabla({
 }
 
 /* ─── Componente principal ────────────────────────────────── */
-export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
+export default function SeccionCronograma({ proyectoId, capitulos, fechaInicioObra }: Props) {
+  const inicioProyecto = toInputDate(fechaInicioObra);
   const [expandido, setExpandido] = useState(false);
   const [vista, setVista] = useState<Vista>("tabla");
   const [panelAbierto, setPanelAbierto] = useState(false);
@@ -739,6 +766,26 @@ export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
       });
     } catch (err) {
       console.error("[cronograma] error guardando fechas de capítulo", err);
+    }
+  };
+
+  // Completa y guarda el inicio sugerido de un capítulo (ver sugerencia en
+  // VistaTabla), mismo PATCH que guardar().
+  const aplicarInicio = async (capId: string, inicio: string) => {
+    const fin = fechas[capId]?.fin ?? "";
+    setFechas((prev) => ({ ...prev, [capId]: { inicio, fin } }));
+    if (fin && fin < inicio) {
+      setErrores((prev) => ({ ...prev, [capId]: "La fecha de fin no puede ser anterior a la de inicio" }));
+      return;
+    }
+    try {
+      await fetch(`/api/capitulos/${capId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fechaInicio: inicio, fechaFin: fin || null }),
+      });
+    } catch (err) {
+      console.error("[cronograma] error guardando inicio sugerido", err);
     }
   };
 
@@ -858,6 +905,8 @@ export default function SeccionCronograma({ proyectoId, capitulos }: Props) {
                     inicioObra={inicioObra}
                     finObra={finObra}
                     duracionTotal={duracionTotal}
+                    inicioProyecto={inicioProyecto}
+                    aplicarInicio={aplicarInicio}
                   />
                 ) : vista === "gantt" ? (
                   <VistaGantt

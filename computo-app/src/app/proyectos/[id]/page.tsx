@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 import { textoFuente, type DatosFuente } from "@/lib/fuentePrecio";
 import { useSuperadmin } from "@/hooks/useSuperadmin";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario, montoAportesPatronales, sumarAportesPatronalesPct, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/apu-calc";
-import { computarMaterialesGlobales } from "@/lib/materialesGlobales";
+import { computarMaterialesGlobales, computarMaterialesPorCapitulo } from "@/lib/materialesGlobales";
 import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
 import { calcularDiasObra } from "@/lib/diasObra";
 import { calcularJornalesPorCategoria } from "@/lib/jornalesPorCategoria";
@@ -3931,6 +3931,10 @@ export default function ProyectoPage() {
     () => computarMaterialesGlobales(capitulos, apuData),
     [capitulos, apuData]
   );
+  const materialesPorCapitulo = useMemo(
+    () => computarMaterialesPorCapitulo(capitulos, apuData),
+    [capitulos, apuData]
+  );
   // Tarjeta "Materiales y Mano de Obra" — mismo criterio que la Cuantía de
   // obra para el total de MO, y jornales por categoría (ver
   // jornalesPorCategoria.ts), todo sobre capitulos + apuData en memoria.
@@ -6662,10 +6666,12 @@ export default function ProyectoPage() {
               proyectoNombre={nombreProyectoParaMostrar(proyectoActivo.nombre)}
               filas={filasMateriales}
               total={totalMateriales}
+              porCapitulo={materialesPorCapitulo}
             />
 
             <SeccionCronograma
               proyectoId={proyectoActivo.id}
+              fechaInicioObra={proyectoActivo.fechaInicio ?? null}
               capitulos={capitulos.map((c) => ({
                 id: c.id,
                 nombre: c.nombre,

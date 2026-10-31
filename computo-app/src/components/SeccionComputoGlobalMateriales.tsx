@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ChevronRight, ChevronDown, FileText, Download, Send, X, Copy, Check } from "lucide-react";
+import { ChevronRight, ChevronDown, FileText, Download, Send, X, Copy, Check, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { descargarExcelMateriales, type FilaMaterialGlobal } from "@/lib/materialesGlobales";
+import {
+  descargarExcelMateriales,
+  materialSinPrecio,
+  type FilaMaterialGlobal,
+  type GrupoMaterialesCapitulo,
+} from "@/lib/materialesGlobales";
 import { PALETA } from "@/lib/paletaPresupuesto";
 
 function fmtMon(v: number): string {
@@ -22,10 +27,14 @@ interface Props {
   proyectoNombre: string;
   filas: FilaMaterialGlobal[];
   total: number;
+  porCapitulo: GrupoMaterialesCapitulo[];
 }
 
-export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNombre, filas, total }: Props) {
+export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNombre, filas, total, porCapitulo }: Props) {
   const [expandido, setExpandido] = useState(false);
+  // "lista": un material por renglón, sumado en toda la obra. "capitulo": el
+  // mismo cómputo separado por capítulo (un material puede repetirse).
+  const [vista, setVista] = useState<"lista" | "capitulo">("lista");
   // Selección para el pedido de cotización: un grupo para cada proveedor
   // (se arma el pedido del proveedor A, se limpia, se arma el del B…).
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
@@ -44,6 +53,9 @@ export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNom
     });
 
   const alternarTodas = () => setSeleccion(todasSeleccionadas ? new Set() : new Set(filas.map(claveDe)));
+
+  // Sin precio (o en $0): los que hay que cotizar.
+  const sinPrecio = useMemo(() => filas.filter(materialSinPrecio), [filas]);
 
   if (filas.length === 0) return null;
 
@@ -91,6 +103,45 @@ export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNom
               Suma de materiales de todos los rubros del proyecto, agregados por nombre y unidad. Marcá los que le
               querés pedir a un proveedor y generá el pedido de cotización.
             </p>
+
+            <div className="px-5 pt-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="inline-flex p-0.5 rounded-[8px] bg-slate-100">
+                {(
+                  [
+                    ["lista", "Lista"],
+                    ["capitulo", "Por capítulo"],
+                  ] as const
+                ).map(([id, nombre]) => (
+                  <button
+                    key={id}
+                    onClick={() => setVista(id)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-[6px] text-xs font-semibold transition-colors",
+                      vista === id ? "bg-white text-[#1A3A5C] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    )}
+                  >
+                    {nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {sinPrecio.length > 0 && (
+              <div className="mx-5 mt-2 flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-amber-200 bg-amber-50 px-3.5 py-2">
+                <span className="flex items-center gap-1.5 text-xs text-amber-800">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                  {sinPrecio.length === 1
+                    ? "1 material sin precio: necesita cotización."
+                    : `${sinPrecio.length} materiales sin precio: necesitan cotización.`}
+                </span>
+                <button
+                  onClick={() => setSeleccion(new Set(sinPrecio.map(claveDe)))}
+                  className="text-xs font-semibold text-amber-800 underline hover:text-amber-900"
+                >
+                  Seleccionarlos
+                </button>
+              </div>
+            )}
 
             {/* Barra de selección — visible mientras haya algo marcado */}
             <AnimatePresence initial={false}>
@@ -147,37 +198,39 @@ export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNom
                   <div style={{ width: 100 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">P. unit.</div>
                   <div style={{ width: 140 }} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right pr-4">Costo total</div>
                 </div>
-                {filas.map((f, idx) => {
-                  const clave = claveDe(f);
-                  const marcada = seleccion.has(clave);
-                  const costoTotal = f.precioUnit != null ? f.cantidadTotal * f.precioUnit : null;
-                  return (
-                    <label
-                      key={clave}
-                      className={cn(
-                        "flex items-center px-5 border-b border-slate-100 last:border-0 cursor-pointer transition-colors",
-                        marcada ? "bg-[#EFF6FF]" : idx % 2 === 1 ? "bg-[#F8FAFC] hover:bg-slate-100/70" : "bg-white hover:bg-slate-50"
-                      )}
-                      style={{ minHeight: 32 }}
-                    >
-                      <div style={{ width: 28 }} className="flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          checked={marcada}
-                          onChange={() => alternar(clave)}
-                          className="rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30 cursor-pointer"
-                        />
+                {vista === "lista"
+                  ? filas.map((f, idx) => (
+                      <FilaMaterial
+                        key={claveDe(f)}
+                        f={f}
+                        par={idx % 2 === 1}
+                        marcada={seleccion.has(claveDe(f))}
+                        onAlternar={() => alternar(claveDe(f))}
+                      />
+                    ))
+                  : porCapitulo.map((g) => (
+                      <div key={g.capituloId}>
+                        <div className="flex items-center px-5 py-2 bg-[#F0F4F8] border-b border-slate-200">
+                          <div style={{ width: 28 }} className="flex-shrink-0" />
+                          <div className="flex-1 text-xs font-bold text-[#1A3A5C] uppercase tracking-wide truncate">
+                            {g.codigo ? `${g.codigo} · ` : ""}
+                            {g.nombre}
+                          </div>
+                          <div style={{ width: 140 }} className="text-xs font-bold tabular-nums text-[#1A3A5C] text-right pr-4">
+                            {g.total > 0 ? `$ ${fmtMon(g.total)}` : "—"}
+                          </div>
+                        </div>
+                        {g.filas.map((f, idx) => (
+                          <FilaMaterial
+                            key={claveDe(f)}
+                            f={f}
+                            par={idx % 2 === 1}
+                            marcada={seleccion.has(claveDe(f))}
+                            onAlternar={() => alternar(claveDe(f))}
+                          />
+                        ))}
                       </div>
-                      <div className="flex-1 pr-2 text-sm text-slate-700 font-medium truncate" title={f.descripcion}>
-                        {f.descripcion}
-                      </div>
-                      <div style={{ width: 56 }} className="text-sm text-slate-500 text-center">{f.unidad}</div>
-                      <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-700 font-semibold text-right">{fmtMon(f.cantidadTotal)}</div>
-                      <div style={{ width: 100 }} className="text-sm tabular-nums text-slate-500 text-right">{f.precioUnit != null ? fmtMon(f.precioUnit) : "—"}</div>
-                      <div style={{ width: 140 }} className="text-sm font-bold tabular-nums text-[#2563EB] text-right pr-4">{costoTotal != null ? fmtMon(costoTotal) : "—"}</div>
-                    </label>
-                  );
-                })}
+                    ))}
                 {/* Total materiales */}
                 <div className="flex items-center px-5 py-3 border-t-2 border-slate-300 bg-white">
                   <div style={{ width: 28 }} className="flex-shrink-0" />
@@ -207,6 +260,55 @@ export default function SeccionComputoGlobalMateriales({ proyectoId, proyectoNom
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/* ─── Renglón de material ─────────────────────────────────── */
+function FilaMaterial({
+  f,
+  par,
+  marcada,
+  onAlternar,
+}: {
+  f: FilaMaterialGlobal;
+  par: boolean;
+  marcada: boolean;
+  onAlternar: () => void;
+}) {
+  const sinPrecio = materialSinPrecio(f);
+  const costoTotal = !sinPrecio && f.precioUnit != null ? f.cantidadTotal * f.precioUnit : null;
+  return (
+    <label
+      className={cn(
+        "flex items-center px-5 border-b border-slate-100 last:border-0 cursor-pointer transition-colors",
+        marcada ? "bg-[#EFF6FF]" : par ? "bg-[#F8FAFC] hover:bg-slate-100/70" : "bg-white hover:bg-slate-50"
+      )}
+      style={{ minHeight: 32 }}
+    >
+      <div style={{ width: 28 }} className="flex-shrink-0">
+        <input
+          type="checkbox"
+          checked={marcada}
+          onChange={onAlternar}
+          className="rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]/30 cursor-pointer"
+        />
+      </div>
+      <div className="flex-1 pr-2 text-sm text-slate-700 font-medium truncate" title={f.descripcion}>
+        {f.descripcion}
+      </div>
+      <div style={{ width: 56 }} className="text-sm text-slate-500 text-center">{f.unidad}</div>
+      <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-700 font-semibold text-right">{fmtMon(f.cantidadTotal)}</div>
+      <div style={{ width: 100 }} className="text-sm tabular-nums text-slate-500 text-right">
+        {sinPrecio ? (
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+            Sin precio
+          </span>
+        ) : (
+          fmtMon(f.precioUnit!)
+        )}
+      </div>
+      <div style={{ width: 140 }} className="text-sm font-bold tabular-nums text-[#2563EB] text-right pr-4">{costoTotal != null ? fmtMon(costoTotal) : "—"}</div>
+    </label>
   );
 }
 

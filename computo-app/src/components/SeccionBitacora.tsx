@@ -67,6 +67,13 @@ interface CapituloDisponible {
   codigo: string;
 }
 
+interface PersonaObra {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  categoriaLaboral: { nombre: string };
+}
+
 interface Props {
   proyectoId: string;
 }
@@ -155,6 +162,7 @@ export default function SeccionBitacora({ proyectoId }: Props) {
   const [capitulosDisponibles, setCapitulosDisponibles] = useState<CapituloDisponible[]>([]);
   const [rubrosDisponibles, setRubrosDisponibles] = useState<RubroDisponible[]>([]);
   const [cargandoRubros, setCargandoRubros] = useState(false);
+  const [personal, setPersonal] = useState<PersonaObra[] | null>(null);
 
   /* ── Carga de entradas ─────────────────────────────────── */
   const cargarLista = useCallback(async () => {
@@ -198,6 +206,18 @@ export default function SeccionBitacora({ proyectoId }: Props) {
     }
   }, [proyectoId]);
 
+  // Personal y Cuadrillas, para marcar el personal presente con un clic.
+  const cargarPersonal = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/personal`);
+      const data = await res.json();
+      setPersonal(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("[bitacora] error cargando personal", err);
+      setPersonal([]);
+    }
+  }, [proyectoId]);
+
   /* ── Abrir formulario (nueva / editar) ─────────────────── */
   const abrirNuevaEntrada = () => {
     setForm(formVacio());
@@ -205,6 +225,7 @@ export default function SeccionBitacora({ proyectoId }: Props) {
     setErrorFotos(null);
     setFormularioAbierto("nueva");
     if (capitulosDisponibles.length === 0) cargarCapitulosYRubros();
+    if (personal == null) cargarPersonal();
   };
 
   const abrirEdicion = (entrada: EntradaBitacora) => {
@@ -213,6 +234,7 @@ export default function SeccionBitacora({ proyectoId }: Props) {
     setErrorFotos(null);
     setFormularioAbierto(entrada.id);
     if (capitulosDisponibles.length === 0) cargarCapitulosYRubros();
+    if (personal == null) cargarPersonal();
     if (!fotosPorEntrada[entrada.id]) cargarFotos(entrada.id);
   };
 
@@ -446,6 +468,7 @@ export default function SeccionBitacora({ proyectoId }: Props) {
             rubrosPorCapitulo={rubrosPorCapitulo}
             cargandoRubros={cargandoRubros}
             onToggleRubro={toggleRubro}
+            personal={personal}
             fotosGuardadas={formularioAbierto !== "nueva" ? fotosPorEntrada[formularioAbierto] ?? [] : []}
             fotosPendientes={fotosPendientes}
             errorFotos={errorFotos}
@@ -631,6 +654,7 @@ function FormularioEntrada({
   rubrosPorCapitulo,
   cargandoRubros,
   onToggleRubro,
+  personal,
   fotosGuardadas,
   fotosPendientes,
   errorFotos,
@@ -648,6 +672,7 @@ function FormularioEntrada({
   rubrosPorCapitulo: Map<string, RubroDisponible[]>;
   cargandoRubros: boolean;
   onToggleRubro: (rubroId: string) => void;
+  personal: PersonaObra[] | null;
   fotosGuardadas: FotoBitacora[];
   fotosPendientes: FotoPendiente[];
   errorFotos: string | null;
@@ -755,7 +780,19 @@ function FormularioEntrada({
             {errorFotos && <p className="text-[11px] text-red-600 mt-1.5">{errorFotos}</p>}
           </div>
 
-          <CampoTextarea label="Personal presente" value={form.personalPresente} onChange={(v) => set("personalPresente", v)} placeholder="ej: 2 oficiales albañiles, 3 peones" />
+          <div>
+            <CampoTextarea
+              label="Personal presente"
+              value={form.personalPresente}
+              onChange={(v) => set("personalPresente", v)}
+              placeholder="ej: 2 oficiales albañiles, 3 peones"
+            />
+            <SelectorPersonal
+              personal={personal}
+              texto={form.personalPresente}
+              onCambiar={(v) => set("personalPresente", v)}
+            />
+          </div>
           <CampoTextarea label="Trabajos realizados" value={form.trabajosRealizados} onChange={(v) => set("trabajosRealizados", v)} />
           <CampoTextarea label="Materiales recibidos" value={form.materialesRecibidos} onChange={(v) => set("materialesRecibidos", v)} />
           <CampoTextarea label="Incidentes" value={form.incidentes} onChange={(v) => set("incidentes", v)} />
@@ -822,6 +859,64 @@ function FormularioEntrada({
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+/* ─── Personal presente: chips de Personal y Cuadrillas ───── */
+// El campo sigue siendo texto (una línea por persona), así se conservan las
+// entradas viejas y se puede escribir a mano; los chips agregan o quitan la
+// línea "Nombre (Categoría)" de cada persona registrada.
+function lineaPersona(p: PersonaObra): string {
+  return `${p.nombre} (${p.categoriaLaboral.nombre})`;
+}
+
+function SelectorPersonal({
+  personal,
+  texto,
+  onCambiar,
+}: {
+  personal: PersonaObra[] | null;
+  texto: string;
+  onCambiar: (v: string) => void;
+}) {
+  if (personal == null) return <p className="text-[11px] text-slate-400 italic mt-1">Cargando personal…</p>;
+  const activos = personal.filter((p) => p.activo);
+  if (activos.length === 0) {
+    return (
+      <p className="text-[11px] text-slate-400 mt-1">
+        Cargá el personal en Personal y Cuadrillas para marcarlo acá con un clic.
+      </p>
+    );
+  }
+  const lineas = texto.split("\n").map((l) => l.trim()).filter(Boolean);
+  const alternar = (p: PersonaObra) => {
+    const linea = lineaPersona(p);
+    const nuevas = lineas.includes(linea) ? lineas.filter((l) => l !== linea) : [...lineas, linea];
+    onCambiar(nuevas.join("\n"));
+  };
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
+      {activos.map((p) => {
+        const presente = lineas.includes(lineaPersona(p));
+        return (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => alternar(p)}
+            className={cn(
+              "px-2 py-1 rounded-[6px] text-[11px] font-semibold border transition-colors",
+              presente
+                ? "bg-[#EFF6FF] border-[#2563EB] text-[#2563EB]"
+                : "border-slate-200 text-slate-500 hover:border-slate-300"
+            )}
+            title={p.categoriaLaboral.nombre}
+          >
+            {presente ? "✓ " : "+ "}
+            {p.nombre}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

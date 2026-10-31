@@ -81,6 +81,34 @@ export function computarMaterialesGlobales(
   return { filas, total };
 }
 
+export interface GrupoMaterialesCapitulo {
+  capituloId: string;
+  nombre: string;
+  codigo?: string;
+  filas: FilaMaterialGlobal[];
+  total: number;
+}
+
+/** El mismo cómputo, separado por capítulo (vista "Por capítulo"): cada grupo
+ *  es computarMaterialesGlobales sobre ese capítulo solo. Los capítulos sin
+ *  materiales no aparecen. */
+export function computarMaterialesPorCapitulo(
+  capitulos: (CapituloLite & { id: string; nombre: string; codigo?: string })[],
+  apuData: Record<string, APULite>
+): GrupoMaterialesCapitulo[] {
+  return capitulos
+    .map((cap) => {
+      const { filas, total } = computarMaterialesGlobales([cap], apuData);
+      return { capituloId: cap.id, nombre: cap.nombre, codigo: cap.codigo, filas, total };
+    })
+    .filter((g) => g.filas.length > 0);
+}
+
+/** Material sin precio cargado (o en $0): necesita cotización. */
+export function materialSinPrecio(f: FilaMaterialGlobal): boolean {
+  return f.precioUnit == null || f.precioUnit <= 0;
+}
+
 /** Genera y descarga el Excel "Lista de Materiales" del cómputo global */
 export function descargarExcelMateriales(nombreProyecto: string, filas: FilaMaterialGlobal[], total: number) {
   const fecha = new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
