@@ -3936,8 +3936,8 @@ export default function ProyectoPage() {
     [capitulos, apuData]
   );
   const jornalesPorCategoria = useMemo(
-    () => calcularJornalesPorCategoria(capitulos, apuData),
-    [capitulos, apuData]
+    () => calcularJornalesPorCategoria(capitulos, apuData, categoriasLaborales),
+    [capitulos, apuData, categoriasLaborales]
   );
 
   // Rubro activo en el drawer
