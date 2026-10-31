@@ -98,9 +98,10 @@ function fmtTamano(bytes: number | null): string {
 }
 
 function iconoParaTipo(tipoArchivo: string) {
-  if (tipoArchivo === "application/pdf") return FileText;
-  if (tipoArchivo.startsWith("image/")) return ImageIcon;
-  return FileIcon;
+  const cls = "w-4 h-4 text-slate-400 flex-shrink-0";
+  if (tipoArchivo === "application/pdf") return <FileText className={cls} />;
+  if (tipoArchivo.startsWith("image/")) return <ImageIcon className={cls} />;
+  return <FileIcon className={cls} />;
 }
 
 const ESTILO_ESTADO_OBS: Record<EstadoObs, string> = {
@@ -657,12 +658,11 @@ export default function SeccionCierreObra({ proyectoId }: Props) {
 
 /* ─── Documento — fila ─────────────────────────────────────── */
 function FilaDocumento({ doc, proyectoId, onEliminar }: { doc: Documento; proyectoId: string; onEliminar: () => void }) {
-  const Icono = iconoParaTipo(doc.tipoArchivo);
   const url = `/api/proyectos/${proyectoId}/cierre-obra/documentos/${doc.id}/archivo`;
   return (
     <div className="flex items-center justify-between gap-2 rounded-[8px] border border-slate-100 px-2.5 py-2">
       <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-2 min-w-0 flex-1 group">
-        <Icono className="w-4 h-4 text-slate-400 flex-shrink-0" />
+        {iconoParaTipo(doc.tipoArchivo)}
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-700 truncate group-hover:text-[#2563EB] transition-colors">{doc.nombre}</p>
           <p className="text-[10px] text-slate-400 truncate">
@@ -713,6 +713,12 @@ function FormularioGeneral({
             className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30 resize-y"
           />
         </div>
+        {!esEdicion && (
+          <p className="text-[11px] text-slate-500 rounded-[8px] bg-[#F8FAFC] border border-slate-200 px-3 py-2">
+            Después de crear el acta vas a poder agregar las observaciones por rubro, los firmantes (comitente,
+            contratista, director de obra) y subir el acta de recepción firmada.
+          </p>
+        )}
       </div>
       <FooterModal guardando={guardando} esEdicion={esEdicion} onGuardar={onGuardar} onCerrar={onCerrar} textoCrear="Crear acta" />
     </ModalBase>

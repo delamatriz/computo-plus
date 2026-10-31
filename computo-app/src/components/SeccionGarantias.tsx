@@ -5,6 +5,9 @@ import Link from "next/link";
 import { ShieldCheck, ChevronDown, ChevronRight, Landmark } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import { hoyUruguayISO } from "@/lib/fechaUruguay";
+
+type CampoVence = "garantiaFielCumplimientoVence" | "garantiaViciosOcultosVence" | "garantiaResponsabilidadVence";
 
 interface Props {
   fielCumplimiento: string;
@@ -13,6 +16,8 @@ interface Props {
   onChangeFielCumplimiento: (v: string) => void;
   onChangeViciosOcultos: (v: string) => void;
   onChangeResponsabilidad: (v: string) => void;
+  vencimientos: Record<CampoVence, string | null>; // ISO o null
+  onChangeVencimiento: (campo: CampoVence, v: string) => void;
   /** "PRIVADA" | "PUBLICA" — solo si es pública se muestra el bloque de RUPE/umbrales. */
   tipoContratacion: string;
   totalGeneral: number;
@@ -97,20 +102,59 @@ export const TEXTO_LEGAL_RESPONSABILIDAD_DEFAULT =
   "5 años por vicios de menor entidad y 2 años por defectos de terminación y acabado, contados " +
   "desde la recepción de la obra.";
 
+// "Vence en 12 días" / "Vencida hace 3 días" / "Vence hoy", contra hoy en Uruguay.
+function estadoVencimiento(iso: string): { texto: string; clase: string } {
+  const dias = Math.round(
+    (Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) - Date.parse(`${hoyUruguayISO()}T00:00:00Z`)) / 86_400_000
+  );
+  if (dias < 0)
+    return { texto: `Vencida hace ${-dias} día${dias === -1 ? "" : "s"}`, clase: "bg-red-50 text-red-700 border-red-200" };
+  if (dias === 0) return { texto: "Vence hoy", clase: "bg-amber-50 text-amber-700 border-amber-200" };
+  if (dias <= 30)
+    return { texto: `Vence en ${dias} día${dias === 1 ? "" : "s"}`, clase: "bg-amber-50 text-amber-700 border-amber-200" };
+  return { texto: `Vence en ${dias} días`, clase: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+}
+
 function CampoGarantia({
   label,
   value,
   placeholder,
   onChange,
+  vence,
+  onChangeVence,
+  nota,
 }: {
   label: string;
   value: string;
   placeholder: string;
   onChange: (v: string) => void;
+  vence: string | null;
+  onChangeVence: (v: string) => void;
+  nota?: string;
 }) {
+  const estado = vence ? estadoVencimiento(vence) : null;
   return (
     <div>
-      <label className="block text-sm font-semibold text-[#1A3A5C] mb-1.5">{label}</label>
+      <div className="flex flex-wrap items-end justify-between gap-2 mb-1.5">
+        <label className="block text-sm font-semibold text-[#1A3A5C]">{label}</label>
+        <div className="flex items-center gap-2">
+          {estado && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${estado.clase}`}>
+              {estado.texto}
+            </span>
+          )}
+          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+            Vence
+            <input
+              type="date"
+              value={vence ? vence.slice(0, 10) : ""}
+              onChange={(e) => onChangeVence(e.target.value)}
+              className="text-xs text-slate-700 bg-white border border-slate-200 rounded-[6px] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+            />
+          </label>
+        </div>
+      </div>
+      {nota && <p className="text-[11px] text-slate-400 -mt-0.5 mb-1.5">{nota}</p>}
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -129,6 +173,8 @@ export default function SeccionGarantias({
   onChangeFielCumplimiento,
   onChangeViciosOcultos,
   onChangeResponsabilidad,
+  vencimientos,
+  onChangeVencimiento,
   tipoContratacion,
   totalGeneral,
   moneda,
@@ -172,18 +218,28 @@ export default function SeccionGarantias({
                 value={fielCumplimiento}
                 placeholder="Especificá las condiciones de garantía de fiel cumplimiento"
                 onChange={onChangeFielCumplimiento}
+                vence={vencimientos.garantiaFielCumplimientoVence}
+                onChangeVence={(v) => onChangeVencimiento("garantiaFielCumplimientoVence", v)}
               />
               <CampoGarantia
                 label="Garantía por vicios ocultos"
                 value={viciosOcultos}
                 placeholder="Especificá la garantía por vicios ocultos"
                 onChange={onChangeViciosOcultos}
+                vence={vencimientos.garantiaViciosOcultosVence}
+                onChangeVence={(v) => onChangeVencimiento("garantiaViciosOcultosVence", v)}
               />
+              {/* Texto legal precargado como texto real (no placeholder): se
+                  muestra el del Art. 1844 mientras el proyecto no tenga uno
+                  propio, y se guarda apenas se edita. */}
               <CampoGarantia
                 label="Responsabilidad por defectos de construcción (Art. 1844)"
-                value={responsabilidad}
+                value={responsabilidad || TEXTO_LEGAL_RESPONSABILIDAD_DEFAULT}
                 placeholder={TEXTO_LEGAL_RESPONSABILIDAD_DEFAULT}
                 onChange={onChangeResponsabilidad}
+                vence={vencimientos.garantiaResponsabilidadVence}
+                onChangeVence={(v) => onChangeVencimiento("garantiaResponsabilidadVence", v)}
+                nota={responsabilidad ? undefined : "Texto legal por defecto — editalo si el contrato dice otra cosa."}
               />
             </div>
           </motion.div>

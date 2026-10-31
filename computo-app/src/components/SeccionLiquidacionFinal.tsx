@@ -43,6 +43,7 @@ interface Liquidacion {
   id: string;
   fechaLiquidacion: string | null;
   observaciones: string | null;
+  retencionGarantiaPct: number | null;
   ajustes: Ajuste[];
 }
 
@@ -70,14 +71,18 @@ function fmtMoneda(v: number, moneda: string): string {
   return `${moneda === "USD" ? "US$" : "$"} ${fmt}`;
 }
 
-type FormGeneral = { fechaLiquidacion: string; observaciones: string };
+type FormGeneral = { fechaLiquidacion: string; observaciones: string; retencionGarantiaPct: string };
 type FormAjuste = { concepto: string; monto: string; tipo: TipoAjuste; vinculoTipo: VinculoTipo; vinculoId: string | null };
 
 function formGeneralVacio(): FormGeneral {
-  return { fechaLiquidacion: "", observaciones: "" };
+  return { fechaLiquidacion: "", observaciones: "", retencionGarantiaPct: "" };
 }
 function formGeneralDesde(l: Liquidacion): FormGeneral {
-  return { fechaLiquidacion: l.fechaLiquidacion ? l.fechaLiquidacion.slice(0, 10) : "", observaciones: l.observaciones ?? "" };
+  return {
+    fechaLiquidacion: l.fechaLiquidacion ? l.fechaLiquidacion.slice(0, 10) : "",
+    observaciones: l.observaciones ?? "",
+    retencionGarantiaPct: l.retencionGarantiaPct != null ? String(l.retencionGarantiaPct) : "",
+  };
 }
 function formAjusteVacio(): FormAjuste {
   return { concepto: "", monto: "", tipo: "Adicional", vinculoTipo: "ninguno", vinculoId: null };
@@ -101,6 +106,8 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
   const [totalLiquidado, setTotalLiquidado] = useState<number | null>(null);
   const [cruceCertificacion, setCruceCertificacion] = useState<CruceCertificacion | null>(null);
   const [monedaProyecto, setMonedaProyecto] = useState("UYU");
+  // Ingresos registrados en Flujo de Caja, por moneda — "cobrado a la fecha".
+  const [ingresosCaja, setIngresosCaja] = useState<{ monto: number; moneda: string }[]>([]);
 
   const [formularioGeneralAbierto, setFormularioGeneralAbierto] = useState(false);
   const [formGeneral, setFormGeneral] = useState<FormGeneral>(formGeneralVacio());
@@ -117,7 +124,14 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
 
   const cargarDatos = useCallback(async () => {
     try {
-      const res = await fetch(`/api/proyectos/${proyectoId}/liquidacion-final`);
+      const [res, resCaja] = await Promise.all([
+        fetch(`/api/proyectos/${proyectoId}/liquidacion-final`),
+        fetch(`/api/proyectos/${proyectoId}/flujo-caja`),
+      ]);
+      const caja = await resCaja.json().catch(() => []);
+      setIngresosCaja(
+        Array.isArray(caja) ? caja.filter((m: { tipo: string }) => m.tipo === "Ingreso") : []
+      );
       const data = await res.json();
       setLiquidacion(data.liquidacion);
       setPresupuestoOriginal(data.presupuestoOriginal);
@@ -153,7 +167,10 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
       const res = await fetch(`/api/proyectos/${proyectoId}/liquidacion-final`, {
         method: esEdicion ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formGeneral),
+        body: JSON.stringify({
+          ...formGeneral,
+          retencionGarantiaPct: formGeneral.retencionGarantiaPct.trim() ? Number(formGeneral.retencionGarantiaPct) : null,
+        }),
       });
       if (!res.ok) throw new Error("No se pudo guardar");
       const data: Liquidacion = await res.json();
@@ -402,6 +419,16 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
                     </div>
                   )}
 
+                  {totalLiquidado != null && (
+                    <SaldoFinal
+                      totalLiquidado={totalLiquidado}
+                      retencionPct={liquidacion.retencionGarantiaPct}
+                      cobrado={ingresosCaja.filter((m) => m.moneda === monedaProyecto).reduce((s, m) => s + m.monto, 0)}
+                      hayIngresos={ingresosCaja.some((m) => m.moneda === monedaProyecto)}
+                      moneda={monedaProyecto}
+                    />
+                  )}
+
                   {cruceCertificacion && (
                     <BloqueCruceCertificacion cruce={cruceCertificacion} moneda={monedaProyecto} />
                   )}
@@ -426,6 +453,27 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
                   className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
                 />
               </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-1 block">Retención de garantía (%) — opcional</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.5"
+                  value={formGeneral.retencionGarantiaPct}
+                  onChange={(e) => setFormGeneral((p) => ({ ...p, retencionGarantiaPct: e.target.value }))}
+                  placeholder="ej: 5"
+                  className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Lo que el comitente retiene del total liquidado hasta el fin del plazo de garantía.
+                </p>
+              </div>
+              {!liquidacion && (
+                <p className="text-[11px] text-slate-500 rounded-[8px] bg-[#F8FAFC] border border-slate-200 px-3 py-2">
+                  Después de crearla vas a poder agregar adicionales y descuentos, y ver el saldo final a cobrar.
+                </p>
+              )}
               <div>
                 <label className="text-xs font-semibold text-slate-500 mb-1 block">Observaciones</label>
                 <textarea
@@ -571,6 +619,47 @@ const ESTILO_CRUCE: Record<EstadoCruce, { borde: string; fondo: string; texto: s
   falta_certificar: { borde: "border-amber-300", fondo: "bg-amber-50", texto: "text-amber-700", Icono: AlertCircle },
   coincide: { borde: "border-emerald-300", fondo: "bg-emerald-50", texto: "text-emerald-700", Icono: CheckCircle2 },
 };
+
+/* ─── Saldo final: total liquidado − cobrado − retención ───── */
+function SaldoFinal({
+  totalLiquidado,
+  retencionPct,
+  cobrado,
+  hayIngresos,
+  moneda,
+}: {
+  totalLiquidado: number;
+  retencionPct: number | null;
+  cobrado: number;
+  hayIngresos: boolean;
+  moneda: string;
+}) {
+  const retencion = retencionPct ? (totalLiquidado * retencionPct) / 100 : 0;
+  const saldo = totalLiquidado - cobrado - retencion;
+  const fila = (label: string, valor: string, clase = "text-slate-700") => (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className={cn("font-semibold tabular-nums", clase)}>{valor}</span>
+    </div>
+  );
+  return (
+    <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3 space-y-1.5">
+      {fila("Cobrado a la fecha", hayIngresos ? `− ${fmtMoneda(cobrado, moneda)}` : "Sin ingresos en Flujo de Caja", hayIngresos ? "text-emerald-700" : "text-slate-400 font-normal")}
+      {retencion > 0 && fila(`Retención de garantía (${retencionPct}%)`, `− ${fmtMoneda(retencion, moneda)}`, "text-amber-700")}
+      <div className="flex items-center justify-between gap-3 pt-1.5 border-t border-slate-200">
+        <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
+          {saldo >= 0 ? "Saldo final a cobrar" : "Cobrado de más"}
+        </span>
+        <span className={cn("text-base font-bold tabular-nums", saldo >= 0 ? "text-[#1A3A5C]" : "text-red-600")}>
+          {fmtMoneda(Math.abs(saldo), moneda)}
+        </span>
+      </div>
+      {retencion > 0 && (
+        <p className="text-[10px] text-slate-400">La retención se cobra al vencer el plazo de garantía.</p>
+      )}
+    </div>
+  );
+}
 
 function mensajeCruce(cruce: CruceCertificacion, moneda: string): string {
   if (cruce.estado === "certificado_de_mas") {

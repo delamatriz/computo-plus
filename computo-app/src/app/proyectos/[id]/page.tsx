@@ -169,6 +169,9 @@ interface ProyectoData {
   garantiaFielCumplimiento?: string | null;
   garantiaViciosOcultos?: string | null;
   garantiaResponsabilidad?: string | null;
+  garantiaFielCumplimientoVence?: string | null;
+  garantiaViciosOcultosVence?: string | null;
+  garantiaResponsabilidadVence?: string | null;
   fechaUltimaEntrega?: string | null;
 }
 
@@ -535,6 +538,9 @@ const PROYECTO = {
   garantiaFielCumplimiento: null as string | null,
   garantiaViciosOcultos: null as string | null,
   garantiaResponsabilidad: null as string | null,
+  garantiaFielCumplimientoVence: null as string | null,
+  garantiaViciosOcultosVence: null as string | null,
+  garantiaResponsabilidadVence: null as string | null,
   modalidadEjecucion: null as string | null,
 };
 
@@ -3566,6 +3572,9 @@ export default function ProyectoPage() {
         garantiaFielCumplimiento: data.garantiaFielCumplimiento ?? null,
         garantiaViciosOcultos: data.garantiaViciosOcultos ?? null,
         garantiaResponsabilidad: data.garantiaResponsabilidad ?? null,
+        garantiaFielCumplimientoVence: data.garantiaFielCumplimientoVence ?? null,
+        garantiaViciosOcultosVence: data.garantiaViciosOcultosVence ?? null,
+        garantiaResponsabilidadVence: data.garantiaResponsabilidadVence ?? null,
         fechaUltimaEntrega: data.fechaUltimaEntrega ?? null,
       });
 
@@ -3821,6 +3830,18 @@ export default function ProyectoPage() {
     setProyecto((prev) => prev ? { ...prev, garantiaResponsabilidad: v } : prev);
     guardarCampoProyecto("garantiaResponsabilidad", v);
   }, [guardarCampoProyecto]);
+
+  // Vencimiento de cada garantía — fecha "solo día" (YYYY-MM-DD) o "" para borrarla.
+  const actualizarVencimientoGarantia = useCallback(
+    (
+      campo: "garantiaFielCumplimientoVence" | "garantiaViciosOcultosVence" | "garantiaResponsabilidadVence",
+      v: string
+    ) => {
+      setProyecto((prev) => (prev ? { ...prev, [campo]: v ? `${v}T00:00:00.000Z` : null } : prev));
+      guardarCampoProyecto(campo, v || null);
+    },
+    [guardarCampoProyecto]
+  );
 
   const proyectoActivo = proyecto ?? PROYECTO;
   const moneda = proyectoActivo.moneda;
@@ -6742,6 +6763,12 @@ export default function ProyectoPage() {
               onChangeFielCumplimiento={actualizarGarantiaFielCumplimiento}
               onChangeViciosOcultos={actualizarGarantiaViciosOcultos}
               onChangeResponsabilidad={actualizarGarantiaResponsabilidad}
+              vencimientos={{
+                garantiaFielCumplimientoVence: "garantiaFielCumplimientoVence" in proyectoActivo ? proyectoActivo.garantiaFielCumplimientoVence ?? null : null,
+                garantiaViciosOcultosVence: "garantiaViciosOcultosVence" in proyectoActivo ? proyectoActivo.garantiaViciosOcultosVence ?? null : null,
+                garantiaResponsabilidadVence: "garantiaResponsabilidadVence" in proyectoActivo ? proyectoActivo.garantiaResponsabilidadVence ?? null : null,
+              }}
+              onChangeVencimiento={actualizarVencimientoGarantia}
               tipoContratacion={proyectoActivo.tipoContratacion ?? "PRIVADA"}
               totalGeneral={totalGeneral}
               moneda={moneda}

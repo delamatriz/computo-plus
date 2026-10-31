@@ -150,7 +150,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
-    const { fechaLiquidacion, observaciones } = body as { fechaLiquidacion?: string; observaciones?: string };
+    const { fechaLiquidacion, observaciones, retencionGarantiaPct } = body as {
+      fechaLiquidacion?: string;
+      observaciones?: string;
+      retencionGarantiaPct?: number | null;
+    };
 
     const proyecto = await db.proyecto.findUnique({ where: { id }, select: { id: true } });
     if (!proyecto) {
@@ -172,6 +176,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         proyectoId: id,
         fechaLiquidacion: fechaLiquidacion ? new Date(fechaLiquidacion) : null,
         observaciones: observaciones?.trim() || null,
+        retencionGarantiaPct:
+          typeof retencionGarantiaPct === "number" && retencionGarantiaPct > 0 && retencionGarantiaPct <= 100
+            ? retencionGarantiaPct
+            : null,
         presupuestoOriginalSnapshot: presupuestoOriginal,
       },
       include: { ajustes: true },
@@ -191,7 +199,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
     const body = await req.json().catch(() => ({}));
-    const { fechaLiquidacion, observaciones } = body as { fechaLiquidacion?: string; observaciones?: string };
+    const { fechaLiquidacion, observaciones, retencionGarantiaPct } = body as {
+      fechaLiquidacion?: string;
+      observaciones?: string;
+      retencionGarantiaPct?: number | null;
+    };
 
     const existente = await db.liquidacionFinal.findUnique({ where: { proyectoId: id } });
     if (!existente) {
@@ -203,6 +215,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       data: {
         fechaLiquidacion: fechaLiquidacion ? new Date(fechaLiquidacion) : null,
         observaciones: observaciones?.trim() || null,
+        retencionGarantiaPct:
+          typeof retencionGarantiaPct === "number" && retencionGarantiaPct > 0 && retencionGarantiaPct <= 100
+            ? retencionGarantiaPct
+            : null,
       },
       include: { ajustes: { orderBy: { createdAt: "asc" }, include: INCLUDE_VINCULO_AJUSTE } },
     });

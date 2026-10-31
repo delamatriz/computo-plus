@@ -41,9 +41,10 @@ function fmtTamano(bytes: number | null): string {
 }
 
 function iconoParaTipo(tipoArchivo: string) {
-  if (tipoArchivo === "application/pdf") return FileText;
-  if (tipoArchivo.startsWith("image/")) return ImageIcon;
-  return FileIcon;
+  const cls = "w-4 h-4 text-slate-400 flex-shrink-0";
+  if (tipoArchivo === "application/pdf") return <FileText className={cls} />;
+  if (tipoArchivo.startsWith("image/")) return <ImageIcon className={cls} />;
+  return <FileIcon className={cls} />;
 }
 
 type FormState = { nombre: string; categoria: Categoria };
@@ -60,6 +61,7 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
   const [agregando, setAgregando] = useState(false);
   const [form, setForm] = useState<FormState>(formVacio());
   const [subiendo, setSubiendo] = useState(false);
+  const [subiendoEn, setSubiendoEn] = useState<Categoria | null>(null);
 
   const cargarLista = useCallback(async () => {
     try {
@@ -97,6 +99,32 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
       console.error("[documentos-post-obra] error subiendo documento", err);
     } finally {
       setSubiendo(false);
+    }
+  };
+
+  // "+" de cada categoría: sube directo a esa categoría, con el nombre del
+  // archivo (sin extensión) como nombre del documento.
+  const subirEnCategoria = async (cat: Categoria, file: File) => {
+    setSubiendoEn(cat);
+    try {
+      const archivo = await fileToBase64(file);
+      const res = await fetch(`/api/proyectos/${proyectoId}/documentos-post-obra`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: file.name.replace(/\.[^.]+$/, ""),
+          categoria: cat,
+          archivo,
+          nombreArchivoOriginal: file.name,
+        }),
+      });
+      if (!res.ok) throw new Error("No se pudo subir");
+      const data: Documento = await res.json();
+      setDocumentos((prev) => [...prev, data]);
+    } catch (err) {
+      console.error("[documentos-post-obra] error subiendo documento", err);
+    } finally {
+      setSubiendoEn(null);
     }
   };
 
@@ -142,11 +170,32 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
                 const docsDeCategoria = documentos.filter((d) => d.categoria === cat);
                 return (
                   <div key={cat} className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                      {cat === "Manual de uso" ? "Manuales de uso" : cat === "Plano As-Built" ? "Planos As-Built" : cat === "Certificado de garantía" ? "Certificados de garantía" : "Otros"}
-                      {" "}
-                      <span className="font-normal normal-case text-slate-400">({docsDeCategoria.length})</span>
-                    </p>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                        {cat === "Manual de uso" ? "Manuales de uso" : cat === "Plano As-Built" ? "Planos As-Built" : cat === "Certificado de garantía" ? "Certificados de garantía" : "Otros"}
+                        {" "}
+                        <span className="font-normal normal-case text-slate-400">({docsDeCategoria.length})</span>
+                      </p>
+                      <label
+                        className={cn(
+                          "inline-flex items-center gap-1 text-[11px] font-semibold flex-shrink-0",
+                          subiendoEn === cat ? "text-slate-400 cursor-wait" : "text-[#2563EB] hover:underline cursor-pointer"
+                        )}
+                        title={`Agregar a ${cat}`}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        {subiendoEn === cat ? "Subiendo…" : "Agregar"}
+                        <input
+                          type="file"
+                          disabled={subiendoEn != null}
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) subirEnCategoria(cat, e.target.files[0]);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
                     {docsDeCategoria.length === 0 ? (
                       <p className="text-xs text-slate-400 italic">Sin documentos en esta categoría.</p>
                     ) : (
@@ -222,12 +271,11 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
 
 /* ─── Fila de documento ─────────────────────────────────────── */
 function FilaDocumento({ doc, proyectoId, onEliminar }: { doc: Documento; proyectoId: string; onEliminar: () => void }) {
-  const Icono = iconoParaTipo(doc.tipoArchivo);
   const url = `/api/proyectos/${proyectoId}/documentos-post-obra/${doc.id}/archivo`;
   return (
     <div className="flex items-center justify-between gap-2 rounded-[8px] border border-slate-100 px-2.5 py-2">
       <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-2 min-w-0 flex-1 group">
-        <Icono className="w-4 h-4 text-slate-400 flex-shrink-0" />
+        {iconoParaTipo(doc.tipoArchivo)}
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-700 truncate group-hover:text-[#2563EB] transition-colors">{doc.nombre}</p>
           <p className="text-[10px] text-slate-400 truncate">
