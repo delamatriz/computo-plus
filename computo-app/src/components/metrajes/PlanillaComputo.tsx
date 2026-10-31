@@ -205,7 +205,7 @@ export default function PlanillaComputo({
         )}
         style={{ minHeight: 36, borderBottom: "1px solid #F1F5F9" }}
       >
-        <div className="flex-1 px-3">
+        <div className="flex-1 min-w-0 px-3">
           <input
             type="text"
             value={fila.descripcion}
@@ -214,14 +214,14 @@ export default function PlanillaComputo({
             className={inputCls}
           />
         </div>
-        <div style={{ width: 88, flexShrink: 0 }} className="px-2">
+        <div style={{ width: 88, flexShrink: 0 }} className="hidden md:block px-2">
           <InputNumericoFila
             value={fila.largo}
             onChange={(v) => onActualizarFila(fila.id, "largo", v)}
             className={cn(inputCls, "text-right")}
           />
         </div>
-        <div style={{ width: 108, flexShrink: 0 }} className="px-2 flex items-center gap-1">
+        <div style={{ width: 108, flexShrink: 0 }} className="hidden md:flex px-2 items-center gap-1">
           <InputNumericoFila
             value={fila.ancho}
             onChange={(v) => onActualizarFila(fila.id, "ancho", v)}
@@ -246,7 +246,7 @@ export default function PlanillaComputo({
             )}
           </div>
         </div>
-        <div style={{ width: 88, flexShrink: 0 }} className="px-2">
+        <div style={{ width: 88, flexShrink: 0 }} className="hidden md:block px-2">
           <InputNumericoFila
             value={fila.alto}
             onChange={(v) => onActualizarFila(fila.id, "alto", v)}
@@ -268,7 +268,7 @@ export default function PlanillaComputo({
             <span className="text-[10px] font-normal text-slate-400 ml-0.5">{fmtUnidad(fila.unidad)}</span>
           )}
         </div>
-        <div style={{ width: 220, flexShrink: 0 }} className="px-3 py-1.5">
+        <div style={{ width: 220, flexShrink: 0 }} className="hidden md:block px-3 py-1.5">
           <select
             value={fila.rubroId ?? ""}
             onChange={(e) => onActualizarFila(fila.id, "rubroId", e.target.value)}
@@ -334,7 +334,7 @@ export default function PlanillaComputo({
           })()}
         </div>
         {haySecciones && (
-          <div style={{ width: ANCHO_SECCION, flexShrink: 0 }} className="px-2 py-1.5">
+          <div style={{ width: ANCHO_SECCION, flexShrink: 0 }} className="hidden md:block px-2 py-1.5">
             {/* Mover la fila a otra sección o a sueltas — solo cambia
                 dónde se muestra; no toca el rubro ni las cantidades. */}
             <select
@@ -413,18 +413,21 @@ export default function PlanillaComputo({
               className="overflow-hidden"
             >
         <div className="overflow-x-auto">
-          <div className={haySecciones ? "min-w-[1030px]" : "min-w-[880px]"}>
+          {/* El ancho mínimo solo desde md: en mobile se ocultan Largo,
+              Ancho, Alto, Rubro vinculado y Sección, y quedan Descripción,
+              Cant., Subtotal y la X — entra sin scroll horizontal. */}
+          <div className={haySecciones ? "md:min-w-[1030px]" : "md:min-w-[880px]"}>
             {/* Cabecera */}
             <div className="flex items-center bg-slate-50 border-b border-slate-200" style={{ height: 32 }}>
-              <div className="flex-1 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Descripción</div>
-              <div style={{ width: 88, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Largo</div>
-              <div style={{ width: 108, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Ancho</div>
-              <div style={{ width: 88, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Alto</div>
+              <div className="flex-1 min-w-0 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Descripción</div>
+              <div style={{ width: 88, flexShrink: 0 }} className="hidden md:block px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Largo</div>
+              <div style={{ width: 108, flexShrink: 0 }} className="hidden md:block px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Ancho</div>
+              <div style={{ width: 88, flexShrink: 0 }} className="hidden md:block px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Alto</div>
               <div style={{ width: 80, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Cant.</div>
               <div style={{ width: 110, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">Subtotal</div>
-              <div style={{ width: 220, flexShrink: 0 }} className="px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Rubro vinculado</div>
+              <div style={{ width: 220, flexShrink: 0 }} className="hidden md:block px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Rubro vinculado</div>
               {haySecciones && (
-                <div style={{ width: ANCHO_SECCION, flexShrink: 0 }} className="px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Sección</div>
+                <div style={{ width: ANCHO_SECCION, flexShrink: 0 }} className="hidden md:block px-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Sección</div>
               )}
               <div style={{ width: 36, flexShrink: 0 }} />
             </div>
@@ -483,7 +486,7 @@ export default function PlanillaComputo({
                         className="min-w-0 flex-1 text-sm font-bold text-[#1A3A5C] bg-transparent rounded px-1 py-0.5 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#2563EB]/30 placeholder:text-slate-300"
                       />
                     </div>
-                    <div style={{ width: 364, flexShrink: 0 }} className="px-2 flex items-center justify-between gap-2">
+                    <div style={{ width: 364, flexShrink: 0 }} className="hidden md:flex px-2 items-center justify-between gap-2">
                       <span className="text-[11px] text-slate-400 whitespace-nowrap">
                         {propias.length} {propias.length === 1 ? "fila" : "filas"}
                       </span>
@@ -504,7 +507,7 @@ export default function PlanillaComputo({
                         <span className="text-[10px] font-normal text-slate-400 ml-0.5">{fmtUnidad(unidadSeccion)}</span>
                       )}
                     </div>
-                    <div style={{ width: 220, flexShrink: 0 }} className="px-3 flex items-center justify-end">
+                    <div className="flex-shrink-0 md:w-[220px] px-3 flex items-center justify-end">
                       <button
                         onClick={() => onAgregarFila(seccion.id)}
                         className="flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors whitespace-nowrap"
@@ -512,7 +515,7 @@ export default function PlanillaComputo({
                         <Plus className="w-3 h-3" /> Agregar fila
                       </button>
                     </div>
-                    {haySecciones && <div style={{ width: ANCHO_SECCION, flexShrink: 0 }} />}
+                    {haySecciones && <div style={{ width: ANCHO_SECCION, flexShrink: 0 }} className="hidden md:block" />}
                     <div style={{ width: 36, flexShrink: 0 }} className="flex items-center justify-center">
                       <button
                         onClick={() => {
@@ -596,18 +599,18 @@ export default function PlanillaComputo({
 
             {/* Total general */}
             <div className="flex items-center border-t-2 border-slate-300 bg-white" style={{ height: 40 }}>
-              <div className="flex-1 px-3 text-sm font-bold text-slate-400 uppercase tracking-wide">Total general</div>
-              <div style={{ width: 88 }} />
-              <div style={{ width: 108 }} />
-              <div style={{ width: 88 }} />
+              <div className="flex-1 min-w-0 px-3 text-sm font-bold text-slate-400 uppercase tracking-wide truncate">Total general</div>
+              <div style={{ width: 88 }} className="hidden md:block" />
+              <div style={{ width: 108 }} className="hidden md:block" />
+              <div style={{ width: 88 }} className="hidden md:block" />
               <div style={{ width: 80 }} />
               <div style={{ width: 110, flexShrink: 0 }} className="px-2 text-right">
                 <span className="text-base font-bold tabular-nums" style={{ color: "#1A3A5C" }}>
                   {fmtNum(totalGeneral)}
                 </span>
               </div>
-              <div style={{ width: 220 }} />
-              {haySecciones && <div style={{ width: ANCHO_SECCION }} />}
+              <div style={{ width: 220 }} className="hidden md:block" />
+              {haySecciones && <div style={{ width: ANCHO_SECCION }} className="hidden md:block" />}
               <div style={{ width: 36 }} />
             </div>
           </div>
