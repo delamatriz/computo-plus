@@ -596,16 +596,17 @@ model PersonalObra {
 // aportesPatronalesPct) no se guardan: se calculan. categoria y
 // aportesPatronalesPct son snapshot al registrar, para que un cambio
 // posterior en CategoriaLaboral o en Leyes Sociales no reescriba pagos ya
-// hechos. Sin onDelete en personalObra a propósito (RESTRICT): PersonalObra
-// no se borra (se desactiva), y si algún día se borrara, la base protege los
-// pagos registrados.
+// hechos. personalObra con onDelete Cascade (no RESTRICT): al borrar el
+// proyecto, Postgres borra en cascada PersonalObra y JornalPagado, y con
+// RESTRICT el orden de esa cascada podía frenar el borrado del proyecto
+// entero. PersonalObra no tiene borrado en la app (se desactiva).
 model JornalPagado {
   id         String   @id @default(cuid())
   proyectoId String
   proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
 
   personalObraId String
-  personalObra   PersonalObra @relation(fields: [personalObraId], references: [id])
+  personalObra   PersonalObra @relation(fields: [personalObraId], references: [id], onDelete: Cascade)
 
   semana               DateTime // lunes de la semana, fecha "solo día" (medianoche UTC)
   diasTrabajados       Float    @default(0)
