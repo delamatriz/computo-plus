@@ -10,11 +10,13 @@ import {
   X,
   ImagePlus,
   Cloud,
+  Camera,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
+import { reducirFotoObra } from "@/lib/reducirFotoObra";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_CLIMA = ["Soleado", "Nublado", "Lluvia", "Tormenta", "Viento fuerte", "Otro"] as const;
@@ -70,15 +72,6 @@ interface Props {
 }
 
 /* ─── Formato ─────────────────────────────────────────────── */
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 // timeZone: "UTC" — fecha es una fecha "solo día" (YYYY-MM-DD desde un
 // <input type="date">), que new Date() parsea como medianoche UTC.
 // Mismo criterio que fmtFecha en SeccionCertificaciones.tsx.
@@ -91,6 +84,14 @@ function fmtFechaHora(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" }) +
     " " + d.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Foto elegida en el modal que todavía no se subió — se sube al guardar,
+// después de crear/editar la entrada (la entrada nueva no tiene id antes).
+interface FotoPendiente {
+  clave: string;
+  file: File;
+  preview: string; // object URL, se libera al quitarla o al cerrar el modal
 }
 
 type FormState = {
@@ -148,6 +149,8 @@ export default function SeccionBitacora({ proyectoId }: Props) {
   const [formularioAbierto, setFormularioAbierto] = useState<"nueva" | string | null>(null);
   const [form, setForm] = useState<FormState>(formVacio());
   const [guardando, setGuardando] = useState(false);
+  const [fotosPendientes, setFotosPendientes] = useState<FotoPendiente[]>([]);
+  const [errorFotos, setErrorFotos] = useState<string | null>(null);
 
   const [capitulosDisponibles, setCapitulosDisponibles] = useState<CapituloDisponible[]>([]);
   const [rubrosDisponibles, setRubrosDisponibles] = useState<RubroDisponible[]>([]);
@@ -198,17 +201,43 @@ export default function SeccionBitacora({ proyectoId }: Props) {
   /* ── Abrir formulario (nueva / editar) ─────────────────── */
   const abrirNuevaEntrada = () => {
     setForm(formVacio());
+    setFotosPendientes([]);
+    setErrorFotos(null);
     setFormularioAbierto("nueva");
     if (capitulosDisponibles.length === 0) cargarCapitulosYRubros();
   };
 
   const abrirEdicion = (entrada: EntradaBitacora) => {
     setForm(formDesdeEntrada(entrada));
+    setFotosPendientes([]);
+    setErrorFotos(null);
     setFormularioAbierto(entrada.id);
     if (capitulosDisponibles.length === 0) cargarCapitulosYRubros();
+    if (!fotosPorEntrada[entrada.id]) cargarFotos(entrada.id);
   };
 
-  const cerrarFormulario = () => setFormularioAbierto(null);
+  const liberarPendientes = (lista: FotoPendiente[]) => lista.forEach((f) => URL.revokeObjectURL(f.preview));
+
+  const cerrarFormulario = () => {
+    liberarPendientes(fotosPendientes);
+    setFotosPendientes([]);
+    setFormularioAbierto(null);
+  };
+
+  const agregarPendientes = (files: FileList) => {
+    const nuevas = Array.from(files)
+      .filter((f) => f.type.startsWith("image/"))
+      .map((file) => ({ clave: crypto.randomUUID(), file, preview: URL.createObjectURL(file) }));
+    setFotosPendientes((prev) => [...prev, ...nuevas]);
+  };
+
+  const quitarPendiente = (clave: string) => {
+    setFotosPendientes((prev) => {
+      const quitada = prev.find((f) => f.clave === clave);
+      if (quitada) URL.revokeObjectURL(quitada.preview);
+      return prev.filter((f) => f.clave !== clave);
+    });
+  };
 
   const toggleRubro = (rubroId: string) => {
     setForm((prev) => ({
@@ -239,6 +268,21 @@ export default function SeccionBitacora({ proyectoId }: Props) {
         if (esEdicion) return prev.map((e) => (e.id === data.id ? data : e));
         return [data, ...prev];
       });
+      if (fotosPendientes.length > 0) {
+        const subidas = await subirFotos(data.id, fotosPendientes.map((f) => f.file));
+        if (subidas < fotosPendientes.length) {
+          // La entrada quedó guardada; el modal pasa a edición de esa
+          // entrada y conserva solo las fotos que faltan, para reintentar
+          // sin duplicar las que ya llegaron.
+          liberarPendientes(fotosPendientes.slice(0, subidas));
+          setFotosPendientes(fotosPendientes.slice(subidas));
+          setFormularioAbierto(data.id);
+          setErrorFotos("La entrada se guardó, pero no se pudieron subir todas las fotos. Probá de nuevo.");
+          return;
+        }
+      }
+      liberarPendientes(fotosPendientes);
+      setFotosPendientes([]);
       setFormularioAbierto(null);
     } catch (err) {
       console.error("[bitacora] error guardando entrada", err);
@@ -248,46 +292,55 @@ export default function SeccionBitacora({ proyectoId }: Props) {
   };
 
   /* ── Expandir entrada / fotos ──────────────────────────── */
-  const toggleEntrada = useCallback(
-    async (entradaId: string) => {
-      if (entradaAbiertaId === entradaId) {
-        setEntradaAbiertaId(null);
-        return;
-      }
-      setEntradaAbiertaId(entradaId);
-      if (fotosPorEntrada[entradaId]) return;
-      try {
-        const res = await fetch(`/api/proyectos/${proyectoId}/bitacora/${entradaId}/fotos`);
-        const data = await res.json();
-        setFotosPorEntrada((prev) => ({ ...prev, [entradaId]: Array.isArray(data.fotos) ? data.fotos : [] }));
-      } catch (err) {
-        console.error("[bitacora] error cargando fotos", err);
-      }
-    },
-    [entradaAbiertaId, fotosPorEntrada, proyectoId]
-  );
+  const cargarFotos = async (entradaId: string) => {
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/bitacora/${entradaId}/fotos`);
+      const data = await res.json();
+      setFotosPorEntrada((prev) => ({ ...prev, [entradaId]: Array.isArray(data.fotos) ? data.fotos : [] }));
+    } catch (err) {
+      console.error("[bitacora] error cargando fotos", err);
+    }
+  };
 
-  const subirFotos = async (entradaId: string, files: FileList) => {
-    if (files.length === 0) return;
+  const toggleEntrada = async (entradaId: string) => {
+    if (entradaAbiertaId === entradaId) {
+      setEntradaAbiertaId(null);
+      return;
+    }
+    setEntradaAbiertaId(entradaId);
+    if (!fotosPorEntrada[entradaId]) await cargarFotos(entradaId);
+  };
+
+  // Sube de a una foto (ya reducida, ver lib/reducirFotoObra.ts) para que
+  // cada pedido quede chico con señal de obra. Devuelve cuántas llegaron
+  // (en orden): si una falla se corta ahí, y las anteriores quedan guardadas.
+  const subirFotos = async (entradaId: string, files: File[]): Promise<number> => {
+    const imagenes = files.filter((f) => f.type.startsWith("image/"));
+    let subidas = 0;
+    if (imagenes.length === 0) return subidas;
     setSubiendoFotos((prev) => ({ ...prev, [entradaId]: true }));
     try {
-      const fotos = await Promise.all(Array.from(files).map(fileToBase64));
-      const res = await fetch(`/api/proyectos/${proyectoId}/bitacora/${entradaId}/fotos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fotos }),
-      });
-      if (!res.ok) throw new Error("No se pudo subir");
-      const data = await res.json();
-      setFotosPorEntrada((prev) => ({ ...prev, [entradaId]: data.fotos }));
-      setEntradas((prev) =>
-        prev.map((e) => (e.id === entradaId ? { ...e, _count: { fotos: data.fotos.length } } : e))
-      );
+      for (const file of imagenes) {
+        const foto = await reducirFotoObra(file);
+        const res = await fetch(`/api/proyectos/${proyectoId}/bitacora/${entradaId}/fotos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fotos: [foto] }),
+        });
+        if (!res.ok) throw new Error("No se pudo subir");
+        const data = await res.json();
+        setFotosPorEntrada((prev) => ({ ...prev, [entradaId]: data.fotos }));
+        setEntradas((prev) =>
+          prev.map((e) => (e.id === entradaId ? { ...e, _count: { fotos: data.fotos.length } } : e))
+        );
+        subidas++;
+      }
     } catch (err) {
       console.error("[bitacora] error subiendo fotos", err);
     } finally {
       setSubiendoFotos((prev) => ({ ...prev, [entradaId]: false }));
     }
+    return subidas;
   };
 
   const eliminarFoto = async (entradaId: string, fotoId: string) => {
@@ -370,7 +423,7 @@ export default function SeccionBitacora({ proyectoId }: Props) {
                       subiendo={subiendoFotos[entrada.id] ?? false}
                       onToggle={() => toggleEntrada(entrada.id)}
                       onEditar={() => abrirEdicion(entrada)}
-                      onSubirFotos={(files) => subirFotos(entrada.id, files)}
+                      onSubirFotos={(files) => subirFotos(entrada.id, Array.from(files))}
                       onEliminarFoto={(fotoId) => eliminarFoto(entrada.id, fotoId)}
                     />
                   ))}
@@ -393,6 +446,14 @@ export default function SeccionBitacora({ proyectoId }: Props) {
             rubrosPorCapitulo={rubrosPorCapitulo}
             cargandoRubros={cargandoRubros}
             onToggleRubro={toggleRubro}
+            fotosGuardadas={formularioAbierto !== "nueva" ? fotosPorEntrada[formularioAbierto] ?? [] : []}
+            fotosPendientes={fotosPendientes}
+            errorFotos={errorFotos}
+            onAgregarFotos={agregarPendientes}
+            onQuitarPendiente={quitarPendiente}
+            onEliminarFotoGuardada={(fotoId) => {
+              if (formularioAbierto !== "nueva") eliminarFoto(formularioAbierto, fotoId);
+            }}
             onGuardar={guardar}
             onCerrar={cerrarFormulario}
           />
@@ -570,6 +631,12 @@ function FormularioEntrada({
   rubrosPorCapitulo,
   cargandoRubros,
   onToggleRubro,
+  fotosGuardadas,
+  fotosPendientes,
+  errorFotos,
+  onAgregarFotos,
+  onQuitarPendiente,
+  onEliminarFotoGuardada,
   onGuardar,
   onCerrar,
 }: {
@@ -581,6 +648,12 @@ function FormularioEntrada({
   rubrosPorCapitulo: Map<string, RubroDisponible[]>;
   cargandoRubros: boolean;
   onToggleRubro: (rubroId: string) => void;
+  fotosGuardadas: FotoBitacora[];
+  fotosPendientes: FotoPendiente[];
+  errorFotos: string | null;
+  onAgregarFotos: (files: FileList) => void;
+  onQuitarPendiente: (clave: string) => void;
+  onEliminarFotoGuardada: (fotoId: string) => void;
   onGuardar: () => void;
   onCerrar: () => void;
 }) {
@@ -647,6 +720,41 @@ function FormularioEntrada({
             />
           </div>
 
+          <div>
+            <label className={labelCls}>Fotos</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {fotosGuardadas.map((foto) => (
+                <MiniaturaFoto key={foto.id} src={foto.url} onQuitar={() => onEliminarFotoGuardada(foto.id)} />
+              ))}
+              {fotosPendientes.map((f) => (
+                <MiniaturaFoto key={f.clave} src={f.preview} pendiente onQuitar={() => onQuitarPendiente(f.clave)} />
+              ))}
+              <label className="flex flex-col items-center justify-center gap-1 w-20 h-20 rounded-[8px] border border-dashed border-slate-300 text-slate-400 hover:text-[#2563EB] hover:border-[#2563EB] hover:bg-[#EFF6FF] transition-colors cursor-pointer flex-shrink-0">
+                <Camera className="w-5 h-5" />
+                <span className="text-[10px] font-semibold">Agregar fotos</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={guardando}
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) onAgregarFotos(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            {fotosPendientes.length > 0 && (
+              <p className="text-[11px] text-slate-400 mt-1.5">
+                {fotosPendientes.length === 1
+                  ? "1 foto nueva se sube al guardar."
+                  : `${fotosPendientes.length} fotos nuevas se suben al guardar.`}
+              </p>
+            )}
+            {errorFotos && <p className="text-[11px] text-red-600 mt-1.5">{errorFotos}</p>}
+          </div>
+
           <CampoTextarea label="Personal presente" value={form.personalPresente} onChange={(v) => set("personalPresente", v)} placeholder="ej: 2 oficiales albañiles, 3 peones" />
           <CampoTextarea label="Trabajos realizados" value={form.trabajosRealizados} onChange={(v) => set("trabajosRealizados", v)} />
           <CampoTextarea label="Materiales recibidos" value={form.materialesRecibidos} onChange={(v) => set("materialesRecibidos", v)} />
@@ -703,11 +811,38 @@ function FormularioEntrada({
             disabled={guardando || !form.clima.trim()}
             className="flex-1 py-2.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-50"
           >
-            {guardando ? "Guardando…" : esEdicion ? "Guardar cambios" : "Crear entrada"}
+            {guardando
+              ? fotosPendientes.length > 0
+                ? "Subiendo fotos…"
+                : "Guardando…"
+              : esEdicion
+                ? "Guardar cambios"
+                : "Crear entrada"}
           </button>
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+function MiniaturaFoto({ src, pendiente, onQuitar }: { src: string; pendiente?: boolean; onQuitar: () => void }) {
+  return (
+    <div className="relative group w-20 h-20 rounded-[8px] overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-50">
+      <img src={src} alt="Foto de bitácora" className="w-full h-full object-cover" />
+      {pendiente && (
+        <span className="absolute bottom-1 left-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-white/90 text-[#2563EB]">
+          Nueva
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onQuitar}
+        className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+        title="Quitar foto"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </div>
   );
 }
 
