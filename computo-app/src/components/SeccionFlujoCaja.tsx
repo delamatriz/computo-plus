@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Wallet, ChevronDown, ChevronRight, Plus, Pencil, X } from "lucide-react";
+import { Wallet, ChevronDown, ChevronRight, Plus, Pencil, X, Paperclip, FileText, Link2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
 import { CATEGORIAS_EGRESO, SIN_CATEGORIA, categoriasDe } from "@/lib/categoriasCaja";
+import { reducirFotoObra } from "@/lib/reducirFotoObra";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_TIPO = ["Ingreso", "Egreso"] as const;
@@ -20,6 +21,33 @@ interface Movimiento {
   monto: number;
   moneda: string;
   categoria: string | null;
+  referencia: string | null;
+  comprobanteNombreArchivo: string | null;
+  ordenCompra: { id: string; proveedor: string } | null;
+  subcontratista: { id: string; empresa: string } | null;
+  certificacion: { id: string; numero: number; nombre: string } | null;
+}
+
+// Entidades a las que se puede vincular un movimiento (ver
+// lib/vinculoMovimientoCaja.ts): valor del select = "tipo:id".
+interface OpcionVinculo {
+  valor: string;
+  etiqueta: string;
+  paraTipo: Tipo;
+}
+
+function valorVinculo(m: Movimiento): string {
+  if (m.ordenCompra) return `ordenCompra:${m.ordenCompra.id}`;
+  if (m.subcontratista) return `subcontratista:${m.subcontratista.id}`;
+  if (m.certificacion) return `certificacion:${m.certificacion.id}`;
+  return "";
+}
+
+function etiquetaVinculo(m: Movimiento): string | null {
+  if (m.ordenCompra) return `OC — ${m.ordenCompra.proveedor}`;
+  if (m.subcontratista) return `Subcontrato — ${m.subcontratista.empresa}`;
+  if (m.certificacion) return `Cert. Nº${m.certificacion.numero}`;
+  return null;
 }
 
 interface Props {
@@ -47,10 +75,21 @@ type FormState = {
   concepto: string;
   monto: string;
   moneda: "UYU" | "USD";
+  referencia: string;
+  vinculo: string; // "tipo:id" o ""
 };
 
 function formVacio(): FormState {
-  return { tipo: "Egreso", categoria: "", fecha: hoyUruguayISO(), concepto: "", monto: "", moneda: "UYU" };
+  return {
+    tipo: "Egreso",
+    categoria: "",
+    fecha: hoyUruguayISO(),
+    concepto: "",
+    monto: "",
+    moneda: "UYU",
+    referencia: "",
+    vinculo: "",
+  };
 }
 
 function formDesdeMovimiento(m: Movimiento): FormState {
@@ -61,6 +100,8 @@ function formDesdeMovimiento(m: Movimiento): FormState {
     concepto: m.concepto,
     monto: String(m.monto),
     moneda: m.moneda === "USD" ? "USD" : "UYU",
+    referencia: m.referencia ?? "",
+    vinculo: valorVinculo(m),
   };
 }
 
@@ -79,6 +120,7 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
   const [formularioAbierto, setFormularioAbierto] = useState<"nuevo" | string | null>(null);
   const [form, setForm] = useState<FormState>(formVacio());
   const [guardando, setGuardando] = useState(false);
+  const [opcionesVinculo, setOpcionesVinculo] = useState<OpcionVinculo[] | null>(null);
 
   const cargarLista = useCallback(async () => {
     try {
@@ -97,14 +139,48 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
     if (!cargado) cargarLista();
   };
 
+  // Órdenes, subcontratos y certificaciones del proyecto, para el select
+  // "Vinculado a" del formulario (se cargan la primera vez que se abre).
+  const cargarOpcionesVinculo = useCallback(async () => {
+    try {
+      const [oc, sub, cert] = await Promise.all(
+        ["ordenes-compra", "subcontratistas", "certificaciones"].map((r) =>
+          fetch(`/api/proyectos/${proyectoId}/${r}`).then((x) => (x.ok ? x.json() : []))
+        )
+      );
+      setOpcionesVinculo([
+        ...(Array.isArray(oc) ? oc : []).map((o: { id: string; proveedor: string }) => ({
+          valor: `ordenCompra:${o.id}`,
+          etiqueta: `Orden de compra — ${o.proveedor}`,
+          paraTipo: "Egreso" as Tipo,
+        })),
+        ...(Array.isArray(sub) ? sub : []).map((x: { id: string; empresa: string }) => ({
+          valor: `subcontratista:${x.id}`,
+          etiqueta: `Subcontratista — ${x.empresa}`,
+          paraTipo: "Egreso" as Tipo,
+        })),
+        ...(Array.isArray(cert) ? cert : []).map((c: { id: string; numero: number }) => ({
+          valor: `certificacion:${c.id}`,
+          etiqueta: `Certificación Nº${c.numero}`,
+          paraTipo: "Ingreso" as Tipo,
+        })),
+      ]);
+    } catch (err) {
+      console.error("[flujo-caja] error cargando entidades para vincular", err);
+      setOpcionesVinculo([]);
+    }
+  }, [proyectoId]);
+
   const abrirNuevo = () => {
     setForm(formVacio());
     setFormularioAbierto("nuevo");
+    if (opcionesVinculo == null) cargarOpcionesVinculo();
   };
 
   const abrirEdicion = (mov: Movimiento) => {
     setForm(formDesdeMovimiento(mov));
     setFormularioAbierto(mov.id);
+    if (opcionesVinculo == null) cargarOpcionesVinculo();
   };
 
   const cerrarFormulario = () => setFormularioAbierto(null);
@@ -117,7 +193,13 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
       const url = esEdicion
         ? `/api/proyectos/${proyectoId}/flujo-caja/${formularioAbierto}`
         : `/api/proyectos/${proyectoId}/flujo-caja`;
-      const body = { ...form, monto: Number(form.monto), categoria: form.categoria || null };
+      const [tipoVinculo, idVinculo] = form.vinculo.split(":");
+      const body = {
+        ...form,
+        monto: Number(form.monto),
+        categoria: form.categoria || null,
+        vinculo: form.vinculo ? { tipo: tipoVinculo, id: idVinculo } : null,
+      };
       const res = await fetch(url, {
         method: esEdicion ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -223,6 +305,7 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
                     {filas.map(({ mov, saldoDespues }) => (
                       <FilaMovimiento
                         key={mov.id}
+                        proyectoId={proyectoId}
                         mov={mov}
                         saldoDespues={saldoDespues}
                         onEditar={() => abrirEdicion(mov)}
@@ -288,6 +371,7 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
             setForm={setForm}
             esEdicion={formularioAbierto !== "nuevo"}
             guardando={guardando}
+            opcionesVinculo={opcionesVinculo}
             onGuardar={guardar}
             onCerrar={cerrarFormulario}
           />
@@ -330,15 +414,65 @@ function SaldoStack({
 
 /* ─── Fila de movimiento ───────────────────────────────────── */
 function FilaMovimiento({
+  proyectoId,
   mov,
   saldoDespues,
   onEditar,
 }: {
+  proyectoId: string;
   mov: Movimiento;
   saldoDespues: SaldoPorMoneda;
   onEditar: () => void;
 }) {
   const esIngreso = mov.tipo === "Ingreso";
+  const vinculo = etiquetaVinculo(mov);
+  // Comprobante: se sube desde la fila (el movimiento ya existe), mismo
+  // patrón que el remito de las órdenes de compra.
+  const urlComprobante = `/api/proyectos/${proyectoId}/flujo-caja/${mov.id}/comprobante`;
+  const [comprobante, setComprobante] = useState<string | null>(mov.comprobanteNombreArchivo);
+  const [subiendo, setSubiendo] = useState(false);
+  const [errorComprobante, setErrorComprobante] = useState(false);
+
+  const subirComprobante = async (file: File) => {
+    setSubiendo(true);
+    setErrorComprobante(false);
+    try {
+      const esImagen = file.type.startsWith("image/");
+      const archivo = esImagen
+        ? await reducirFotoObra(file)
+        : await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result as string);
+            r.onerror = reject;
+            r.readAsDataURL(file);
+          });
+      const nombre = esImagen ? file.name.replace(/\.[^.]+$/, "") + ".jpg" : file.name;
+      const res = await fetch(urlComprobante, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archivo, nombreArchivoOriginal: nombre }),
+      });
+      if (!res.ok) throw new Error("No se pudo subir");
+      setComprobante(nombre);
+    } catch (err) {
+      console.error("[flujo-caja] error subiendo comprobante", err);
+      setErrorComprobante(true);
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
+  const quitarComprobante = async () => {
+    const anterior = comprobante;
+    setComprobante(null);
+    try {
+      const res = await fetch(urlComprobante, { method: "DELETE" });
+      if (!res.ok) throw new Error("No se pudo quitar");
+    } catch (err) {
+      console.error("[flujo-caja] error quitando comprobante", err);
+      setComprobante(anterior);
+    }
+  };
   return (
     <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
@@ -360,6 +494,58 @@ function FilaMovimiento({
             <span className="text-[11px] text-slate-400">{fmtFecha(mov.fecha)}</span>
           </div>
           <p className="text-sm text-slate-700 font-medium mt-1">{mov.concepto}</p>
+          {(mov.referencia || vinculo) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+              {mov.referencia && <span className="text-[11px] text-slate-500">Ref. {mov.referencia}</span>}
+              {vinculo && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-[#2563EB]">
+                  <Link2 className="w-3 h-3" /> {vinculo}
+                </span>
+              )}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            {comprobante ? (
+              <>
+                <a
+                  href={urlComprobante}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2563EB] hover:underline"
+                >
+                  <FileText className="w-3.5 h-3.5" /> {comprobante}
+                </a>
+                <button
+                  onClick={quitarComprobante}
+                  className="text-slate-300 hover:text-red-500 transition-colors"
+                  title="Quitar comprobante"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <label
+                className={cn(
+                  "inline-flex items-center gap-1 text-[11px] font-semibold",
+                  subiendo ? "text-slate-400 cursor-wait" : "text-slate-500 hover:text-[#2563EB] cursor-pointer"
+                )}
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+                {subiendo ? "Subiendo…" : "Adjuntar comprobante"}
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  disabled={subiendo}
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) subirComprobante(e.target.files[0]);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+            {errorComprobante && <span className="text-[11px] text-red-600">No se pudo subir. Probá de nuevo.</span>}
+          </div>
         </div>
 
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -390,6 +576,7 @@ function FormularioMovimiento({
   setForm,
   esEdicion,
   guardando,
+  opcionesVinculo,
   onGuardar,
   onCerrar,
 }: {
@@ -397,6 +584,7 @@ function FormularioMovimiento({
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   esEdicion: boolean;
   guardando: boolean;
+  opcionesVinculo: OpcionVinculo[] | null;
   onGuardar: () => void;
   onCerrar: () => void;
 }) {
@@ -445,6 +633,9 @@ function FormularioMovimiento({
                       ...prev,
                       tipo: op,
                       categoria: categoriasDe(op).includes(prev.categoria) ? prev.categoria : "",
+                      // El vínculo depende del tipo (egreso: OC / subcontrato; ingreso: certificación).
+                      vinculo:
+                        opcionesVinculo?.find((o) => o.valor === prev.vinculo)?.paraTipo === op ? prev.vinculo : "",
                     }))
                   }
                   className={cn(
@@ -499,6 +690,32 @@ function FormularioMovimiento({
               placeholder="ej: Anticipo del cliente, Pago a subcontratista"
               className={inputCls}
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Referencia (opcional)</label>
+              <input
+                type="text"
+                value={form.referencia}
+                onChange={(e) => set("referencia", e.target.value)}
+                placeholder="Nº de factura o transferencia"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Vinculado a (opcional)</label>
+              <select value={form.vinculo} onChange={(e) => set("vinculo", e.target.value)} className={inputCls}>
+                <option value="">{opcionesVinculo == null ? "Cargando…" : "Sin vincular"}</option>
+                {(opcionesVinculo ?? [])
+                  .filter((o) => o.paraTipo === form.tipo)
+                  .map((o) => (
+                    <option key={o.valor} value={o.valor}>
+                      {o.etiqueta}
+                    </option>
+                  ))}
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">

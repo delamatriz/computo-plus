@@ -50,8 +50,22 @@ export async function PUT(
       fecha?: string;
       observaciones?: string;
     };
+    const { fechaPresentacion, fechaCobroPrevisto } = body as {
+      fechaPresentacion?: string | null;
+      fechaCobroPrevisto?: string | null;
+    };
 
-    const data: { nombre?: string; fecha?: Date; observaciones?: string } = {};
+    const data: {
+      nombre?: string;
+      fecha?: Date;
+      observaciones?: string;
+      fechaPresentacion?: Date | null;
+      fechaCobroPrevisto?: Date | null;
+    } = {};
+    // Fechas "solo día" opcionales: string = se carga, null/"" = se borra.
+    const fechaDia = (v: string | null) => (v ? new Date(`${v.slice(0, 10)}T00:00:00Z`) : null);
+    if (fechaPresentacion !== undefined) data.fechaPresentacion = fechaDia(fechaPresentacion);
+    if (fechaCobroPrevisto !== undefined) data.fechaCobroPrevisto = fechaDia(fechaCobroPrevisto);
     if (typeof nombre === "string") data.nombre = nombre;
     if (typeof fecha === "string") data.fecha = new Date(fecha);
     if (typeof observaciones === "string") data.observaciones = observaciones;

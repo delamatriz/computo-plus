@@ -35,6 +35,8 @@ interface CertificacionResumen {
   numero: number;
   nombre: string;
   fecha: string;
+  fechaPresentacion?: string | null;
+  fechaCobroPrevisto?: string | null;
   observaciones: string;
   items: { id: string; rubroId: string; porcentajeAvance: number; cantidadEjecutada: number | null }[];
 }
@@ -130,6 +132,13 @@ function TarjetaCertificacion({
         </span>
       </div>
       <p className="text-[11px] text-slate-400 mt-0.5">{fmtFecha(cert.fecha)}</p>
+      {(cert.fechaPresentacion || cert.fechaCobroPrevisto) && (
+        <p className="text-[10px] text-slate-500 mt-0.5">
+          {cert.fechaPresentacion ? `Presentada ${fmtFecha(cert.fechaPresentacion)}` : ""}
+          {cert.fechaPresentacion && cert.fechaCobroPrevisto ? " · " : ""}
+          {cert.fechaCobroPrevisto ? `Cobro previsto ${fmtFecha(cert.fechaCobroPrevisto)}` : ""}
+        </p>
+      )}
       <div className="flex items-center justify-between mt-2">
         <span className="text-sm font-semibold tabular-nums text-[#2563EB]">{fmtMoneda(monto, moneda)}</span>
         <span className="text-[11px] text-slate-400 tabular-nums">{fmtNum(pctDelTotal, 1)}% del total</span>
@@ -352,6 +361,23 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
       );
     } catch (err) {
       console.error("[certificaciones] error guardando campo", err);
+    }
+  };
+
+  /* ── Fechas del cobro (presentación / cobro previsto) ──── */
+  const guardarFechaCobro = async (campo: "fechaPresentacion" | "fechaCobroPrevisto", valor: string) => {
+    if (!detalle) return;
+    const iso = valor ? `${valor}T00:00:00.000Z` : null;
+    setDetalle({ ...detalle, [campo]: iso });
+    setCertificaciones((prev) => prev.map((c) => (c.id === detalle.id ? { ...c, [campo]: iso } : c)));
+    try {
+      await fetch(`/api/proyectos/${proyectoId}/certificaciones/${detalle.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [campo]: valor || null }),
+      });
+    } catch (err) {
+      console.error("[certificaciones] error guardando fecha de cobro", err);
     }
   };
 
@@ -695,6 +721,30 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                         </div>
                       </div>
 
+                      {/* Ciclo de cobro: presentación al comitente y cobro previsto */}
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 border-b border-slate-200 bg-white">
+                        {(
+                          [
+                            ["fechaPresentacion", "Presentada al comitente"],
+                            ["fechaCobroPrevisto", "Cobro previsto"],
+                          ] as const
+                        ).map(([campo, label]) => (
+                          <label key={campo} className="flex items-center gap-2 text-xs text-slate-500">
+                            {label}
+                            <input
+                              type="date"
+                              key={`${detalle.id}-${detalle[campo] ?? ""}`}
+                              defaultValue={detalle[campo] ? detalle[campo]!.slice(0, 10) : ""}
+                              onBlur={(e) => {
+                                const actual = detalle[campo] ? detalle[campo]!.slice(0, 10) : "";
+                                if (e.target.value !== actual) guardarFechaCobro(campo, e.target.value);
+                              }}
+                              className="text-xs text-slate-700 bg-white border border-slate-200 rounded-[6px] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                            />
+                          </label>
+                        ))}
+                      </div>
+
                       {/* Tabla de rubros */}
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs border-collapse">
@@ -821,7 +871,7 @@ function FragmentoCapitulo({
         return (
           <Fragment key={it.id}>
             <tr className="border-b border-slate-50" style={{ height: 32 }}>
-              <td className="pl-4 pr-2 text-slate-700 truncate max-w-[220px]">{r.descripcion}</td>
+              <td className="pl-4 pr-2 text-slate-700 truncate max-w-[220px]" title={r.descripcion}>{r.descripcion}</td>
               <td className="text-center text-slate-500">{r.unidad}</td>
               <td className="text-right pr-2 tabular-nums text-slate-600">{fmtNum(r.cantidad)}</td>
               <td className="text-right pr-2 tabular-nums text-slate-500">{r.precioUnit ? fmtMoneda(r.precioUnit, moneda) : "—"}</td>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirProyecto } from "@/lib/sesion";
 import { validarCategoria } from "@/lib/categoriasCaja";
+import { leerVinculoCaja, INCLUDE_VINCULO_CAJA } from "@/lib/vinculoMovimientoCaja";
 
 const TIPOS_VALIDOS = ["Ingreso", "Egreso"];
 
@@ -24,6 +25,7 @@ export async function PATCH(
       moneda?: string;
       categoria?: unknown;
     };
+    const { referencia, vinculo } = body as { referencia?: unknown; vinculo?: unknown };
 
     if (!tipo || !TIPOS_VALIDOS.includes(tipo)) {
       return NextResponse.json({ error: "Tipo inválido" }, { status: 400 });
@@ -41,6 +43,10 @@ export async function PATCH(
     if (categoriaValida === undefined) {
       return NextResponse.json({ error: "Categoría inválida para ese tipo" }, { status: 400 });
     }
+    const vinculoValido = await leerVinculoCaja(id, tipo, vinculo);
+    if (typeof vinculoValido === "string") {
+      return NextResponse.json({ error: vinculoValido }, { status: 400 });
+    }
 
     const existente = await db.movimientoCaja.findFirst({ where: { id: movId, proyectoId: id } });
     if (!existente) {
@@ -56,7 +62,10 @@ export async function PATCH(
         monto,
         moneda: moneda === "USD" ? "USD" : "UYU",
         categoria: categoriaValida,
+        referencia: typeof referencia === "string" && referencia.trim() ? referencia.trim() : null,
+        ...vinculoValido,
       },
+      include: INCLUDE_VINCULO_CAJA,
     });
 
     return NextResponse.json(movimiento);
