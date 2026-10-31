@@ -131,6 +131,7 @@ model Proyecto {
   ordenesCompra     OrdenCompra[]
   contrato          ContratoObra?
   tramitesLegales   TramiteLegal[]
+  jornalesPagados   JornalPagado[]
   movimientosCaja   MovimientoCaja[]
   actaCierre        ActaCierre?
   liquidacionFinal  LiquidacionFinal?
@@ -580,8 +581,44 @@ model PersonalObra {
   telefono            String?
   activo              Boolean @default(true)
 
+  jornalesPagados JornalPagado[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Planilla de Jornales / Mano de Obra Ejecutada (Gestión de Obra, "Control
+// Económico y Administrativo"): lo que se le paga de verdad a cada obrero,
+// semana a semana. Es la contabilidad real de la mano de obra — distinta de
+// Mano de Obra del presupuesto (APU), que es lo estimado.
+//
+// Total bruto (diasTrabajados × jornal) y aportes (bruto ×
+// aportesPatronalesPct) no se guardan: se calculan. categoria y
+// aportesPatronalesPct son snapshot al registrar, para que un cambio
+// posterior en CategoriaLaboral o en Leyes Sociales no reescriba pagos ya
+// hechos. Sin onDelete en personalObra a propósito (RESTRICT): PersonalObra
+// no se borra (se desactiva), y si algún día se borrara, la base protege los
+// pagos registrados.
+model JornalPagado {
+  id         String   @id @default(cuid())
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  personalObraId String
+  personalObra   PersonalObra @relation(fields: [personalObraId], references: [id])
+
+  semana               DateTime // lunes de la semana, fecha "solo día" (medianoche UTC)
+  diasTrabajados       Float    @default(0)
+  jornal               Float // jornal diario pagado en ese período, en pesos
+  categoria            String // snapshot del nombre de la categoría laboral
+  aportesPatronalesPct Float // snapshot, en puntos porcentuales (6,4191 = 6,4191%)
+  observaciones        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([proyectoId, personalObraId, semana])
+  @@index([proyectoId, semana])
 }
 
 // Subcontratistas/gremios de la obra (Gestión de Obra, "Ejecución y

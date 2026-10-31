@@ -56,6 +56,7 @@ import SeccionEstimacionCalculoRapido from "@/components/SeccionEstimacionCalcul
 import SeccionDiasDeObra from "@/components/SeccionDiasDeObra";
 import SeccionMaterialesManoObra from "@/components/SeccionMaterialesManoObra";
 import SeccionCertificaciones from "@/components/SeccionCertificaciones";
+import SeccionPlanillaJornales from "@/components/SeccionPlanillaJornales";
 import SeccionBitacora from "@/components/SeccionBitacora";
 import SeccionPersonalObra from "@/components/SeccionPersonalObra";
 import SeccionSubcontratistas from "@/components/SeccionSubcontratistas";
@@ -6737,6 +6738,7 @@ export default function ProyectoPage() {
               totalGeneral={totalGeneral}
               capitulos={capitulos.map((c) => ({ id: c.id, nombre: c.nombre }))}
             />
+            <SeccionPlanillaJornales proyectoId={proyectoActivo.id} />
             <SeccionControlCostos
               proyectoId={proyectoActivo.id}
               moneda={moneda}
