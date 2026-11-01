@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Package, Search, Upload, Loader2, Pencil } from "lucide-react";
 import { ListaReferencias, type ReferenciaLink } from "@/components/ListaReferencias";
@@ -66,7 +66,17 @@ interface MaterialCatalogo {
   requiereVerificacion: boolean;
   motivoVerificacion: string | null;
   empresaId: string | null;
+  importacionId: string | null;
   actualizadoEn: string;
+}
+
+// Filtro "Proveedores": materiales de una lista de proveedor importada — del
+// catálogo global (la importa el SUPERADMIN) o de la propia empresa (la
+// importa su ADMIN). La Lista Oficial MTOP también se importa, pero sin
+// proveedor, y los precios sueltos verificados uno a uno no tienen
+// importación: ninguno de los dos entra.
+function esListaImportada(m: MaterialCatalogo): boolean {
+  return !!m.empresaId || (!!m.importacionId && !!m.proveedor);
 }
 
 function fmtMon(v: number): string {
@@ -192,6 +202,8 @@ function MaterialesPageInner() {
   const [filtroReferencia, setFiltroReferencia] = useState(false);
   const [filtroFuenteMTOP, setFiltroFuenteMTOP] = useState(false);
   const [filtroMisFuentes, setFiltroMisFuentes] = useState(false);
+  // Proveedor elegido dentro del filtro "Proveedores" (null = todos).
+  const [proveedorElegido, setProveedorElegido] = useState<string | null>(null);
   // Se aplica una sola vez, apenas cargan los materiales — ver el efecto
   // más abajo que decide si corresponde prender filtroPendiente.
   const filtroAutoAplicado = useRef(false);
@@ -331,7 +343,12 @@ function MaterialesPageInner() {
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    return materiales.filter((m) => {
+    // Proveedor elegido en "Proveedores", solo si todavía tiene lista importada.
+    const elegido =
+      proveedorElegido && materiales.some((x) => esListaImportada(x) && x.proveedor === proveedorElegido)
+        ? proveedorElegido
+        : null;
+    const lista = materiales.filter((m) => {
       if (q && !m.descripcion.toLowerCase().includes(q)) return false;
       if (filtroSinPrecio && m.precioUnitario > 0) return false;
       if (filtroPendiente && !esPendiente(m)) return false;
@@ -339,10 +356,16 @@ function MaterialesPageInner() {
       if (filtroEstimados && !esEstimado(m)) return false;
       if (filtroReferencia && !CODIGOS_MATERIALES_REFERENCIA.has(m.codigo)) return false;
       if (filtroFuenteMTOP && !esFuenteMTOP(m)) return false;
-      if (filtroMisFuentes && !m.empresaId) return false;
+      if (filtroMisFuentes && !esListaImportada(m)) return false;
+      if (filtroMisFuentes && elegido && m.proveedor !== elegido) return false;
       return true;
     });
+    // Agrupadas por proveedor (y dentro, por descripción como siempre).
+    return filtroMisFuentes
+      ? [...lista].sort((a, b) => (a.proveedor ?? "").localeCompare(b.proveedor ?? "", "es") || a.descripcion.localeCompare(b.descripcion, "es"))
+      : lista;
   }, [
+    proveedorElegido,
     materiales,
     busqueda,
     filtroSinPrecio,
@@ -360,7 +383,19 @@ function MaterialesPageInner() {
   const fechaMaxima = useMemo(() => calcularFechaMaxima(materiales), [materiales]);
   const cantidadEstimados = useMemo(() => materiales.filter(esEstimado).length, [materiales]);
   const cantidadFuenteMTOP = useMemo(() => materiales.filter(esFuenteMTOP).length, [materiales]);
-  const cantidadMisFuentes = useMemo(() => materiales.filter((m) => m.empresaId).length, [materiales]);
+  const cantidadMisFuentes = useMemo(() => materiales.filter(esListaImportada).length, [materiales]);
+  // Proveedores con lista importada y cuántos materiales tiene cada uno.
+  const proveedoresImportados = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const x of materiales) {
+      if (!esListaImportada(x)) continue;
+      const p = x.proveedor ?? "Sin proveedor";
+      m.set(p, (m.get(p) ?? 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "es"));
+  }, [materiales]);
+  // Si el proveedor elegido ya no tiene materiales (p. ej. se eliminó su lista), vuelve a "todos".
+  const proveedorVigente = proveedoresImportados.some(([p]) => p === proveedorElegido) ? proveedorElegido : null;
 
   return (
     <div className="p-8 max-w-6xl">
@@ -480,11 +515,33 @@ function MaterialesPageInner() {
           activo={filtroMisFuentes}
           onClick={() => setFiltroMisFuentes((p) => !p)}
           color="azul"
-          title="Materiales importados por tu empresa desde tus propias listas de precios"
+          title="Listas de precios de proveedores importadas al catálogo (las generales y las de tu empresa), agrupadas por proveedor"
         >
           Proveedores ({cantidadMisFuentes})
         </BotonFiltro>
       </div>
+
+      {/* Proveedores: un botón por proveedor con lista importada. */}
+      {filtroMisFuentes && proveedoresImportados.length > 0 && (
+        <div className="-mt-2 mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-400">Proveedor:</span>
+          {[[null, cantidadMisFuentes] as const, ...proveedoresImportados].map(([p, n]) => (
+            <button
+              key={p ?? "todos"}
+              onClick={() => setProveedorElegido(p)}
+              aria-pressed={proveedorVigente === p}
+              className={cn(
+                "px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors",
+                proveedorVigente === p
+                  ? "bg-[#1A3A5C] border-[#1A3A5C] text-white"
+                  : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+              )}
+            >
+              {p ?? "Todos"} <span className={proveedorVigente === p ? "text-white/70" : "text-slate-400"}>({n})</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Una leyenda por filtro activo (se pueden combinar). */}
       {(filtroSinPrecio || filtroPendiente || filtroRequiere || filtroEstimados || filtroReferencia) && (
@@ -573,7 +630,7 @@ function MaterialesPageInner() {
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((m) => {
+                {filtrados.map((m, i) => {
                   const fuente: FuenteMaterial = {
                     proveedor: m.proveedor,
                     notaProcedencia: m.notaProcedencia,
@@ -585,8 +642,21 @@ function MaterialesPageInner() {
                   };
                   const fecha = fechaColumna(m);
                   const fuenteTexto = textoFuente(m);
+                  // Con "Proveedores" activo, un encabezado por proveedor.
+                  const nuevoGrupo = filtroMisFuentes && (i === 0 || filtrados[i - 1].proveedor !== m.proveedor);
                   return (
-                    <tr key={m.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
+                    <Fragment key={m.id}>
+                    {nuevoGrupo && (
+                      <tr className="bg-[#F0F4F8] border-b border-slate-200">
+                        <td colSpan={5} className="px-4 py-2 text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">
+                          {m.proveedor ?? "Sin proveedor"}
+                          <span className="ml-1.5 font-normal text-slate-500 normal-case">
+                            ({filtrados.filter((x) => x.proveedor === m.proveedor).length})
+                          </span>
+                        </td>
+                      </tr>
+                    )}
+                    <tr className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
                           <span className="text-slate-700">{m.descripcion}</span>
@@ -653,6 +723,7 @@ function MaterialesPageInner() {
                         </span>
                       </td>
                     </tr>
+                    </Fragment>
                   );
                 })}
               </tbody>

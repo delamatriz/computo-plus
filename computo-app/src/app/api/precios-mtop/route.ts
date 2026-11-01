@@ -38,6 +38,10 @@ const SELECT_CATALOGO_COMPLETO = {
   // consulta (el filtro "Proveedores" de /materiales). La consulta ya trae
   // solo lo global + lo de la propia empresa, no expone otras.
   empresaId: true,
+  // Importación que creó o actualizó el material (null = cargado a mano o por
+  // script) — el filtro "Proveedores" de /materiales muestra las listas
+  // importadas, agrupadas por proveedor.
+  importacionId: true,
   // Para la fecha general "Catálogo actualizado al" de /materiales —
   // @updatedAt, se toca en CUALQUIER escritura (corrección de precio,
   // importación, etc.), así que es la señal más completa de "última vez
