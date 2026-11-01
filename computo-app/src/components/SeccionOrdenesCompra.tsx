@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { reducirFotoObra } from "@/lib/reducirFotoObra";
 import { motion, AnimatePresence } from "framer-motion";
+import PagadoSaldo from "@/components/PagadoSaldo";
+import { cargarPagosPorVinculo, type PagosPorEntidad } from "@/lib/pagosCaja";
 import { cn } from "@/lib/utils";
 import type { FilaMaterialGlobal } from "@/lib/materialesGlobales";
 import { PALETA } from "@/lib/paletaPresupuesto";
@@ -159,14 +161,23 @@ export default function SeccionOrdenesCompra({ proyectoId, materialesGlobales }:
   const [form, setForm] = useState<FormState>(formVacio());
   const [guardando, setGuardando] = useState(false);
 
+  const [pagos, setPagos] = useState<PagosPorEntidad>({});
   const [capitulosDisponibles, setCapitulosDisponibles] = useState<CapituloDisponible[]>([]);
   const [cargandoCapitulos, setCargandoCapitulos] = useState(false);
 
   const cargarLista = useCallback(async () => {
     try {
-      const res = await fetch(`/api/proyectos/${proyectoId}/ordenes-compra`);
+      // Pagos vinculados en Flujo de Caja: si fallan, la lista igual se muestra.
+      const [res, pagosVinculados] = await Promise.all([
+        fetch(`/api/proyectos/${proyectoId}/ordenes-compra`),
+        cargarPagosPorVinculo(proyectoId, "ordenCompraId").catch((err) => {
+          console.error("[ordenes-compra] error cargando pagos", err);
+          return null;
+        }),
+      ]);
       const data = await res.json();
       setOrdenes(Array.isArray(data) ? data : []);
+      if (pagosVinculados) setPagos(pagosVinculados);
     } catch (err) {
       console.error("[ordenes-compra] error cargando lista", err);
     } finally {
@@ -174,9 +185,10 @@ export default function SeccionOrdenesCompra({ proyectoId, materialesGlobales }:
     }
   }, [proyectoId]);
 
+  // Se recarga en cada apertura: los pagos se cargan en Flujo de Caja.
   const abrirSeccion = () => {
+    if (!expandido) cargarLista();
     setExpandido((p) => !p);
-    if (!cargado) cargarLista();
   };
 
   const cargarCapitulos = useCallback(async () => {
@@ -335,14 +347,22 @@ export default function SeccionOrdenesCompra({ proyectoId, materialesGlobales }:
                 <Plus className="w-4 h-4" /> Agregar orden
               </button>
 
-              {ordenes.length === 0 ? (
+              {!cargado && ordenes.length === 0 ? (
+                <p className="text-xs text-slate-400 italic px-1 py-3">Cargando órdenes de compra…</p>
+              ) : ordenes.length === 0 ? (
                 <p className="text-xs text-slate-400 italic px-1 py-3">
                   Todavía no hay órdenes de compra registradas en este proyecto.
                 </p>
               ) : (
                 <div className="space-y-2">
                   {ordenes.map((orden) => (
-                    <FilaOrden key={orden.id} orden={orden} proyectoId={proyectoId} onEditar={() => abrirEdicion(orden)} />
+                    <FilaOrden
+                      key={orden.id}
+                      orden={orden}
+                      pagos={pagos[orden.id]}
+                      proyectoId={proyectoId}
+                      onEditar={() => abrirEdicion(orden)}
+                    />
                   ))}
                 </div>
               )}
@@ -377,10 +397,12 @@ export default function SeccionOrdenesCompra({ proyectoId, materialesGlobales }:
 /* ─── Fila de orden ────────────────────────────────────────── */
 function FilaOrden({
   orden,
+  pagos,
   proyectoId,
   onEditar,
 }: {
   orden: OrdenCompra;
+  pagos: Record<string, number> | undefined;
   proyectoId: string;
   onEditar: () => void;
 }) {
@@ -543,6 +565,9 @@ function FilaOrden({
         <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
           {orden.monto != null && (
             <span className="text-sm font-bold text-[#1A3A5C]">{fmtMonto(orden.monto, orden.moneda)}</span>
+          )}
+          {orden.monto != null && (orden.estado !== "Cancelado" || pagos) && (
+            <PagadoSaldo monto={orden.monto} moneda={orden.moneda} pagos={pagos} />
           )}
           <div className="flex items-center gap-3">
             <div className="relative">

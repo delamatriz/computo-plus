@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Wallet, ChevronDown, ChevronRight, Plus, Pencil, X, Paperclip, FileText, Link2 } from "lucide-react";
+import { Wallet, ChevronDown, ChevronRight, Plus, Pencil, X, Paperclip, FileText, Link2, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
-import { CATEGORIAS_EGRESO, SIN_CATEGORIA, categoriasDe } from "@/lib/categoriasCaja";
+import { CATEGORIAS_EGRESO, CATEGORIAS_INGRESO, SIN_CATEGORIA, categoriasDe } from "@/lib/categoriasCaja";
 import { reducirFotoObra } from "@/lib/reducirFotoObra";
 import CampoFecha from "@/components/CampoFecha";
 
@@ -63,7 +63,7 @@ function fmtFecha(iso: string): string {
 
 function fmtMoneda(v: number, moneda: string): string {
   const fmt = Math.round(Math.abs(v)).toLocaleString("es-UY");
-  const signo = v < 0 ? "-" : "";
+  const signo = v < 0 ? "−" : "";
   return `${signo}${moneda === "USD" ? "US$" : "$"} ${fmt}`;
 }
 
@@ -256,8 +256,46 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
       }
     }
     const egresosPorCategoria = [...porCategoria.entries()].filter(([, v]) => Object.values(v).some((x) => x !== 0));
-    return { ingresos, egresos, saldoFinal, egresosPorCategoria };
+    const porCategoriaIngreso = new Map<string, SaldoPorMoneda>(
+      [...CATEGORIAS_INGRESO, SIN_CATEGORIA].map((c) => [c, {}])
+    );
+    for (const mov of movimientos) {
+      if (mov.tipo !== "Ingreso") continue;
+      const cat = porCategoriaIngreso.get(mov.categoria ?? SIN_CATEGORIA) ?? porCategoriaIngreso.get(SIN_CATEGORIA)!;
+      cat[mov.moneda] = (cat[mov.moneda] ?? 0) + mov.monto;
+    }
+    const ingresosPorCategoria = [...porCategoriaIngreso.entries()].filter(([, v]) =>
+      Object.values(v).some((x) => x !== 0)
+    );
+    return { ingresos, egresos, saldoFinal, egresosPorCategoria, ingresosPorCategoria };
   }, [movimientos]);
+
+  // Por moneda: desde qué movimiento el saldo acumulado quedó en negativo
+  // (el primero de la racha que sigue hasta el final o hasta el mínimo) y su
+  // valor mínimo. Se informa arriba para que no haya que recorrer la lista.
+  const negativos = useMemo(() => {
+    // hasta = fecha en que el saldo volvió a cero o positivo (null: sigue negativo).
+    const r: { moneda: string; desde: string; hasta: string | null; minimo: number }[] = [];
+    const monedas = new Set(movimientos.map((m) => m.moneda));
+    for (const moneda of monedas) {
+      let racha: { desde: string; hasta: string | null; minimo: number } | null = null;
+      let peor: { desde: string; hasta: string | null; minimo: number } | null = null;
+      for (const { mov, saldoDespues } of filas) {
+        if (mov.moneda !== moneda) continue;
+        const v = saldoDespues[moneda] ?? 0;
+        if (v < 0) {
+          racha ??= { desde: mov.fecha, hasta: null, minimo: 0 };
+          racha.minimo = Math.min(racha.minimo, v);
+          if (!peor || racha.minimo < peor.minimo) peor = racha;
+        } else if (racha) {
+          racha.hasta = mov.fecha;
+          racha = null;
+        }
+      }
+      if (peor) r.push({ moneda, ...peor });
+    }
+    return r;
+  }, [movimientos, filas]);
 
   return (
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
@@ -302,19 +340,7 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
                 </p>
               ) : (
                 <>
-                  <div className="space-y-2">
-                    {filas.map(({ mov, saldoDespues }) => (
-                      <FilaMovimiento
-                        key={mov.id}
-                        proyectoId={proyectoId}
-                        mov={mov}
-                        saldoDespues={saldoDespues}
-                        onEditar={() => abrirEdicion(mov)}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Footer — totales */}
+                  {/* Totales — arriba, siempre a la vista */}
                   <div className="rounded-[10px] border-2 border-slate-300 bg-white px-3.5 py-3">
                     <p className="text-[10px] font-bold text-[#1A3A5C] uppercase tracking-wide mb-1.5">
                       Totales
@@ -333,6 +359,46 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
                         <SaldoStack saldo={totales.saldoFinal} />
                       </div>
                     </div>
+
+                    {negativos.length > 0 && (
+                      <div className="mt-2.5 flex items-start gap-2 px-3 py-2 rounded-[8px] bg-red-50 border border-red-200">
+                        <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-red-700">
+                          {negativos.map(({ moneda, desde, hasta, minimo }) => (
+                            <span key={moneda} className="block">
+                              {hasta
+                                ? `El saldo en ${moneda === "USD" ? "dólares" : "pesos"} estuvo negativo del ${fmtFecha(desde)} al ${fmtFecha(hasta)}`
+                                : `Saldo negativo en ${moneda === "USD" ? "dólares" : "pesos"} desde el ${fmtFecha(desde)}`}{" "}
+                              — mínimo <strong className="tabular-nums">{fmtMoneda(minimo, moneda)}</strong>.
+                            </span>
+                          ))}
+                        </p>
+                      </div>
+                    )}
+
+                    {totales.ingresosPorCategoria.length > 0 && (
+                      <div className="mt-2.5 pt-2.5 border-t border-slate-100">
+                        <p className="text-[10px] font-semibold text-slate-400 mb-1.5">Ingresos por categoría</p>
+                        <div className="space-y-1">
+                          {totales.ingresosPorCategoria.map(([cat, saldo]) => (
+                            <div key={cat} className="flex items-start justify-between gap-3">
+                              <span className={cn("text-xs", cat === SIN_CATEGORIA ? "text-slate-400 italic" : "text-slate-600")}>
+                                {cat}
+                              </span>
+                              <div className="text-right">
+                                {Object.entries(saldo)
+                                  .filter(([, v]) => v !== 0)
+                                  .map(([m, v]) => (
+                                    <p key={m} className="text-xs font-semibold tabular-nums text-emerald-700">
+                                      {fmtMoneda(v, m)}
+                                    </p>
+                                  ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {totales.egresosPorCategoria.length > 0 && (
                       <div className="mt-2.5 pt-2.5 border-t border-slate-100">
@@ -358,6 +424,18 @@ export default function SeccionFlujoCaja({ proyectoId }: Props) {
                       </div>
                     )}
                   </div>
+                  <div className="space-y-2">
+                    {filas.map(({ mov, saldoDespues }) => (
+                      <FilaMovimiento
+                        key={mov.id}
+                        proyectoId={proyectoId}
+                        mov={mov}
+                        saldoDespues={saldoDespues}
+                        onEditar={() => abrirEdicion(mov)}
+                      />
+                    ))}
+                  </div>
+
                 </>
               )}
             </div>
@@ -563,8 +641,20 @@ function FilaMovimiento({
         </div>
       </div>
 
-      <div className="mt-2 pt-2 border-t border-slate-100">
-        <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Saldo acumulado</p>
+      <div
+        className={cn(
+          "mt-2 pt-2 border-t",
+          (saldoDespues[mov.moneda] ?? 0) < 0 ? "border-red-100" : "border-slate-100"
+        )}
+      >
+        <p className="text-[10px] font-semibold text-slate-400 mb-0.5">
+          Saldo acumulado
+          {(saldoDespues[mov.moneda] ?? 0) < 0 && (
+            <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">
+              Negativo
+            </span>
+          )}
+        </p>
         <SaldoStack saldo={saldoDespues} />
       </div>
     </div>

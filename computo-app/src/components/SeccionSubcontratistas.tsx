@@ -3,6 +3,8 @@
 import { useState, useCallback, useMemo } from "react";
 import { Handshake, ChevronDown, ChevronRight, Plus, Pencil, X, Phone, Mail, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import PagadoSaldo from "@/components/PagadoSaldo";
+import { cargarPagosPorVinculo, type PagosPorEntidad } from "@/lib/pagosCaja";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import CampoFecha from "@/components/CampoFecha";
@@ -120,6 +122,7 @@ export default function SeccionSubcontratistas({ proyectoId }: Props) {
   const [expandido, setExpandido] = useState(false);
   const [cargado, setCargado] = useState(false);
   const [subcontratistas, setSubcontratistas] = useState<Subcontratista[]>([]);
+  const [pagos, setPagos] = useState<PagosPorEntidad>({});
 
   const [formularioAbierto, setFormularioAbierto] = useState<"nuevo" | string | null>(null);
   const [form, setForm] = useState<FormState>(formVacio());
@@ -130,9 +133,17 @@ export default function SeccionSubcontratistas({ proyectoId }: Props) {
 
   const cargarLista = useCallback(async () => {
     try {
-      const res = await fetch(`/api/proyectos/${proyectoId}/subcontratistas`);
+      // Pagos vinculados en Flujo de Caja: si fallan, la lista igual se muestra.
+      const [res, pagosVinculados] = await Promise.all([
+        fetch(`/api/proyectos/${proyectoId}/subcontratistas`),
+        cargarPagosPorVinculo(proyectoId, "subcontratistaId").catch((err) => {
+          console.error("[subcontratistas] error cargando pagos", err);
+          return null;
+        }),
+      ]);
       const data = await res.json();
       setSubcontratistas(Array.isArray(data) ? data : []);
+      if (pagosVinculados) setPagos(pagosVinculados);
     } catch (err) {
       console.error("[subcontratistas] error cargando lista", err);
     } finally {
@@ -140,9 +151,10 @@ export default function SeccionSubcontratistas({ proyectoId }: Props) {
     }
   }, [proyectoId]);
 
+  // Se recarga en cada apertura: los pagos se cargan en Flujo de Caja.
   const abrirSeccion = () => {
+    if (!expandido) cargarLista();
     setExpandido((p) => !p);
-    if (!cargado) cargarLista();
   };
 
   const cargarCapitulos = useCallback(async () => {
@@ -258,14 +270,16 @@ export default function SeccionSubcontratistas({ proyectoId }: Props) {
                 <Plus className="w-4 h-4" /> Agregar subcontratista
               </button>
 
-              {subcontratistas.length === 0 ? (
+              {!cargado && subcontratistas.length === 0 ? (
+                <p className="text-xs text-slate-400 italic px-1 py-3">Cargando subcontratistas…</p>
+              ) : subcontratistas.length === 0 ? (
                 <p className="text-xs text-slate-400 italic px-1 py-3">
                   Todavía no hay subcontratistas registrados en este proyecto.
                 </p>
               ) : (
                 <div className="space-y-2">
                   {subcontratistas.map((sub) => (
-                    <FilaSubcontratista key={sub.id} sub={sub} onEditar={() => abrirEdicion(sub)} />
+                    <FilaSubcontratista key={sub.id} sub={sub} pagos={pagos[sub.id]} onEditar={() => abrirEdicion(sub)} />
                   ))}
                 </div>
               )}
@@ -294,7 +308,15 @@ export default function SeccionSubcontratistas({ proyectoId }: Props) {
 }
 
 /* ─── Fila de subcontratista ──────────────────────────────── */
-function FilaSubcontratista({ sub, onEditar }: { sub: Subcontratista; onEditar: () => void }) {
+function FilaSubcontratista({
+  sub,
+  pagos,
+  onEditar,
+}: {
+  sub: Subcontratista;
+  pagos: Record<string, number> | undefined;
+  onEditar: () => void;
+}) {
   return (
     <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
@@ -362,6 +384,9 @@ function FilaSubcontratista({ sub, onEditar }: { sub: Subcontratista; onEditar: 
                 {fmtMonto((sub.montoContratado * sub.retencionGarantiaPct) / 100, sub.moneda)}
               </span>
             </span>
+          )}
+          {sub.montoContratado != null && (sub.estado !== "Cancelado" || pagos) && (
+            <PagadoSaldo monto={sub.montoContratado} moneda={sub.moneda} pagos={pagos} />
           )}
           <button
             onClick={onEditar}

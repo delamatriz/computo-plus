@@ -11,12 +11,14 @@ import {
   formatearTamanio,
   type DocumentoBibliotecaListado,
 } from "@/lib/biblioteca";
+import { ETIQUETA_ORIGEN, type DocumentoObraAgregado, type OrigenDocumentoObra } from "@/lib/documentosObra";
 
 // Acceso rápido, desde Gestión de Obra, a los documentos que se consultan en
-// obra: la Biblioteca técnica (global, la misma de /biblioteca) y los planos,
-// detalles y fotos de este proyecto (Documentación para metrar). Solo
-// lectura — se cargan y se borran en sus pantallas de siempre. Cada archivo
-// se abre en otra pestaña, sin salir del módulo.
+// obra: la Biblioteca técnica (global, la misma de /biblioteca) y todo lo de
+// este proyecto — planos, detalles y fotos (Documentación para metrar) más lo
+// adjuntado en las demás secciones (contrato, trámites, bitácora, remitos,
+// comprobantes, cierre y As-Built). Solo lectura — se cargan y se borran en
+// sus pantallas de siempre. Cada archivo se abre en otra pestaña.
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface DocumentoObra {
@@ -29,6 +31,35 @@ interface DocumentoObra {
 }
 
 type Pestana = "biblioteca" | "obra";
+
+// Fila de la pestaña "De la obra": un documento de metraje o un adjunto de
+// otra sección, con la misma forma.
+interface ArchivoObra {
+  id: string;
+  categoria: DocumentoObra["categoria"] | OrigenDocumentoObra;
+  titulo: string;
+  detalle: string;
+  href: string;
+  tamano: number | null;
+  icono: "pdf" | "imagen" | "otro";
+}
+
+const ORDEN_CATEGORIAS_OBRA: ArchivoObra["categoria"][] = [
+  "PLANO",
+  "DETALLE",
+  "FOTO",
+  "CONTRATO",
+  "TRAMITE",
+  "BITACORA",
+  "REMITO",
+  "COMPROBANTE",
+  "CIERRE",
+  "AS_BUILT",
+];
+
+function etiquetaCategoriaObra(c: ArchivoObra["categoria"]): string {
+  return c in ETIQUETA_OBRA ? ETIQUETA_OBRA[c as DocumentoObra["categoria"]] : ETIQUETA_ORIGEN[c as OrigenDocumentoObra];
+}
 
 const ETIQUETA_OBRA: Record<DocumentoObra["categoria"], string> = {
   PLANO: "Planos",
@@ -56,7 +87,7 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
   const [cargado, setCargado] = useState(false);
   const [error, setError] = useState(false);
   const [biblioteca, setBiblioteca] = useState<DocumentoBibliotecaListado[]>([]);
-  const [deObra, setDeObra] = useState<DocumentoObra[]>([]);
+  const [deObra, setDeObra] = useState<ArchivoObra[]>([]);
   const [pestana, setPestana] = useState<Pestana>("obra");
   const [categoria, setCategoria] = useState<string>("todas");
   const [busqueda, setBusqueda] = useState("");
@@ -64,15 +95,38 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
   const cargar = useCallback(async () => {
     setError(false);
     try {
-      const [resB, resO] = await Promise.all([
+      const [resB, resO, resA] = await Promise.all([
         fetch("/api/biblioteca"),
         fetch(`/api/proyectos/${proyectoId}/documentos-metraje`),
+        fetch(`/api/proyectos/${proyectoId}/documentos-obra`),
       ]);
-      if (!resB.ok || !resO.ok) throw new Error("No se pudieron cargar los documentos");
+      if (!resB.ok || !resO.ok || !resA.ok) throw new Error("No se pudieron cargar los documentos");
       const dataB = await resB.json();
       const dataO = await resO.json();
+      const dataA = await resA.json();
       const listaB: DocumentoBibliotecaListado[] = Array.isArray(dataB) ? dataB : [];
-      const listaO: DocumentoObra[] = Array.isArray(dataO.documentos) ? dataO.documentos : [];
+      const metraje: DocumentoObra[] = Array.isArray(dataO.documentos) ? dataO.documentos : [];
+      const adjuntos: DocumentoObraAgregado[] = Array.isArray(dataA) ? dataA : [];
+      const listaO: ArchivoObra[] = [
+        ...metraje.map((d) => ({
+          id: d.id,
+          categoria: d.categoria,
+          titulo: d.nombre,
+          detalle: `${ETIQUETA_OBRA[d.categoria]} · ${d.nombreArchivoOriginal}`,
+          href: urlDocumentoObra(proyectoId, d.id),
+          tamano: d.tamano,
+          icono: (d.tipoArchivo === "IMAGEN" ? "imagen" : d.tipoArchivo === "PDF" ? "pdf" : "otro") as ArchivoObra["icono"],
+        })),
+        ...adjuntos.map((d) => ({
+          id: d.id,
+          categoria: d.origen,
+          titulo: d.titulo,
+          detalle: d.detalle,
+          href: d.href,
+          tamano: d.tamano,
+          icono: d.tipo,
+        })),
+      ];
       setBiblioteca(listaB);
       setDeObra(listaO);
       // Si la obra no tiene nada cargado, arrancar en la biblioteca.
@@ -85,9 +139,10 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
     }
   }, [proyectoId]);
 
+  // Se recarga en cada apertura: los adjuntos se suben en otras secciones.
   const abrirSeccion = () => {
+    if (!expandido) cargar();
     setExpandido((p) => !p);
-    if (!cargado) cargar();
   };
 
   const cambiarPestana = (p: Pestana) => {
@@ -112,7 +167,7 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
       deObra.filter(
         (d) =>
           (categoria === "todas" || d.categoria === categoria) &&
-          (!q || normalizar(`${d.nombre} ${d.nombreArchivoOriginal}`).includes(q))
+          (!q || normalizar(`${d.titulo} ${d.detalle}`).includes(q))
       ),
     [deObra, categoria, q]
   );
@@ -120,11 +175,14 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
   const filtros =
     pestana === "biblioteca"
       ? CATEGORIAS_BIBLIOTECA.map((c) => ({ id: c.id, nombre: c.nombre, n: biblioteca.filter((d) => d.categoria === c.id).length }))
-      : (["PLANO", "DETALLE", "FOTO"] as const).map((c) => ({
+      : ORDEN_CATEGORIAS_OBRA.map((c) => ({
           id: c,
-          nombre: ETIQUETA_OBRA[c],
+          nombre: etiquetaCategoriaObra(c),
           n: deObra.filter((d) => d.categoria === c).length,
-        }));
+        })).filter((f) => f.n > 0);
+
+  // Sin nada que buscar no tiene sentido mostrar el buscador ni el filtro.
+  const hayDocumentos = (pestana === "biblioteca" ? biblioteca.length : deObra.length) > 0;
 
   return (
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
@@ -152,8 +210,9 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
           >
             <div className="px-5 py-5 space-y-3" style={{ background: "#F8FAFC" }}>
               <p className="text-xs text-slate-500 -mt-1">
-                Planos y fotos de esta obra y la biblioteca técnica (normas, manuales), a mano sin salir de Gestión de
-                Obra. Cada archivo se abre en otra pestaña.
+                Todo lo de esta obra — planos, fotos y lo adjuntado en contrato, trámites, bitácora, compras, caja y
+                cierre — y la biblioteca técnica (normas, manuales), sin salir de Gestión de Obra. Cada archivo se abre
+                en otra pestaña.
               </p>
 
               {/* Pestañas */}
@@ -179,30 +238,32 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
               </div>
 
               {/* Búsqueda y filtro */}
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="search"
-                    value={busqueda}
-                    onChange={(e) => setBusqueda(e.target.value)}
-                    placeholder="Buscar por nombre"
-                    className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
-                  />
+              {cargado && !error && hayDocumentos && (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="search"
+                      value={busqueda}
+                      onChange={(e) => setBusqueda(e.target.value)}
+                      placeholder="Buscar por nombre"
+                      className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                    />
+                  </div>
+                  <select
+                    value={categoria}
+                    onChange={(e) => setCategoria(e.target.value)}
+                    className="sm:w-56 text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                  >
+                    <option value="todas">Todas las categorías</option>
+                    {filtros.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.nombre} ({f.n})
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <select
-                  value={categoria}
-                  onChange={(e) => setCategoria(e.target.value)}
-                  className="sm:w-56 text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
-                >
-                  <option value="todas">Todas las categorías</option>
-                  {filtros.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.nombre} ({f.n})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              )}
 
               {/* Lista */}
               {!cargado ? (
@@ -219,7 +280,7 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
                   <Vacio
                     texto={
                       deObra.length === 0
-                        ? "Esta obra todavía no tiene planos ni fotos. Se cargan en Documentación para metrar, en la pestaña Presupuesto."
+                        ? "Esta obra todavía no tiene documentos. Los planos y fotos se cargan en Documentación para metrar (pestaña Presupuesto); el resto, en cada sección de Gestión de Obra."
                         : "Ningún documento coincide con la búsqueda."
                     }
                   />
@@ -228,11 +289,11 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
                     {obraFiltrada.map((d) => (
                       <FilaArchivo
                         key={d.id}
-                        href={urlDocumentoObra(proyectoId, d.id)}
-                        titulo={d.nombre}
-                        detalle={`${ETIQUETA_OBRA[d.categoria]} · ${d.nombreArchivoOriginal}`}
+                        href={d.href}
+                        titulo={d.titulo}
+                        detalle={d.detalle}
                         tamano={d.tamano}
-                        icono={d.tipoArchivo === "IMAGEN" ? "imagen" : d.tipoArchivo === "PDF" ? "pdf" : "otro"}
+                        icono={d.icono}
                       />
                     ))}
                   </div>

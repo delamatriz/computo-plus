@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import CampoFecha from "@/components/CampoFecha";
+import { hoyUruguayISO } from "@/lib/fechaUruguay";
 import {
   presupuestoContratado,
   pctAvance,
@@ -116,10 +117,31 @@ function montoCertificadoDe(cert: CertificacionResumen, rubrosPorId: Map<string,
 }
 
 /* ─── Tarjeta de certificación (lista) ────────────────────── */
+// Estado de cobro de una certificación: lo cobrado son los ingresos de Flujo
+// de Caja vinculados a ella, contra su monto (el que factura el PDF).
+type EstadoCobro = "cobrada" | "parcial" | "vencida" | "sin-cobrar" | "sin-presentar";
+
+const ESTILO_COBRO: Record<EstadoCobro, { texto: string; clase: string }> = {
+  cobrada: { texto: "Cobrada", clase: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  parcial: { texto: "Cobro parcial", clase: "bg-amber-50 text-amber-700 border-amber-200" },
+  vencida: { texto: "Cobro vencido", clase: "bg-red-50 text-red-700 border-red-200" },
+  "sin-cobrar": { texto: "Sin cobrar", clase: "bg-slate-50 text-slate-600 border-slate-200" },
+  "sin-presentar": { texto: "Sin presentar", clase: "bg-slate-50 text-slate-500 border-slate-200" },
+};
+
+function estadoCobroDe(cert: CertificacionResumen, monto: number, cobrado: number): EstadoCobro {
+  if (monto > 0 && cobrado >= monto - 1) return "cobrada";
+  if (cobrado > 0) return "parcial";
+  if (cert.fechaCobroPrevisto && cert.fechaCobroPrevisto.slice(0, 10) < hoyUruguayISO()) return "vencida";
+  if (!cert.fechaPresentacion) return "sin-presentar";
+  return "sin-cobrar";
+}
+
 function TarjetaCertificacion({
   cert,
   activa,
   monto,
+  cobrado,
   pctDelTotal,
   moneda,
   onClick,
@@ -127,10 +149,12 @@ function TarjetaCertificacion({
   cert: CertificacionResumen;
   activa: boolean;
   monto: number;
+  cobrado: number;
   pctDelTotal: number;
   moneda: string;
   onClick: () => void;
 }) {
+  const estadoCobro = estadoCobroDe(cert, monto, cobrado);
   return (
     <button
       onClick={onClick}
@@ -139,10 +163,21 @@ function TarjetaCertificacion({
         activa ? "border-[#2563EB] bg-[#EFF6FF]" : "border-slate-200 bg-white hover:border-slate-300"
       )}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-[#1A3A5C]">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-sm font-bold text-[#1A3A5C] min-w-0">
           Cert. Nº{cert.numero} {cert.nombre && cert.nombre !== `Certificado Nº${cert.numero}` ? `· ${cert.nombre}` : ""}
         </span>
+        {monto > 0 && (
+          <span
+            className={cn(
+              "text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0",
+              ESTILO_COBRO[estadoCobro].clase
+            )}
+            title={cobrado > 0 ? `Cobrado ${fmtMoneda(cobrado, moneda)} de ${fmtMoneda(monto, moneda)}` : undefined}
+          >
+            {ESTILO_COBRO[estadoCobro].texto}
+          </span>
+        )}
       </div>
       <p className="text-[11px] text-slate-400 mt-0.5">{fmtFecha(cert.fecha)}</p>
       {(cert.fechaPresentacion || cert.fechaCobroPrevisto) && (
@@ -156,6 +191,11 @@ function TarjetaCertificacion({
         <span className="text-sm font-semibold tabular-nums text-[#2563EB]">{fmtMoneda(monto, moneda)}</span>
         <span className="text-[11px] text-slate-400 tabular-nums">{fmtNum(pctDelTotal, 1)}% del total</span>
       </div>
+      {monto > 0 && estadoCobro === "parcial" && (
+        <p className="text-[10px] text-amber-700 mt-0.5 tabular-nums">
+          Cobrado {fmtMoneda(cobrado, moneda)} · falta {fmtMoneda(monto - cobrado, moneda)}
+        </p>
+      )}
       <div className="mt-2 h-1 w-full rounded-full bg-slate-100 overflow-hidden">
         <div
           className="h-full rounded-full bg-[#2563EB]"
@@ -652,6 +692,9 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                             cert={c}
                             activa={c.id === activaId}
                             monto={monto}
+                            cobrado={movimientosCaja
+                              .filter((m) => m.tipo === "Ingreso" && m.moneda === moneda && (m.certificacionId ?? m.certificacion?.id) === c.id)
+                              .reduce((s, m) => s + m.monto, 0)}
                             pctDelTotal={pctDelTotal}
                             moneda={moneda}
                             onClick={() => setActivaId(c.id)}

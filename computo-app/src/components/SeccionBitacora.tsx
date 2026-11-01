@@ -11,6 +11,7 @@ import {
   ImagePlus,
   Cloud,
   Camera,
+  AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -508,9 +509,15 @@ function TarjetaEntrada({
   onEliminarFoto: (fotoId: string) => void;
 }) {
   const resumen = entrada.trabajosRealizados.trim().slice(0, 90) || "(sin descripción de trabajos)";
+  const incidente = entrada.incidentes.trim();
 
   return (
-    <div className="rounded-[10px] border border-slate-200 bg-white overflow-hidden">
+    <div
+      className={cn(
+        "rounded-[10px] border bg-white overflow-hidden",
+        incidente ? "border-red-200 border-l-4 border-l-red-400" : "border-slate-200"
+      )}
+    >
       <button
         onClick={onToggle}
         className="w-full text-left px-3.5 py-3 hover:bg-slate-50 transition-colors"
@@ -524,16 +531,28 @@ function TarjetaEntrada({
               <Cloud className="w-3 h-3" /> {entrada.clima}
             </span>
           </div>
-          {entrada.editadoEn && (
-            <span
-              className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0"
-              title={`Editado el ${fmtFechaHora(entrada.editadoEn)}`}
-            >
-              Editado el {fmtFecha(entrada.editadoEn)}
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {incidente && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 flex-shrink-0">
+                <AlertTriangle className="w-3 h-3" /> Incidente
+              </span>
+            )}
+            {entrada.editadoEn && (
+              <span
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0"
+                title={`Editado el ${fmtFechaHora(entrada.editadoEn)}`}
+              >
+                Editado el {fmtFecha(entrada.editadoEn)}
+              </span>
+            )}
+          </div>
         </div>
         <p className="text-xs text-slate-600 mt-1 truncate">{resumen}</p>
+        {incidente && (
+          <p className="text-xs text-red-700 mt-0.5 truncate" title={incidente}>
+            Incidente: {incidente.slice(0, 90)}
+          </p>
+        )}
         <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-400">
           <span>{entrada.rubros.length} rubro{entrada.rubros.length !== 1 ? "s" : ""} vinculado{entrada.rubros.length !== 1 ? "s" : ""}</span>
           <span>{entrada._count.fotos} foto{entrada._count.fotos !== 1 ? "s" : ""}</span>

@@ -6645,6 +6645,7 @@ export default function ProyectoPage() {
             tipo={proyectoActivo.tipo}
             estado={proyectoActivo.estado}
             fechaInicio={fmtFecha(proyectoActivo.fechaInicio) ?? null}
+            fechaInicioISO={proyectoActivo.fechaInicio ? proyectoActivo.fechaInicio.slice(0, 10) : null}
             plazoObraMeses={"plazoObra" in proyectoActivo ? proyectoActivo.plazoObra ?? null : null}
             presupuesto={precioFinalAgregado}
             sumaRubros={totalGeneral}
