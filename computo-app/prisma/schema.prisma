@@ -88,6 +88,8 @@ model User {
   // Avisos de plataforma que este usuario creó (solo SUPERADMIN, ver Aviso).
   avisosCreados Aviso[]
   importacionesPrecios ImportacionPrecios[]
+
+  @@index([empresaId])
 }
 
 model Proyecto {
@@ -222,6 +224,8 @@ model Proyecto {
   fechaUltimaEntrega DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  @@index([empresaId])
 }
 
 model LeyesSociales {
@@ -308,6 +312,9 @@ model Capitulo {
   // perder el vínculo en silencio.
   tituloId String
   titulo   Titulo @relation(fields: [tituloId], references: [id])
+
+  @@index([proyectoId])
+  @@index([tituloId])
 }
 
 // Agrupador de capítulos dentro de un proyecto — un Proyecto tiene SIEMPRE
@@ -332,6 +339,8 @@ model Titulo {
   requierePlanSeguridad Boolean @default(false)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
+
+  @@index([proyectoId])
 }
 
 model Rubro {
@@ -376,6 +385,8 @@ model Rubro {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   seccionesPlanilla SeccionPlanilla[]
+
+  @@index([capituloId])
 }
 
 model CotizacionProveedor {
@@ -481,6 +492,8 @@ model MaterialAPU {
   // (Paso B) sobre los materiales ya existentes.
   precioMTOPId String?
   precioMTOP   PrecioMTOP? @relation(fields: [precioMTOPId], references: [id], onDelete: SetNull)
+
+  @@index([apuId])
 }
 
 model ComponenteAPU {
@@ -509,6 +522,8 @@ model ManoObraAPU {
   // el modo de costeo del equipo (ver EquipoAPU.modoCosteo).
   equipoRelacionadoId String?
   equipoRelacionado   EquipoAPU? @relation("ArmadoDeEquipo", fields: [equipoRelacionadoId], references: [id], onDelete: SetNull)
+
+  @@index([apuId])
 }
 
 model EquipoAPU {
@@ -532,6 +547,8 @@ model EquipoAPU {
   // los materiales vía PrecioMTOP), así que este valor se sintetiza en el
   // momento del clonado, no se propaga de otro lado.
   motivoVerificacion String?
+
+  @@index([apuId])
 }
 
 model Receta {
@@ -1134,6 +1151,8 @@ model Certificacion {
   movimientosCaja     MovimientoCaja[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([proyectoId])
 }
 
 model CertificacionItem {
