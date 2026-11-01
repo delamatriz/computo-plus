@@ -27,6 +27,8 @@ import { mensajeCupoCalculoRapido } from "@/lib/config-prueba";
 import { TIPOS_OBRA } from "@/lib/tiposObra";
 import { TIPO_CAMBIO_REFERENCIA, type TipoCambioVigente } from "@/lib/tipoCambioReferencia";
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
+import { useDictado } from "@/hooks/useDictado";
+import { BotonDictado } from "@/components/shared/BotonDictado";
 
 /* ─── Datos de referencia ─────────────────────────────────── */
 const CALIDADES = [
@@ -203,6 +205,16 @@ export default function CalcularPage() {
   const [area, setArea]       = useState<string>("");
   const [unidades, setUnidades] = useState<string>("1");
   const [descripcion, setDescripcion] = useState<string>("");
+  // Dictado por voz (Web Speech API del navegador, sin servicios externos):
+  // cada frase reconocida se agrega al final de lo ya escrito, nunca lo
+  // reemplaza. Sin soporte en el navegador, el botón no aparece.
+  const dictado = useDictado({
+    onTexto: (texto) =>
+      setDescripcion((prev) => {
+        const base = prev.trimEnd();
+        return base ? `${base} ${texto}` : texto;
+      }),
+  });
   // Nombre opcional (solo tipos descriptivos, junto a la descripción): si
   // está vacío, el nombre del anteproyecto sale del texto como siempre.
   const [nombreCalculo, setNombreCalculo] = useState("");
@@ -629,14 +641,21 @@ export default function CalcularPage() {
                 <label htmlFor="descripcion-obra" className="block text-sm font-semibold text-text-primary mb-3">
                   Descripción de la obra
                 </label>
-                <textarea
-                  id="descripcion-obra"
-                  value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: vivienda de dos plantas, 3 dormitorios, garage, terminaciones medias..."
-                  className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-y min-h-[86px] max-h-[420px]"
-                />
+                <div className="relative">
+                  <textarea
+                    id="descripcion-obra"
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                    rows={3}
+                    placeholder="Ej: vivienda de dos plantas, 3 dormitorios, garage, terminaciones medias..."
+                    className={cn(
+                      "w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-y min-h-[86px] max-h-[420px]",
+                      dictado.soportado && "pr-14"
+                    )}
+                  />
+                  {dictado.soportado && <BotonDictado escuchando={dictado.escuchando} onClick={dictado.alternar} />}
+                </div>
+                {dictado.error && <p className="text-xs text-red-600 mt-2">{dictado.error}</p>}
               </div>
             )}
 
@@ -680,14 +699,21 @@ export default function CalcularPage() {
                     )}
                   </button>
                 </div>
-                <textarea
-                  ref={descRef}
-                  value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
-                  rows={4}
-                  placeholder="ej: sustitución de 3 aberturas de aluminio, pintura interior de 2 ambientes, reparación de cañería sanitaria..."
-                  className="w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-y min-h-[106px] max-h-[420px]"
-                />
+                <div className="relative">
+                  <textarea
+                    ref={descRef}
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                    rows={4}
+                    placeholder="ej: sustitución de 3 aberturas de aluminio, pintura interior de 2 ambientes, reparación de cañería sanitaria..."
+                    className={cn(
+                      "w-full px-4 py-3 rounded-[10px] border border-slate-300 bg-bg-base text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-y min-h-[106px] max-h-[420px]",
+                      dictado.soportado && "pr-14"
+                    )}
+                  />
+                  {dictado.soportado && <BotonDictado escuchando={dictado.escuchando} onClick={dictado.alternar} />}
+                </div>
+                {dictado.error && <p className="text-xs text-red-600 mt-2">{dictado.error}</p>}
                 <p className="text-xs text-slate-400 mt-2">
                   Describí los trabajos con el mayor detalle posible. Cuanto más precisa sea la descripción, más exacta será la estimación.
                 </p>
