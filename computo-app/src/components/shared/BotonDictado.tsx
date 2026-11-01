@@ -25,7 +25,7 @@ export function BotonDictado({
       className={cn(
         "absolute top-1 right-1 w-11 h-11 flex items-center justify-center rounded-[8px] transition-colors",
         escuchando
-          ? "bg-red-50 text-red-600 ring-2 ring-red-200 motion-safe:animate-pulse"
+          ? "bg-blue-50 text-[#2563EB] ring-2 ring-blue-200 motion-safe:animate-pulse"
           : "text-slate-400 hover:text-[#2563EB] hover:bg-blue-50",
         className
       )}
