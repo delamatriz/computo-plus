@@ -398,9 +398,11 @@ function MaterialesPageInner() {
   const proveedorVigente = proveedoresImportados.some(([p]) => p === proveedorElegido) ? proveedorElegido : null;
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-6 md:p-8 max-w-6xl">
       <BotonVolverAlProyecto />
-      <div className="flex items-start justify-between gap-4 mb-2">
+      {/* En celular, texto arriba y botón abajo: en una sola fila el botón
+          dejaba el texto en una columna angosta y se salía por la derecha. */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-2">
         <div>
           <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Materiales</h1>
           {/* Vista por rol: el SUPERADMIN mantiene el catálogo global con la lista
@@ -440,7 +442,7 @@ function MaterialesPageInner() {
         {puedeImportar && (
           <button
             onClick={() => setModalImportarAbierto(true)}
-            className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition-colors"
+            className="self-start flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition-colors"
           >
             <Upload className="w-4 h-4" />
             {esSuperadmin ? "Importar lista de precios" : "Importar precios de proveedor"}
