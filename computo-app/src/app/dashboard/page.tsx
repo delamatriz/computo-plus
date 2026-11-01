@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { Settings } from "lucide-react";
 import GraficoProyectosPorMes from "@/components/dashboard/GraficoProyectosPorMes";
+import SeccionAplicarPreciosVigentes from "@/components/configuracion/SeccionAplicarPreciosVigentes";
 import { esSuperadmin, sesionActual } from "@/lib/sesion";
 import {
   SELECT_CAPITULOS_RESUMEN,
@@ -220,6 +221,9 @@ export default async function DashboardPage() {
         </div>
         <GraficoProyectosPorMes data={datosGrafico} />
       </div>
+
+      {/* Actualización de precios — solo ADMIN y SUPERADMIN (el componente lo filtra internamente) */}
+      <SeccionAplicarPreciosVigentes />
 
       {/* Lista de proyectos recientes */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm">

@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import SeccionAplicarPreciosVigentes from "@/components/configuracion/SeccionAplicarPreciosVigentes";
-import SeccionIndiceICCV from "@/components/configuracion/SeccionIndiceICCV";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
 import { useRolUsuario } from "@/hooks/useSuperadmin";
@@ -139,7 +137,7 @@ export default function ConfiguracionPage() {
       <BotonVolverAlProyecto />
       <h1 className="text-2xl font-semibold text-[#1A3A5C] mb-2">Configuración</h1>
       <p className="text-slate-500 mb-8">
-        Datos de la empresa y mantenimiento de presupuestos existentes.
+        Datos de la empresa que aparecen en tus PDF y presupuestos.
       </p>
 
       <section className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
@@ -266,9 +264,6 @@ export default function ConfiguracionPage() {
         )}
       </section>
 
-      <SeccionAplicarPreciosVigentes />
-
-      <SeccionIndiceICCV />
     </div>
   );
 }
