@@ -1,7 +1,8 @@
 import type { ReactElement } from "react";
 import path from "path";
 import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
-import { AUC_PCT_DEFAULT } from "@/lib/auc";
+import { AUC_PCT_DEFAULT, COEFICIENTE_BPS_OBRA_PUBLICA_DEFAULT } from "@/lib/auc";
+import { fmtUR, montoEnUR } from "@/lib/monedaUR";
 import { CAJA_PROFESIONALES_ETIQUETA, CAJA_PROFESIONALES_PCT, montoCajaProfesionales, normalizarTipoCaja } from "@/lib/cajaProfesionales";
 import { fechaUruguay } from "@/lib/fechaUruguay";
 
@@ -112,6 +113,17 @@ export interface ProyectoConCapitulos {
   // Caja de Profesionales (Ley 17.738) — informativa, junto al AUC; nunca se
   // suma a Precio Final. null → default (Arquitectura). Ver cajaProfesionales.ts.
   cajaProfesionalesTipo: string | null;
+  // Obra pública (tipoContratacion "PUBLICA"): las leyes sociales son monto
+  // imponible × coeficiente BPS (LeyesSociales.coeficienteBpsPublica,
+  // fracción; null → default) y las paga el Estado — no va el bloque AUC.
+  tipoContratacion: string;
+  coeficienteBpsPublica: number | null;
+  // Contrato en UR (solo obra pública): Precio Final también en UR, con el
+  // valor de la UR y su fecha BCU. tipoCambio pasa a pesos un proyecto en U$S.
+  monedaContrato: string;
+  valorUR: number | null;
+  fechaValorUR: string | Date | null;
+  tipoCambio: number;
   fechaInicio?: string | Date | null;
   fechaPresupuesto?: string | Date | null;
   plazoObra?: number | null;
@@ -849,6 +861,11 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
       <Text style={{ fontSize: 20, fontFamily: "DM Sans", fontWeight: 700, color: "#1A3A5C", textAlign: "center" }}>
         PRESUPUESTO DE OBRA
       </Text>
+      {proyecto.tipoContratacion === "PUBLICA" && (
+        <View style={{ alignItems: "center", marginTop: 8 }}>
+          <BadgeObraPublica />
+        </View>
+      )}
 
       <SeparadorFinoPortada />
 
@@ -908,6 +925,26 @@ function Portada({ proyecto }: { proyecto: ProyectoConCapitulos }) {
   );
 }
 
+function BadgeObraPublica() {
+  return (
+    <Text
+      style={{
+        fontSize: 8,
+        fontFamily: "DM Sans",
+        fontWeight: 700,
+        color: "#FFFFFF",
+        backgroundColor: "#1A3A5C",
+        paddingVertical: 3,
+        paddingHorizontal: 8,
+        borderRadius: 3,
+        letterSpacing: 0.8,
+      }}
+    >
+      OBRA PÚBLICA
+    </Text>
+  );
+}
+
 function PiePagina({ nombreProyecto }: { nombreProyecto: string }) {
   return (
     <View style={styles.footer} fixed>
@@ -954,11 +991,26 @@ export function PresupuestoPDF({
   const baseIVA = costoTotal - proyecto.costosIndirectosExento;
   const montoIVA = baseIVA * 0.22;
   const precioFinal = costoTotal + montoIVA;
-  const leyesSocialesPropietario = proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * (proyecto.aucPct ?? AUC_PCT_DEFAULT) : null;
+  const esObraPublica = proyecto.tipoContratacion === "PUBLICA";
+  const leyesSocialesPropietario =
+    !esObraPublica && proyecto.montoImponibleMO != null ? proyecto.montoImponibleMO * (proyecto.aucPct ?? AUC_PCT_DEFAULT) : null;
   // Caja de Profesionales: misma base que el AUC; solo informativa.
   const tipoCaja = normalizarTipoCaja(proyecto.cajaProfesionalesTipo);
   const cajaProfesionales =
-    proyecto.montoImponibleMO != null && tipoCaja !== "NO_APLICA" ? montoCajaProfesionales(proyecto.montoImponibleMO, tipoCaja) : null;
+    !esObraPublica && proyecto.montoImponibleMO != null && tipoCaja !== "NO_APLICA"
+      ? montoCajaProfesionales(proyecto.montoImponibleMO, tipoCaja)
+      : null;
+  // Obra pública: monto imponible (jornales declarados) × coeficiente BPS,
+  // mismo cálculo que SeccionLeyesSocialesPublica. Lo paga el Estado al BPS.
+  const coeficienteBps = proyecto.coeficienteBpsPublica ?? COEFICIENTE_BPS_OBRA_PUBLICA_DEFAULT;
+  const leyesSocialesPublica =
+    esObraPublica && proyecto.montoImponibleMO ? proyecto.montoImponibleMO * coeficienteBps : null;
+  // Contrato en UR: Precio Final en pesos ÷ valor de la UR (null si falta).
+  const precioFinalEnUR =
+    esObraPublica && proyecto.monedaContrato === "UR"
+      ? montoEnUR(proyecto.moneda === "USD" ? precioFinal * proyecto.tipoCambio : precioFinal, proyecto.valorUR)
+      : null;
+  const fechaUR = fmtFecha(proyecto.fechaValorUR);
   // AUC (leyesSocialesPropietario) — aporte aparte del propietario a BPS,
   // mensual, ligado al avance real de obra, no parte de lo que la empresa
   // factura (Ley 18.172, Título 10 exonera de IVA los servicios bajo
@@ -996,7 +1048,10 @@ export function PresupuestoPDF({
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.empresaNombre}>{proyecto.empresa?.nombre || "CÓMPUTO+"}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={styles.empresaNombre}>{proyecto.empresa?.nombre || "CÓMPUTO+"}</Text>
+            {esObraPublica && <BadgeObraPublica />}
+          </View>
           <Text style={styles.fecha}>Generado el {fechaHoy()}</Text>
         </View>
         <View style={{ flexDirection: "column", flex: 1 }}>
@@ -1101,6 +1156,17 @@ export function PresupuestoPDF({
             <Text style={styles.montoTotalGeneral}>{fmtMonTotal(precioFinal, simbolo)}</Text>
           </View>
 
+          {precioFinalEnUR != null && (
+            <View style={styles.filaPlazo}>
+              <Text style={styles.labelPlazo}>
+                Equivalente en UR{fechaUR ? ` (valor BCU al ${fechaUR}: $ ${fmtNumDecimal(proyecto.valorUR ?? 0)})` : ` (valor de la UR: $ ${fmtNumDecimal(proyecto.valorUR ?? 0)})`}
+              </Text>
+              <Text style={[styles.montoPlazo, { fontFamily: "DM Sans", fontWeight: 700, color: "#1A3A5C" }]}>
+                = {fmtUR(precioFinalEnUR)} UR
+              </Text>
+            </View>
+          )}
+
           {proyecto.diasObra > 0 && (
             <View style={styles.filaPlazo}>
               <Text style={styles.labelPlazo}>Días Estimados de Obra</Text>
@@ -1143,6 +1209,30 @@ export function PresupuestoPDF({
                 <Text style={styles.montoResumenLinea}>{fmtMonTotal(cajaProfesionales, simbolo)}</Text>
               </View>
             )}
+          </View>
+        )}
+
+        {/* Obra pública: en lugar del bloque AUC, monto imponible × coeficiente
+            BPS. Tampoco se suma a Precio Final: lo paga el Estado al BPS. */}
+        {!!leyesSocialesPublica && (
+          <View style={styles.bloqueFinal} wrap={false}>
+            <View style={styles.separadorFinal} />
+            <View style={styles.filaPlazo}>
+              <Text style={styles.labelPlazo}>Monto imponible (jornales declarados)</Text>
+              <Text style={styles.montoPlazo}>{fmtMonTotal(proyecto.montoImponibleMO ?? 0, simbolo)}</Text>
+            </View>
+            <View style={styles.filaPlazo}>
+              <Text style={styles.labelPlazo}>Coeficiente BPS</Text>
+              <Text style={styles.montoPlazo}>{fmtNumCantidad(coeficienteBps * 100)}%</Text>
+            </View>
+            <View style={styles.filaResumenLinea}>
+              <Text style={styles.labelResumenLinea}>LEYES SOCIALES/BPS — OBRA PÚBLICA</Text>
+              <Text style={styles.montoResumenLinea}>{fmtMonTotal(leyesSocialesPublica, simbolo)}</Text>
+            </View>
+            <Text style={{ fontSize: 8, color: "#64748B", paddingHorizontal: 6, marginTop: 2 }}>
+              Las paga el Estado directamente al BPS sobre los jornales reales declarados (Decreto-Ley 14.411). No
+              aplica AUC y no se suman al Precio Final.
+            </Text>
           </View>
         )}
 

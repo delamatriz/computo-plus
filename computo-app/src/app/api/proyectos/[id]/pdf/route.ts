@@ -7,6 +7,7 @@ import { calcularDiasObra } from "@/lib/diasObra";
 import React from "react";
 import { requerirProyecto } from "@/lib/sesion";
 import { nombreProyectoParaMostrar } from "@/lib/resumenProyecto";
+import { tipoCambioVigente } from "@/lib/tipoCambio";
 
 const MODOS_VALIDOS: ModoPDF[] = ["cerrado", "abierto", "interno"];
 
@@ -129,6 +130,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       montoImponibleMO: proyecto.leyesSociales?.montoImponibleMO ?? null,
       aucPct: proyecto.leyesSociales?.aucPct ?? null,
       cajaProfesionalesTipo: proyecto.leyesSociales?.cajaProfesionalesTipo ?? null,
+      tipoContratacion: proyecto.tipoContratacion,
+      coeficienteBpsPublica: proyecto.leyesSociales?.coeficienteBpsPublica ?? null,
+      monedaContrato: proyecto.monedaContrato,
+      valorUR: proyecto.valorUR,
+      fechaValorUR: proyecto.fechaValorUR,
+      // Solo hace falta para pasar a pesos un proyecto en U$S con contrato en UR.
+      tipoCambio:
+        proyecto.monedaContrato === "UR" && proyecto.moneda === "USD" ? (await tipoCambioVigente()).valor : 1,
       fechaInicio: proyecto.fechaInicio,
       fechaPresupuesto: proyecto.fechaPresupuesto,
       plazoObra: proyecto.plazoObra,

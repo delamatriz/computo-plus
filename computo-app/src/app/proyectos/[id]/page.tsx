@@ -41,6 +41,7 @@ import { normalizarTipoCaja } from "@/lib/cajaProfesionales";
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada, costoDirectoUnitario } from "@/lib/costoAgregado";
 import { calcularImprevistos } from "@/lib/gastosGenerales";
 import { AUC_PCT_DEFAULT, COEFICIENTE_BPS_OBRA_PUBLICA_DEFAULT } from "@/lib/auc";
+import { fmtUR, montoEnUR } from "@/lib/monedaUR";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionLeyesSocialesPublica from "@/components/SeccionLeyesSocialesPublica";
@@ -135,6 +136,7 @@ interface ProyectoData {
   // pesos (se cargan en /editar). Ver Proyecto.monedaContrato en schema.prisma.
   monedaContrato?: string;
   valorUR?: number | null;
+  fechaValorUR?: string | null;
   estado: keyof typeof ESTADOS;
   moneda: string;
   area: number;
@@ -531,6 +533,7 @@ const PROYECTO = {
   tipoContratacion: "PRIVADA",
   monedaContrato: "PESOS",
   valorUR: null as number | null,
+  fechaValorUR: null as string | null,
   estado: "EN_CURSO" as const,
   moneda: "USD",
   area: 120,
@@ -697,7 +700,15 @@ function BloqueGestionObra({
 }
 
 /** Genera y descarga el Excel del presupuesto completo (capítulos, rubros y totales) */
-function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[], titulos: Titulo[]) {
+function descargarExcelPresupuesto(
+  proyecto: ProyectoData,
+  capitulos: Capitulo[],
+  titulos: Titulo[],
+  // Obra pública: monto imponible y coeficiente BPS de LeyesSociales (null
+  // si no está cargado). En privada no se usa.
+  leyesSocialesPublica: { montoImponibleMO: number; coeficienteBpsPublica: number } | null
+) {
+  const esObraPublica = proyecto.tipoContratacion === "PUBLICA";
   const fecha = new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" });
   const wb = XLSX.utils.book_new();
 
@@ -766,6 +777,21 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
   pushRow([`Tipo de obra: ${proyecto.tipo || "—"}`]);
   pushRow([`Fecha: ${fecha}`]);
   pushRow([`Moneda: ${proyecto.moneda}`]);
+  // Obra pública: etiqueta visible y, con contrato en UR, el valor de la UR.
+  if (esObraPublica) {
+    r = pushRow(["OBRA PÚBLICA"]);
+    styledCells.push({ addr: `A${r + 1}`, s: styTituloCap });
+    if (proyecto.monedaContrato === "UR") {
+      const fechaUR = proyecto.fechaValorUR
+        ? new Date(proyecto.fechaValorUR).toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })
+        : null;
+      pushRow([
+        proyecto.valorUR
+          ? `Moneda del contrato: UR — valor de la UR $ ${fmtUR(proyecto.valorUR)}${fechaUR ? ` (BCU, ${fechaUR})` : ""}`
+          : "Moneda del contrato: UR — falta cargar el valor de la UR",
+      ]);
+    }
+  }
   pushRow([]);
 
   r = pushRow(["N°", "DESCRIPCIÓN", "UNIDAD", "CANTIDAD", "PRECIO UNIT.", "TOTAL"]);
@@ -847,9 +873,35 @@ function descargarExcelPresupuesto(proyecto: ProyectoData, capitulos: Capitulo[]
   r = pushRow(["", "", "", "", "TOTAL GENERAL", parseFloat(totalGeneral.toFixed(2))]);
   styleRow(r, styTotalGeneral);
 
+  // Contrato en UR: el mismo total también en UR (en pesos ÷ valor de la UR).
+  const totalEnUR =
+    esObraPublica && proyecto.monedaContrato === "UR"
+      ? montoEnUR(proyecto.moneda === "USD" ? totalGeneral * TCU : totalGeneral, proyecto.valorUR)
+      : null;
+  if (totalEnUR != null) {
+    r = pushRow(["", "", "", "", "EQUIVALENTE EN UR", parseFloat(totalEnUR.toFixed(2))]);
+    styleRow(r, stySubtotal);
+  }
+
   pushRow([]);
   r = pushRow(["Valores con materiales a precio de lista (IVA incluido), sin aportes sociales (BPS)"]);
   styledCells.push({ addr: `A${r + 1}`, s: { font: { italic: true, color: { rgb: "64748B" } } } });
+
+  // Obra pública: leyes sociales = monto imponible × coeficiente BPS, aparte
+  // del total (las paga el Estado al BPS, no aplica AUC).
+  if (esObraPublica && leyesSocialesPublica && leyesSocialesPublica.montoImponibleMO > 0) {
+    const { montoImponibleMO, coeficienteBpsPublica } = leyesSocialesPublica;
+    pushRow([]);
+    r = pushRow(["LEYES SOCIALES / BPS — OBRA PÚBLICA"]);
+    styleRow(r, styTituloCap);
+    merges.push({ s: { r, c: 0 }, e: { r, c: NUM_COLS - 1 } });
+    pushRow(["", "Monto imponible (jornales declarados)", "", "", "", parseFloat(montoImponibleMO.toFixed(2))]);
+    pushRow(["", "Coeficiente BPS", "", "", "", `${(coeficienteBpsPublica * 100).toLocaleString("es-UY", { maximumFractionDigits: 2 })}%`]);
+    r = pushRow(["", "", "", "", "TOTAL LEYES SOCIALES", parseFloat((montoImponibleMO * coeficienteBpsPublica).toFixed(2))]);
+    styleRow(r, stySubtotal);
+    r = pushRow(["Las paga el Estado directamente al BPS sobre los jornales reales declarados (Decreto-Ley 14.411). No aplica AUC y no se suman al total."]);
+    styledCells.push({ addr: `A${r + 1}`, s: { font: { italic: true, color: { rgb: "64748B" } } } });
+  }
 
   const ws = XLSX.utils.aoa_to_sheet(datos);
 
@@ -3562,6 +3614,7 @@ export default function ProyectoPage() {
         tipoContratacion: data.tipoContratacion ?? "PRIVADA",
         monedaContrato: data.monedaContrato ?? "PESOS",
         valorUR: data.valorUR ?? null,
+        fechaValorUR: data.fechaValorUR ?? null,
         estado:    (data.estado as keyof typeof ESTADOS) in ESTADOS
                      ? (data.estado as keyof typeof ESTADOS)
                      : "ANTEPROYECTO",
@@ -5960,7 +6013,19 @@ export default function ProyectoPage() {
                 <Pencil className="w-3.5 h-3.5" /> <span className="hidden md:inline">Editar</span>
               </button>
               <button
-                onClick={() => descargarExcelPresupuesto(proyectoActivo, capitulos, titulos)}
+                onClick={() =>
+                  descargarExcelPresupuesto(
+                    proyectoActivo,
+                    capitulos,
+                    titulos,
+                    leyesSociales
+                      ? {
+                          montoImponibleMO: leyesSociales.montoImponibleMO,
+                          coeficienteBpsPublica: leyesSociales.coeficienteBpsPublica ?? COEFICIENTE_BPS_OBRA_PUBLICA_DEFAULT,
+                        }
+                      : null
+                  )
+                }
                 disabled={capitulos.every((c) => c.rubros.length === 0)}
                 title={capitulos.every((c) => c.rubros.length === 0) ? "No hay rubros para exportar" : undefined}
                 className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
