@@ -6,9 +6,12 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
+  // Conexiones internas de Render usan red privada (sin SSL).
+  // Las externas (*.render.com) sí requieren SSL.
+  const isExternalRender = process.env.DATABASE_URL?.includes("render.com") ?? false;
   const adapter = new PrismaPg({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
+    ...(isExternalRender ? { ssl: { rejectUnauthorized: false } } : {}),
   });
   return new PrismaClient({ adapter });
 }
