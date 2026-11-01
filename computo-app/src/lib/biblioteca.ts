@@ -2,16 +2,32 @@
 // Isomorfo: lo usan la página (cliente) y las rutas /api/biblioteca.
 
 export const CATEGORIAS_BIBLIOTECA = [
-  { id: "normas", nombre: "Normas y Reglamentos" },
-  { id: "manuales", nombre: "Manuales técnicos" },
-  { id: "articulos", nombre: "Artículos y publicaciones" },
-  { id: "otros", nombre: "Otros" },
+  { id: "normas", nombre: "Normas, Decretos y Leyes" },
+  { id: "tecnicos", nombre: "Documentos Técnicos" },
+  { id: "varios", nombre: "Varios" },
 ] as const;
 
 export type CategoriaBiblioteca = (typeof CATEGORIAS_BIBLIOTECA)[number]["id"];
 
+/** Categoría que se propone al subir un documento. */
+export const CATEGORIA_BIBLIOTECA_DEFAULT: CategoriaBiblioteca = "varios";
+
 export function esCategoriaBiblioteca(valor: unknown): valor is CategoriaBiblioteca {
   return CATEGORIAS_BIBLIOTECA.some((c) => c.id === valor);
+}
+
+// Categorías anteriores (nov-2026: normas/manuales/articulos/otros), por si
+// queda algún documento guardado con ellas: se muestran en la nueva que
+// corresponde, sin migrar datos (al cambiar la tabla estaba vacía).
+const CATEGORIA_ANTERIOR: Record<string, CategoriaBiblioteca> = {
+  manuales: "tecnicos",
+  articulos: "tecnicos",
+  otros: "varios",
+};
+
+/** Categoría vigente de un documento (las desconocidas van a "Varios"). */
+export function categoriaBibliotecaDe(valor: string): CategoriaBiblioteca {
+  return esCategoriaBiblioteca(valor) ? valor : CATEGORIA_ANTERIOR[valor] ?? CATEGORIA_BIBLIOTECA_DEFAULT;
 }
 
 export const TAMANIO_MAXIMO_BIBLIOTECA = 20 * 1024 * 1024; // 20 MB

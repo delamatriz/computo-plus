@@ -8,7 +8,9 @@ import { partesFechaUruguay } from "@/lib/fechaUruguay";
 import {
   ACCEPT_BIBLIOTECA,
   CATEGORIAS_BIBLIOTECA,
+  CATEGORIA_BIBLIOTECA_DEFAULT,
   TAMANIO_MAXIMO_BIBLIOTECA,
+  categoriaBibliotecaDe,
   esArchivoBibliotecaValido,
   extensionArchivo,
   formatearTamanio,
@@ -60,6 +62,7 @@ export default function BibliotecaPage() {
   const [errorCarga, setErrorCarga] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<CategoriaBiblioteca | "todas">("todas");
 
   const cargar = useCallback(() => {
     setErrorCarga(false);
@@ -82,10 +85,15 @@ export default function BibliotecaPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  // Una sección por categoría; las que no tienen documentos no aparecen
+  // (tampoco como filtro).
   const grupos = CATEGORIAS_BIBLIOTECA.map((c) => ({
     ...c,
-    documentos: (documentos ?? []).filter((d) => d.categoria === c.id),
+    documentos: (documentos ?? []).filter((d) => categoriaBibliotecaDe(d.categoria) === c.id),
   })).filter((g) => g.documentos.length > 0);
+  // Si se borra el último documento de la categoría filtrada, vuelve a "Todas".
+  const filtroVigente = grupos.some((g) => g.id === filtro) ? filtro : "todas";
+  const gruposVisibles = filtroVigente === "todas" ? grupos : grupos.filter((g) => g.id === filtroVigente);
 
   return (
     <div className="p-4 sm:p-8 max-w-3xl">
@@ -122,13 +130,34 @@ export default function BibliotecaPage() {
           <h2 className="text-sm font-semibold text-[#1E293B] mb-1">Aún no hay documentos en la biblioteca.</h2>
           <p className="text-sm text-slate-500 max-w-sm">
             {superadmin
-              ? "Subí normas, manuales técnicos o artículos con el botón «Subir documento»: los van a poder consultar y descargar todos los usuarios."
-              : "Acá vas a encontrar normas, manuales técnicos y artículos de consulta para tus obras. Mientras tanto, tenés las referencias externas de abajo."}
+              ? "Subí normas, decretos, leyes y documentos técnicos con el botón «Subir documento»: los van a poder consultar y descargar todos los usuarios."
+              : "Acá vas a encontrar normas, decretos, leyes y documentos técnicos de consulta para tus obras. Mientras tanto, tenés las referencias externas de abajo."}
           </p>
         </div>
       ) : (
         <div className="space-y-8">
-          {grupos.map((g) => (
+          {grupos.length > 1 && (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por categoría">
+              {[{ id: "todas" as const, nombre: "Todas", n: documentos.length }, ...grupos.map((g) => ({ id: g.id, nombre: g.nombre, n: g.documentos.length }))].map(
+                (f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFiltro(f.id)}
+                    aria-pressed={filtroVigente === f.id}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors",
+                      filtroVigente === f.id
+                        ? "bg-[#1A3A5C] border-[#1A3A5C] text-white"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                    )}
+                  >
+                    {f.nombre} <span className={filtroVigente === f.id ? "text-white/70" : "text-slate-400"}>({f.n})</span>
+                  </button>
+                )
+              )}
+            </div>
+          )}
+          {gruposVisibles.map((g) => (
             <section key={g.id}>
               <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
                 {g.nombre} <span className="text-slate-400 font-normal">({g.documentos.length})</span>
@@ -275,7 +304,7 @@ function FilaDocumento({
 function ModalSubirDocumento({ onClose, onSubido }: { onClose: () => void; onSubido: () => void }) {
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [categoria, setCategoria] = useState<CategoriaBiblioteca>("normas");
+  const [categoria, setCategoria] = useState<CategoriaBiblioteca>(CATEGORIA_BIBLIOTECA_DEFAULT);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -345,8 +374,15 @@ function ModalSubirDocumento({ onClose, onSubido }: { onClose: () => void; onSub
           </label>
 
           <label className="block">
-            <span className="block text-xs font-medium text-slate-600 mb-1">Categoría</span>
-            <select value={categoria} onChange={(e) => setCategoria(e.target.value as CategoriaBiblioteca)} className={cn(campo, "bg-white")}>
+            <span className="block text-xs font-medium text-slate-600 mb-1">
+              Categoría <span className="text-red-500">*</span>
+            </span>
+            <select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value as CategoriaBiblioteca)}
+              required
+              className={cn(campo, "bg-white")}
+            >
               {CATEGORIAS_BIBLIOTECA.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nombre}

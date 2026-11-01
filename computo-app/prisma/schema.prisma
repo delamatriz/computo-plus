@@ -1962,7 +1962,7 @@ model DocumentoBiblioteca {
   id            String   @id @default(cuid())
   titulo        String
   descripcion   String?
-  categoria     String // "normas" | "manuales" | "articulos" | "otros"
+  categoria     String // "normas" | "tecnicos" | "varios" — ver CATEGORIAS_BIBLIOTECA (lib/biblioteca.ts)
   archivo       String // URL en Vercel Blob
   nombreArchivo String // nombre original del archivo
   tamanio       Int // bytes

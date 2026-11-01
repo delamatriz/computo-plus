@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import {
   CATEGORIAS_BIBLIOTECA,
+  categoriaBibliotecaDe,
   urlDescargaBiblioteca,
   formatearTamanio,
   type DocumentoBibliotecaListado,
@@ -156,7 +157,7 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
     () =>
       biblioteca.filter(
         (d) =>
-          (categoria === "todas" || d.categoria === categoria) &&
+          (categoria === "todas" || categoriaBibliotecaDe(d.categoria) === categoria) &&
           (!q || normalizar(`${d.titulo} ${d.descripcion ?? ""} ${d.nombreArchivo}`).includes(q))
       ),
     [biblioteca, categoria, q]
@@ -174,7 +175,11 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
 
   const filtros =
     pestana === "biblioteca"
-      ? CATEGORIAS_BIBLIOTECA.map((c) => ({ id: c.id, nombre: c.nombre, n: biblioteca.filter((d) => d.categoria === c.id).length }))
+      ? CATEGORIAS_BIBLIOTECA.map((c) => ({
+          id: c.id,
+          nombre: c.nombre,
+          n: biblioteca.filter((d) => categoriaBibliotecaDe(d.categoria) === c.id).length,
+        })).filter((f) => f.n > 0)
       : ORDEN_CATEGORIAS_OBRA.map((c) => ({
           id: c,
           nombre: etiquetaCategoriaObra(c),
@@ -313,7 +318,7 @@ export default function SeccionDocumentosObra({ proyectoId }: Props) {
                       key={d.id}
                       href={urlDescargaBiblioteca(d.id)}
                       titulo={d.titulo}
-                      detalle={CATEGORIAS_BIBLIOTECA.find((c) => c.id === d.categoria)?.nombre ?? d.categoria}
+                      detalle={CATEGORIAS_BIBLIOTECA.find((c) => c.id === categoriaBibliotecaDe(d.categoria))?.nombre ?? ""}
                       descripcion={d.descripcion}
                       tamano={d.tamanio}
                       icono={d.nombreArchivo.toLowerCase().endsWith(".pdf") ? "pdf" : "otro"}
