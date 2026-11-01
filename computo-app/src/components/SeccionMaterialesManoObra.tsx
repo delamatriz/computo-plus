@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { HardHat, ChevronDown, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { JornalesCategoria } from "@/lib/jornalesPorCategoria";
+import { PALETA } from "@/lib/paletaPresupuesto";
 
 // Tarjeta de solo lectura: total de materiales, total de mano de obra y
 // jornales por categoría — todo calculado en page.tsx sobre capitulos +
@@ -15,6 +16,9 @@ interface Props {
   totalMateriales: number;
   totalManoObra: number;
   jornalesPorCategoria: JornalesCategoria[];
+  // "mano-obra": solo la parte de mano de obra, como tarjeta "Mano de Obra"
+  // de Gestión de Obra (Planificación y Técnica), con su encabezado.
+  variante?: "presupuesto" | "mano-obra";
 }
 
 function fmtMoneda(v: number, moneda: string): string {
@@ -59,19 +63,30 @@ function Titulo({ children }: { children: ReactNode }) {
   return <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{children}</p>;
 }
 
-export default function SeccionMaterialesManoObra({ moneda, totalMateriales, totalManoObra, jornalesPorCategoria }: Props) {
+export default function SeccionMaterialesManoObra({
+  moneda,
+  totalMateriales,
+  totalManoObra,
+  jornalesPorCategoria,
+  variante = "presupuesto",
+}: Props) {
   const [expandido, setExpandido] = useState(false);
+  const soloMO = variante === "mano-obra";
 
   return (
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
       <button
         onClick={() => setExpandido((p) => !p)}
         aria-expanded={expandido}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left group"
+        className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left group ${
+          soloMO ? PALETA.capituloFila : "hover:bg-slate-50"
+        }`}
       >
         <div className="flex items-center gap-2.5">
-          <HardHat className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Materiales y Mano de Obra</h2>
+          <HardHat className={`w-4 h-4 ${soloMO ? "text-[#1D4435]" : "text-[#2563EB]"}`} />
+          <h2 className={`text-sm font-bold uppercase tracking-wide ${soloMO ? "text-[#1D4435]" : "text-[#1A3A5C]"}`}>
+            {soloMO ? "Mano de Obra" : "Materiales y Mano de Obra"}
+          </h2>
         </div>
         <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
           {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -88,10 +103,17 @@ export default function SeccionMaterialesManoObra({ moneda, totalMateriales, tot
             className="overflow-hidden border-t border-slate-200"
           >
             <div className="px-5 py-5 space-y-5" style={{ background: "#F8FAFC" }}>
-              <div>
-                <Titulo>Materiales</Titulo>
-                <Fila label="Total materiales" valor={fmtMoneda(totalMateriales, moneda)} />
-              </div>
+              {soloMO ? (
+                <p className="text-xs text-slate-500 -mt-1">
+                  Mano de obra del presupuesto (estimada, con aportes): total y jornales por categoría. La ejecutada se
+                  registra en la Planilla de Jornales.
+                </p>
+              ) : (
+                <div>
+                  <Titulo>Materiales</Titulo>
+                  <Fila label="Total materiales" valor={fmtMoneda(totalMateriales, moneda)} />
+                </div>
+              )}
 
               <div>
                 <Titulo>Mano de obra</Titulo>

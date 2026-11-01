@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ClipboardList, ChevronDown, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { PALETA } from "@/lib/paletaPresupuesto";
 
 interface CapituloResumen {
   id: string;
@@ -27,6 +28,9 @@ interface Props {
   // "Días de Obra" — mismo valor ya calculado que la sección propia
   // (SeccionDiasDeObra, lib/diasObra.ts), acá solo como fila de lectura.
   diasObra: number;
+  // "gestion": misma tarjeta, con el encabezado de las secciones de Gestión
+  // de Obra (donde se muestra como referencia, solo lectura).
+  variante?: "presupuesto" | "gestion";
 }
 
 function fmtMoneda(v: number, moneda: string): string {
@@ -60,7 +64,9 @@ export default function SeccionResumenPresupuesto({
   precioFinal,
   montoLeyesSociales,
   diasObra,
+  variante = "presupuesto",
 }: Props) {
+  const enGestion = variante === "gestion";
   const [expandido, setExpandido] = useState(false);
 
   const capitulosConTotal = capitulos.filter((c) => c.subtotal > 0);
@@ -78,11 +84,16 @@ export default function SeccionResumenPresupuesto({
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
       <button
         onClick={() => setExpandido((p) => !p)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors text-left group"
+        aria-expanded={expandido}
+        className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left group ${
+          enGestion ? PALETA.capituloFila : "hover:bg-slate-50"
+        }`}
       >
         <div className="flex items-center gap-2.5">
-          <ClipboardList className="w-4 h-4 text-[#2563EB]" />
-          <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Resumen del Presupuesto</h2>
+          <ClipboardList className={`w-4 h-4 ${enGestion ? "text-[#1D4435]" : "text-[#2563EB]"}`} />
+          <h2 className={`text-sm font-bold uppercase tracking-wide ${enGestion ? "text-[#1D4435]" : "text-[#1A3A5C]"}`}>
+            Resumen del Presupuesto
+          </h2>
         </div>
         <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
           {expandido ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}

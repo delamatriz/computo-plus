@@ -6668,6 +6668,21 @@ export default function ProyectoPage() {
             tipoContratacion={proyectoActivo.tipoContratacion === "PUBLICA" ? "Pública" : "Privada"}
           />
 
+          {/* Resumen del Presupuesto — la misma tarjeta de la pestaña
+              Presupuesto, solo lectura, con los mismos valores. */}
+          <SeccionResumenPresupuesto
+            variante="gestion"
+            moneda={moneda}
+            capitulos={capitulosConSubtotal}
+            costoDirecto={costoDirectoAgregado.total}
+            montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
+            costoTotal={costoTotalAgregado}
+            montoIVA={montoIVAAgregado}
+            precioFinal={precioFinalAgregado}
+            montoLeyesSociales={montoLeyesSociales}
+            diasObra={diasObra.total}
+          />
+
           <SeccionDocumentosObra proyectoId={proyectoActivo.id} />
 
           <BloqueGestionObra
@@ -6690,6 +6705,16 @@ export default function ProyectoPage() {
               filas={filasMateriales}
               total={totalMateriales}
               porCapitulo={materialesPorCapitulo}
+            />
+
+            {/* Mano de Obra — la parte MO de "Materiales y Mano de Obra"
+                del presupuesto, solo lectura. */}
+            <SeccionMaterialesManoObra
+              variante="mano-obra"
+              moneda={moneda}
+              totalMateriales={totalMateriales}
+              totalManoObra={totalManoObra}
+              jornalesPorCategoria={jornalesPorCategoria}
             />
 
             <SeccionCronograma
