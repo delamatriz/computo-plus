@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { LiquidacionFinalPDF } from "@/components/LiquidacionFinalPDF";
-import { calcularTotalCertificadoAgregado, calcularCruceCertificacion } from "@/lib/totalCertificadoAgregado";
+import { calcularCruceCertificacion } from "@/lib/totalCertificadoAgregado";
+import { datosCertificadoContratado } from "@/lib/certificadoContratado";
 import { INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
 import React from "react";
 import { requerirProyecto } from "@/lib/sesion";
@@ -26,7 +27,7 @@ export async function GET(
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
 
-    const [proyecto, liquidacion, certificaciones] = await Promise.all([
+    const [proyecto, liquidacion, datos] = await Promise.all([
       db.proyecto.findUnique({
         where: { id },
         include: { empresa: true },
@@ -35,10 +36,7 @@ export async function GET(
         where: { proyectoId: id },
         include: { ajustes: { orderBy: { createdAt: "asc" }, include: INCLUDE_VINCULO_AJUSTE } },
       }),
-      db.certificacion.findMany({
-        where: { proyectoId: id },
-        include: { items: { include: { rubro: { select: { cantidad: true, precioUnit: true } } } } },
-      }),
+      datosCertificadoContratado(id),
     ]);
 
     if (!proyecto) {
@@ -49,10 +47,8 @@ export async function GET(
     }
 
     const totalLiquidado = calcularTotalLiquidado(liquidacion.presupuestoOriginalSnapshot, liquidacion.ajustes);
-    const cruceCertificacion = calcularCruceCertificacion(
-      calcularTotalCertificadoAgregado(certificaciones),
-      totalLiquidado
-    );
+    // Total certificado sobre el presupuesto contratado, como en la pantalla.
+    const cruceCertificacion = calcularCruceCertificacion(datos?.certificado ?? 0, totalLiquidado);
 
     const elemento = React.createElement(LiquidacionFinalPDF, {
       empresaNombreHeader: proyecto.empresa?.nombre || "Mi Empresa",

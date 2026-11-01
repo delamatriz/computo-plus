@@ -1,84 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import {
-  calcularCostoDirectoAgregado,
-  calcularCostosIndirectosAgregados,
-  calcularUtilidadAgregada,
-  type ApuParaCosto,
-} from "@/lib/costoAgregado";
-import { calcularTotalCertificadoAgregado, calcularCruceCertificacion } from "@/lib/totalCertificadoAgregado";
+import { calcularCruceCertificacion } from "@/lib/totalCertificadoAgregado";
+import { datosCertificadoContratado } from "@/lib/certificadoContratado";
 import { INCLUDE_VINCULO_AJUSTE } from "@/lib/vinculoAjusteLiquidacion";
 import { requerirProyecto } from "@/lib/sesion";
 
-// Presupuesto Original = Costo Total del presupuesto (Costo Directo +
-// Costos Indirectos + Utilidad, SIN IVA) — mismo "Costo Total" que ya
-// muestra la tabla principal del presupuesto (proyectos/[id]/page.tsx,
-// costoTotalAgregado) y que usa /api/proyectos/[id]/pdf. Reutiliza
-// costoAgregado.ts tal cual, sin reimplementar la fórmula. Se calcula
-// en vivo (no se guarda) para no quedar desincronizado si el
-// presupuesto cambia después de creada la liquidación.
-async function calcularPresupuestoOriginal(proyectoId: string): Promise<number | null> {
-  const proyecto = await db.proyecto.findUnique({
-    where: { id: proyectoId },
-    include: {
-      capitulos: {
-        include: {
-          rubros: {
-            include: { apu: { include: { materiales: true, manoObra: true, equipos: true } } },
-          },
-        },
-      },
-    },
-  });
-  if (!proyecto) return null;
-
-  const capitulosParaCosto = proyecto.capitulos.map((cap) => ({
-    rubros: cap.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
-  }));
-  const apuDataParaCosto: Record<string, ApuParaCosto> = {};
-  for (const cap of proyecto.capitulos) {
-    for (const r of cap.rubros) {
-      if (r.apu) {
-        apuDataParaCosto[r.id] = {
-          materiales: r.apu.materiales,
-          manoObra: r.apu.manoObra,
-          equipos: r.apu.equipos,
-          aportesPatronalesPct: r.apu.aportesPatronalesPct,
-          utilidadPct: r.apu.utilidadPct,
-        };
-      }
-    }
-  }
-
-  const costoDirectoAgregado = calcularCostoDirectoAgregado(capitulosParaCosto, apuDataParaCosto);
-  const utilidadAgregada = calcularUtilidadAgregada(capitulosParaCosto, apuDataParaCosto);
-  const costosIndirectosAgregados = calcularCostosIndirectosAgregados(
-    proyecto.modoGastosGenerales,
-    proyecto.gastosGeneralesDetallado,
-    proyecto.gastosGeneralesPctDefault,
-    costoDirectoAgregado.total,
-    proyecto.gastosGeneralesItems,
-    proyecto.imprevistosPct
-  );
-  return costoDirectoAgregado.total + costosIndirectosAgregados + utilidadAgregada;
-}
-
-// Total certificado del proyecto — se recalcula en vivo en cada GET
-// (a diferencia del Presupuesto Original, acá no hay pedido de
-// congelarlo: Certificaciones sigue siendo un módulo independiente que
-// puede seguir cargando certificaciones después de creada la
-// liquidación, y el cruce debe reflejar el estado real más reciente).
-async function calcularTotalCertificado(proyectoId: string): Promise<number> {
-  const certificaciones = await db.certificacion.findMany({
-    where: { proyectoId },
-    include: {
-      items: {
-        include: { rubro: { select: { cantidad: true, precioUnit: true } } },
-      },
-    },
-  });
-  return calcularTotalCertificadoAgregado(certificaciones);
-}
+// Presupuesto Original = presupuesto contratado (lib/presupuestoContratado):
+// el monto del contrato firmado o, sin contrato, la suma de rubros. Es la
+// misma base que usan Resumen, Certificaciones y Control de Costos. El total
+// certificado del cruce se expresa sobre esa misma base (% de avance sobre
+// la suma de rubros × presupuesto contratado), y se recalcula en vivo en
+// cada GET: Certificaciones puede seguir cargando después de creada la
+// liquidación y el cruce tiene que reflejar el estado más reciente.
 
 function calcularTotalLiquidado(presupuestoOriginal: number, ajustes: { monto: number; tipo: string }[]): number {
   const sumaAdicionales = ajustes.filter((a) => a.tipo === "Adicional").reduce((s, a) => s + a.monto, 0);
@@ -111,9 +44,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       include: { ajustes: { orderBy: { createdAt: "asc" }, include: INCLUDE_VINCULO_AJUSTE } },
     });
 
-    const presupuestoOriginal = liquidacion
-      ? liquidacion.presupuestoOriginalSnapshot
-      : await calcularPresupuestoOriginal(id);
+    const datos = await datosCertificadoContratado(id);
+    const presupuestoOriginal = liquidacion ? liquidacion.presupuestoOriginalSnapshot : datos?.contratado.monto ?? null;
     const totalLiquidado =
       presupuestoOriginal != null
         ? calcularTotalLiquidado(presupuestoOriginal, liquidacion?.ajustes ?? [])
@@ -123,13 +55,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     // existe una liquidación (hay un Total Liquidado contra el cual
     // comparar) — antes de crearla no se calcula.
     const cruceCertificacion =
-      liquidacion && totalLiquidado != null
-        ? calcularCruceCertificacion(await calcularTotalCertificado(id), totalLiquidado)
+      liquidacion && totalLiquidado != null && datos
+        ? calcularCruceCertificacion(datos.certificado, totalLiquidado)
         : null;
 
     return NextResponse.json({
       liquidacion,
       presupuestoOriginal,
+      // De dónde sale el presupuesto contratado hoy ("contrato" | "rubros");
+      // con la liquidación ya creada, presupuestoOriginal es la foto tomada
+      // al crearla y puede diferir de presupuestoContratadoActual.
+      presupuestoFuente: datos?.contratado.fuente ?? "rubros",
+      presupuestoContratadoActual: datos?.contratado.monto ?? null,
       totalLiquidado,
       cruceCertificacion,
       monedaProyecto: proyecto.moneda,
@@ -142,7 +79,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
 // POST — crea la liquidación final del proyecto (primera vez).
 // Congela el Presupuesto Original acá — se calcula una sola vez con
-// costoAgregado.ts y se guarda en presupuestoOriginalSnapshot; de acá
+// lib/certificadoContratado y se guarda en presupuestoOriginalSnapshot; de acá
 // en más ese número no se vuelve a tocar en esta liquidación.
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -166,7 +103,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Este proyecto ya tiene una liquidación final" }, { status: 409 });
     }
 
-    const presupuestoOriginal = await calcularPresupuestoOriginal(id);
+    const presupuestoOriginal = (await datosCertificadoContratado(id))?.contratado.monto ?? null;
     if (presupuestoOriginal == null) {
       return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
     }

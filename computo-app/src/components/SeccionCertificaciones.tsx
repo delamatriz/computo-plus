@@ -6,6 +6,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import CampoFecha from "@/components/CampoFecha";
+import {
+  presupuestoContratado,
+  pctAvance,
+  certificadoSobreContratado,
+  esCobroDeCertificacion,
+  esAnticipo,
+  sumarMovimientos,
+  type ContratoParaPresupuesto,
+} from "@/lib/presupuestoContratado";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface RubroResumen {
@@ -50,6 +59,9 @@ interface MovimientoCaja {
   tipo: string; // "Ingreso" | "Egreso"
   monto: number;
   moneda: string;
+  categoria?: string | null;
+  certificacionId?: string | null;
+  certificacion?: { id: string } | null;
 }
 
 interface CapituloInfo {
@@ -160,41 +172,61 @@ function TarjetaCertificacion({
 // verdad. El presupuesto es la suma de rubros (sin IVA ni gastos
 // generales): la misma base con la que se calcula cada certificación, para
 // que el saldo llegue a 0 al certificar el 100%.
+// Montos sobre el presupuesto contratado (contrato firmado, o suma de rubros
+// sin contrato); el % de avance, sobre la suma de rubros — ver
+// lib/presupuestoContratado. Lo cobrado cuenta solo los cobros de
+// certificación; los anticipos van en su propia línea.
 function PanelResumen({
-  presupuesto,
-  certificado,
+  sumaRubros,
+  certificadoRubros,
+  contrato,
   movimientos,
   moneda,
 }: {
-  presupuesto: number;
-  certificado: number;
+  sumaRubros: number;
+  certificadoRubros: number;
+  contrato: ContratoParaPresupuesto | null;
   movimientos: MovimientoCaja[];
   moneda: string;
 }) {
-  const ingresos = movimientos.filter((m) => m.tipo === "Ingreso" && m.moneda === moneda);
-  const cobrado = ingresos.reduce((s, m) => s + m.monto, 0);
-  const pct = (v: number) => (presupuesto > 0 ? `${fmtNum((v / presupuesto) * 100, 1)}%` : "");
-  const saldo = presupuesto - certificado;
-  const pctCertificado = presupuesto > 0 ? Math.min(100, (certificado / presupuesto) * 100) : 0;
+  const contratado = presupuestoContratado(contrato, sumaRubros, moneda);
+  const pctCertificado = pctAvance(certificadoRubros, sumaRubros);
+  const certificado = certificadoSobreContratado(certificadoRubros, sumaRubros, contratado.monto);
+  const saldo = contratado.monto - certificado;
+  const cobrado = sumarMovimientos(movimientos, moneda, esCobroDeCertificacion);
+  const anticipos = sumarMovimientos(movimientos, moneda, esAnticipo);
+  const fmtPct = (v: number) => `${fmtNum(v, 1)}%`;
 
   return (
     <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3">
       <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Resumen</p>
       <div className="space-y-1.5">
-        <FilaResumen label="Presupuesto contratado" valor={fmtMoneda(presupuesto, moneda)} nota="Suma de rubros, sin IVA" />
-        <FilaResumen label="Total certificado" valor={fmtMoneda(certificado, moneda)} nota={pct(certificado)} destacado />
+        <FilaResumen
+          label="Presupuesto contratado"
+          valor={fmtMoneda(contratado.monto, moneda)}
+          nota={contratado.fuente === "contrato" ? "Contrato firmado" : "Suma de rubros, sin IVA"}
+        />
+        <FilaResumen label="Total certificado" valor={fmtMoneda(certificado, moneda)} nota={fmtPct(pctCertificado)} destacado />
         <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
           <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${pctCertificado}%` }} />
         </div>
-        <FilaResumen label="Saldo a certificar" valor={fmtMoneda(saldo, moneda)} nota={pct(saldo)} />
-        {ingresos.length > 0 && (
+        <FilaResumen label="Saldo a certificar" valor={fmtMoneda(saldo, moneda)} nota={fmtPct(100 - pctCertificado)} />
+        {contratado.fuente === "contrato" && (
+          <p className="text-[10px] text-slate-400 leading-snug">
+            % de avance sobre la suma de rubros ({fmtMoneda(sumaRubros, moneda)}), aplicado al monto del contrato.
+          </p>
+        )}
+        {(cobrado > 0 || anticipos > 0) && (
           <div className="pt-1.5 mt-1.5 border-t border-slate-100 space-y-1.5">
-            <FilaResumen label="Cobrado efectivamente" valor={fmtMoneda(cobrado, moneda)} nota="Ingresos en Flujo de Caja" />
+            <FilaResumen label="Cobrado de certificados" valor={fmtMoneda(cobrado, moneda)} nota="Cobros de certificación en Flujo de Caja" />
             <FilaResumen
               label={cobrado > certificado ? "Cobrado de más" : "Certificado sin cobrar"}
               valor={fmtMoneda(Math.abs(certificado - cobrado), moneda)}
-              alerta={certificado - cobrado > 0}
+              alerta={certificado - cobrado > 0.5}
             />
+            {anticipos > 0 && (
+              <FilaResumen label="Anticipos del comitente" valor={fmtMoneda(anticipos, moneda)} nota="Aparte de los certificados" />
+            )}
           </div>
         )}
       </div>
@@ -248,6 +280,7 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [movimientosCaja, setMovimientosCaja] = useState<MovimientoCaja[]>([]);
+  const [contrato, setContrato] = useState<ContratoParaPresupuesto | null>(null);
   const [itemFotosAbierto, setItemFotosAbierto] = useState<string | null>(null);
   const [fotosPorItem, setFotosPorItem] = useState<Record<string, FotoCert[]>>({});
   const [subiendoFotos, setSubiendoFotos] = useState<Record<string, boolean>>({});
@@ -261,12 +294,17 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
   /* ── Carga de certificaciones ──────────────────────────── */
   const cargarLista = useCallback(async () => {
     try {
-      const [res, resCaja] = await Promise.all([
+      const [res, resCaja, resContrato] = await Promise.all([
         fetch(`/api/proyectos/${proyectoId}/certificaciones`),
         fetch(`/api/proyectos/${proyectoId}/flujo-caja`),
+        fetch(`/api/proyectos/${proyectoId}/contrato`),
       ]);
       const caja = await resCaja.json().catch(() => []);
       setMovimientosCaja(Array.isArray(caja) ? caja : []);
+      const datosContrato = resContrato.ok ? await resContrato.json().catch(() => null) : null;
+      setContrato(
+        datosContrato?.contrato ? { monto: datosContrato.contrato.monto, moneda: datosContrato.contrato.moneda } : null
+      );
       const data: CertificacionResumen[] = await res.json();
       setCertificaciones(Array.isArray(data) ? data : []);
       if (Array.isArray(data) && data.length > 0) {
@@ -538,6 +576,7 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
   }, [detalle, ediciones, acumuladoAnterior]);
 
   const saldoPendiente = totalGeneral - totalAcumulado;
+  const contratadoObra = presupuestoContratado(contrato, totalGeneral, moneda);
 
   /* ── Agrupar items por capítulo, en orden ──────────────── */
   const gruposPorCapitulo = useMemo(() => {
@@ -627,8 +666,9 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                       certificado y un "cobrado de más" falso. */}
                   {certificaciones.length > 0 && rubrosPorId.size > 0 && (
                     <PanelResumen
-                      presupuesto={totalGeneral}
-                      certificado={certificaciones.reduce((s, c) => s + montoCertificadoDe(c, rubrosPorId), 0)}
+                      sumaRubros={totalGeneral}
+                      certificadoRubros={certificaciones.reduce((s, c) => s + montoCertificadoDe(c, rubrosPorId), 0)}
+                      contrato={contrato}
                       movimientos={movimientosCaja}
                       moneda={moneda}
                     />
@@ -744,8 +784,9 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                               <th className={cn(thCls, "text-right pr-2")} style={{ width: 76 }}>Cant. total</th>
                               <th className={cn(thCls, "text-right pr-2")} style={{ width: 88 }}>Precio unit.</th>
                               <th className={cn(thCls, "text-right pr-2")} style={{ width: 96 }}>Monto total</th>
-                              <th className={cn(thCls, "text-right pr-2")} style={{ width: 92 }} title="% ya certificado en certificaciones anteriores">% avance acum.</th>
+                              <th className={cn(thCls, "text-right pr-2")} style={{ width: 76 }} title="% ya certificado en certificaciones anteriores">% anterior</th>
                               <th className={cn(thCls, "text-right pr-2")} style={{ width: 84 }}>% esta cert.</th>
+                              <th className={cn(thCls, "text-right pr-2")} style={{ width: 84 }} title="% anterior + % de esta certificación">% acumulado</th>
                               <th className={cn(thCls, "text-right pr-4")} style={{ width: 104 }}>Monto esta cert.</th>
                             </tr>
                           </thead>
@@ -779,12 +820,32 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-slate-500">Total certificado acumulado</span>
-                          <span className="font-semibold tabular-nums text-slate-700">{fmtMoneda(totalAcumulado, moneda)}</span>
+                          <span className="font-semibold tabular-nums text-slate-700">
+                            {fmtMoneda(totalAcumulado, moneda)}
+                            <span className="ml-1.5 text-xs font-normal text-slate-400">{fmtNum(pctAvance(totalAcumulado, totalGeneral), 1)}%</span>
+                          </span>
                         </div>
                         <div className="flex items-center justify-between pt-1.5 border-t border-slate-200">
-                          <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Saldo pendiente</span>
+                          <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Saldo a certificar</span>
                           <span className="text-base font-bold tabular-nums text-[#1A3A5C]">{fmtMoneda(saldoPendiente, moneda)}</span>
                         </div>
+                        {contratadoObra.fuente === "contrato" && (
+                          <p className="text-[11px] text-slate-500 leading-snug">
+                            Montos de esta tabla sobre la suma de rubros. Sobre el contrato firmado (
+                            {fmtMoneda(contratadoObra.monto, moneda)}): certificado{" "}
+                            <span className="font-semibold tabular-nums text-slate-700">
+                              {fmtMoneda(certificadoSobreContratado(totalAcumulado, totalGeneral, contratadoObra.monto), moneda)}
+                            </span>
+                            , saldo{" "}
+                            <span className="font-semibold tabular-nums text-slate-700">
+                              {fmtMoneda(
+                                contratadoObra.monto - certificadoSobreContratado(totalAcumulado, totalGeneral, contratadoObra.monto),
+                                moneda
+                              )}
+                            </span>
+                            .
+                          </p>
+                        )}
                       </div>
 
                       <div className="px-4 pb-4 pt-1">
@@ -839,7 +900,7 @@ function FragmentoCapitulo({
   return (
     <>
       <tr>
-        <td colSpan={8} className="px-4 py-1.5" style={{ background: "#1A3A5C" }}>
+        <td colSpan={9} className="px-4 py-1.5" style={{ background: "#1A3A5C" }}>
           <span className="text-[11px] font-bold text-white uppercase tracking-wider">
             {capitulo.codigo ? `${capitulo.codigo} · ` : ""}{capitulo.nombre}
           </span>
@@ -898,13 +959,21 @@ function FragmentoCapitulo({
                   </div>
                 )}
               </td>
+              <td
+                className={cn(
+                  "text-right pr-2 tabular-nums font-medium",
+                  acumAnterior + pctEsta >= 99.95 ? "text-emerald-700" : "text-slate-700"
+                )}
+              >
+                {fmtNum(acumAnterior + pctEsta, 1)}%
+              </td>
               <td className="text-right pr-4 tabular-nums font-semibold text-[#2563EB]">
                 {montoEstaCert ? fmtMoneda(montoEstaCert, moneda) : "—"}
               </td>
             </tr>
             {fotosAbierto && (
               <tr className="border-b border-slate-50 bg-[#F8FAFC]">
-                <td colSpan={8} className="px-4 py-2.5">
+                <td colSpan={9} className="px-4 py-2.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     {fotos.map((foto) => (
                       <div key={foto.id} className="relative group w-14 h-14 rounded-[6px] overflow-hidden border border-slate-200 flex-shrink-0">

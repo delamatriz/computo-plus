@@ -298,14 +298,14 @@ function FilaMaterial({
         {f.descripcion}
       </div>
       <div style={{ width: 56 }} className="text-sm text-slate-500 text-center">{f.unidad}</div>
-      <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-700 font-semibold text-right">{fmtMon(f.cantidadTotal)}</div>
+      <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-700 font-semibold text-right">{fmtCantidad(f.cantidadTotal)}</div>
       <div style={{ width: 100 }} className="text-sm tabular-nums text-slate-500 text-right">
         {sinPrecio ? (
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
             Sin precio
           </span>
         ) : (
-          fmtMon(f.precioUnit!)
+          fmtCantidad(f.precioUnit!)
         )}
       </div>
       <div style={{ width: 140 }} className="text-sm font-bold tabular-nums text-[#2563EB] text-right pr-4">{costoTotal != null ? fmtMon(costoTotal) : "—"}</div>

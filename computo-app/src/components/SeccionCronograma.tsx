@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -339,16 +339,22 @@ function TooltipBarra({ nombre, f, duracion }: { nombre: string; f: FechaPar; du
 }
 
 /* ─── Vista Curva S ───────────────────────────────────────── */
+type EstadoCarga = "cargando" | "ok" | "error";
+
 function VistaCurvaS({
   capitulos,
   fechas,
   fechasRubro,
   certificaciones,
+  estadoCerts,
+  onReintentar,
 }: {
   capitulos: CapituloCronograma[];
   fechas: Record<string, FechaPar>;
   fechasRubro: Record<string, FechaPar>;
   certificaciones: CertificacionCronograma[];
+  estadoCerts: EstadoCarga;
+  onReintentar: () => void;
 }) {
   // Planificado — a nivel RUBRO (fecha efectiva: propia o heredada del
   // capítulo). La curva Real (certificado) sigue exactamente igual que
@@ -367,12 +373,31 @@ function VistaCurvaS({
 
   const totalGeneral = capitulos.reduce((s, c) => s + totalCapituloC(c), 0);
 
-  if (rubrosConFechas.length === 0 || certificaciones.length === 0 || totalGeneral <= 0) {
+  // Mientras no llegan las certificaciones no se puede decir que falten: se
+  // muestra la carga (o el error con reintento), nunca el aviso de "cargá…".
+  if (estadoCerts === "cargando" && certificaciones.length === 0) {
+    return <p className="text-xs text-slate-400 italic px-5 py-5">Cargando certificaciones…</p>;
+  }
+  if (estadoCerts === "error") {
     return (
-      <p className="text-xs text-slate-400 italic px-5 py-5">
-        Cargá fechas en el cronograma (de capítulo o de rubro) y certificaciones para ver la curva de avance.
-      </p>
+      <div className="px-5 py-5 flex items-center gap-3">
+        <p className="text-xs text-red-600">No se pudieron cargar las certificaciones.</p>
+        <button onClick={onReintentar} className="text-xs font-semibold text-[#2563EB] hover:underline">
+          Reintentar
+        </button>
+      </div>
     );
+  }
+  if (rubrosConFechas.length === 0 || certificaciones.length === 0 || totalGeneral <= 0) {
+    const falta =
+      totalGeneral <= 0
+        ? "Cargá cantidades y precios en los rubros"
+        : rubrosConFechas.length === 0 && certificaciones.length === 0
+          ? "Cargá fechas en el cronograma (de capítulo o de rubro) y al menos una certificación"
+          : rubrosConFechas.length === 0
+            ? "Cargá fechas en el cronograma (de capítulo o de rubro)"
+            : "Cargá al menos una certificación";
+    return <p className="text-xs text-slate-400 italic px-5 py-5">{falta} para ver la curva de avance.</p>;
   }
 
   // Mapa de rubros (para calcular el monto certificado de cada certificación) — sin cambios.
@@ -522,12 +547,13 @@ function VistaTabla({
   const thCls = "text-[10px] font-semibold text-slate-400 uppercase tracking-wider";
 
   // Inicio sugerido para un capítulo sin fecha: el primero arranca con la
-  // obra; los demás, al día siguiente del fin del capítulo anterior (o con la
-  // obra, si el anterior todavía no tiene fin).
+  // obra; los demás, al día siguiente del fin del capítulo anterior. Si el
+  // anterior todavía no tiene fin no se sugiere nada (proponer el inicio de
+  // obra para un capítulo del medio no tiene sentido).
   const sugerencia = (idx: number): string => {
-    const finAnterior = idx > 0 ? fechas[capitulos[idx - 1].id]?.fin : "";
-    if (finAnterior) return formatDate(addDias(parseLocalDate(finAnterior), 1));
-    return inicioProyecto;
+    if (idx === 0) return inicioProyecto;
+    const finAnterior = fechas[capitulos[idx - 1].id]?.fin;
+    return finAnterior ? formatDate(addDias(parseLocalDate(finAnterior), 1)) : "";
   };
 
   return (
@@ -680,24 +706,31 @@ export default function SeccionCronograma({ proyectoId, capitulos, fechaInicioOb
   const [erroresRubro, setErroresRubro] = useState<Record<string, string>>({});
   const [expandidos, setExpandidos] = useState<Record<string, boolean>>({});
   const [certificaciones, setCertificaciones] = useState<CertificacionCronograma[]>([]);
-  const [certsCargadas, setCertsCargadas] = useState(false);
+  const [estadoCerts, setEstadoCerts] = useState<EstadoCarga>("cargando");
+  const pedidoCerts = useRef(0);
 
-  // Carga las certificaciones (lazy) para la curva S
-  const cargarCertificaciones = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/proyectos/${proyectoId}/certificaciones`);
-      const data = await res.json();
-      setCertificaciones(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("[cronograma] error cargando certificaciones", err);
-    } finally {
-      setCertsCargadas(true);
-    }
-  }, [proyectoId]);
-
-  useEffect(() => {
-    if (expandido && vista === "curva" && !certsCargadas) cargarCertificaciones();
-  }, [expandido, vista, certsCargadas, cargarCertificaciones]);
+  // Certificaciones para la curva S: se piden cada vez que se muestra la
+  // pestaña (se cargan en otra sección de la misma página), con estado de
+  // carga y reintento — antes se pedían una sola vez y, si ese pedido fallaba
+  // o tardaba, la curva quedaba vacía. Si llegan dos respuestas, vale la última.
+  const pedirCertificaciones = () => {
+    const pedido = ++pedidoCerts.current;
+    setEstadoCerts("cargando");
+    fetch(`/api/proyectos/${proyectoId}/certificaciones`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (pedido !== pedidoCerts.current) return;
+        setCertificaciones(Array.isArray(data) ? data : []);
+        setEstadoCerts("ok");
+      })
+      .catch((err) => {
+        console.error("[cronograma] error cargando certificaciones", err);
+        if (pedido === pedidoCerts.current) setEstadoCerts("error");
+      });
+  };
 
   // Incorpora capítulos y rubros nuevos (o recién cargados) sin pisar ediciones en curso
   useEffect(() => {
@@ -831,7 +864,10 @@ export default function SeccionCronograma({ proyectoId, capitulos, fechaInicioOb
     <div className="mt-6 bg-white rounded-[16px] border border-slate-300 shadow-sm overflow-hidden">
       {/* Header colapsable */}
       <button
-        onClick={() => setExpandido((p) => !p)}
+        onClick={() => {
+          if (!expandido && vista === "curva") pedirCertificaciones();
+          setExpandido((p) => !p);
+        }}
         className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left group ${PALETA.capituloFila}`}
       >
         <div className="flex items-center gap-2.5">
@@ -871,7 +907,13 @@ export default function SeccionCronograma({ proyectoId, capitulos, fechaInicioOb
                     <button onClick={() => setVista("gantt")} className={tabBtnCls(vista === "gantt")}>
                       Gantt
                     </button>
-                    <button onClick={() => setVista("curva")} className={tabBtnCls(vista === "curva")}>
+                    <button
+                      onClick={() => {
+                        if (vista !== "curva") pedirCertificaciones();
+                        setVista("curva");
+                      }}
+                      className={tabBtnCls(vista === "curva")}
+                    >
                       Curva S
                     </button>
                   </div>
@@ -909,7 +951,14 @@ export default function SeccionCronograma({ proyectoId, capitulos, fechaInicioOb
                     toggleExpandido={toggleExpandido}
                   />
                 ) : (
-                  <VistaCurvaS capitulos={capitulos} fechas={fechas} fechasRubro={fechasRubro} certificaciones={certificaciones} />
+                  <VistaCurvaS
+                    capitulos={capitulos}
+                    fechas={fechas}
+                    fechasRubro={fechasRubro}
+                    certificaciones={certificaciones}
+                    estadoCerts={estadoCerts}
+                    onReintentar={pedirCertificaciones}
+                  />
                 )}
               </>
             )}

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import CampoFecha from "@/components/CampoFecha";
+import { esAnticipo, esCobroDeCertificacion, sumarMovimientos, type IngresoCaja } from "@/lib/presupuestoContratado";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_TIPO = ["Adicional", "Descuento"] as const;
@@ -107,8 +108,10 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
   const [totalLiquidado, setTotalLiquidado] = useState<number | null>(null);
   const [cruceCertificacion, setCruceCertificacion] = useState<CruceCertificacion | null>(null);
   const [monedaProyecto, setMonedaProyecto] = useState("UYU");
-  // Ingresos registrados en Flujo de Caja, por moneda — "cobrado a la fecha".
-  const [ingresosCaja, setIngresosCaja] = useState<{ monto: number; moneda: string }[]>([]);
+  const [presupuestoFuente, setPresupuestoFuente] = useState<"contrato" | "rubros">("rubros");
+  const [presupuestoActual, setPresupuestoActual] = useState<number | null>(null);
+  // Ingresos registrados en Flujo de Caja — "cobrado a la fecha".
+  const [ingresosCaja, setIngresosCaja] = useState<IngresoCaja[]>([]);
 
   const [formularioGeneralAbierto, setFormularioGeneralAbierto] = useState(false);
   const [formGeneral, setFormGeneral] = useState<FormGeneral>(formGeneralVacio());
@@ -136,6 +139,8 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
       const data = await res.json();
       setLiquidacion(data.liquidacion);
       setPresupuestoOriginal(data.presupuestoOriginal);
+      setPresupuestoFuente(data.presupuestoFuente === "contrato" ? "contrato" : "rubros");
+      setPresupuestoActual(data.presupuestoContratadoActual ?? null);
       setTotalLiquidado(data.totalLiquidado);
       setCruceCertificacion(data.cruceCertificacion ?? null);
       setMonedaProyecto(data.monedaProyecto ?? "UYU");
@@ -303,8 +308,8 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
           >
             <div className="px-5 py-5 space-y-3" style={{ background: "#F8FAFC" }}>
               <p className="text-xs text-slate-500 -mt-1">
-                Presupuesto original (Costo Total del presupuesto) más ajustes reales de obra — adicionales y
-                descuentos — igual al total liquidado.
+                Presupuesto contratado (monto del contrato firmado o, sin contrato, la suma de rubros) más
+                ajustes reales de obra — adicionales y descuentos — igual al total liquidado.
               </p>
 
               {presupuestoOriginal != null && (
@@ -313,7 +318,19 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
                     Presupuesto original
                   </p>
                   <p className="text-sm font-semibold text-slate-700">{fmtMoneda(presupuestoOriginal, monedaProyecto)}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Costo Total del presupuesto actual — calculado, no editable.</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {liquidacion
+                      ? "Tomado al crear la liquidación — no cambia si después se edita el contrato o el presupuesto."
+                      : presupuestoFuente === "contrato"
+                        ? "Monto del contrato firmado — queda fijo al crear la liquidación."
+                        : "Suma de rubros, sin IVA (sin contrato cargado) — queda fijo al crear la liquidación."}
+                  </p>
+                  {liquidacion && presupuestoActual != null && Math.abs(presupuestoActual - presupuestoOriginal) > 0.5 && (
+                    <p className="text-[10px] text-amber-700 mt-1">
+                      El presupuesto contratado hoy es {fmtMoneda(presupuestoActual, monedaProyecto)}
+                      {presupuestoFuente === "contrato" ? " (contrato firmado)" : " (suma de rubros)"}.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -424,8 +441,7 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
                     <SaldoFinal
                       totalLiquidado={totalLiquidado}
                       retencionPct={liquidacion.retencionGarantiaPct}
-                      cobrado={ingresosCaja.filter((m) => m.moneda === monedaProyecto).reduce((s, m) => s + m.monto, 0)}
-                      hayIngresos={ingresosCaja.some((m) => m.moneda === monedaProyecto)}
+                      ingresos={ingresosCaja}
                       moneda={monedaProyecto}
                     />
                   )}
@@ -617,21 +633,23 @@ const ESTILO_CRUCE: Record<EstadoCruce, { borde: string; fondo: string; texto: s
 };
 
 /* ─── Saldo final: total liquidado − cobrado − retención ───── */
+// Lo cobrado al comitente: cobros de certificación y anticipos (otros ingresos
+// de caja, como una venta de sobrante, no pagan la obra).
 function SaldoFinal({
   totalLiquidado,
   retencionPct,
-  cobrado,
-  hayIngresos,
+  ingresos,
   moneda,
 }: {
   totalLiquidado: number;
   retencionPct: number | null;
-  cobrado: number;
-  hayIngresos: boolean;
+  ingresos: IngresoCaja[];
   moneda: string;
 }) {
+  const cobros = sumarMovimientos(ingresos, moneda, esCobroDeCertificacion);
+  const anticipos = sumarMovimientos(ingresos, moneda, esAnticipo);
   const retencion = retencionPct ? (totalLiquidado * retencionPct) / 100 : 0;
-  const saldo = totalLiquidado - cobrado - retencion;
+  const saldo = totalLiquidado - cobros - anticipos - retencion;
   const fila = (label: string, valor: string, clase = "text-slate-700") => (
     <div className="flex items-center justify-between gap-3 text-sm">
       <span className="text-slate-500">{label}</span>
@@ -640,7 +658,14 @@ function SaldoFinal({
   );
   return (
     <div className="rounded-[10px] border border-slate-200 bg-white px-3.5 py-3 space-y-1.5">
-      {fila("Cobrado a la fecha", hayIngresos ? `− ${fmtMoneda(cobrado, moneda)}` : "Sin ingresos en Flujo de Caja", hayIngresos ? "text-emerald-700" : "text-slate-400 font-normal")}
+      {cobros === 0 && anticipos === 0
+        ? fila("Cobrado a la fecha", "Sin cobros en Flujo de Caja", "text-slate-400 font-normal")
+        : (
+          <>
+            {fila("Cobros de certificación", `− ${fmtMoneda(cobros, moneda)}`, "text-emerald-700")}
+            {anticipos > 0 && fila("Anticipos del comitente", `− ${fmtMoneda(anticipos, moneda)}`, "text-emerald-700")}
+          </>
+        )}
       {retencion > 0 && fila(`Retención de garantía (${retencionPct}%)`, `− ${fmtMoneda(retencion, moneda)}`, "text-amber-700")}
       <div className="flex items-center justify-between gap-3 pt-1.5 border-t border-slate-200">
         <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">
@@ -680,6 +705,9 @@ function BloqueCruceCertificacion({ cruce, moneda }: { cruce: CruceCertificacion
         <Icono className="w-3.5 h-3.5 flex-shrink-0" />
         {mensajeCruce(cruce, moneda)}
       </div>
+      <p className="text-[10px] text-slate-500">
+        % de avance certificado aplicado al presupuesto contratado, comparado con el total liquidado (con ajustes).
+      </p>
     </div>
   );
 }

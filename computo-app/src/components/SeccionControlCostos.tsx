@@ -6,12 +6,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { totalesJornales, type JornalParaCalculo } from "@/lib/jornalesPagados";
+import { presupuestoContratado, type ContratoParaPresupuesto } from "@/lib/presupuestoContratado";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface RubroCosto {
   id: string;
   cantidad: number | null;
   precioUnit: number | null;
+  // Costo directo unitario del APU (sin utilidad); null si el rubro no tiene APU.
+  costoUnit?: number | null;
 }
 
 interface CapituloCosto {
@@ -27,6 +30,7 @@ interface CapituloVinculoCompromiso {
 
 interface Subcontratista {
   id: string;
+  empresa: string;
   montoContratado: number | null;
   moneda: string;
   estado: string;
@@ -55,22 +59,28 @@ function fmtMoneda(v: number, moneda: string): string {
   return moneda === "USD" ? `US$ ${fmt}` : `$ ${fmt}`;
 }
 
-function totalRubroC(r: RubroCosto): number {
-  if (r.cantidad == null || r.precioUnit == null) return 0;
-  return r.cantidad * r.precioUnit;
+// Lo presupuestado se compara A COSTO (costo directo del APU × cantidad, sin
+// utilidad): lo comprometido —OC, subcontratos, jornales— es costo, y contra
+// el precio de venta el desvío salía inflado por la utilidad. Un rubro sin APU
+// no permite separar la utilidad: entra con su precio entero.
+function costoRubro(r: RubroCosto): number {
+  if (r.cantidad == null) return 0;
+  const unit = r.costoUnit ?? r.precioUnit;
+  return unit == null ? 0 : r.cantidad * unit;
 }
 
 function presupuestadoCapitulo(cap: CapituloCosto): number {
-  return (cap.rubros ?? []).reduce((s, r) => s + totalRubroC(r), 0);
+  return (cap.rubros ?? []).reduce((s, r) => s + costoRubro(r), 0);
 }
 
 /* ─── Cálculo de comprometido por moneda, por capítulo ────── */
 // Cancelado no cuenta como compromiso real — un subcontrato o una orden
 // cancelados ya no representan una salida de plata esperada, mismo
 // criterio que llevó a que "Cancelado" reemplace el borrado en esos
-// módulos (el registro queda, pero deja de pesar acá).
+// módulos (el registro queda, pero deja de pesar acá). "En negociación"
+// tampoco: todavía no hay nada firmado.
 function esCompromisoVigente(estado: string): boolean {
-  return estado !== "Cancelado";
+  return estado !== "Cancelado" && estado !== "En negociación";
 }
 
 type ComprometidoPorMoneda = Record<string, number>;
@@ -170,20 +180,24 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
   const [subcontratistas, setSubcontratistas] = useState<Subcontratista[]>([]);
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
   const [jornales, setJornales] = useState<JornalParaCalculo[]>([]);
+  const [contrato, setContrato] = useState<ContratoParaPresupuesto | null>(null);
 
   const cargarDatos = useCallback(async () => {
     setActualizando(true);
     try {
-      const [resSub, resOrd, resJor] = await Promise.all([
+      const [resSub, resOrd, resJor, resCon] = await Promise.all([
         fetch(`/api/proyectos/${proyectoId}/subcontratistas`),
         fetch(`/api/proyectos/${proyectoId}/ordenes-compra`),
         fetch(`/api/proyectos/${proyectoId}/jornales`),
+        fetch(`/api/proyectos/${proyectoId}/contrato`),
       ]);
-      const [dataSub, dataOrd, dataJor] = await Promise.all([
+      const [dataSub, dataOrd, dataJor, dataCon] = await Promise.all([
         resSub.json(),
         resOrd.json(),
         resJor.json().catch(() => null),
+        resCon.ok ? resCon.json().catch(() => null) : null,
       ]);
+      setContrato(dataCon?.contrato ? { monto: dataCon.contrato.monto, moneda: dataCon.contrato.moneda } : null);
       setSubcontratistas(Array.isArray(dataSub) ? dataSub : []);
       setOrdenes(Array.isArray(dataOrd) ? dataOrd : []);
       setJornales(Array.isArray(dataJor?.registros) ? dataJor.registros : []);
@@ -255,6 +269,16 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
 
   const hayComprometidoSinCapitulo = Object.values(comprometidoSinCapitulo).some((v) => v !== 0);
 
+  // Referencia económica: presupuesto contratado (contrato firmado o suma de
+  // rubros) y lo que queda entre eso y el costo presupuestado.
+  const sumaRubros = useMemo(
+    () => capitulos.reduce((s, c) => s + (c.rubros ?? []).reduce((t, r) => t + (r.cantidad ?? 0) * (r.precioUnit ?? 0), 0), 0),
+    [capitulos]
+  );
+  const contratado = presupuestoContratado(contrato, sumaRubros, moneda);
+  const rubrosSinApu = capitulos.reduce((n, c) => n + (c.rubros ?? []).filter((r) => r.costoUnit == null).length, 0);
+  const negociacion = subcontratistas.filter((s) => s.estado === "En negociación" && s.montoContratado != null);
+
   // Órdenes vigentes que el total no puede contar completas: sin monto (no
   // suman nada) o con ítems sin precio (el monto es solo la suma de los
   // ítems con precio, ver lib/ordenCompra.ts).
@@ -289,9 +313,9 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
             className="overflow-hidden border-t border-slate-200"
           >
             <p className="text-xs text-slate-500 px-5 pt-4">
-              Presupuestado (Rubros del capítulo) contra Comprometido Real (Subcontratistas + Órdenes de Compra
-              vinculados) y la mano de obra ejecutada de la Planilla de Jornales. No incluye Certificación — esa
-              mide avance/ingreso, no compromiso de gasto.
+              Costo presupuestado (costo directo de los rubros del capítulo, sin utilidad) contra lo comprometido
+              (subcontratos y órdenes de compra vigentes vinculados) y la mano de obra ejecutada de la Planilla de
+              Jornales. No incluye Certificación — esa mide avance/ingreso, no compromiso de gasto.
               {cargado && actualizando && <span className="ml-1 text-[#2563EB]">Actualizando…</span>}
             </p>
 
@@ -353,6 +377,27 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
                   </div>
                 )}
 
+                {negociacion.length > 0 && (
+                  <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-[#EFF6FF] border border-blue-100">
+                    <Info className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-[#1A3A5C]">
+                      {negociacion.length === 1 ? "1 subcontrato en negociación" : `${negociacion.length} subcontratos en negociación`}{" "}
+                      (<span className="font-semibold">{negociacion.map((s) => s.empresa).join(", ")}</span>) no cuenta como
+                      comprometido hasta que pase a otro estado.
+                    </p>
+                  </div>
+                )}
+
+                {rubrosSinApu > 0 && (
+                  <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-amber-50 border border-amber-200">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-700">
+                      {rubrosSinApu === 1 ? "1 rubro no tiene" : `${rubrosSinApu} rubros no tienen`} análisis de precio:
+                      su costo se toma del precio unitario entero (con utilidad), así que el costo presupuestado queda alto.
+                    </p>
+                  </div>
+                )}
+
                 {moEjecutada > 0 && (
                   <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-[#EFF6FF] border border-blue-100">
                     <Info className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0 mt-0.5" />
@@ -368,14 +413,14 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
                 <div className="rounded-[10px] border-2 border-slate-300 bg-white px-3.5 py-3">
                   <p className="text-[10px] font-bold text-[#1A3A5C] uppercase tracking-wide mb-1.5">Total general</p>
                   <div className="flex flex-wrap gap-x-5 gap-y-1.5">
-                    <DatoResumen label="Presupuestado" valor={fmtMoneda(totalPresupuestado, moneda)} />
+                    <DatoResumen label="Costo presupuestado" valor={fmtMoneda(totalPresupuestado, moneda)} />
                     <div>
                       <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Costo real comprometido</p>
                       <CeldaComprometido comprometido={totalComprometido} />
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Desvío</p>
-                      <CeldaDesvio desvio={desvioTotal} />
+                      <CeldaDesvio desvio={desvioTotal} moneda={moneda} />
                     </div>
                   </div>
                   <div className="mt-2.5 pt-2.5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-1.5">
@@ -386,6 +431,29 @@ export default function SeccionControlCostos({ proyectoId, moneda, capitulos }: 
                       </div>
                     ))}
                   </div>
+                  {contratado.monto > 0 && (
+                    <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-wrap gap-x-5 gap-y-1.5">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Presupuesto contratado</p>
+                        <p className="text-sm tabular-nums text-slate-700">{fmtMoneda(contratado.monto, moneda)}</p>
+                        <p className="text-[10px] text-slate-400">
+                          {contratado.fuente === "contrato" ? "Contrato firmado" : "Suma de rubros, sin IVA"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Margen sobre costo presupuestado</p>
+                        <p
+                          className={cn(
+                            "text-sm font-semibold tabular-nums",
+                            contratado.monto - totalPresupuestado < 0 ? "text-red-600" : "text-slate-700"
+                          )}
+                        >
+                          {fmtMoneda(contratado.monto - totalPresupuestado, moneda)}
+                        </p>
+                        <p className="text-[10px] text-slate-400">Para gastos generales, imprevistos y utilidad</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -420,14 +488,14 @@ function FilaCapitulo({
         {cap.codigo ? `${cap.codigo} · ` : ""}{cap.nombre}
       </p>
       <div className="flex flex-wrap gap-x-5 gap-y-1.5">
-        <DatoResumen label="Presupuestado" valor={fmtMoneda(presupuestado, moneda)} />
+        <DatoResumen label="Costo presupuestado" valor={fmtMoneda(presupuestado, moneda)} />
         <div>
           <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Contratado/Comprado</p>
           <CeldaComprometido comprometido={comprometido} />
         </div>
         <div>
           <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Desvío</p>
-          <CeldaDesvio desvio={desvio} />
+          <CeldaDesvio desvio={desvio} moneda={moneda} />
         </div>
       </div>
     </div>
@@ -459,22 +527,22 @@ function CeldaComprometido({ comprometido, vacio }: { comprometido: Comprometido
   );
 }
 
-function CeldaDesvio({ desvio }: { desvio: Desvio | null }) {
+// Desvío = comprometido − costo presupuestado. Positivo: se pasó (rojo).
+// Negativo: lo que todavía no está comprometido — no es ahorro mientras la
+// obra no termine, así que va en gris.
+function CeldaDesvio({ desvio, moneda }: { desvio: Desvio | null; moneda: string }) {
   if (!desvio) {
     return <span className="text-xs text-slate-400">—</span>;
   }
-  const esExceso = desvio.monto > 0;
-  const color = esExceso ? "text-red-600" : desvio.monto < 0 ? "text-emerald-600" : "text-slate-500";
+  const esExceso = desvio.monto > 0.5;
   return (
-    <div className={cn("text-sm font-semibold tabular-nums", color)}>
-      {esExceso ? "+" : ""}
-      {desvio.monto.toLocaleString("es-UY", { maximumFractionDigits: 0 })}
-      {desvio.pct != null && (
-        <span className="block text-[10px] font-normal">
-          {esExceso ? "+" : ""}
-          {desvio.pct.toFixed(1)}%
-        </span>
-      )}
+    <div className={cn("text-sm font-semibold tabular-nums", esExceso ? "text-red-600" : "text-slate-600")}>
+      {esExceso ? "+" : desvio.monto < -0.5 ? "−" : ""}
+      {fmtMoneda(Math.abs(desvio.monto), moneda)}
+      <span className="block text-[10px] font-normal">
+        {desvio.pct != null && `${esExceso ? "+" : desvio.pct < 0 ? "−" : ""}${Math.abs(desvio.pct).toLocaleString("es-UY", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% · `}
+        {esExceso ? "sobre lo presupuestado" : "sin comprometer"}
+      </span>
     </div>
   );
 }

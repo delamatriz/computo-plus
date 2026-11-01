@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { presupuestoContratado } from "@/lib/presupuestoContratado";
 
 // Resumen de la obra al tope de Gestión de Obra: de qué proyecto se trata,
 // cuánto vale y en qué estado está, sin tener que ir a buscarlo. Proyecto,
@@ -40,6 +41,7 @@ interface Props {
   fechaInicio: string | null; // ya formateada
   plazoObraMeses: number | null;
   presupuesto: number; // Precio Final (con IVA)
+  sumaRubros: number; // Σ cantidad × precioUnit, sin IVA
   moneda: string;
   formaRealizacion: string | null;
   cuantia: ReactNode;
@@ -60,6 +62,9 @@ function fmtMoneda(v: number, moneda: string): string {
 export default function ResumenObra(props: Props) {
   const { proyectoId, nombre, tipo, estado, fechaInicio, plazoObraMeses, presupuesto, moneda } = props;
   const [contrato, setContrato] = useState<DatosContrato | null>(null);
+  // Hasta que responde /contrato no se sabe si hay contrato: no mostrar el
+  // fallback (suma de rubros) para cambiarlo un segundo después.
+  const [contratoCargado, setContratoCargado] = useState(false);
 
   useEffect(() => {
     let vigente = true;
@@ -75,11 +80,21 @@ export default function ResumenObra(props: Props) {
           monedaContrato: d.contrato?.moneda ?? moneda,
         });
       })
-      .catch((err) => console.error("[resumen-obra] error cargando contrato", err));
+      .catch((err) => console.error("[resumen-obra] error cargando contrato", err))
+      .finally(() => {
+        if (vigente) setContratoCargado(true);
+      });
     return () => {
       vigente = false;
     };
   }, [proyectoId, moneda]);
+
+  // Misma definición que Certificaciones, Liquidación y Control de Costos.
+  const contratado = presupuestoContratado(
+    contrato ? { monto: contrato.montoContrato, moneda: contrato.monedaContrato } : null,
+    props.sumaRubros,
+    moneda
+  );
 
   const sinDefinir = <span className="font-normal text-slate-400">A definir</span>;
 
@@ -102,12 +117,23 @@ export default function ResumenObra(props: Props) {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 mt-4 pt-4 border-t border-slate-100">
-        <Dato label="Presupuesto" destacado>
+        <Dato label="Presupuesto contratado" destacado>
+          {!contratoCargado ? (
+            <span className="font-normal text-slate-400">…</span>
+          ) : contratado.monto > 0 ? (
+            fmtMoneda(contratado.monto, moneda)
+          ) : (
+            sinDefinir
+          )}
+          {contratoCargado && contratado.monto > 0 && (
+            <span className="block text-[11px] font-normal text-slate-500">
+              {contratado.fuente === "contrato" ? "Monto del contrato firmado" : "Suma de rubros, sin IVA (sin contrato)"}
+            </span>
+          )}
+        </Dato>
+        <Dato label="Presupuesto de obra">
           {presupuesto > 0 ? fmtMoneda(presupuesto, moneda) : sinDefinir}
           {presupuesto > 0 && <span className="block text-[11px] font-normal text-slate-500">Precio final, con IVA</span>}
-        </Dato>
-        <Dato label="Contrato firmado">
-          {contrato?.montoContrato != null ? fmtMoneda(contrato.montoContrato, contrato.monedaContrato) : sinDefinir}
         </Dato>
         <Dato label="Comitente">{contrato?.comitente ?? sinDefinir}</Dato>
         <Dato label="Contratista">{contrato?.contratista ?? sinDefinir}</Dato>

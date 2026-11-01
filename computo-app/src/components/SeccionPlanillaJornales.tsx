@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
-import { Wallet, ChevronDown, ChevronRight, CalendarPlus, Trash2, UserPlus } from "lucide-react";
+import { Wallet, ChevronDown, ChevronRight, CalendarPlus, Trash2, UserPlus, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
@@ -24,6 +24,12 @@ interface Registro {
   jornal: number;
   categoria: string;
   aportesPatronalesPct: number;
+}
+
+interface PagoJornales {
+  fecha: string;
+  monto: number;
+  moneda: string;
 }
 
 interface Persona {
@@ -83,15 +89,26 @@ export default function SeccionPlanillaJornales({ proyectoId }: Props) {
   const [semanaNueva, setSemanaNueva] = useState(() => lunesDeSemana(hoyUruguayISO()));
   const [cargandoSemana, setCargandoSemana] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [pagosCaja, setPagosCaja] = useState<PagoJornales[]>([]);
 
   const cargar = useCallback(async () => {
     try {
-      const [resJ, resP] = await Promise.all([
+      const [resJ, resP, resC] = await Promise.all([
         fetch(`/api/proyectos/${proyectoId}/jornales`),
         fetch(`/api/proyectos/${proyectoId}/personal`),
+        fetch(`/api/proyectos/${proyectoId}/flujo-caja`),
       ]);
       const dataJ = await resJ.json();
       const dataP = await resP.json();
+      const dataC = resC.ok ? await resC.json().catch(() => []) : [];
+      setPagosCaja(
+        Array.isArray(dataC)
+          ? dataC.filter(
+              (m: PagoJornales & { tipo: string; categoria?: string | null }) =>
+                m.tipo === "Egreso" && m.categoria === "Jornales" && m.moneda === "UYU"
+            )
+          : []
+      );
       setRegistros(Array.isArray(dataJ.registros) ? dataJ.registros : []);
       setPctAportes(typeof dataJ.aportesPatronalesPct === "number" ? dataJ.aportesPatronalesPct : null);
       setPersonal(Array.isArray(dataP) ? dataP : []);
@@ -108,6 +125,18 @@ export default function SeccionPlanillaJornales({ proyectoId }: Props) {
   };
 
   const totales = useMemo(() => totalesJornales(registros), [registros]);
+
+  // Pagos de jornales en Flujo de Caja (egresos de categoría "Jornales"), por
+  // semana de la fecha del pago — para conciliar con lo liquidado acá.
+  const pagadoPorSemana = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of pagosCaja) {
+      const k = lunesDeSemana(p.fecha);
+      m.set(k, (m.get(k) ?? 0) + p.monto);
+    }
+    return m;
+  }, [pagosCaja]);
+  const totalPagadoCaja = pagosCaja.reduce((s, p) => s + p.monto, 0);
 
   const semanas = useMemo(() => {
     const m = new Map<string, Registro[]>();
@@ -226,6 +255,10 @@ export default function SeccionPlanillaJornales({ proyectoId }: Props) {
                 <Indicador label="Costo real de MO" valor={fmtPesos(totales.total)} destacado />
               </div>
 
+              {cargado && (registros.length > 0 || pagosCaja.length > 0) && (
+                <Conciliacion liquidado={totales.total} pagado={totalPagadoCaja} hayPagos={pagosCaja.length > 0} />
+              )}
+
               {/* Cargar semana */}
               {cargado && personal.length === 0 ? (
                 <p className="text-xs text-slate-500 rounded-[10px] border border-dashed border-slate-300 bg-white px-3.5 py-3">
@@ -267,6 +300,7 @@ export default function SeccionPlanillaJornales({ proyectoId }: Props) {
                       key={semana}
                       semana={semana}
                       filas={filas}
+                      pagadoCaja={pagadoPorSemana.get(semana) ?? 0}
                       personal={personal}
                       onActualizar={actualizar}
                       onQuitar={quitar}
@@ -303,10 +337,56 @@ function Indicador({ label, valor, nota, destacado }: { label: string; valor: st
   );
 }
 
+/* ─── Conciliación con Flujo de Caja ─────────────────────── */
+// Diferencias menores a $1 son redondeo.
+function Conciliacion({ liquidado, pagado, hayPagos }: { liquidado: number; pagado: number; hayPagos: boolean }) {
+  const diferencia = pagado - liquidado;
+  const cierra = Math.abs(diferencia) < 1;
+  if (!hayPagos) {
+    return (
+      <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] bg-amber-50 border border-amber-200">
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+        <p className="text-[11px] text-amber-700">
+          No hay pagos de jornales en Flujo de Caja (egresos con categoría <strong>Jornales</strong>). Lo liquidado acá
+          ({fmtPesos(liquidado)}) todavía no figura como pagado.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-2 px-3.5 py-2.5 rounded-[10px] border",
+        cierra ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"
+      )}
+    >
+      {cierra ? (
+        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
+      ) : (
+        <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+      )}
+      <p className={cn("text-[11px]", cierra ? "text-emerald-800" : "text-amber-700")}>
+        Pagado en Flujo de Caja (categoría Jornales): <strong className="tabular-nums">{fmtPesos(pagado)}</strong>
+        {cierra ? (
+          " — coincide con lo liquidado en la planilla."
+        ) : (
+          <>
+            {" "}
+            — {diferencia > 0 ? "pagado de más" : "falta pagar"}{" "}
+            <strong className="tabular-nums">{fmtPesos(Math.abs(diferencia))}</strong> respecto de lo liquidado (
+            {fmtPesos(liquidado)}). Revisá los pagos o los días cargados.
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
 /* ─── Una semana de la planilla ───────────────────────────── */
 function BloqueSemana({
   semana,
   filas,
+  pagadoCaja,
   personal,
   onActualizar,
   onQuitar,
@@ -314,6 +394,7 @@ function BloqueSemana({
 }: {
   semana: string;
   filas: Registro[];
+  pagadoCaja: number;
   personal: Persona[];
   onActualizar: (id: string, cambios: { diasTrabajados?: number; jornal?: number }) => void;
   onQuitar: (id: string) => void;
@@ -331,6 +412,21 @@ function BloqueSemana({
         <span className="text-xs text-slate-500 tabular-nums">
           {fmtNum(t.jornales)} jornales · <span className="font-bold text-[#1A3A5C]">{fmtPesos(t.total)}</span>
         </span>
+      </div>
+      <div
+        className={cn(
+          "px-3.5 py-1.5 border-b text-[11px] tabular-nums",
+          Math.abs(pagadoCaja - t.total) < 1
+            ? "bg-emerald-50/60 border-emerald-100 text-emerald-800"
+            : "bg-amber-50/60 border-amber-100 text-amber-700"
+        )}
+        title="Egresos de Flujo de Caja con categoría Jornales y fecha dentro de esta semana (lunes a domingo)"
+      >
+        {pagadoCaja === 0
+          ? "Sin pagos de jornales en Flujo de Caja con fecha en esta semana"
+          : Math.abs(pagadoCaja - t.total) < 1
+            ? `Pagado en caja: ${fmtPesos(pagadoCaja)} — coincide`
+            : `Pagado en caja: ${fmtPesos(pagadoCaja)} — ${pagadoCaja > t.total ? "de más" : "falta"} ${fmtPesos(Math.abs(pagadoCaja - t.total))}`}
       </div>
 
       <div className="overflow-x-auto">

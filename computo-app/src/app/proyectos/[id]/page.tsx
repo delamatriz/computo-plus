@@ -38,7 +38,7 @@ import { calcularJornalesPorCategoria } from "@/lib/jornalesPorCategoria";
 import { fmtDecimalUY, fmtRendimiento } from "@/lib/formatoNumeros";
 import { LEYES_SOCIALES_DEFAULTS_FRACCION } from "@/lib/aportesPatronales";
 import { normalizarTipoCaja } from "@/lib/cajaProfesionales";
-import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada } from "@/lib/costoAgregado";
+import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada, costoDirectoUnitario } from "@/lib/costoAgregado";
 import { calcularImprevistos } from "@/lib/gastosGenerales";
 import { AUC_PCT_DEFAULT } from "@/lib/auc";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
@@ -6647,6 +6647,7 @@ export default function ProyectoPage() {
             fechaInicio={fmtFecha(proyectoActivo.fechaInicio) ?? null}
             plazoObraMeses={"plazoObra" in proyectoActivo ? proyectoActivo.plazoObra ?? null : null}
             presupuesto={precioFinalAgregado}
+            sumaRubros={totalGeneral}
             moneda={moneda}
             formaRealizacion={
               proyectoActivo.modalidadEjecucion
@@ -6743,7 +6744,12 @@ export default function ProyectoPage() {
                 id: c.id,
                 nombre: c.nombre,
                 codigo: c.codigo,
-                rubros: c.rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })),
+                rubros: c.rubros.map((r) => ({
+                  id: r.id,
+                  cantidad: r.cantidad,
+                  precioUnit: r.precioUnit,
+                  costoUnit: apuData[r.id] ? costoDirectoUnitario(apuData[r.id]) : null,
+                })),
               }))}
             />
             <SeccionFlujoCaja proyectoId={proyectoActivo.id} />
