@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { FilaMaterialGlobal } from "@/lib/materialesGlobales";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_ESTADO = ["Pedido", "En camino", "Recibido", "Cancelado"] as const;
@@ -715,11 +716,11 @@ function FormularioOrden({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Fecha de pedido (opcional)</label>
-              <input type="date" value={form.fechaPedido} onChange={(e) => set("fechaPedido", e.target.value)} className={inputCls} />
+              <CampoFecha value={form.fechaPedido} onChange={(v) => set("fechaPedido", v)} />
             </div>
             <div>
               <label className={labelCls}>Fecha de entrega prevista (opcional)</label>
-              <input type="date" value={form.fechaEntregaPrevista} onChange={(e) => set("fechaEntregaPrevista", e.target.value)} className={inputCls} />
+              <CampoFecha value={form.fechaEntregaPrevista} onChange={(v) => set("fechaEntregaPrevista", v)} />
             </div>
           </div>
 
@@ -738,7 +739,7 @@ function FormularioOrden({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Fecha de recepción real</label>
-                  <input type="date" value={form.fechaRecepcion} onChange={(e) => set("fechaRecepcion", e.target.value)} className={inputCls} />
+                  <CampoFecha value={form.fechaRecepcion} onChange={(v) => set("fechaRecepcion", v)} />
                 </div>
                 <div>
                   <label className={labelCls}>¿Llegó completo?</label>

@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_ESTADO_OBS = ["Aprobado sin observaciones", "Con observaciones pendientes"] as const;
@@ -695,14 +696,13 @@ function FormularioGeneral({
   onGuardar: () => void;
   onCerrar: () => void;
 }) {
-  const inputCls = "w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30";
   const labelCls = "text-xs font-semibold text-slate-500 mb-1 block";
   return (
     <ModalBase titulo={esEdicion ? "Editar datos generales" : "Crear acta de cierre"} onCerrar={onCerrar}>
       <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
         <div>
           <label className={labelCls}>Fecha de cierre/recepción</label>
-          <input type="date" value={form.fechaCierre} onChange={(e) => setForm((p) => ({ ...p, fechaCierre: e.target.value }))} className={inputCls} />
+          <CampoFecha value={form.fechaCierre} onChange={(v) => setForm((p) => ({ ...p, fechaCierre: v }))} />
         </div>
         <div>
           <label className={labelCls}>Observaciones generales</label>

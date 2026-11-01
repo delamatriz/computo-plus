@@ -8,6 +8,7 @@ import { PALETA } from "@/lib/paletaPresupuesto";
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
 import { CATEGORIAS_EGRESO, SIN_CATEGORIA, categoriasDe } from "@/lib/categoriasCaja";
 import { reducirFotoObra } from "@/lib/reducirFotoObra";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_TIPO = ["Ingreso", "Egreso"] as const;
@@ -678,7 +679,7 @@ function FormularioMovimiento({
 
           <div>
             <label className={labelCls}>Fecha</label>
-            <input type="date" value={form.fecha} onChange={(e) => set("fecha", e.target.value)} className={inputCls} />
+            <CampoFecha value={form.fecha} onChange={(v) => set("fecha", v)} />
           </div>
 
           <div>

@@ -5,6 +5,7 @@ import { Handshake, ChevronDown, ChevronRight, Plus, Pencil, X, Phone, Mail, Use
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_ESTADO = ["En negociación", "Contratado", "En obra", "Finalizado", "Cancelado"] as const;
@@ -516,11 +517,11 @@ function FormularioSubcontratista({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Fecha de inicio prevista (opcional)</label>
-              <input type="date" value={form.fechaInicio} onChange={(e) => set("fechaInicio", e.target.value)} className={inputCls} />
+              <CampoFecha value={form.fechaInicio} onChange={(v) => set("fechaInicio", v)} />
             </div>
             <div>
               <label className={labelCls}>Fecha de fin prevista (opcional)</label>
-              <input type="date" value={form.fechaFin} onChange={(e) => set("fechaFin", e.target.value)} className={inputCls} />
+              <CampoFecha value={form.fechaFin} onChange={(v) => set("fechaFin", v)} />
             </div>
           </div>
 

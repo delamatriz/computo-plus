@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface RubroCronograma {
@@ -496,9 +497,7 @@ function VistaTabla({
   expandidos,
   toggleExpandido,
   actualizar,
-  guardar,
   actualizarRubro,
-  guardarRubro,
   inicioObra,
   finObra,
   duracionTotal,
@@ -513,9 +512,7 @@ function VistaTabla({
   expandidos: Record<string, boolean>;
   toggleExpandido: (capId: string) => void;
   actualizar: (capId: string, campo: "inicio" | "fin", valor: string) => void;
-  guardar: (capId: string) => void;
   actualizarRubro: (rubroId: string, campo: "inicio" | "fin", valor: string) => void;
-  guardarRubro: (rubroId: string) => void;
   inicioObra: string;
   finObra: string;
   duracionTotal: number | null;
@@ -574,12 +571,10 @@ function VistaTabla({
                   </span>
                 </div>
                 <div style={{ width: 150 }} className="px-1">
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={f.inicio}
-                    onChange={(e) => actualizar(cap.id, "inicio", e.target.value)}
-                    onBlur={() => guardar(cap.id)}
-                    className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+                    onChange={(v) => actualizar(cap.id, "inicio", v)}
+                    tamano="sm"
                   />
                   {!f.inicio && sugerencia(idx) && (
                     <button
@@ -592,12 +587,10 @@ function VistaTabla({
                   )}
                 </div>
                 <div style={{ width: 150 }} className="px-1">
-                  <input
-                    type="date"
+                  <CampoFecha
                     value={f.fin}
-                    onChange={(e) => actualizar(cap.id, "fin", e.target.value)}
-                    onBlur={() => guardar(cap.id)}
-                    className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+                    onChange={(v) => actualizar(cap.id, "fin", v)}
+                    tamano="sm"
                   />
                 </div>
                 <div style={{ width: 110 }} className="text-sm tabular-nums text-slate-600 text-right pr-1">
@@ -624,24 +617,20 @@ function VistaTabla({
                           </span>
                         </div>
                         <div style={{ width: 150 }} className="px-1">
-                          <input
-                            type="date"
+                          <CampoFecha
                             value={rubF.inicio}
-                            onChange={(e) => actualizarRubro(r.id, "inicio", e.target.value)}
-                            onBlur={() => guardarRubro(r.id)}
-                            className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+                            onChange={(v) => actualizarRubro(r.id, "inicio", v)}
+                            tamano="sm"
                           />
                           {ef.inicioHeredada && ef.inicio && (
                             <p className="text-[10px] text-slate-400 italic mt-0.5 truncate">hereda: {fmtFecha(ef.inicio)}</p>
                           )}
                         </div>
                         <div style={{ width: 150 }} className="px-1">
-                          <input
-                            type="date"
+                          <CampoFecha
                             value={rubF.fin}
-                            onChange={(e) => actualizarRubro(r.id, "fin", e.target.value)}
-                            onBlur={() => guardarRubro(r.id)}
-                            className="w-full rounded-[8px] border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+                            onChange={(v) => actualizarRubro(r.id, "fin", v)}
+                            tamano="sm"
                           />
                           {ef.finHeredada && ef.fin && (
                             <p className="text-[10px] text-slate-400 italic mt-0.5 truncate">hereda: {fmtFecha(ef.fin)}</p>
@@ -738,12 +727,15 @@ export default function SeccionCronograma({ proyectoId, capitulos, fechaInicioOb
     setExpandidos((prev) => ({ ...prev, [capId]: !prev[capId] }));
   };
 
+  // Elegir una fecha en el calendario actualiza y guarda en el mismo paso.
   const actualizar = (capId: string, campo: "inicio" | "fin", valor: string) => {
-    setFechas((prev) => ({ ...prev, [capId]: { ...prev[capId], [campo]: valor } }));
+    const nuevo = { ...(fechas[capId] ?? { inicio: "", fin: "" }), [campo]: valor };
+    setFechas((prev) => ({ ...prev, [capId]: nuevo }));
+    guardar(capId, nuevo);
   };
 
-  const guardar = async (capId: string) => {
-    const { inicio, fin } = fechas[capId] ?? { inicio: "", fin: "" };
+  const guardar = async (capId: string, par?: FechaPar) => {
+    const { inicio, fin } = par ?? fechas[capId] ?? { inicio: "", fin: "" };
 
     if (inicio && fin && fin < inicio) {
       setErrores((prev) => ({ ...prev, [capId]: "La fecha de fin no puede ser anterior a la de inicio" }));
@@ -790,11 +782,13 @@ export default function SeccionCronograma({ proyectoId, capitulos, fechaInicioOb
   };
 
   const actualizarRubro = (rubroId: string, campo: "inicio" | "fin", valor: string) => {
-    setFechasRubro((prev) => ({ ...prev, [rubroId]: { ...prev[rubroId], [campo]: valor } }));
+    const nuevo = { ...(fechasRubro[rubroId] ?? { inicio: "", fin: "" }), [campo]: valor };
+    setFechasRubro((prev) => ({ ...prev, [rubroId]: nuevo }));
+    guardarRubro(rubroId, nuevo);
   };
 
-  const guardarRubro = async (rubroId: string) => {
-    const { inicio, fin } = fechasRubro[rubroId] ?? { inicio: "", fin: "" };
+  const guardarRubro = async (rubroId: string, par?: FechaPar) => {
+    const { inicio, fin } = par ?? fechasRubro[rubroId] ?? { inicio: "", fin: "" };
 
     if (inicio && fin && fin < inicio) {
       setErroresRubro((prev) => ({ ...prev, [rubroId]: "La fecha de fin no puede ser anterior a la de inicio" }));
@@ -899,9 +893,7 @@ export default function SeccionCronograma({ proyectoId, capitulos, fechaInicioOb
                     expandidos={expandidos}
                     toggleExpandido={toggleExpandido}
                     actualizar={actualizar}
-                    guardar={guardar}
                     actualizarRubro={actualizarRubro}
-                    guardarRubro={guardarRubro}
                     inicioObra={inicioObra}
                     finObra={finObra}
                     duracionTotal={duracionTotal}

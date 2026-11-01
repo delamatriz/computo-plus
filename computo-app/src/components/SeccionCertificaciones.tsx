@@ -5,6 +5,7 @@ import { ClipboardList, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Camera,
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface RubroResumen {
@@ -244,7 +245,6 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [editandoNombre, setEditandoNombre] = useState(false);
-  const [editandoFecha, setEditandoFecha] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [movimientosCaja, setMovimientosCaja] = useState<MovimientoCaja[]>([]);
@@ -666,22 +666,14 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                             </button>
                           )}
 
-                          {editandoFecha ? (
-                            <input
-                              type="date"
-                              autoFocus
-                              defaultValue={new Date(detalle.fecha).toISOString().slice(0, 10)}
-                              onBlur={(e) => { guardarCampo("fecha", e.target.value); setEditandoFecha(false); }}
-                              className="text-xs text-slate-600 bg-white border border-slate-300 rounded-[6px] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
+                          <div className="w-36 flex-shrink-0">
+                            <CampoFecha
+                              value={new Date(detalle.fecha).toISOString().slice(0, 10)}
+                              onChange={(v) => v && guardarCampo("fecha", v)}
+                              tamano="sm"
+                              aria-label="Fecha de la certificación"
                             />
-                          ) : (
-                            <button
-                              onClick={() => setEditandoFecha(true)}
-                              className="text-xs text-slate-400 hover:text-[#2563EB] transition-colors flex-shrink-0"
-                            >
-                              {fmtFecha(detalle.fecha)}
-                            </button>
-                          )}
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -731,16 +723,13 @@ export default function SeccionCertificaciones({ proyectoId, moneda, totalGenera
                         ).map(([campo, label]) => (
                           <label key={campo} className="flex items-center gap-2 text-xs text-slate-500">
                             {label}
-                            <input
-                              type="date"
-                              key={`${detalle.id}-${detalle[campo] ?? ""}`}
-                              defaultValue={detalle[campo] ? detalle[campo]!.slice(0, 10) : ""}
-                              onBlur={(e) => {
-                                const actual = detalle[campo] ? detalle[campo]!.slice(0, 10) : "";
-                                if (e.target.value !== actual) guardarFechaCobro(campo, e.target.value);
-                              }}
-                              className="text-xs text-slate-700 bg-white border border-slate-200 rounded-[6px] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
-                            />
+                            <span className="w-36">
+                              <CampoFecha
+                                value={detalle[campo] ? detalle[campo]!.slice(0, 10) : ""}
+                                onChange={(v) => guardarFechaCobro(campo, v)}
+                                tamano="sm"
+                              />
+                            </span>
                           </label>
                         ))}
                       </div>

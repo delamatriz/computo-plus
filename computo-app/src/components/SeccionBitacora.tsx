@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
 import { reducirFotoObra } from "@/lib/reducirFotoObra";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_CLIMA = ["Soleado", "Nublado", "Lluvia", "Tormenta", "Viento fuerte", "Otro"] as const;
@@ -717,12 +718,7 @@ function FormularioEntrada({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Fecha</label>
-              <input
-                type="date"
-                value={form.fecha}
-                onChange={(e) => set("fecha", e.target.value)}
-                className={inputCls}
-              />
+              <CampoFecha value={form.fecha} onChange={(v) => set("fecha", v)} />
             </div>
             <div>
               <label className={labelCls}>Clima</label>

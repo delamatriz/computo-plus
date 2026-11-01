@@ -5,6 +5,7 @@ import { FileCheck2, ChevronDown, ChevronRight, Pencil, X, Plus, Trash2, Downloa
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_TIPO = ["Adicional", "Descuento"] as const;
@@ -446,12 +447,7 @@ export default function SeccionLiquidacionFinal({ proyectoId }: Props) {
             <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="text-xs font-semibold text-slate-500 mb-1 block">Fecha de liquidación</label>
-                <input
-                  type="date"
-                  value={formGeneral.fechaLiquidacion}
-                  onChange={(e) => setFormGeneral((p) => ({ ...p, fechaLiquidacion: e.target.value }))}
-                  className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
-                />
+                <CampoFecha value={formGeneral.fechaLiquidacion} onChange={(v) => setFormGeneral((p) => ({ ...p, fechaLiquidacion: v }))} />
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-500 mb-1 block">Retención de garantía (%) — opcional</label>

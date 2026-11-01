@@ -6,6 +6,7 @@ import { ShieldCheck, ChevronDown, ChevronRight, Landmark } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
+import CampoFecha from "@/components/CampoFecha";
 
 type CampoVence = "garantiaFielCumplimientoVence" | "garantiaViciosOcultosVence" | "garantiaResponsabilidadVence";
 
@@ -145,12 +146,7 @@ function CampoGarantia({
           )}
           <label className="flex items-center gap-1.5 text-xs text-slate-500">
             Vence
-            <input
-              type="date"
-              value={vence ? vence.slice(0, 10) : ""}
-              onChange={(e) => onChangeVence(e.target.value)}
-              className="text-xs text-slate-700 bg-white border border-slate-200 rounded-[6px] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
-            />
+            <CampoFecha value={vence ? vence.slice(0, 10) : ""} onChange={(v) => onChangeVence(v)} tamano="sm" />
           </label>
         </div>
       </div>

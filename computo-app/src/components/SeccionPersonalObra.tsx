@@ -5,6 +5,7 @@ import { Users, ChevronDown, ChevronRight, Plus, Pencil, X, Phone, Building2 } f
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 interface CategoriaLaboral {
@@ -499,11 +500,11 @@ function FormularioPersona({
             </div>
             <div>
               <label className={labelCls}>Ingreso a la obra</label>
-              <input type="date" value={form.fechaIngreso} onChange={(e) => set("fechaIngreso", e.target.value)} className={inputCls} />
+              <CampoFecha value={form.fechaIngreso} onChange={(v) => set("fechaIngreso", v)} />
             </div>
             <div>
               <label className={labelCls}>Egreso (opcional)</label>
-              <input type="date" value={form.fechaEgreso} onChange={(e) => set("fechaEgreso", e.target.value)} className={inputCls} />
+              <CampoFecha value={form.fechaEgreso} onChange={(v) => set("fechaEgreso", v)} />
             </div>
           </div>
           {form.fechaIngreso && form.fechaEgreso && form.fechaEgreso < form.fechaIngreso && (

@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { reducirFotoObra } from "@/lib/reducirFotoObra";
 import { TAMANO_MAX_DOCUMENTO_TRAMITE } from "@/lib/documentosTramite";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_ESTADO = ["Pendiente", "En trámite", "Aprobado", "Rechazado", "Cancelado"] as const;
@@ -519,7 +520,7 @@ function FormularioTramite({
             </div>
             <div>
               <label className={labelCls}>Fecha (opcional)</label>
-              <input type="date" value={form.fecha} onChange={(e) => set("fecha", e.target.value)} className={inputCls} />
+              <CampoFecha value={form.fecha} onChange={(v) => set("fecha", v)} />
             </div>
           </div>
 

@@ -11,6 +11,7 @@ import {
   type GrupoMaterialesCapitulo,
 } from "@/lib/materialesGlobales";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import CampoFecha from "@/components/CampoFecha";
 
 function fmtMon(v: number): string {
   return Math.round(v).toLocaleString("es-UY");
@@ -432,7 +433,7 @@ function ModalPedidoCotizacion({
           </div>
           <div className="sm:w-1/2">
             <label className={labelCls}>Cotizar antes del (opcional)</label>
-            <input type="date" value={fechaLimite} onChange={(e) => setFechaLimite(e.target.value)} className={inputCls} />
+            <CampoFecha value={fechaLimite} onChange={(v) => setFechaLimite(v)} />
           </div>
           <div>
             <label className={labelCls}>Nota para el proveedor (opcional)</label>

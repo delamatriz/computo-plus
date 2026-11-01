@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import CampoFecha from "@/components/CampoFecha";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const TIPOS_DOCUMENTO = ["Contrato", "Anexo", "Presupuesto aprobado", "Otro"] as const;
@@ -644,7 +645,7 @@ function FormularioContrato({
           <p className={`${seccionCls} pt-2 border-t border-slate-100`}>Contrato</p>
           <div>
             <label className={labelCls}>Fecha de firma</label>
-            <input type="date" value={form.fechaFirma} onChange={(e) => set("fechaFirma", e.target.value)} className={inputCls} />
+            <CampoFecha value={form.fechaFirma} onChange={(v) => set("fechaFirma", v)} />
           </div>
 
           <div className="grid grid-cols-3 gap-3">

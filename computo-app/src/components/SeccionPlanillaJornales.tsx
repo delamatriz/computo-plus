@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
 import { brutoDe, aportesDe, totalesJornales, lunesDeSemana } from "@/lib/jornalesPagados";
+import CampoFecha from "@/components/CampoFecha";
 
 // Planilla de Jornales / Mano de Obra Ejecutada — lo que se le paga de
 // verdad a cada obrero, semana a semana, con sus aportes patronales. El
@@ -236,12 +237,7 @@ export default function SeccionPlanillaJornales({ proyectoId }: Props) {
                   <div className="flex flex-wrap items-end gap-2">
                     <div className="flex-1 min-w-[150px]">
                       <label className="text-xs font-semibold text-slate-500 mb-1 block">Semana</label>
-                      <input
-                        type="date"
-                        value={semanaNueva}
-                        onChange={(e) => e.target.value && setSemanaNueva(lunesDeSemana(e.target.value))}
-                        className="w-full text-sm text-slate-700 bg-white border border-slate-200 rounded-[8px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#2563EB]/30"
-                      />
+                      <CampoFecha value={semanaNueva} onChange={(v) => v && setSemanaNueva(lunesDeSemana(v))} />
                     </div>
                     <button
                       onClick={cargarSemana}
