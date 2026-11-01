@@ -465,7 +465,7 @@ function VistaCurvaS({
   return (
     <div className="px-5 py-5">
       <ResponsiveContainer width="100%" height={320}>
-        <LineChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
           <XAxis
             dataKey="fecha"
@@ -477,12 +477,12 @@ function VistaCurvaS({
             domain={[0, 100]}
             tickFormatter={(v: number) => `${v}%`}
             tick={{ fontSize: 11, fill: "#94A3B8" }}
-            width={40}
+            width={48}
           />
           <Tooltip
             labelFormatter={(v) => (typeof v === "string" ? fmtFecha(v) : v)}
             formatter={(value, name) => [
-              `${Number(value).toFixed(1)}%`,
+              `${Number(value).toLocaleString("es-UY", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`,
               name === "planificado" ? "Planificado" : "Real",
             ]}
             contentStyle={{ borderRadius: 8, borderColor: "#E2E8F0", fontSize: 12 }}

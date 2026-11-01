@@ -86,12 +86,12 @@ interface Props {
 // Mismo criterio que fmtFecha en SeccionCertificaciones.tsx.
 function fmtFecha(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 }
 
 function fmtFechaHora(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" }) +
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" }) +
     " " + d.toLocaleTimeString("es-UY", { hour: "2-digit", minute: "2-digit" });
 }
 

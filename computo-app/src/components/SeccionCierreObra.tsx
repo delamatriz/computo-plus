@@ -88,7 +88,7 @@ function fileToBase64(file: File): Promise<string> {
 
 function fmtFecha(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 }
 
 function fmtTamano(bytes: number | null): string {
@@ -474,7 +474,10 @@ export default function SeccionCierreObra({ proyectoId }: Props) {
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                   <span className="text-xs font-semibold text-[#1A3A5C]">
-                                    {o.rubro.codigo} — {o.rubro.descripcion}
+                                    {o.rubro.descripcion}
+                                    {o.rubro.capitulo?.nombre && (
+                                      <span className="font-normal text-slate-400"> · {o.rubro.capitulo.nombre}</span>
+                                    )}
                                   </span>
                                   <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-full border flex-shrink-0", ESTILO_ESTADO_OBS[o.estado])}>
                                     {o.estado}
@@ -767,7 +770,7 @@ function FormularioObservacion({
                 return (
                   <optgroup key={cap.id} label={`${cap.codigo ? cap.codigo + " · " : ""}${cap.nombre}`}>
                     {rubros.map((r) => (
-                      <option key={r.id} value={r.id}>{r.codigo} — {r.descripcion}</option>
+                      <option key={r.id} value={r.id}>{r.descripcion}</option>
                     ))}
                   </optgroup>
                 );

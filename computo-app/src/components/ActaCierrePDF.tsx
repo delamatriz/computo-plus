@@ -221,7 +221,6 @@ function FilaObservacion({ obs, index }: { obs: ObservacionRubroPDF; index: numb
   return (
     <View style={[styles.filaObs, index % 2 === 0 ? styles.filaObsPar : styles.filaObsImpar]} wrap={false}>
       <Text style={[styles.textoCelda, styles.colRubro]}>
-        {obs.rubroCodigo ? `${obs.rubroCodigo} · ` : ""}
         {obs.rubroDescripcion || "—"}
       </Text>
       <Text style={[styles.textoCelda, styles.colEstado]}>{obs.estado}</Text>

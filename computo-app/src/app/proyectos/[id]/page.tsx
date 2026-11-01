@@ -6635,7 +6635,7 @@ export default function ProyectoPage() {
           Administrativo, 5. Cierre y Post-Obra. Todos los módulos están
           implementados. ── */}
       {tabActiva === "gestion-obra" && (
-        <div className="max-w-6xl mx-auto w-full px-3 md:px-6 py-6 flex-1">
+        <div className="max-w-6xl mx-auto w-full px-3 md:px-6 pt-6 pb-24 md:pb-6 flex-1">
           {/* Resumen de la obra: proyecto, presupuesto, partes, fechas y
               forma de realización. La cuantía se calcula siempre (nunca
               editable ni persistida — ver computarCuantiaObra). */}

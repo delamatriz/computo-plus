@@ -120,11 +120,11 @@ export function CalculadoraFlotante() {
     <>
       <button
         onClick={() => setVisible(true)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center transition-colors"
+        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 w-12 h-12 md:w-14 md:h-14 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white flex items-center justify-center transition-colors"
         style={{ boxShadow: "0 8px 24px 0 rgb(37 99 235 / 0.4)" }}
         aria-label="Abrir calculadora"
       >
-        <Calculator className="w-6 h-6" />
+        <Calculator className="w-5 h-5 md:w-6 md:h-6" />
       </button>
 
       {/* Panel flotante — sin overlay ni bloqueo de clicks: el resto de la

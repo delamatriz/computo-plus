@@ -57,7 +57,7 @@ interface Props {
 /* ─── Formato ─────────────────────────────────────────────── */
 function fmtFecha(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 }
 
 function fmtMonto(monto: number, moneda: string): string {
@@ -322,7 +322,7 @@ function FilaSubcontratista({
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-sm font-bold text-[#1A3A5C] truncate">{sub.empresa}</span>
+            <span className="text-sm font-bold text-[#1A3A5C] break-words min-w-0">{sub.empresa}</span>
             <span
               className={cn(
                 "text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0",
@@ -373,7 +373,7 @@ function FilaSubcontratista({
           )}
         </div>
 
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+        <div className="w-full sm:w-auto flex flex-row flex-wrap sm:flex-col items-center sm:items-end justify-between gap-1.5 flex-shrink-0">
           {sub.montoContratado != null && (
             <span className="text-sm font-bold text-[#1A3A5C]">{fmtMonto(sub.montoContratado, sub.moneda)}</span>
           )}

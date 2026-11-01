@@ -71,7 +71,7 @@ interface Props {
 /* ─── Formato ─────────────────────────────────────────────── */
 function fmtFecha(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -335,7 +335,7 @@ function FilaTramite({
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-sm font-bold text-[#1A3A5C] truncate">{tramite.nombre}</span>
+            <span className="text-sm font-bold text-[#1A3A5C] break-words min-w-0">{tramite.nombre}</span>
             <span
               className={cn(
                 "text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0",

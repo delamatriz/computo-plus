@@ -58,7 +58,7 @@ function fmtSemana(iso: string): string {
   const hasta = new Date(desde);
   hasta.setUTCDate(hasta.getUTCDate() + 6);
   const f = (d: Date, conAnio: boolean) =>
-    d.toLocaleDateString("es-UY", { day: "numeric", month: "short", ...(conAnio ? { year: "numeric" } : {}), timeZone: "UTC" });
+    d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", ...(conAnio ? { year: "numeric" } : {}), timeZone: "UTC" });
   return `${f(desde, false)} al ${f(hasta, true)}`;
 }
 

@@ -74,7 +74,7 @@ function fileToBase64(file: File): Promise<string> {
 
 function fmtFecha(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 }
 
 function fmtMonto(monto: number, moneda: string): string {

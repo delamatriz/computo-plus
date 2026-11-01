@@ -105,7 +105,7 @@ function fileToBase64(file: File): Promise<string> {
 // convenioFechaVigente en lib/convenioSunca.ts).
 function fmtFecha(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 }
 
 function montoCertificadoDe(cert: CertificacionResumen, rubrosPorId: Map<string, RubroResumen>): number {
