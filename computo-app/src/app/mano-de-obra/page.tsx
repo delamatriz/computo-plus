@@ -1,4 +1,4 @@
-import { Hammer } from "lucide-react";
+import { Info } from "lucide-react";
 import { db } from "@/lib/db";
 import { formatearFechaUTC, periodoConvenio } from "@/lib/convenioSunca";
 import SeccionCategoriasLaborales from "@/components/mano-de-obra/SeccionCategoriasLaborales";
@@ -167,10 +167,26 @@ function Tabla({
   );
 }
 
+// Rendimiento promedio por categoría en el catálogo global —
+// agregado en memoria (pocos registros) para no depender de GROUP BY de Prisma.
+interface RendimientoResumen {
+  categoria: string;
+  cantLineas: number;
+  rendimientoMin: number;
+  rendimientoMax: number;
+  rendimientoPromedio: number;
+}
+
+// Convierte el código interno de CategoriaLaboral al nombre corto que aparece
+// en ManoObraAPUEstandar.categoria — ese campo guarda el nombre del oficio
+// ("Oficial albañil", "Peón común", "Electricista oficial", etc.), no el código.
+// La cruza se hace por nombre (case-insensitive).
+
 export default async function ManoDeObraPage() {
-  const [categorias, config] = await Promise.all([
+  const [categorias, config, lineasCatalogo] = await Promise.all([
     db.categoriaLaboral.findMany(),
     db.configuracion.findFirst(),
+    db.manoObraAPUEstandar.findMany({ select: { categoria: true, rendimiento: true, jornadaHs: true } }),
   ]);
   const porCategoria = new Map(categorias.map((c) => [c.categoria, c]));
 
@@ -190,6 +206,26 @@ export default async function ManoDeObraPage() {
       .filter((f): f is string[] => f !== null);
   const filasOficios = filasPorNombre(OFICIOS_ESPECIALIZADOS);
   const filasOtras = filasPorNombre(OTRAS_CATEGORIAS);
+
+  // Agrupar líneas del catálogo por categoría
+  const mapaRendimientos = new Map<string, number[]>();
+  for (const linea of lineasCatalogo) {
+    const key = linea.categoria.trim();
+    if (!mapaRendimientos.has(key)) mapaRendimientos.set(key, []);
+    // rendimiento en el APU es "m² (u otro) por jornal de 8hs" —
+    // normalizamos a rendimiento por hora para comparar entre jornadas distintas
+    const rendPorHora = linea.jornadaHs > 0 ? linea.rendimiento / linea.jornadaHs : linea.rendimiento;
+    mapaRendimientos.get(key)!.push(rendPorHora);
+  }
+  const rendimientosCatalogo: RendimientoResumen[] = Array.from(mapaRendimientos.entries())
+    .map(([categoria, vals]) => ({
+      categoria,
+      cantLineas: vals.length,
+      rendimientoMin: Math.min(...vals),
+      rendimientoMax: Math.max(...vals),
+      rendimientoPromedio: vals.reduce((a, b) => a + b, 0) / vals.length,
+    }))
+    .sort((a, b) => b.cantLineas - a.cantLineas);
 
   return (
     <div className="p-8 max-w-3xl">
@@ -282,17 +318,119 @@ export default async function ManoDeObraPage() {
         </p>
       </div>
 
-      <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6 mt-8">
-        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-          <Hammer className="w-5 h-5 text-[#2563EB]" />
-        </div>
-        <h2 className="text-sm font-semibold text-[#1E293B] mb-1">
-          Próximamente
-        </h2>
-        <p className="text-sm text-slate-500 max-w-sm">
-          Acá vas a poder consultar los rendimientos usados en los
-          descompuestos del Catálogo de Rubros.
+      {/* Rendimientos del catálogo — qué rendimiento usa cada categoría en los
+          APU del Catálogo de Rubros, agrupado por categoría y ordenado de más
+          a menos apariciones. Solo se muestran categorías del catálogo global
+          (APUEstandar, no APUs de proyectos reales). */}
+      <SeccionRendimientosCatalogo
+        porCategoria={porCategoria}
+        rendimientosCatalogo={rendimientosCatalogo}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sección: Rendimientos del Catálogo de Rubros
+// ---------------------------------------------------------------------------
+
+function fmtRend(v: number): string {
+  // Hasta 3 decimales significativos, sin ceros de cola
+  if (v >= 100) return v.toFixed(1);
+  if (v >= 10) return v.toFixed(2);
+  return v.toFixed(3).replace(/\.?0+$/, "");
+}
+
+function SeccionRendimientosCatalogo({
+  porCategoria,
+  rendimientosCatalogo,
+}: {
+  porCategoria: Map<string, { nombre: string; jornal: number }>;
+  rendimientosCatalogo: RendimientoResumen[];
+}) {
+  if (rendimientosCatalogo.length === 0) {
+    return (
+      <div className="mt-8 bg-slate-50 rounded-xl border border-slate-200 px-6 py-10 text-center">
+        <p className="text-sm text-slate-400">
+          El catálogo de rubros aún no tiene APUs con mano de obra cargada.
         </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide mb-1">
+        Rendimientos en el Catálogo de Rubros
+      </h2>
+      <p className="text-xs text-slate-400 mb-3">
+        Rendimientos por hora usados en los descompuestos del catálogo global, agrupados por categoría laboral.
+        Los rangos reflejan variaciones entre distintos rubros del catálogo.
+      </p>
+
+      <div className="overflow-x-auto rounded-xl border border-slate-200">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50">
+              <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                Categoría / Oficio
+              </th>
+              <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                Jornal vigente
+              </th>
+              <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                Rendimiento / hora
+              </th>
+              <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                Rubros
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rendimientosCatalogo.map((r, i) => {
+              // Buscar jornal por nombre de categoría (case-insensitive)
+              const nombreBuscado = r.categoria.toLowerCase();
+              let jornal: number | null = null;
+              for (const cat of porCategoria.values()) {
+                if (cat.nombre.toLowerCase() === nombreBuscado) {
+                  jornal = cat.jornal;
+                  break;
+                }
+              }
+
+              const mismoRend = r.rendimientoMin === r.rendimientoMax;
+              const rendLabel = mismoRend
+                ? fmtRend(r.rendimientoPromedio)
+                : `${fmtRend(r.rendimientoMin)} – ${fmtRend(r.rendimientoMax)}`;
+
+              return (
+                <tr key={r.categoria} className={i % 2 === 1 ? "bg-slate-50/50" : ""}>
+                  <td className="px-4 py-2.5 border-t border-slate-100 text-slate-700 font-medium">
+                    {r.categoria}
+                  </td>
+                  <td className="px-4 py-2.5 border-t border-slate-100 text-right tabular-nums text-slate-500">
+                    {jornal !== null ? fmtMoneda(jornal) : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="px-4 py-2.5 border-t border-slate-100 text-right tabular-nums text-slate-600 font-medium">
+                    {rendLabel}
+                  </td>
+                  <td className="px-4 py-2.5 border-t border-slate-100 text-right tabular-nums text-slate-400">
+                    {r.cantLineas}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-start gap-2 mt-3 text-xs text-slate-400">
+        <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+        <span>
+          Rendimiento por hora = unidades producidas por hora de trabajo (u/hs). Los valores varían entre
+          rubros según dificultad, acceso y condiciones de obra. El catálogo usa estas referencias al
+          calcular el costo de mano de obra en cada APU.
+        </span>
       </div>
     </div>
   );
