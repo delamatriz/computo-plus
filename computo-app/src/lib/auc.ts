@@ -28,3 +28,18 @@ export const AUC_PCT_BSE = 0.06; // accidentes de trabajo
 // Total legal (71,8%). Escrito como literal: es el valor que se guarda en
 // LeyesSociales.aucPct para proyectos nuevos.
 export const AUC_PCT_DEFAULT = 0.718;
+
+// Obra pública — coeficiente BPS por defecto del módulo alternativo de Leyes
+// Sociales (SeccionLeyesSocialesPublica): Leyes sociales = monto imponible
+// (jornales reales que declara el contratista) × coeficiente. Es el mismo
+// porcentaje unificado de la construcción: el art. 1 del Decreto 241/007
+// (redacción del Decreto 341/018) lo fija para los arts. 1 y 5 del
+// Decreto-Ley 14.411 sin distinguir obra pública de privada; lo que cambia es
+// quién lo paga (el organismo público, como propietario, deposita al BPS —
+// art. 13) y la base (art. 7: fórmulas paramétricas del contrato).
+// Fuentes: IMPO, Decreto 241/007 art. 1 vigente (impo.com.uy/bases/decretos/
+// 241-2007) y BPS, Régimen construcción (bps.gub.uy/837, actualizada
+// 01/10/2026). Verificado 2026-11-01. El adicional transitorio de 0,96% del
+// Decreto 108/020 (72,76%) rigió 26 meses desde 1/6/2020 y ya venció.
+// No se encontró una tasa BPS específica de obra pública distinta de ésta.
+export const COEFICIENTE_BPS_OBRA_PUBLICA_DEFAULT = AUC_PCT_DEFAULT;

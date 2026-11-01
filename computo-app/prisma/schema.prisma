@@ -272,6 +272,13 @@ model LeyesSociales {
   // con CAJA_PROFESIONALES_TIPO_DEFAULT en src/lib/cajaProfesionales.ts.
   cajaProfesionalesTipo String @default("ARQUITECTURA")
 
+  // Obra pública (Proyecto.tipoContratacion = "PUBLICA") — coeficiente BPS de
+  // SeccionLeyesSocialesPublica: leyes sociales = montoImponibleMO (jornales
+  // reales declarados) × este coeficiente. Fracción, editable por proyecto.
+  // Mantener sincronizado con COEFICIENTE_BPS_OBRA_PUBLICA_DEFAULT en
+  // src/lib/auc.ts (fuente y fecha ahí).
+  coeficienteBpsPublica Float @default(0.718)
+
   updatedAt DateTime @updatedAt
 }
 

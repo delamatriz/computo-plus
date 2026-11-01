@@ -40,9 +40,10 @@ import { LEYES_SOCIALES_DEFAULTS_FRACCION } from "@/lib/aportesPatronales";
 import { normalizarTipoCaja } from "@/lib/cajaProfesionales";
 import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada, costoDirectoUnitario } from "@/lib/costoAgregado";
 import { calcularImprevistos } from "@/lib/gastosGenerales";
-import { AUC_PCT_DEFAULT } from "@/lib/auc";
+import { AUC_PCT_DEFAULT, COEFICIENTE_BPS_OBRA_PUBLICA_DEFAULT } from "@/lib/auc";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
+import SeccionLeyesSocialesPublica from "@/components/SeccionLeyesSocialesPublica";
 import SeccionResumenPresupuesto from "@/components/SeccionResumenPresupuesto";
 import SeccionGastosGeneralesUtilidades, {
   CategoriaGastoGeneral,
@@ -3735,6 +3736,7 @@ export default function ProyectoPage() {
           snisAdicionalPct: data.snisAdicionalPct ?? LEYES_SOCIALES_DEFAULTS_FRACCION.snisAdicionalPct,
           focerPersonalPct: data.focerPersonalPct ?? LEYES_SOCIALES_DEFAULTS_FRACCION.focerPersonalPct,
           cajaProfesionalesTipo: normalizarTipoCaja(data.cajaProfesionalesTipo),
+          coeficienteBpsPublica: data.coeficienteBpsPublica ?? COEFICIENTE_BPS_OBRA_PUBLICA_DEFAULT,
         });
       } catch (err) {
         console.error("[cargar leyes sociales]", err);
@@ -3897,8 +3899,10 @@ export default function ProyectoPage() {
   const precioFinalAgregado = costoTotalAgregado + montoIVAAgregado;
   // Mismo cálculo que el header de SeccionLeyesSociales (montoAUC — Timbres
   // CJP se sacó de acá, ahora vive como ítem en Gastos Generales Detallado).
+  // Obra pública: monto imponible × coeficiente BPS (SeccionLeyesSocialesPublica).
+  const esObraPublica = proyectoActivo.tipoContratacion === "PUBLICA";
   const montoLeyesSociales = leyesSociales
-    ? leyesSociales.montoImponibleMO * leyesSociales.aucPct
+    ? leyesSociales.montoImponibleMO * (esObraPublica ? leyesSociales.coeficienteBpsPublica : leyesSociales.aucPct)
     : null;
   // "Días de Obra" — caso empresa chica (una sola cuadrilla), ver
   // diasObra.ts. Sobre los mismos capitulos+apuData ya en memoria, sin
@@ -6563,8 +6567,20 @@ export default function ProyectoPage() {
           />
         )}
 
-        {/* ── Leyes Sociales / BPS ─────────────────────────── */}
-        {leyesSociales && (
+        {/* ── Leyes Sociales / BPS — obra pública: módulo alternativo ── */}
+        {leyesSociales && esObraPublica && (
+          <SeccionLeyesSocialesPublica
+            moneda={moneda}
+            montoImponible={leyesSociales.montoImponibleMO}
+            onMontoImponibleChange={(v) => setLeyesSociales((prev) => prev ? { ...prev, montoImponibleMO: v } : prev)}
+            coeficiente={leyesSociales.coeficienteBpsPublica}
+            onCoeficienteChange={(v) => setLeyesSociales((prev) => prev ? { ...prev, coeficienteBpsPublica: v } : prev)}
+            onGuardar={guardarLeyesSociales}
+            guardando={guardandoLeyes}
+            jornalMedioOficial={jornalMedioOficial}
+          />
+        )}
+        {leyesSociales && !esObraPublica && (
           <SeccionLeyesSociales
             proyectoId={proyectoActivo.id}
             moneda={moneda}

@@ -23,6 +23,9 @@ export interface LeyesSocialesData {
   // Caja de Profesionales (Ley 17.738) — informativa, sin efecto en ningún
   // precio. Ver src/lib/cajaProfesionales.ts.
   cajaProfesionalesTipo: TipoCajaProfesionales;
+  // Obra pública — coeficiente BPS que usa SeccionLeyesSocialesPublica (no
+  // esta tarjeta). Viaja en el mismo objeto para guardarse con el mismo PUT.
+  coeficienteBpsPublica: number;
 }
 
 interface Props {

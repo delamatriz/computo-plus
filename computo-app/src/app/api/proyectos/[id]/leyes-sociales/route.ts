@@ -85,6 +85,8 @@ export async function PUT(
       // Caja de Profesionales (informativa) — se valida contra los 3 tipos
       // conocidos; un valor raro cae al default en vez de guardarse.
       ...(body.cajaProfesionalesTipo !== undefined && { cajaProfesionalesTipo: normalizarTipoCaja(body.cajaProfesionalesTipo) }),
+      // Obra pública — coeficiente BPS (SeccionLeyesSocialesPublica).
+      ...(body.coeficienteBpsPublica !== undefined && { coeficienteBpsPublica: body.coeficienteBpsPublica }),
     };
 
     const leyesSociales = await db.leyesSociales.upsert({
