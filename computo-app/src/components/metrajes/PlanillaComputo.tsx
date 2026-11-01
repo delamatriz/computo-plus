@@ -110,6 +110,9 @@ export default function PlanillaComputo({
   onAplicarComputoConfirmar,
   onMedirAnchoParaFila,
   soloLectura = false,
+  eliminandoFilaIds = new Set(),
+  agregandoFila = false,
+  agregandoSeccion = false,
 }: {
   filas: MetrajeFila[];
   /** Secciones opcionales (vacío = la Planilla de siempre). Las filas sin
@@ -147,6 +150,12 @@ export default function PlanillaComputo({
    * (escribe cantidad/precioUnit en los rubros, guard real del lado del
    * servidor en /api/proyectos/[id]/aplicar-computo). */
   soloLectura?: boolean;
+  /** IDs de filas que se están eliminando ahora — muestra spinner en su papelera */
+  eliminandoFilaIds?: Set<string>;
+  /** true mientras se está creando una fila — deshabilita el botón para evitar doble tap */
+  agregandoFila?: boolean;
+  /** true mientras se está creando una sección — deshabilita el botón para evitar doble tap */
+  agregandoSeccion?: boolean;
 }) {
   const inputCls =
     "w-full text-sm text-slate-600 bg-transparent focus:outline-none focus:bg-white focus:rounded focus:ring-1 focus:ring-[#2563EB]/20 placeholder:text-slate-300";
@@ -356,10 +365,13 @@ export default function PlanillaComputo({
         <div style={{ width: 36, flexShrink: 0 }} className="flex items-center justify-center">
           <button
             onClick={() => onEliminarFila(fila.id)}
-            className="text-slate-300 hover:text-red-500 transition-colors"
+            disabled={eliminandoFilaIds.has(fila.id)}
+            className="text-slate-300 hover:text-red-500 transition-colors disabled:text-red-400 disabled:cursor-wait"
             aria-label="Eliminar fila"
           >
-            <X className="w-3.5 h-3.5" />
+            {eliminandoFilaIds.has(fila.id)
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <X className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
@@ -507,9 +519,11 @@ export default function PlanillaComputo({
                     <div style={{ width: 220, flexShrink: 0 }} className="px-3 flex items-center justify-end">
                       <button
                         onClick={() => onAgregarFila(seccion.id)}
-                        className="flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors whitespace-nowrap"
+                        disabled={agregandoFila}
+                        className="flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors whitespace-nowrap disabled:opacity-60 disabled:cursor-wait"
                       >
-                        <Plus className="w-3 h-3" /> Agregar fila
+                        {agregandoFila ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                        {agregandoFila ? "Agregando…" : "Agregar fila"}
                       </button>
                     </div>
                     {haySecciones && <div style={{ width: ANCHO_SECCION, flexShrink: 0 }} />}
@@ -546,9 +560,11 @@ export default function PlanillaComputo({
             <div className="flex items-center gap-4 pl-3 pr-3 flex-wrap" style={{ minHeight: 34, borderTop: "1px solid #F1F5F9" }}>
               <button
                 onClick={() => onAgregarFila()}
-                className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                disabled={agregandoFila}
+                className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors disabled:opacity-60 disabled:cursor-wait"
               >
-                <Plus className="w-3 h-3" /> Agregar fila
+                {agregandoFila ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                {agregandoFila ? "Agregando…" : "Agregar fila"}
               </button>
               {secciones.length > 0 && (
                 <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
@@ -570,9 +586,11 @@ export default function PlanillaComputo({
               <div className="flex items-center gap-4 ml-auto">
                 <button
                   onClick={onAgregarSeccion}
-                  className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-[#1A3A5C] transition-colors"
+                  disabled={agregandoSeccion}
+                  className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-[#1A3A5C] transition-colors disabled:opacity-60 disabled:cursor-wait"
                 >
-                  <FolderPlus className="w-3.5 h-3.5" /> Agregar sección
+                  {agregandoSeccion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderPlus className="w-3.5 h-3.5" />}
+                  {agregandoSeccion ? "Creando…" : "Agregar sección"}
                 </button>
                 <button
                   onClick={() => {

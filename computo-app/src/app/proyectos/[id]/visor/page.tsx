@@ -66,6 +66,10 @@ export default function VisorProyectoPage() {
   const [fotos, setFotos] = useState<DocumentoResumen[]>([]);
   const [detalles, setDetalles] = useState<DocumentoResumen[]>([]);
   const [eliminandoIds, setEliminandoIds] = useState<Set<string>>(new Set());
+  // Loading states de feedback visual — Punto 3
+  const [eliminandoFilaIds, setEliminandoFilaIds] = useState<Set<string>>(new Set());
+  const [agregandoFila, setAgregandoFila] = useState(false);
+  const [agregandoSeccion, setAgregandoSeccion] = useState(false);
 
   const [documentoAbierto, setDocumentoAbierto] = useState<DocumentoDetalle | null>(null);
   const [ventanaFlotante, setVentanaFlotante] = useState<DocumentoDetalle | null>(null);
@@ -562,26 +566,38 @@ export default function VisorProyectoPage() {
       setTimeout(() => setAvisoUnidad(null), 5000);
       return;
     }
-    if (seccionId !== undefined) setSeccionActivaId(seccionId);
-    const fila = await crearFila({ descripcion: "" }, seccionId);
-    if (fila) setFilas((prev) => [...prev, fila]);
+    if (agregandoFila) return; // debounce: evitar doble tap
+    setAgregandoFila(true);
+    try {
+      if (seccionId !== undefined) setSeccionActivaId(seccionId);
+      const fila = await crearFila({ descripcion: "" }, seccionId);
+      if (fila) setFilas((prev) => [...prev, fila]);
+    } finally {
+      setAgregandoFila(false);
+    }
   };
 
   /* Secciones de la Planilla — ver SeccionPlanilla en prisma/schema.prisma.
      Las filas sueltas y las de cada sección suman todas al total general. */
   const agregarSeccion = async () => {
-    const res = await fetch(`/api/proyectos/${proyectoId}/secciones-planilla`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    if (!res.ok) {
-      alert("No se pudo crear la sección");
-      return;
+    if (agregandoSeccion) return; // debounce: evitar doble tap
+    setAgregandoSeccion(true);
+    try {
+      const res = await fetch(`/api/proyectos/${proyectoId}/secciones-planilla`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        alert("No se pudo crear la sección");
+        return;
+      }
+      const data = await res.json();
+      setSecciones((prev) => [...prev, data.seccion]);
+      setSeccionActivaId(data.seccion.id);
+    } finally {
+      setAgregandoSeccion(false);
     }
-    const data = await res.json();
-    setSecciones((prev) => [...prev, data.seccion]);
-    setSeccionActivaId(data.seccion.id);
   };
 
   // Edición inline, optimista (igual que la descripción de una fila).
@@ -639,6 +655,7 @@ export default function VisorProyectoPage() {
   const eliminarFila = async (id: string) => {
     // Si la fila estaba vinculada a un rubro, el borrado no toca el presupuesto: se avisa después.
     const teniaRubro = filas.find((f) => f.id === id)?.rubroId != null;
+    setEliminandoFilaIds((prev) => new Set(prev).add(id));
     setFilas((prev) => prev.filter((f) => f.id !== id));
     try {
       const res = await fetch(`/api/proyectos/${proyectoId}/filas-metraje/${id}`, { method: "DELETE" });
@@ -658,6 +675,12 @@ export default function VisorProyectoPage() {
     } catch {
       // silencioso — la fila ya se sacó optimistamente; un fallo acá solo
       // deja el trazo en el plano hasta el próximo reload, no es crítico.
+    } finally {
+      setEliminandoFilaIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -800,6 +823,9 @@ export default function VisorProyectoPage() {
                 onAplicarComputoConfirmar={aplicarComputoConfirmar}
                 onMedirAnchoParaFila={controlesMedicion?.onIniciarAsignacionAncho}
                 soloLectura={soloLectura}
+                eliminandoFilaIds={eliminandoFilaIds}
+                agregandoFila={agregandoFila}
+                agregandoSeccion={agregandoSeccion}
               />
             </div>
           )}

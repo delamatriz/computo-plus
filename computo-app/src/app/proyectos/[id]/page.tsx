@@ -3413,6 +3413,15 @@ export default function ProyectoPage() {
   } | null>(null);
   const [cargandoPrecioVigente, setCargandoPrecioVigente] = useState(false);
   const [aplicandoPrecioVigente, setAplicandoPrecioVigente] = useState(false);
+  // Loading states de feedback visual — Punto 3
+  // Papelera rubro: id del rubro que se está borrando ahora (null = ninguno)
+  const [eliminandoRubroId, setEliminandoRubroId] = useState<string | null>(null);
+  // Papelera capítulo: id del capítulo que se está borrando ahora (null = ninguno)
+  const [eliminandoCapituloId, setEliminandoCapituloId] = useState<string | null>(null);
+  // Botón agregar capítulo: true mientras se está procesando para evitar doble click
+  const [agregandoCapitulos, setAgregandoCapitulos] = useState(false);
+  // Botón agregar rubro: capId cuyo botón está procesando (null = ninguno)
+  const [agregandoRubroEnCap, setAgregandoRubroEnCap] = useState<string | null>(null);
   // Decisión ya tomada por rubro en esta sesión de edición — "mantener"
   // deja cantidad libre pero precioUnit sigue bloqueado en el valor
   // pactado; "actualizar" deja todo libre desde el precio vigente. Se
@@ -4184,6 +4193,9 @@ export default function ProyectoPage() {
   const sugerirAPURef = useRef<((capId: string, rubroId: string) => void) | null>(null);
 
   const agregarRubro = useCallback(async (capId: string) => {
+    // Debounce: evitar doble click en el botón de agregar rubro
+    if (agregandoRubroEnCap === capId) return;
+    setAgregandoRubroEnCap(capId);
     // Optimista: agrego un rubro temporal en UI
     const tempId = `temp-${Date.now()}`;
     setCapitulos((prev) =>
@@ -4308,8 +4320,10 @@ export default function ProyectoPage() {
           }
         )
       );
+    } finally {
+      setAgregandoRubroEnCap(null);
     }
-  }, [moneda]);
+  }, [moneda, agregandoRubroEnCap]);
 
   // Fase 2, Etapa 3 — carga (una sola vez) el catálogo canónico completo
   // y lo indexa por nombre para resolución O(1) de capituloId/subcapituloId.
@@ -4765,6 +4779,7 @@ export default function ProyectoPage() {
       if (!ok) return;
     }
 
+    setEliminandoRubroId(rubroId);
     setCapitulos((prev) =>
       prev.map((c) =>
         c.id !== capId ? c : {
@@ -4773,6 +4788,7 @@ export default function ProyectoPage() {
         }
       )
     );
+    setEliminandoRubroId(null);
 
     if (rubroId.startsWith("temp-")) return; // no persistido aún — nada que borrar en la DB
     fetch(`/api/rubros/${rubroId}`, { method: "DELETE" }).catch((err) =>
@@ -4890,6 +4906,7 @@ export default function ProyectoPage() {
     );
     if (!ok) return;
 
+    setEliminandoCapituloId(cap.id);
     try {
       const res = await fetch(`/api/capitulos/${cap.id}`, { method: "DELETE" });
       if (res.status === 409) {
@@ -4901,6 +4918,8 @@ export default function ProyectoPage() {
       setCapitulos((prev) => prev.filter((c) => c.id !== cap.id));
     } catch (err) {
       console.error("[eliminarCapitulo]", err);
+    } finally {
+      setEliminandoCapituloId(null);
     }
   }, []);
 
@@ -4969,32 +4988,38 @@ export default function ProyectoPage() {
   // tituloId undefined = proyecto sin título cargado en el cliente: el
   // backend resuelve solo al título de menor orden (ver POST .../capitulos).
   const agregarCapitulosATitulo = useCallback(async (tituloId: string | undefined, seleccionados: CapituloSeleccionable[]) => {
-    for (const sel of seleccionados) {
-      try {
-        const res = await fetch(`/api/proyectos/${proyectoId}/capitulos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nombre: sel.nombre, color: sel.color, tituloId }),
-        });
-        if (!res.ok) throw new Error(`status ${res.status}`);
-        const nuevo = await res.json();
-        setCapitulos((prev) => [
-          ...prev,
-          {
-            id: nuevo.id,
-            nombre: nuevo.nombre,
-            codigo: nuevo.codigo,
-            color: nuevo.color,
-            rubros: nuevo.rubros ?? [],
-            capituloCatalogoId: nuevo.capituloCatalogoId ?? null,
-            tituloId: nuevo.tituloId ?? null,
-          },
-        ]);
-      } catch (err) {
-        console.error("[agregarCapitulosATitulo]", err);
+    if (agregandoCapitulos) return; // debounce: evitar doble click
+    setAgregandoCapitulos(true);
+    try {
+      for (const sel of seleccionados) {
+        try {
+          const res = await fetch(`/api/proyectos/${proyectoId}/capitulos`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nombre: sel.nombre, color: sel.color, tituloId }),
+          });
+          if (!res.ok) throw new Error(`status ${res.status}`);
+          const nuevo = await res.json();
+          setCapitulos((prev) => [
+            ...prev,
+            {
+              id: nuevo.id,
+              nombre: nuevo.nombre,
+              codigo: nuevo.codigo,
+              color: nuevo.color,
+              rubros: nuevo.rubros ?? [],
+              capituloCatalogoId: nuevo.capituloCatalogoId ?? null,
+              tituloId: nuevo.tituloId ?? null,
+            },
+          ]);
+        } catch (err) {
+          console.error("[agregarCapitulosATitulo]", err);
+        }
       }
+    } finally {
+      setAgregandoCapitulos(false);
     }
-  }, []);
+  }, [agregandoCapitulos]);
 
   const sugerirAPU = useCallback(async (capId: string, rubroId: string) => {
     if (rubroId.startsWith("temp-")) return;
@@ -5228,11 +5253,14 @@ export default function ProyectoPage() {
                   e.stopPropagation();
                   eliminarCapitulo(cap);
                 }}
+                disabled={eliminandoCapituloId === cap.id}
                 title="Eliminar capítulo"
-                className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
+                className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors disabled:opacity-100 disabled:text-red-400 disabled:cursor-wait"
                 style={{ width: 20, height: 20 }}
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                {eliminandoCapituloId === cap.id
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Trash2 className="w-3.5 h-3.5" />}
               </button>
             )}
           </div>
@@ -5304,9 +5332,11 @@ export default function ProyectoPage() {
                         </button>
                         <button
                           onClick={() => agregarRubro(cap.id)}
-                          className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                          disabled={agregandoRubroEnCap === cap.id}
+                          className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors disabled:opacity-60 disabled:cursor-wait"
                         >
-                          <Plus className="w-3 h-3" /> Agregar rubro personalizado
+                          {agregandoRubroEnCap === cap.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                          {agregandoRubroEnCap === cap.id ? "Agregando…" : "Agregar rubro personalizado"}
                         </button>
                       </div>
                     )}
@@ -5581,11 +5611,14 @@ export default function ProyectoPage() {
                           {!soloLectura && (
                             <button
                               onClick={() => eliminarRubro(cap.id, rubro.id, rubro.descripcion)}
+                              disabled={eliminandoRubroId === rubro.id}
                               title="Eliminar rubro"
-                              className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors"
+                              className="opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[4px] text-slate-300 hover:text-red-500 transition-colors disabled:opacity-100 disabled:text-red-400 disabled:cursor-wait"
                               style={{ width: 20, height: 20 }}
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              {eliminandoRubroId === rubro.id
+                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                : <Trash2 className="w-3.5 h-3.5" />}
                             </button>
                           )}
                         </div>
@@ -5736,10 +5769,13 @@ export default function ProyectoPage() {
                             <button
                               type="button"
                               onClick={() => eliminarRubro(cap.id, rubro.id, rubro.descripcion)}
-                              className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                              disabled={eliminandoRubroId === rubro.id}
+                              className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 disabled:opacity-60 disabled:cursor-wait"
                             >
-                              <Trash2 className="w-3 h-3" />
-                              Eliminar
+                              {eliminandoRubroId === rubro.id
+                                ? <Loader2 className="w-3 h-3 animate-spin" />
+                                : <Trash2 className="w-3 h-3" />}
+                              {eliminandoRubroId === rubro.id ? "Eliminando…" : "Eliminar"}
                             </button>
                           ) : (
                             <span />
@@ -5762,10 +5798,11 @@ export default function ProyectoPage() {
                     <button
                       type="button"
                       onClick={() => agregarRubro(cap.id)}
-                      className="w-full py-3 text-sm font-medium text-[#2563EB] border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 flex items-center justify-center gap-2"
+                      disabled={agregandoRubroEnCap === cap.id}
+                      className="w-full py-3 text-sm font-medium text-[#2563EB] border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait"
                     >
-                      <Plus className="w-4 h-4" />
-                      Agregar rubro
+                      {agregandoRubroEnCap === cap.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      {agregandoRubroEnCap === cap.id ? "Agregando…" : "Agregar rubro"}
                     </button>
                   )}
                 </div>
@@ -5791,9 +5828,11 @@ export default function ProyectoPage() {
                     </button>
                     <button
                       onClick={() => agregarRubro(cap.id)}
-                      className="hidden md:flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                      disabled={agregandoRubroEnCap === cap.id}
+                      className="hidden md:flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors disabled:opacity-60 disabled:cursor-wait"
                     >
-                      <Plus className="w-3 h-3" /> Agregar rubro
+                      {agregandoRubroEnCap === cap.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                      {agregandoRubroEnCap === cap.id ? "Agregando…" : "Agregar rubro"}
                     </button>
                   </div>
                 )}
