@@ -25,26 +25,31 @@ import { cn } from "@/lib/utils";
 // Administrador sube y elimina (lo valida el servidor, acá solo se ocultan
 // los controles).
 
-const referencias: ReferenciaLink[] = [
+// Enlaces externos fijos (IMPO), cada uno en su categoría de la biblioteca.
+const referencias: (ReferenciaLink & { categoria: CategoriaBiblioteca })[] = [
   {
     titulo: "Tercerización — Ley 18.251",
     descripcion: "Responsabilidad solidaria en subcontratación de obras",
     url: "https://www.impo.com.uy/bases/leyes/18251-2008",
+    categoria: "normas",
   },
   {
     titulo: "Ley 14.411 — Industria de la Construcción",
     descripcion: "Régimen de aportes y leyes sociales de la construcción",
     url: "https://www.impo.com.uy/bases/leyes/14411-1975",
+    categoria: "normas",
   },
   {
     titulo: "Ley 19.996",
     descripcion: "Modificaciones al régimen de la industria de la construcción",
     url: "https://www.impo.com.uy/bases/leyes/19996-2021",
+    categoria: "normas",
   },
   {
     titulo: "Artículo 1844 — Responsabilidad por Defectos de Construcción",
     descripcion: "Código Civil uruguayo modificado por Ley 19.726 (2018) — plazos 10, 5 y 2 años",
     url: "https://www.impo.com.uy/bases/codigo-civil/16603-1994/1844",
+    categoria: "normas",
   },
 ];
 
@@ -85,12 +90,13 @@ export default function BibliotecaPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Una sección por categoría; las que no tienen documentos no aparecen
-  // (tampoco como filtro).
-  const grupos = CATEGORIAS_BIBLIOTECA.map((c) => ({
-    ...c,
-    documentos: (documentos ?? []).filter((d) => categoriaBibliotecaDe(d.categoria) === c.id),
-  })).filter((g) => g.documentos.length > 0);
+  // Una sección por categoría, con sus documentos subidos y sus enlaces
+  // externos; las que no tienen nada no aparecen (tampoco como filtro).
+  const grupos = CATEGORIAS_BIBLIOTECA.map((c) => {
+    const docs = (documentos ?? []).filter((d) => categoriaBibliotecaDe(d.categoria) === c.id);
+    const refs = referencias.filter((r) => r.categoria === c.id);
+    return { ...c, documentos: docs, referencias: refs, total: docs.length + refs.length };
+  }).filter((g) => g.total > 0);
   // Si se borra el último documento de la categoría filtrada, vuelve a "Todas".
   const filtroVigente = grupos.some((g) => g.id === filtro) ? filtro : "todas";
   const gruposVisibles = filtroVigente === "todas" ? grupos : grupos.filter((g) => g.id === filtroVigente);
@@ -113,16 +119,21 @@ export default function BibliotecaPage() {
         )}
       </div>
 
-      {errorCarga ? (
-        <p className="text-sm text-red-600 bg-white rounded-xl border border-slate-200 p-5">
+      {/* Las referencias externas son parte de su categoría: la sección
+          aparece aunque todavía no haya documentos subidos. */}
+      {errorCarga && (
+        <p className="text-sm text-red-600 bg-white rounded-xl border border-slate-200 p-5 mb-8">
           No se pudieron cargar los documentos. Recargá la página para intentar de nuevo.
         </p>
-      ) : documentos === null ? (
-        <div className="flex items-center gap-2 text-sm text-slate-400 py-8">
+      )}
+      {documentos === null && !errorCarga && (
+        <div className="flex items-center gap-2 text-sm text-slate-400 pb-6">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Cargando…
+          Cargando documentos…
         </div>
-      ) : grupos.length === 0 ? (
+      )}
+
+      {grupos.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center bg-white rounded-xl border border-slate-200 py-16 px-6">
           <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-4">
             <BookOpen className="w-5 h-5 text-[#2563EB]" />
@@ -131,36 +142,37 @@ export default function BibliotecaPage() {
           <p className="text-sm text-slate-500 max-w-sm">
             {superadmin
               ? "Subí normas, decretos, leyes y documentos técnicos con el botón «Subir documento»: los van a poder consultar y descargar todos los usuarios."
-              : "Acá vas a encontrar normas, decretos, leyes y documentos técnicos de consulta para tus obras. Mientras tanto, tenés las referencias externas de abajo."}
+              : "Acá vas a encontrar normas, decretos, leyes y documentos técnicos de consulta para tus obras."}
           </p>
         </div>
       ) : (
         <div className="space-y-8">
           {grupos.length > 1 && (
             <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por categoría">
-              {[{ id: "todas" as const, nombre: "Todas", n: documentos.length }, ...grupos.map((g) => ({ id: g.id, nombre: g.nombre, n: g.documentos.length }))].map(
-                (f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => setFiltro(f.id)}
-                    aria-pressed={filtroVigente === f.id}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors",
-                      filtroVigente === f.id
-                        ? "bg-[#1A3A5C] border-[#1A3A5C] text-white"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                    )}
-                  >
-                    {f.nombre} <span className={filtroVigente === f.id ? "text-white/70" : "text-slate-400"}>({f.n})</span>
-                  </button>
-                )
-              )}
+              {[
+                { id: "todas" as const, nombre: "Todas", n: grupos.reduce((t, g) => t + g.total, 0) },
+                ...grupos.map((g) => ({ id: g.id, nombre: g.nombre, n: g.total })),
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setFiltro(f.id)}
+                  aria-pressed={filtroVigente === f.id}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors",
+                    filtroVigente === f.id
+                      ? "bg-[#1A3A5C] border-[#1A3A5C] text-white"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                  )}
+                >
+                  {f.nombre} <span className={filtroVigente === f.id ? "text-white/70" : "text-slate-400"}>({f.n})</span>
+                </button>
+              ))}
             </div>
           )}
           {gruposVisibles.map((g) => (
             <section key={g.id}>
               <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
-                {g.nombre} <span className="text-slate-400 font-normal">({g.documentos.length})</span>
+                {g.nombre} <span className="text-slate-400 font-normal">({g.total})</span>
               </h2>
               <div className="space-y-3">
                 {g.documentos.map((d) => (
@@ -171,16 +183,12 @@ export default function BibliotecaPage() {
                     onEliminado={(id) => setDocumentos((prev) => (prev ? prev.filter((x) => x.id !== id) : prev))}
                   />
                 ))}
+                {g.referencias.length > 0 && <ListaReferencias items={g.referencias} />}
               </div>
             </section>
           ))}
         </div>
       )}
-
-      <section className="mt-10">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Referencias externas</h2>
-        <ListaReferencias items={referencias} />
-      </section>
 
       {modalAbierto && (
         <ModalSubirDocumento
