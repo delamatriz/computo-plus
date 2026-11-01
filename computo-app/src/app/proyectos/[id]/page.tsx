@@ -88,6 +88,7 @@ import { PALETA } from "@/lib/paletaPresupuesto";
 import { esBloqueoDeCuenta, esErrorAcceso, type ErrorAcceso } from "@/lib/accesoCliente";
 import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
 import { PanelMisRubros } from "@/components/mi-biblioteca/PanelMisRubros";
+import { SkeletonPresupuesto } from "@/components/layout/Skeletons";
 import type { SubrubroEmpresa } from "@/components/mi-biblioteca/DescompuestoEmpresa";
 
 // JSON de una función asistida: null si falló; si el motivo es el cupo de la
@@ -5824,13 +5825,9 @@ export default function ProyectoPage() {
     );
   }
 
-  if (cargando) {
-    return (
-      <div className="min-h-full flex items-center justify-center" style={{ background: "#F0F4F8" }}>
-        <div className="text-sm text-slate-400">Cargando proyecto…</div>
-      </div>
-    );
-  }
+  // Mismo skeleton que el loading.tsx de la ruta: no hay salto entre la carga
+  // de la página y la de los datos.
+  if (cargando) return <SkeletonPresupuesto />;
 
   if (errorCarga || !proyecto) {
     return (

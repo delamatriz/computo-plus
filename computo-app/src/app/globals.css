@@ -86,3 +86,28 @@ body {
   transition-duration: 150ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Respuesta al toque (nov-2026). En pantallas táctiles no hay hover, así que
+   sin esto un botón no cambia en nada hasta que responde el servidor. Al
+   presionarlo se achica apenas y se atenúa, en el mismo frame del toque.
+   - :where() deja la especificidad en 0 y @layer base debajo de las
+     utilidades: una clase de Tailwind (opacity-0, scale-*, active:*) gana.
+   - Los deshabilitados (disabled, fieldset deshabilitado, aria-disabled) no
+     reaccionan.
+   - Con "reducir movimiento" solo se atenúa, sin achicarse.
+   - touch-action: manipulation saca la espera del doble toque para zoom. */
+@layer base {
+  :where(button, a[href], [role="button"], summary, label[for]) {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :where(button:not(:disabled), a[href]:not([aria-disabled="true"]), [role="button"]:not([aria-disabled="true"]), summary):active {
+    transform: scale(0.97);
+    opacity: 0.85;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :where(button:not(:disabled), a[href]:not([aria-disabled="true"]), [role="button"]:not([aria-disabled="true"]), summary):active {
+      transform: none;
+    }
+  }
+}
