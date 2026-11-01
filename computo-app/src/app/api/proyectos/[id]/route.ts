@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { eliminarArchivosDeBlob } from "@/lib/blob";
 import { requerirProyecto } from "@/lib/sesion";
+import { emailValido } from "@/lib/registro";
 
 // Incluye todas las relaciones necesarias para la página del proyecto
 const PROYECTO_INCLUDE = {
@@ -156,6 +157,15 @@ export async function PATCH(
       if (typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > 100) {
         return NextResponse.json({ error: "imprevistosPct debe ser un número entre 0 y 100" }, { status: 400 });
       }
+    }
+
+    // Email del cliente: opcional; si viene, con formato válido. (El RUT del
+    // cliente no se valida: en obra particular ahí va la cédula.)
+    if (typeof body.clienteEmail === "string" && body.clienteEmail.trim() && !emailValido(body.clienteEmail.trim())) {
+      return NextResponse.json(
+        { error: "email_invalido", mensaje: "El email del cliente no parece válido." },
+        { status: 400 }
+      );
     }
 
     // Moneda del contrato (obra pública): "PESOS" | "UR", y el valor de la UR

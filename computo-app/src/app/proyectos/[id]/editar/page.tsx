@@ -174,7 +174,16 @@ export default function EditarProyectoPage() {
           descripcion: form.descripcion.trim() || null,
         }),
       });
-      if (!res.ok) throw new Error("No se pudo guardar el proyecto");
+      if (!res.ok) {
+        // El servidor manda `mensaje` cuando rechaza un dato (ej. email del cliente).
+        const data = await res.json().catch(() => null);
+        if (data?.mensaje) {
+          setError(data.mensaje);
+          setGuardando(false);
+          return;
+        }
+        throw new Error("No se pudo guardar el proyecto");
+      }
 
       // Solo se manda PATCH para los títulos cuyo flag realmente cambió
       // respecto a lo que llegó del servidor.

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirAdminOSuperadmin, requerirSesion } from "@/lib/sesion";
+import { emailValido } from "@/lib/registro";
+import { MENSAJE_RUT_INVALIDO, normalizarRut, rutValido } from "@/lib/rut";
 
 // La empresa es la del usuario logueado (tenant). Siempre existe: el
 // usuario no puede crearse sin empresa (User.empresaId es obligatorio).
@@ -38,19 +40,16 @@ export async function PATCH(request: Request) {
       data.nombre = String(body.nombre).trim();
     }
     // Mismas reglas que la pantalla (/configuracion), también acá por si el pedido no viene de ella:
-    // RUT opcional, solo números (se ignoran puntos, guiones y espacios), 10 a 12 dígitos.
+    // RUT opcional, solo números (se ignoran puntos, guiones y espacios), 10 a 12 dígitos (lib/rut.ts).
     if (body.rut !== undefined && String(body.rut).trim()) {
-      const rut = String(body.rut).replace(/[\s.-]/g, "");
-      if (!/^\d{10,12}$/.test(rut)) {
-        return NextResponse.json(
-          { error: "rut_invalido", mensaje: "El RUT tiene que tener solo números, entre 10 y 12 dígitos." },
-          { status: 400 }
-        );
+      const rut = normalizarRut(String(body.rut));
+      if (!rutValido(rut)) {
+        return NextResponse.json({ error: "rut_invalido", mensaje: MENSAJE_RUT_INVALIDO }, { status: 400 });
       }
       data.rut = rut;
     }
     // Email opcional: si viene, con formato válido.
-    if (body.email !== undefined && String(body.email ?? "").trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.email).trim())) {
+    if (body.email !== undefined && String(body.email ?? "").trim() && !emailValido(String(body.email).trim())) {
       return NextResponse.json({ error: "email_invalido", mensaje: "Ingresá un email válido." }, { status: 400 });
     }
     if (body.direccion !== undefined) data.direccion = body.direccion || null;

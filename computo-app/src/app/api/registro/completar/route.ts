@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { CUPO_CALCULOS_RAPIDOS, CUPO_PROYECTOS_ASISTIDOS, DIAS_PRUEBA, INGRESO_VIGENCIA_MIN } from "@/lib/config-prueba";
 import { enviarAvisoNuevaEmpresa } from "@/lib/mail";
 import { COOKIE_BIENVENIDA, generarSlugEmpresa, generarToken, hashear, sanitizarOrigen, sumarMinutos } from "@/lib/registro";
+import { MENSAJE_RUT_INVALIDO, normalizarRut, rutValido } from "@/lib/rut";
 
 const LARGO_MAXIMO = { nombre: 80, empresa: 120, rut: 20 };
 const texto = (v: unknown, max: number) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ").slice(0, max) : "");
@@ -48,11 +49,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null);
     const nombre = texto(body?.nombre, LARGO_MAXIMO.nombre);
     const nombreEmpresa = texto(body?.empresa, LARGO_MAXIMO.empresa);
-    const rut = texto(body?.rut, LARGO_MAXIMO.rut);
+    // RUT opcional; si viene, misma regla que el perfil de empresa (lib/rut.ts).
+    const rut = normalizarRut(texto(body?.rut, LARGO_MAXIMO.rut));
     const origen = sanitizarOrigen(body?.origen);
     if (!nombre) return NextResponse.json({ error: "falta_nombre", mensaje: "Contanos tu nombre." }, { status: 400 });
     if (!nombreEmpresa) {
       return NextResponse.json({ error: "falta_empresa", mensaje: "Falta el nombre de la empresa o estudio." }, { status: 400 });
+    }
+    if (rut && !rutValido(rut)) {
+      return NextResponse.json({ error: "rut_invalido", mensaje: MENSAJE_RUT_INVALIDO }, { status: 400 });
     }
 
     // Empresa.rut es obligatorio y único: sin RUT queda un valor provisorio

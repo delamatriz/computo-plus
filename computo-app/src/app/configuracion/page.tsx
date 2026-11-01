@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto";
 import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
 import { useRolUsuario } from "@/hooks/useSuperadmin";
+import { MENSAJE_RUT_INVALIDO, normalizarRut, rutValido } from "@/lib/rut";
 
 interface EmpresaPerfil {
   id: string;
@@ -19,8 +20,6 @@ interface EmpresaPerfil {
 // Límite del logo: se guarda en la base (data URL) y va a todos los PDF.
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// RUT: solo números, 10 a 12 dígitos (se aceptan puntos, guiones y espacios al tipear; se ignoran).
-const soloDigitosRut = (rut: string) => rut.replace(/[\s.-]/g, "");
 
 export default function ConfiguracionPage() {
   // Editar el perfil: solo ADMIN y SUPERADMIN (el servidor también lo exige). Un USUARIO lo ve en
@@ -88,9 +87,10 @@ export default function ConfiguracionPage() {
 
   async function guardarEmpresa() {
     const errores: { rut?: string; email?: string } = {};
-    const rut = soloDigitosRut(empresaForm.rut);
-    // Opcional, igual que el email: vacío no se valida (y el servidor deja el RUT que ya tenía).
-    if (rut && !/^\d{10,12}$/.test(rut)) errores.rut = "El RUT tiene que tener solo números, entre 10 y 12 dígitos.";
+    // RUT: misma regla que el servidor (lib/rut.ts). Opcional, igual que el
+    // email: vacío no se valida (y el servidor deja el RUT que ya tenía).
+    const rut = normalizarRut(empresaForm.rut);
+    if (rut && !rutValido(rut)) errores.rut = MENSAJE_RUT_INVALIDO;
     if (empresaForm.email.trim() && !EMAIL_VALIDO.test(empresaForm.email.trim())) errores.email = "Ingresá un email válido.";
     setErroresCampo(errores);
     if (errores.rut || errores.email) return;

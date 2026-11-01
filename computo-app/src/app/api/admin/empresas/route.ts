@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requerirSuperadmin } from "@/lib/sesion";
 import { esPlan } from "@/lib/roles";
 import { estadoEfectivo } from "@/lib/acceso";
+import { MENSAJE_RUT_INVALIDO, normalizarRut, rutValido } from "@/lib/rut";
 
 // Panel /admin — empresas (tenants). Solo SUPERADMIN (otro rol → 403).
 
@@ -44,9 +45,11 @@ export async function POST(req: NextRequest) {
     const nombre = typeof body?.nombre === "string" ? body.nombre.trim() : "";
     const slug = typeof body?.slug === "string" ? body.slug.trim().toLowerCase() : "";
     const plan = body?.plan;
-    const rut = typeof body?.rut === "string" ? body.rut.trim() : "";
+    const rut = typeof body?.rut === "string" ? normalizarRut(body.rut.trim()) : "";
 
     if (!nombre) return NextResponse.json({ error: "Falta el nombre" }, { status: 400 });
+    // RUT opcional; si viene, misma regla que el perfil de empresa (lib/rut.ts).
+    if (rut && !rutValido(rut)) return NextResponse.json({ error: MENSAJE_RUT_INVALIDO }, { status: 400 });
     if (!SLUG_VALIDO.test(slug)) {
       return NextResponse.json({ error: "El slug solo admite minúsculas, números y guiones (ej. constructora-sur)" }, { status: 400 });
     }

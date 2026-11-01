@@ -111,7 +111,7 @@ export function BadgeVerificacion({
         title={
           conAccion && tienePrecio
             ? "Precio estimado, sin precio de referencia de mercado — confirmalo con tu proveedor"
-            : "Sin precio de referencia — a cotizar directamente"
+            : "Sin precio — no hay precio de referencia, cotizá con tu proveedor"
         }
         className={cn(BASE, conAccion ? ESTILO_ACCION : ESTILO_CORTO, "bg-slate-100 text-slate-500 border-slate-200")}
       >
