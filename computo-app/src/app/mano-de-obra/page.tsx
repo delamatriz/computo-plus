@@ -188,7 +188,8 @@ export default async function ManoDeObraPage() {
     db.configuracion.findFirst(),
     db.manoObraAPUEstandar.findMany({ select: { categoria: true, rendimiento: true, jornadaHs: true } }),
   ]);
-  const porCategoria = new Map(categorias.map((c) => [c.categoria, c]));
+  type CatRow = (typeof categorias)[number];
+  const porCategoria = new Map<string, CatRow>(categorias.map((c: CatRow) => [c.categoria, c]));
 
   const filasLaudo = CATEGORIAS_LAUDO.map(({ categoria, numero }) => {
     const c = porCategoria.get(categoria);

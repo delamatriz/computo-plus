@@ -737,12 +737,14 @@ function MaterialesPageInner() {
         </p>
       )}
 
-      {/* Antes vivía en /configuracion — movida acá porque es contenido
-          específico de este catálogo, sin cambios funcionales (ver
-          NOTA(multi-tenant) en el propio componente). */}
-      <div className="mt-8">
-        <SeccionActualizacionDatos esSuperadmin={puedeEditar} />
-      </div>
+      {/* Actualización de precios vía Mercado Libre — solo SUPERADMIN.
+          Un ADMIN (empresa cliente) no tiene por qué saber que existe esta
+          herramienta ni ver el estado del catálogo global. */}
+      {puedeEditar && (
+        <div className="mt-8">
+          <SeccionActualizacionDatos esSuperadmin={puedeEditar} />
+        </div>
+      )}
 
       {puedeImportar && modalImportarAbierto && (
         <ModalImportarPrecios
