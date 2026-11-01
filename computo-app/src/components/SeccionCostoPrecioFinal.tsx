@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AlertTriangle, ChevronDown, Layers } from "lucide-react";
 import { RESERVA_COLA_TABLA } from "@/lib/layoutTablaPresupuesto";
 import { PALETA } from "@/lib/paletaPresupuesto";
@@ -37,11 +37,14 @@ function TarjetaSuelta({
   monto,
   moneda,
   destacado = false,
+  pie,
 }: {
   label: string;
   monto: number;
   moneda: string;
   destacado?: boolean;
+  // Línea chica debajo del monto (solo en la destacada): equivalente en UR.
+  pie?: ReactNode;
 }) {
   if (destacado) {
     return (
@@ -52,7 +55,10 @@ function TarjetaSuelta({
       >
         <span className="text-sm font-bold uppercase tracking-wide">{label}</span>
         <div className="flex items-center gap-3">
-          <span className="text-lg font-bold">{fmtMoneda(monto, moneda)}</span>
+          <div className="text-right">
+            <span className="text-lg font-bold">{fmtMoneda(monto, moneda)}</span>
+            {pie}
+          </div>
           <EspaciadorChevron />
         </div>
       </div>
@@ -228,6 +234,7 @@ export function TarjetaCostoTotalPrecioFinal({
   montoGastosGeneralesYBeneficio,
   montoIVA,
   precioFinal,
+  equivalenteUR,
 }: {
   moneda: string;
   costoDirecto: number;
@@ -239,8 +246,24 @@ export function TarjetaCostoTotalPrecioFinal({
   // que ya pasó una vez con el PDF (ver gastosGenerales.ts).
   montoIVA: number;
   precioFinal: number;
+  // Obra pública con contrato en UR (ver page.tsx): precio final ya pasado a
+  // pesos y el valor de la UR cargado en /editar (null si falta). Sin esto
+  // (privada, o contrato en pesos), la tarjeta queda como siempre.
+  equivalenteUR?: { valorUR: number | null; precioFinalPesos: number } | null;
 }) {
   const costoTotal = costoDirecto + montoGastosGeneralesYBeneficio;
+
+  let pieUR: ReactNode = null;
+  if (equivalenteUR) {
+    const { valorUR, precioFinalPesos } = equivalenteUR;
+    pieUR = valorUR && valorUR > 0 ? (
+      <p className="text-sm font-semibold tabular-nums opacity-90">
+        = {(precioFinalPesos / valorUR).toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UR
+      </p>
+    ) : (
+      <p className="text-xs font-normal opacity-80">Cargá el valor de la UR para ver el total en UR</p>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2 mt-2">
@@ -255,7 +278,7 @@ export function TarjetaCostoTotalPrecioFinal({
           <EspaciadorChevron />
         </div>
       </div>
-      <TarjetaSuelta label="Precio Final" monto={precioFinal} moneda={moneda} destacado />
+      <TarjetaSuelta label="Precio Final" monto={precioFinal} moneda={moneda} destacado pie={pieUR} />
     </div>
   );
 }

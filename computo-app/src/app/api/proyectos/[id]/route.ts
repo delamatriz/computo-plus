@@ -158,6 +158,18 @@ export async function PATCH(
       }
     }
 
+    // Moneda del contrato (obra pública): "PESOS" | "UR", y el valor de la UR
+    // null o un número positivo — un valor raro dividiría el Precio Final.
+    if (body.monedaContrato !== undefined && body.monedaContrato !== "PESOS" && body.monedaContrato !== "UR") {
+      return NextResponse.json({ error: "monedaContrato debe ser PESOS o UR" }, { status: 400 });
+    }
+    if (body.valorUR !== undefined && body.valorUR !== null) {
+      const v = body.valorUR;
+      if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) {
+        return NextResponse.json({ error: "valorUR debe ser un número mayor que 0" }, { status: 400 });
+      }
+    }
+
     const proyecto = await db.proyecto.update({
       where: { id },
       data: {
@@ -179,6 +191,9 @@ export async function PATCH(
         ...(body.trabajos    !== undefined && { trabajos:    body.trabajos }),
         ...(body.fechaInicio !== undefined && { fechaInicio: body.fechaInicio ? new Date(body.fechaInicio) : null }),
         ...(body.fechaPresupuesto !== undefined && { fechaPresupuesto: body.fechaPresupuesto ? new Date(body.fechaPresupuesto) : null }),
+        ...(body.monedaContrato !== undefined && { monedaContrato: body.monedaContrato }),
+        ...(body.valorUR !== undefined && { valorUR: body.valorUR }),
+        ...(body.fechaValorUR !== undefined && { fechaValorUR: body.fechaValorUR ? new Date(body.fechaValorUR) : null }),
         ...(body.plazoObra   !== undefined && { plazoObra:   body.plazoObra }),
         ...(body.diasLaborales !== undefined && { diasLaborales: body.diasLaborales }),
         ...(body.garantiaFielCumplimiento !== undefined && { garantiaFielCumplimiento: body.garantiaFielCumplimiento }),

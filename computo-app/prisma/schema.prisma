@@ -108,6 +108,14 @@ model Proyecto {
   moneda      String     @default("UYU")
   tipo        String     @default("VIVIENDA")
   tipoContratacion String @default("PRIVADA") // "PRIVADA" | "PUBLICA"
+  // Obra pública — moneda del contrato: "PESOS" | "UR" (Unidades
+  // Reajustables). Distinto de `moneda` (UYU/USD), que es en qué se muestran
+  // los montos. String (no enum), mismo criterio que tipoContratacion. Con UR,
+  // el Precio Final muestra además su equivalente = precio en pesos ÷ valorUR.
+  // Solo se edita en proyectos PUBLICA (/editar).
+  monedaContrato String    @default("PESOS")
+  valorUR        Float?    // valor de la UR en pesos a la fecha del contrato (lo publica el BCU)
+  fechaValorUR   DateTime? // fecha de referencia BCU de valorUR
   estado      String     @default("ANTEPROYECTO")
   descripcion String?
   trabajos    String?

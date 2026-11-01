@@ -131,6 +131,10 @@ interface ProyectoData {
   // asistente de "Nuevo proyecto").
   descripcion?: string;
   tipoContratacion?: string;
+  // Obra pública — moneda del contrato ("PESOS" | "UR") y valor de la UR en
+  // pesos (se cargan en /editar). Ver Proyecto.monedaContrato en schema.prisma.
+  monedaContrato?: string;
+  valorUR?: number | null;
   estado: keyof typeof ESTADOS;
   moneda: string;
   area: number;
@@ -525,6 +529,8 @@ const PROYECTO = {
   tipo: "Vivienda unifamiliar",
   descripcion: "",
   tipoContratacion: "PRIVADA",
+  monedaContrato: "PESOS",
+  valorUR: null as number | null,
   estado: "EN_CURSO" as const,
   moneda: "USD",
   area: 120,
@@ -3554,6 +3560,8 @@ export default function ProyectoPage() {
         tipo:      data.tipo       ?? "",
         descripcion: data.descripcion ?? "",
         tipoContratacion: data.tipoContratacion ?? "PRIVADA",
+        monedaContrato: data.monedaContrato ?? "PESOS",
+        valorUR: data.valorUR ?? null,
         estado:    (data.estado as keyof typeof ESTADOS) in ESTADOS
                      ? (data.estado as keyof typeof ESTADOS)
                      : "ANTEPROYECTO",
@@ -3903,6 +3911,15 @@ export default function ProyectoPage() {
   const esObraPublica = proyectoActivo.tipoContratacion === "PUBLICA";
   const montoLeyesSociales = leyesSociales
     ? leyesSociales.montoImponibleMO * (esObraPublica ? leyesSociales.coeficienteBpsPublica : leyesSociales.aucPct)
+    : null;
+  // Obra pública con contrato en UR: equivalente del Precio Final en UR
+  // (precio en pesos ÷ valor de la UR). Si el proyecto se muestra en U$S, se
+  // pasa a pesos con el mismo dólar BCU de la página (TCU). Privada: nada.
+  const equivalenteUR = esObraPublica && proyectoActivo.monedaContrato === "UR"
+    ? {
+        valorUR: proyectoActivo.valorUR ?? null,
+        precioFinalPesos: moneda === "USD" ? precioFinalAgregado * TCU : precioFinalAgregado,
+      }
     : null;
   // "Días de Obra" — caso empresa chica (una sola cuadrilla), ver
   // diasObra.ts. Sobre los mismos capitulos+apuData ya en memoria, sin
@@ -6538,6 +6555,7 @@ export default function ProyectoPage() {
           montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
           montoIVA={montoIVAAgregado}
           precioFinal={precioFinalAgregado}
+          equivalenteUR={equivalenteUR}
         />
 
         {mostrarModalTitulo && (

@@ -20,6 +20,12 @@ const TIPOS_CONTRATACION = [
   { id: "PUBLICA", label: "Pública" },
 ];
 
+// Moneda del contrato — solo obra pública (ver Proyecto.monedaContrato).
+const MONEDAS_CONTRATO = [
+  { id: "PESOS", label: "Pesos uruguayos" },
+  { id: "UR", label: "Unidades Reajustables (UR)" },
+] as const;
+
 const MODALIDADES_EJECUCION = [
   { id: "POR_CONTRATO", label: "Por Contrato" },
   { id: "POR_ADMINISTRACION", label: "Por Administración" },
@@ -38,6 +44,9 @@ interface FormData {
   tipoContratacion: string;
   direccion: string;
   moneda: "UYU" | "USD";
+  monedaContrato: "PESOS" | "UR";
+  valorUR: string;
+  fechaValorUR: string;
   fechaPresupuesto: string;
   area: string;
   fechaInicio: string;
@@ -67,7 +76,7 @@ export default function EditarProyectoPage() {
   const [form, setForm] = useState<FormData>({
     nombre: "", subtitulo: "", cliente: "", clienteRut: "", clienteRazonSocial: "", clienteTelefono: "", clienteEmail: "",
     tipo: "VIVIENDA", tipoContratacion: "PRIVADA", direccion: "",
-    moneda: "UYU", fechaPresupuesto: "", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", modalidadEjecucion: "", trabajos: "", descripcion: "",
+    moneda: "UYU", monedaContrato: "PESOS", valorUR: "", fechaValorUR: "", fechaPresupuesto: "", area: "", fechaInicio: "", plazoObra: "", diasLaborales: "", modalidadEjecucion: "", trabajos: "", descripcion: "",
   });
   const [titulos, setTitulos] = useState<TituloForm[]>([]);
   // Snapshot de los títulos tal como llegaron del servidor — al guardar,
@@ -96,6 +105,9 @@ export default function EditarProyectoPage() {
           tipoContratacion: data.tipoContratacion ?? "PRIVADA",
           direccion: data.direccion ?? "",
           moneda: data.moneda === "USD" ? "USD" : "UYU",
+          monedaContrato: data.monedaContrato === "UR" ? "UR" : "PESOS",
+          valorUR: data.valorUR != null ? String(data.valorUR) : "",
+          fechaValorUR: data.fechaValorUR ? data.fechaValorUR.slice(0, 10) : "",
           fechaPresupuesto: data.fechaPresupuesto ? data.fechaPresupuesto.slice(0, 10) : "",
           area: data.area != null ? String(data.area) : "",
           fechaInicio: data.fechaInicio ? data.fechaInicio.slice(0, 10) : "",
@@ -149,6 +161,9 @@ export default function EditarProyectoPage() {
           tipoContratacion: form.tipoContratacion,
           direccion: form.direccion.trim() || null,
           moneda: form.moneda,
+          monedaContrato: form.monedaContrato,
+          valorUR: form.valorUR && parseFloat(form.valorUR) > 0 ? parseFloat(form.valorUR) : null,
+          fechaValorUR: form.fechaValorUR || null,
           fechaPresupuesto: form.fechaPresupuesto || null,
           area: form.area ? parseFloat(form.area) : null,
           fechaInicio: form.fechaInicio || null,
@@ -297,6 +312,61 @@ export default function EditarProyectoPage() {
             ))}
           </div>
         </Field>
+
+        {/* Moneda del contrato — solo obra pública; en privada no aparece. */}
+        {form.tipoContratacion === "PUBLICA" && (
+          <div className="space-y-4">
+            <Field label="Moneda del contrato">
+              <div className="grid grid-cols-2 gap-2">
+                {MONEDAS_CONTRATO.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => set("monedaContrato", m.id)}
+                    className={cn(
+                      "px-3.5 py-2.5 rounded-[10px] border text-sm font-medium text-center transition-all",
+                      form.monedaContrato === m.id
+                        ? "border-[#2563EB] bg-blue-50 text-[#2563EB]"
+                        : "border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            {form.monedaContrato === "UR" && (
+              <div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Valor de la UR">
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-medium">$</span>
+                      <input
+                        type="number"
+                        step="any"
+                        min={0}
+                        value={form.valorUR}
+                        onChange={(e) => set("valorUR", e.target.value)}
+                        placeholder="ej: 1750,50"
+                        className={cn(inputCls, "pl-8")}
+                      />
+                    </div>
+                  </Field>
+                  <Field label="Fecha de referencia (BCU)">
+                    <input
+                      type="date"
+                      value={form.fechaValorUR}
+                      onChange={(e) => set("fechaValorUR", e.target.value)}
+                      className={inputCls}
+                    />
+                  </Field>
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5">El valor de la UR lo publica el BCU mensualmente</p>
+              </div>
+            )}
+          </div>
+        )}
 
         <Field label="Cliente / Comitente">
           <input
