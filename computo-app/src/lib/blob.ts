@@ -1,4 +1,5 @@
 import { put, del, get, type GetBlobResult } from "@vercel/blob";
+import { validarArchivoSubido, type PerfilArchivo } from "@/lib/archivosSubidos";
 
 // El store de Vercel Blob de esta cuenta está configurado como privado
 // (put() con access: "public" tira "Cannot use public access on a private
@@ -38,6 +39,20 @@ export async function subirFileABlob(pathname: string, archivo: File, contentTyp
     addRandomSuffix: true,
   });
   return blob.url;
+}
+
+// Valida un archivo subido por el usuario (tipo real por sus primeros bytes
+// y tope de tamaño, ver lib/archivosSubidos.ts) y lo sube con el tipo
+// detectado. Tira ArchivoInvalidoError si no pasa: la ruta responde 400 con
+// ese mensaje. Devuelve también el tipo y el tamaño para guardar en la base.
+export async function subirArchivoValidadoABlob(
+  pathname: string,
+  dataUrl: unknown,
+  perfil: PerfilArchivo
+): Promise<{ url: string; contentType: string; tamano: number }> {
+  const { buffer, contentType, tamano } = validarArchivoSubido(dataUrl, perfil);
+  const blob = await put(pathname, buffer, { access: ACCESS, contentType, addRandomSuffix: true });
+  return { url: blob.url, contentType, tamano };
 }
 
 // Elimina uno o más archivos de Vercel Blob por su URL. No lanza si alguna

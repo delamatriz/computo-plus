@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
+import { ArchivoInvalidoError, validarArchivoSubido } from "@/lib/archivosSubidos";
+
+// Fotos por pedido: la pantalla sube de a pocas; más que esto es un abuso.
+const MAX_FOTOS_POR_PEDIDO = 20;
 
 export async function GET(
   req: NextRequest,
@@ -47,7 +51,22 @@ export async function POST(
       return NextResponse.json({ error: "Se esperaba { fotos: string[] }" }, { status: 400 });
     }
 
-    const fotos = body.fotos as string[];
+    // Se guardan como data URL. Solo imágenes, por sus primeros bytes (no
+    // SVG), hasta 5 MB cada una, y rotuladas con el tipo real
+    // (lib/archivosSubidos.ts).
+    if (body.fotos.length > MAX_FOTOS_POR_PEDIDO) {
+      return NextResponse.json({ error: `Se pueden subir hasta ${MAX_FOTOS_POR_PEDIDO} fotos por vez` }, { status: 400 });
+    }
+    let fotos: string[];
+    try {
+      fotos = (body.fotos as unknown[]).map((f) => {
+        const { buffer, contentType } = validarArchivoSubido(f, "foto");
+        return `data:${contentType};base64,${buffer.toString("base64")}`;
+      });
+    } catch (err) {
+      if (err instanceof ArchivoInvalidoError) return NextResponse.json({ error: err.message }, { status: 400 });
+      throw err;
+    }
 
     await db.$transaction(
       fotos.map((url) =>

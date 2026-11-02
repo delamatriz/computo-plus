@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
-import { subirArchivoABlob, eliminarArchivosDeBlob } from "@/lib/blob";
+import { subirArchivoValidadoABlob, eliminarArchivosDeBlob } from "@/lib/blob";
+import { ArchivoInvalidoError } from "@/lib/archivosSubidos";
+
+// Fotos por pedido: la pantalla sube de a pocas; más que esto es un abuso.
+const MAX_FOTOS_POR_PEDIDO = 20;
 
 // Fotos de una entrada de bitácora. Las nuevas se suben a Vercel Blob
 // (privado) y en FotoEntradaBitacora.url queda la URL de Blob; las viejas
@@ -64,17 +68,22 @@ export async function POST(
       return NextResponse.json({ error: "Se esperaba { fotos: string[] }" }, { status: 400 });
     }
     const fotos = body.fotos as unknown[];
-    if (fotos.some((f) => typeof f !== "string" || !/^data:image\/[a-z+.-]+;base64,/.test(f))) {
-      return NextResponse.json({ error: "Solo se aceptan imágenes" }, { status: 400 });
+    if (fotos.length > MAX_FOTOS_POR_PEDIDO) {
+      return NextResponse.json({ error: `Se pueden subir hasta ${MAX_FOTOS_POR_PEDIDO} fotos por vez` }, { status: 400 });
     }
 
     const subidas: string[] = [];
     try {
-      for (const foto of fotos as string[]) {
-        const ext = foto.slice("data:image/".length, foto.indexOf(";")).replace("jpeg", "jpg");
-        subidas.push(await subirArchivoABlob(`bitacora/${id}/${entradaId}/foto.${ext}`, foto));
+      // Solo imágenes, por sus primeros bytes (no SVG), hasta 5 MB cada una.
+      for (const foto of fotos) {
+        const { url } = await subirArchivoValidadoABlob(`bitacora/${id}/${entradaId}/foto`, foto, "foto");
+        subidas.push(url);
       }
     } catch (err) {
+      if (err instanceof ArchivoInvalidoError) {
+        await eliminarArchivosDeBlob(subidas);
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
       console.error("[POST /api/proyectos/[id]/bitacora/[entradaId]/fotos] subida a blob", err);
       await eliminarArchivosDeBlob(subidas);
       return NextResponse.json({ error: "No se pudo subir la foto" }, { status: 400 });

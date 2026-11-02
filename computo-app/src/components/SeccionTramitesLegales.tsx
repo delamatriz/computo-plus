@@ -211,7 +211,12 @@ export default function SeccionTramitesLegales({ proyectoId }: Props) {
           body: JSON.stringify({ archivo, nombreArchivoOriginal }),
         });
         if (!res.ok) {
-          setErrorDoc({ tramiteId, mensaje: `No se pudo subir "${file.name}". Probá de nuevo.` });
+          // 400 con motivo (tipo no permitido, supera el tamaño): se muestra tal cual.
+          const data = await res.json().catch(() => null);
+          setErrorDoc({
+            tramiteId,
+            mensaje: res.status === 400 && data?.error ? `"${file.name}": ${data.error}` : `No se pudo subir "${file.name}". Probá de nuevo.`,
+          });
           continue;
         }
         const doc: DocumentoTramite = await res.json();

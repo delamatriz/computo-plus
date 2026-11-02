@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { obtenerStreamDeBlob } from "@/lib/blob";
 import { requerirProyecto } from "@/lib/sesion";
+import { headersSeguridadArchivo } from "@/lib/archivosSubidos";
 
 // Proxy de una foto de bitácora — mismo patrón que
 // .../contrato/documentos/[docId]/archivo: el store de Blob es privado, así
@@ -36,7 +37,7 @@ export async function GET(
     const base64 = foto.url.match(/^data:([^;]+);base64,(.+)$/);
     if (base64) {
       return new NextResponse(Buffer.from(base64[2], "base64"), {
-        headers: { "Content-Type": base64[1], "Cache-Control": cache, ETag: etag },
+        headers: { "Content-Type": base64[1], ...headersSeguridadArchivo(base64[1]), "Cache-Control": cache, ETag: etag },
       });
     }
 
@@ -47,6 +48,7 @@ export async function GET(
     return new NextResponse(resultado.stream, {
       headers: {
         "Content-Type": resultado.blob.contentType || "image/jpeg",
+        ...headersSeguridadArchivo(resultado.blob.contentType || "image/jpeg"),
         "Content-Disposition": "inline",
         "Cache-Control": cache,
         ETag: etag,

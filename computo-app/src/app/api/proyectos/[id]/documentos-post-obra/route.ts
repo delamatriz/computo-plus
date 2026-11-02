@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { subirArchivoABlob } from "@/lib/blob";
+import { subirArchivoValidadoABlob } from "@/lib/blob";
+import { ArchivoInvalidoError } from "@/lib/archivosSubidos";
 import { requerirProyecto } from "@/lib/sesion";
 
 const CATEGORIAS_VALIDAS = ["Manual de uso", "Plano As-Built", "Certificado de garantía", "Otro"];
@@ -55,17 +56,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
     }
 
-    const match = archivo.match(/^data:([^;]+);base64,(.+)$/);
-    if (!match) {
-      return NextResponse.json({ error: "Formato de archivo inválido" }, { status: 400 });
-    }
-    const [, contentType, base64] = match;
-    const tamano = Math.ceil((base64.length * 3) / 4);
-
+    // Tipo real por sus primeros bytes y tope de tamaño (lib/archivosSubidos.ts).
     let urlBlob: string;
+    let contentType: string;
+    let tamano: number;
     try {
-      urlBlob = await subirArchivoABlob(`documentos-post-obra/${id}/${nombreArchivoOriginal}`, archivo);
+      ({ url: urlBlob, contentType, tamano } = await subirArchivoValidadoABlob(`documentos-post-obra/${id}/${nombreArchivoOriginal}`, archivo, "documento"));
     } catch (err) {
+      if (err instanceof ArchivoInvalidoError) return NextResponse.json({ error: err.message }, { status: 400 });
       console.error("[POST /api/proyectos/[id]/documentos-post-obra] subida a blob", err);
       return NextResponse.json({ error: "No se pudo subir el archivo" }, { status: 400 });
     }

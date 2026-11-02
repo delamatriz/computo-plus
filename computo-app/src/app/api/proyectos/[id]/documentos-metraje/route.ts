@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { subirArchivoABlob, eliminarArchivosDeBlob } from "@/lib/blob";
+import { subirArchivoValidadoABlob, eliminarArchivosDeBlob } from "@/lib/blob";
+import { ArchivoInvalidoError, type PerfilArchivo } from "@/lib/archivosSubidos";
+
+// Qué acepta cada categoría (mismo criterio que CATEGORIAS en
+// components/metrajes/documentoMetraje.ts) y cómo se rotula el tipo real.
+const PERFIL_POR_CATEGORIA: Record<string, PerfilArchivo> = { PLANO: "plano", FOTO: "foto", DETALLE: "documento" };
+function tipoArchivoDe(contentType: string): string {
+  if (contentType === "application/pdf") return "PDF";
+  if (contentType === "image/vnd.dwg") return "DWG";
+  if (contentType.startsWith("image/")) return "IMAGEN";
+  return "WORD";
+}
 import { requerirProyecto } from "@/lib/sesion";
 
 const CATEGORIAS_VALIDAS = ["PLANO", "FOTO", "DETALLE"];
@@ -71,10 +82,22 @@ export async function POST(
       return NextResponse.json({ error: "tipoArchivo debe ser PDF, IMAGEN, DWG o WORD" }, { status: 400 });
     }
 
+    // Tipo real por sus primeros bytes y tope de tamaño (lib/archivosSubidos.ts);
+    // el tipoArchivo que se guarda sale de ahí, no del que declaró el navegador.
     let url: string;
+    let tipoArchivo: string;
+    let tamano: number;
     try {
-      url = await subirArchivoABlob(`documentos-metraje/${proyectoId}/${body.nombreArchivoOriginal}`, body.archivo);
+      const subido = await subirArchivoValidadoABlob(
+        `documentos-metraje/${proyectoId}/${body.nombreArchivoOriginal}`,
+        body.archivo,
+        PERFIL_POR_CATEGORIA[body.categoria]
+      );
+      url = subido.url;
+      tipoArchivo = tipoArchivoDe(subido.contentType);
+      tamano = subido.tamano;
     } catch (err) {
+      if (err instanceof ArchivoInvalidoError) return NextResponse.json({ error: err.message }, { status: 400 });
       console.error("[POST /api/proyectos/[id]/documentos-metraje] subida a blob", err);
       return NextResponse.json({ error: "No se pudo subir el archivo" }, { status: 400 });
     }
@@ -85,11 +108,11 @@ export async function POST(
           proyectoId,
           categoria: body.categoria,
           nombre: body.nombre.trim(),
-          tipoArchivo: body.tipoArchivo,
+          tipoArchivo,
           archivo: url,
           nombreArchivoOriginal: body.nombreArchivoOriginal,
           paginaPDF: typeof body.paginaPDF === "number" ? body.paginaPDF : null,
-          tamano: typeof body.tamano === "number" ? body.tamano : null,
+          tamano,
         },
       });
     } catch (err) {

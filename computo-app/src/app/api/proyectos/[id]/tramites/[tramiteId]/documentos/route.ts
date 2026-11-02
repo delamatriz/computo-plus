@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { subirArchivoABlob } from "@/lib/blob";
+import { subirArchivoValidadoABlob } from "@/lib/blob";
+import { ArchivoInvalidoError } from "@/lib/archivosSubidos";
 import { requerirProyecto } from "@/lib/sesion";
-import { SELECT_DOCUMENTOS, TAMANO_MAX_DOCUMENTO_TRAMITE } from "@/lib/documentosTramite";
+import { SELECT_DOCUMENTOS } from "@/lib/documentosTramite";
 
 // POST — adjunta una constancia/comprobante a un trámite. Mismo patrón
 // exacto que .../contrato/documentos: el cliente manda el archivo como data
@@ -31,20 +32,14 @@ export async function POST(
       return NextResponse.json({ error: "Trámite no encontrado" }, { status: 404 });
     }
 
-    const match = archivo.match(/^data:([^;]+);base64,(.+)$/);
-    if (!match) {
-      return NextResponse.json({ error: "Formato de archivo inválido" }, { status: 400 });
-    }
-    const [, contentType, base64] = match;
-    const tamano = Math.ceil((base64.length * 3) / 4);
-    if (tamano > TAMANO_MAX_DOCUMENTO_TRAMITE) {
-      return NextResponse.json({ error: "El archivo supera los 15 MB" }, { status: 400 });
-    }
-
+    // Tipo real por sus primeros bytes y tope de tamaño (lib/archivosSubidos.ts).
     let urlBlob: string;
+    let contentType: string;
+    let tamano: number;
     try {
-      urlBlob = await subirArchivoABlob(`tramites/${id}/${tramiteId}/${nombreArchivoOriginal}`, archivo);
+      ({ url: urlBlob, contentType, tamano } = await subirArchivoValidadoABlob(`tramites/${id}/${tramiteId}/${nombreArchivoOriginal}`, archivo, "documento"));
     } catch (err) {
+      if (err instanceof ArchivoInvalidoError) return NextResponse.json({ error: err.message }, { status: 400 });
       console.error("[POST /api/proyectos/[id]/tramites/[tramiteId]/documentos] subida a blob", err);
       return NextResponse.json({ error: "No se pudo subir el archivo" }, { status: 400 });
     }

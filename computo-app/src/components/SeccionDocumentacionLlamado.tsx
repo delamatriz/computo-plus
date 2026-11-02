@@ -101,11 +101,12 @@ export default function SeccionDocumentacionLlamado({ proyectoId }: Props) {
           tamano: file.size,
         }),
       });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      // 400 con motivo (tipo no permitido, supera el tamaño): se muestra tal cual.
+      if (!res.ok) throw new Error(res.status === 400 && data?.error ? data.error : "");
       setDocumentos(data.documentos ?? []);
-    } catch {
-      setError("No se pudo subir el archivo. Probá de nuevo.");
+    } catch (err) {
+      setError((err instanceof Error && err.message) || "No se pudo subir el archivo. Probá de nuevo.");
     } finally {
       setSubiendo(false);
     }

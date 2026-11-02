@@ -1,7 +1,8 @@
 import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { subirArchivoABlob, eliminarArchivosDeBlob, obtenerStreamDeBlob } from "@/lib/blob";
+import { subirArchivoValidadoABlob, eliminarArchivosDeBlob, obtenerStreamDeBlob } from "@/lib/blob";
+import { ArchivoInvalidoError, headersSeguridadArchivo } from "@/lib/archivosSubidos";
 import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
 
 // Comprobante (factura, recibo) de un movimiento de caja — un archivo por
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest, context: Ctx) {
     return new NextResponse(resultado.stream, {
       headers: {
         "Content-Type": mov.comprobanteTipoArchivo || resultado.blob.contentType,
+        ...headersSeguridadArchivo(mov.comprobanteTipoArchivo || resultado.blob.contentType),
         "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(mov.comprobanteNombreArchivo ?? "comprobante")}`,
         "Cache-Control": "private, max-age=31536000, immutable",
         ETag: etag,
@@ -57,22 +59,24 @@ export async function POST(req: NextRequest, context: Ctx) {
 
     const body = await req.json().catch(() => ({}));
     const { archivo, nombreArchivoOriginal } = body as { archivo?: string; nombreArchivoOriginal?: string };
-    const match = archivo?.match(/^data:([^;]+);base64,(.+)$/);
-    if (!archivo || !match || !nombreArchivoOriginal) {
+    if (!archivo || !nombreArchivoOriginal) {
       return NextResponse.json({ error: "Falta el archivo" }, { status: 400 });
     }
 
+    // Tipo real por sus primeros bytes y tope de tamaño (lib/archivosSubidos.ts).
     let urlBlob: string;
+    let contentType: string;
     try {
-      urlBlob = await subirArchivoABlob(`flujo-caja/${id}/${movId}/${nombreArchivoOriginal}`, archivo);
+      ({ url: urlBlob, contentType } = await subirArchivoValidadoABlob(`flujo-caja/${id}/${movId}/${nombreArchivoOriginal}`, archivo, "documento"));
     } catch (err) {
+      if (err instanceof ArchivoInvalidoError) return NextResponse.json({ error: err.message }, { status: 400 });
       console.error("[POST .../comprobante] subida a blob", err);
       return NextResponse.json({ error: "No se pudo subir el archivo" }, { status: 400 });
     }
 
     await db.movimientoCaja.update({
       where: { id: movId },
-      data: { comprobanteUrlBlob: urlBlob, comprobanteNombreArchivo: nombreArchivoOriginal, comprobanteTipoArchivo: match[1] },
+      data: { comprobanteUrlBlob: urlBlob, comprobanteNombreArchivo: nombreArchivoOriginal, comprobanteTipoArchivo: contentType },
     });
     if (mov.comprobanteUrlBlob) await eliminarArchivosDeBlob([mov.comprobanteUrlBlob]);
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirProyecto } from "@/lib/sesion";
+import { ArchivoInvalidoError, validarArchivoSubido } from "@/lib/archivosSubidos";
 
 export async function GET(
   req: NextRequest,
@@ -40,13 +41,25 @@ export async function POST(
       );
     }
 
+    // El archivo viaja y se guarda como data URL. Se valida el tipo real por
+    // sus primeros bytes y el tamaño (lib/archivosSubidos.ts), y se guarda
+    // rotulado con ese tipo: la pantalla lo abre como blob del mismo origen,
+    // así que un HTML o SVG con un script no puede entrar.
+    let archivo;
+    try {
+      archivo = validarArchivoSubido(body.url, "documento");
+    } catch (err) {
+      if (err instanceof ArchivoInvalidoError) return NextResponse.json({ error: err.message }, { status: 400 });
+      throw err;
+    }
+
     await db.documentoLlamado.create({
       data: {
         proyectoId,
         nombreArchivo: body.nombreArchivo,
-        url: body.url,
+        url: `data:${archivo.contentType};base64,${archivo.buffer.toString("base64")}`,
         etiqueta: body.etiqueta,
-        tamano: typeof body.tamano === "number" ? body.tamano : null,
+        tamano: archivo.tamano,
       },
     });
 

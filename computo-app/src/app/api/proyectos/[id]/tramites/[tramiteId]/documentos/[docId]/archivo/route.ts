@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { obtenerStreamDeBlob } from "@/lib/blob";
 import { requerirProyecto } from "@/lib/sesion";
+import { headersSeguridadArchivo } from "@/lib/archivosSubidos";
 
 // Proxy del archivo de un documento de trámite — mismo patrón exacto que
 // .../contrato/documentos/[docId]/archivo (el store de Blob es privado).
@@ -39,6 +40,7 @@ export async function GET(
     return new NextResponse(resultado.stream, {
       headers: {
         "Content-Type": documento.tipoArchivo || resultado.blob.contentType,
+        ...headersSeguridadArchivo(documento.tipoArchivo || resultado.blob.contentType),
         // filename* (RFC 5987): un nombre con tildes ("inscripción.pdf")
         // no puede ir crudo en un header HTTP.
         "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(documento.nombreArchivoOriginal)}`,

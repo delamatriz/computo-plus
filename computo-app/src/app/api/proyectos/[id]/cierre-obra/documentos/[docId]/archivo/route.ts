@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { obtenerStreamDeBlob } from "@/lib/blob";
 import { requerirProyecto } from "@/lib/sesion";
+import { headersSeguridadArchivo } from "@/lib/archivosSubidos";
 
 // Proxy del archivo del documento del acta de cierre — mismo patrón
 // exacto que .../contrato/documentos/[docId]/archivo.
@@ -39,6 +40,7 @@ export async function GET(
     return new NextResponse(resultado.stream, {
       headers: {
         "Content-Type": documento.tipoArchivo || resultado.blob.contentType,
+        ...headersSeguridadArchivo(documento.tipoArchivo || resultado.blob.contentType),
         "Content-Disposition": `inline; filename="${documento.nombreArchivoOriginal}"`,
         "Cache-Control": "private, max-age=31536000, immutable",
         ETag: etag,

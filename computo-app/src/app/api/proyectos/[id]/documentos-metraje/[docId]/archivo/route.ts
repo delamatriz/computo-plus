@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { obtenerStreamDeBlob } from "@/lib/blob";
 import { requerirProyecto, hijoNoEncontrado } from "@/lib/sesion";
+import { headersSeguridadArchivo } from "@/lib/archivosSubidos";
 
 // Proxy del archivo del documento — el store de Vercel Blob es privado, así
 // que el browser no puede pedirlo directo por su URL (necesita el token).
@@ -52,6 +53,7 @@ export async function GET(
     return new NextResponse(resultado.stream, {
       headers: {
         "Content-Type": resultado.blob.contentType,
+        ...headersSeguridadArchivo(resultado.blob.contentType),
         "Cache-Control": "private, max-age=31536000, immutable",
         ETag: etag,
       },
