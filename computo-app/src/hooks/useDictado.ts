@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 // Dictado por voz con la Web Speech API del navegador (Chrome de escritorio y
 // Android, Edge, Safari): sin servicios externos ni costo. Cada frase
 // reconocida se entrega con onTexto; el que llama decide cómo sumarla al
-// campo. Se detiene solo al detectar silencio, o con detener()/alternar().
+// campo. Se detiene solo al detectar silencio (o, en modo continuo, recién
+// con detener()), o con detener()/alternar().
 // Sin soporte (Firefox, por ejemplo) soportado queda en false y no hay que
 // mostrar el botón.
 
@@ -67,13 +68,15 @@ export function useDictado({ onTexto, lang = "es-UY" }: { onTexto: (texto: strin
     reconocimientoRef.current?.stop();
   }, []);
 
-  const iniciar = useCallback(() => {
+  // continuo: sigue escuchando aunque haya pausas, hasta detener() — para el
+  // "mantener apretado" del celular. Sin continuo, se corta solo con el silencio.
+  const iniciar = useCallback(({ continuo = false }: { continuo?: boolean } = {}) => {
     const Ctor = constructorReconocimiento();
     if (!Ctor) return;
     reconocimientoRef.current?.abort();
     const rec = new Ctor();
     rec.lang = lang;
-    rec.continuous = false; // se corta solo con el silencio
+    rec.continuous = continuo;
     rec.interimResults = false; // solo texto final: nada de borradores en el campo
     rec.onresult = (e) => {
       let texto = "";
@@ -113,5 +116,5 @@ export function useDictado({ onTexto, lang = "es-UY" }: { onTexto: (texto: strin
     else iniciar();
   }, [escuchando, detener, iniciar]);
 
-  return { soportado, escuchando, error, alternar, detener };
+  return { soportado, escuchando, error, alternar, iniciar, detener };
 }

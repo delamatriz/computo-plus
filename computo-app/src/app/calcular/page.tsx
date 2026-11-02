@@ -653,7 +653,7 @@ export default function CalcularPage() {
                       dictado.soportado && "pr-14"
                     )}
                   />
-                  {dictado.soportado && <BotonDictado escuchando={dictado.escuchando} onClick={dictado.alternar} />}
+                  {dictado.soportado && <BotonDictado escuchando={dictado.escuchando} onIniciar={dictado.iniciar} onDetener={dictado.detener} />}
                 </div>
                 {dictado.error && <p className="text-xs text-red-600 mt-2">{dictado.error}</p>}
               </div>
@@ -711,7 +711,7 @@ export default function CalcularPage() {
                       dictado.soportado && "pr-14"
                     )}
                   />
-                  {dictado.soportado && <BotonDictado escuchando={dictado.escuchando} onClick={dictado.alternar} />}
+                  {dictado.soportado && <BotonDictado escuchando={dictado.escuchando} onIniciar={dictado.iniciar} onDetener={dictado.detener} />}
                 </div>
                 {dictado.error && <p className="text-xs text-red-600 mt-2">{dictado.error}</p>}
                 <p className="text-xs text-slate-400 mt-2">
