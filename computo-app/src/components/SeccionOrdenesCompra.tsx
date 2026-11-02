@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import type { FilaMaterialGlobal } from "@/lib/materialesGlobales";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import CampoFecha from "@/components/CampoFecha";
+import { mensajeDeErrorSubida, motivoRechazoSubida } from "@/lib/motivoRechazoSubida";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_ESTADO = ["Pedido", "En camino", "Recibido", "Cancelado"] as const;
@@ -413,11 +414,11 @@ function FilaOrden({
   const urlRemito = `/api/proyectos/${proyectoId}/ordenes-compra/${orden.id}/remito`;
   const [remito, setRemito] = useState<string | null>(orden.remitoNombreArchivo);
   const [subiendoRemito, setSubiendoRemito] = useState(false);
-  const [errorRemito, setErrorRemito] = useState(false);
+  const [errorRemito, setErrorRemito] = useState<string | null>(null);
 
   const subirRemito = async (file: File) => {
     setSubiendoRemito(true);
-    setErrorRemito(false);
+    setErrorRemito(null);
     try {
       const esImagen = file.type.startsWith("image/");
       const archivo = esImagen
@@ -434,11 +435,12 @@ function FilaOrden({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ archivo, nombreArchivoOriginal: nombre }),
       });
-      if (!res.ok) throw new Error("No se pudo subir");
+      // 400 con motivo (tipo no permitido, supera el tamaño): se muestra tal cual.
+      if (!res.ok) throw new Error(await motivoRechazoSubida(res));
       setRemito(nombre);
     } catch (err) {
       console.error("[ordenes-compra] error subiendo remito", err);
-      setErrorRemito(true);
+      setErrorRemito(mensajeDeErrorSubida(err));
     } finally {
       setSubiendoRemito(false);
     }
@@ -543,7 +545,7 @@ function FilaOrden({
                   />
                 </label>
               )}
-              {errorRemito && <span className="text-[11px] text-red-600">No se pudo subir. Probá de nuevo.</span>}
+              {errorRemito && <span className="text-[11px] text-red-600">{errorRemito}</span>}
             </div>
           )}
 

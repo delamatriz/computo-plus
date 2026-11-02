@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { PALETA } from "@/lib/paletaPresupuesto";
 import CampoFecha from "@/components/CampoFecha";
+import { mensajeDeErrorSubida, motivoRechazoSubida } from "@/lib/motivoRechazoSubida";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const TIPOS_DOCUMENTO = ["Contrato", "Anexo", "Presupuesto aprobado", "Otro"] as const;
@@ -156,6 +157,7 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
   const [nombreDocNuevo, setNombreDocNuevo] = useState("");
   const [tipoDocNuevo, setTipoDocNuevo] = useState<string>("Contrato");
   const [subiendoDoc, setSubiendoDoc] = useState(false);
+  const [errorDoc, setErrorDoc] = useState<string | null>(null);
   const [agregandoDoc, setAgregandoDoc] = useState(false);
 
   const cargarDatos = useCallback(async () => {
@@ -238,6 +240,7 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
   const subirDocumento = async (file: File) => {
     if (!contrato) return;
     setSubiendoDoc(true);
+    setErrorDoc(null);
     try {
       const archivo = await fileToBase64(file);
       const res = await fetch(`/api/proyectos/${proyectoId}/contrato/documentos`, {
@@ -245,13 +248,15 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tipo: tipoDocNuevo, nombre: nombreDocNuevo.trim(), archivo, nombreArchivoOriginal: file.name }),
       });
-      if (!res.ok) throw new Error("No se pudo subir");
+      // 400 con motivo (tipo no permitido, supera el tamaño): se muestra tal cual.
+      if (!res.ok) throw new Error(await motivoRechazoSubida(res));
       const data: Documento = await res.json();
       setContrato((prev) => (prev ? { ...prev, documentos: [...prev.documentos, data] } : prev));
       setNombreDocNuevo("");
       setAgregandoDoc(false);
     } catch (err) {
       console.error("[contrato] error subiendo documento", err);
+      setErrorDoc(mensajeDeErrorSubida(err));
     } finally {
       setSubiendoDoc(false);
     }
@@ -394,12 +399,13 @@ export default function SeccionContratoObra({ proyectoId }: Props) {
                             />
                           </label>
                           <button
-                            onClick={() => { setAgregandoDoc(false); setNombreDocNuevo(""); }}
+                            onClick={() => { setAgregandoDoc(false); setNombreDocNuevo(""); setErrorDoc(null); }}
                             className="px-3 py-2 rounded-[8px] border border-slate-200 text-slate-500 text-sm hover:bg-slate-50 transition-colors"
                           >
                             Cancelar
                           </button>
                         </div>
+                        {errorDoc && <p className="text-xs text-red-600">{errorDoc}</p>}
                       </div>
                     ) : (
                       <button

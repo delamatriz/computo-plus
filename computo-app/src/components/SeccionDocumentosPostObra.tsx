@@ -5,6 +5,7 @@ import { BookMarked, ChevronDown, ChevronRight, Plus, Trash2, FileText, Image as
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import { mensajeDeErrorSubida, motivoRechazoSubida } from "@/lib/motivoRechazoSubida";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const CATEGORIAS = ["Manual de uso", "Plano As-Built", "Certificado de garantía", "Otro"] as const;
@@ -62,6 +63,7 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
   const [form, setForm] = useState<FormState>(formVacio());
   const [subiendo, setSubiendo] = useState(false);
   const [subiendoEn, setSubiendoEn] = useState<Categoria | null>(null);
+  const [errorSubida, setErrorSubida] = useState<string | null>(null);
 
   const cargarLista = useCallback(async () => {
     try {
@@ -83,6 +85,7 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
   const subirDocumento = async (file: File) => {
     if (!form.nombre.trim()) return;
     setSubiendo(true);
+    setErrorSubida(null);
     try {
       const archivo = await fileToBase64(file);
       const res = await fetch(`/api/proyectos/${proyectoId}/documentos-post-obra`, {
@@ -90,13 +93,15 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre: form.nombre.trim(), categoria: form.categoria, archivo, nombreArchivoOriginal: file.name }),
       });
-      if (!res.ok) throw new Error("No se pudo subir");
+      // 400 con motivo (tipo no permitido, supera el tamaño): se muestra tal cual.
+      if (!res.ok) throw new Error(await motivoRechazoSubida(res));
       const data: Documento = await res.json();
       setDocumentos((prev) => [...prev, data]);
       setForm(formVacio());
       setAgregando(false);
     } catch (err) {
       console.error("[documentos-post-obra] error subiendo documento", err);
+      setErrorSubida(mensajeDeErrorSubida(err));
     } finally {
       setSubiendo(false);
     }
@@ -106,6 +111,7 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
   // archivo (sin extensión) como nombre del documento.
   const subirEnCategoria = async (cat: Categoria, file: File) => {
     setSubiendoEn(cat);
+    setErrorSubida(null);
     try {
       const archivo = await fileToBase64(file);
       const res = await fetch(`/api/proyectos/${proyectoId}/documentos-post-obra`, {
@@ -118,11 +124,13 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
           nombreArchivoOriginal: file.name,
         }),
       });
-      if (!res.ok) throw new Error("No se pudo subir");
+      // 400 con motivo (tipo no permitido, supera el tamaño): se muestra tal cual.
+      if (!res.ok) throw new Error(await motivoRechazoSubida(res));
       const data: Documento = await res.json();
       setDocumentos((prev) => [...prev, data]);
     } catch (err) {
       console.error("[documentos-post-obra] error subiendo documento", err);
+      setErrorSubida(mensajeDeErrorSubida(err));
     } finally {
       setSubiendoEn(null);
     }
@@ -165,6 +173,7 @@ export default function SeccionDocumentosPostObra({ proyectoId }: Props) {
               <p className="text-xs text-slate-500 -mt-1">
                 Archivo de manuales de uso, planos As-Built y certificados de garantía de la obra terminada.
               </p>
+              {errorSubida && <p className="text-xs text-red-600">{errorSubida}</p>}
 
               {CATEGORIAS.map((cat) => {
                 const docsDeCategoria = documentos.filter((d) => d.categoria === cat);

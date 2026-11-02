@@ -9,6 +9,7 @@ import { hoyUruguayISO } from "@/lib/fechaUruguay";
 import { CATEGORIAS_EGRESO, CATEGORIAS_INGRESO, SIN_CATEGORIA, categoriasDe } from "@/lib/categoriasCaja";
 import { reducirFotoObra } from "@/lib/reducirFotoObra";
 import CampoFecha from "@/components/CampoFecha";
+import { mensajeDeErrorSubida, motivoRechazoSubida } from "@/lib/motivoRechazoSubida";
 
 /* ─── Tipos ───────────────────────────────────────────────── */
 const OPCIONES_TIPO = ["Ingreso", "Egreso"] as const;
@@ -510,11 +511,11 @@ function FilaMovimiento({
   const urlComprobante = `/api/proyectos/${proyectoId}/flujo-caja/${mov.id}/comprobante`;
   const [comprobante, setComprobante] = useState<string | null>(mov.comprobanteNombreArchivo);
   const [subiendo, setSubiendo] = useState(false);
-  const [errorComprobante, setErrorComprobante] = useState(false);
+  const [errorComprobante, setErrorComprobante] = useState<string | null>(null);
 
   const subirComprobante = async (file: File) => {
     setSubiendo(true);
-    setErrorComprobante(false);
+    setErrorComprobante(null);
     try {
       const esImagen = file.type.startsWith("image/");
       const archivo = esImagen
@@ -531,11 +532,12 @@ function FilaMovimiento({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ archivo, nombreArchivoOriginal: nombre }),
       });
-      if (!res.ok) throw new Error("No se pudo subir");
+      // 400 con motivo (tipo no permitido, supera el tamaño): se muestra tal cual.
+      if (!res.ok) throw new Error(await motivoRechazoSubida(res));
       setComprobante(nombre);
     } catch (err) {
       console.error("[flujo-caja] error subiendo comprobante", err);
-      setErrorComprobante(true);
+      setErrorComprobante(mensajeDeErrorSubida(err));
     } finally {
       setSubiendo(false);
     }
@@ -623,7 +625,7 @@ function FilaMovimiento({
                 />
               </label>
             )}
-            {errorComprobante && <span className="text-[11px] text-red-600">No se pudo subir. Probá de nuevo.</span>}
+            {errorComprobante && <span className="text-[11px] text-red-600">{errorComprobante}</span>}
           </div>
         </div>
 
