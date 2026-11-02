@@ -32,6 +32,7 @@ import { esBloqueoDeCuenta, esErrorAcceso, useEstadoCuenta, type ErrorAcceso } f
 import { AvisoAcceso } from "@/components/acceso/AvisoAcceso";
 import { mensajeCupoProyectoAsistido } from "@/lib/config-prueba";
 import { TIPOS_OBRA } from "@/lib/tiposObra";
+import { MAX_ARCHIVO_MB } from "@/components/metrajes/documentoMetraje";
 
 /* ─── Tipos ─────────────────────────────────────────────── */
 interface FormData {
@@ -353,7 +354,7 @@ function NuevoProyectoContent() {
     set("fotos", copia);
   };
 
-  /* Documentos PDF/Word */
+  /* Documentos PDF */
   const agregarDocumentos = (files: FileList | null) => {
     if (!files) return;
     const nuevos = Array.from(files).slice(0, MAX_DOCS - form.documentos.length);
@@ -631,7 +632,7 @@ function NuevoProyectoContent() {
         }).catch((err) => console.error("[proyectos/nuevo] generar-seguridad-altura", err));
       }
 
-      // Fotos (FOTO) y PDF/Word (PLANO) del paso 1 → "Documentación para metrar".
+      // Fotos (FOTO) y PDF (PLANO) del paso 1 → "Documentación para metrar".
       // El proyecto ya existe: un problema de subida NUNCA lo deshace. Si algún
       // archivo falla, se avisa y se deja ir al proyecto con un botón.
       const { archivos, descartados } = armarArchivosDelAsistente(form.fotos, form.documentos);
@@ -949,11 +950,11 @@ function NuevoProyectoContent() {
                   )}
                 </Field>
 
-                <Field label="Documentos (PDF / Word)">
+                <Field label="Documentos (PDF)">
                   <input
                     ref={docsInputRef}
                     type="file"
-                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    accept=".pdf,application/pdf"
                     multiple
                     className="hidden"
                     onChange={(e) => {
@@ -980,7 +981,7 @@ function NuevoProyectoContent() {
                   </button>
 
                   <p className="text-xs text-slate-400 mt-1.5">
-                    PDF o Word (.doc, .docx), hasta {MAX_DOCS}. Se guardan en Documentación para metrar.
+                    PDF de hasta {MAX_ARCHIVO_MB} MB, hasta {MAX_DOCS}. Se guardan en Documentación para metrar.
                   </p>
 
                   {form.documentos.length > 0 && (

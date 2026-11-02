@@ -10,15 +10,7 @@
 
 const MB = 1024 * 1024;
 
-type TipoDetectado =
-  | "application/pdf"
-  | "image/jpeg"
-  | "image/png"
-  | "image/webp"
-  | "image/gif"
-  | "image/vnd.dwg"
-  | "application/msword"
-  | "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+type TipoDetectado = "application/pdf" | "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
 const empiezaCon = (b: Buffer, bytes: number[], desde = 0) => bytes.every((x, i) => b[desde + i] === x);
 const ascii = (b: Buffer, desde: number, largo: number) => b.subarray(desde, desde + largo).toString("latin1");
@@ -30,14 +22,6 @@ export function detectarTipoArchivo(b: Buffer): TipoDetectado | null {
   if (empiezaCon(b, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
   if (ascii(b, 0, 4) === "RIFF" && ascii(b, 8, 4) === "WEBP") return "image/webp";
   if (ascii(b, 0, 6) === "GIF87a" || ascii(b, 0, 6) === "GIF89a") return "image/gif";
-  // DWG de AutoCAD: "AC10xx" (AC1012 … AC1032).
-  if (/^AC10\d\d$/.test(ascii(b, 0, 6))) return "image/vnd.dwg";
-  // Word 97-2003 (contenedor OLE).
-  if (empiezaCon(b, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) return "application/msword";
-  // .docx: es un ZIP; se acepta solo si adentro está la carpeta "word/".
-  if (empiezaCon(b, [0x50, 0x4b, 0x03, 0x04]) && b.subarray(0, Math.min(b.length, 64 * 1024)).includes("word/")) {
-    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  }
   return null;
 }
 
@@ -45,30 +29,30 @@ export function detectarTipoArchivo(b: Buffer): TipoDetectado | null {
  * Qué se acepta en cada lugar, y hasta cuánto:
  * - documento: PDF (10 MB) e imágenes (5 MB). Contrato, cierre, post-obra,
  *   trámites, comprobantes, remitos, documentación del llamado.
- * - foto: solo imágenes (5 MB). Bitácora, fotos de relevamiento.
- * - plano: además DWG y Word, hasta 200 MB — el mismo tope que ya muestra la
- *   pantalla de documentación para metrar (planos escaneados pesan mucho).
+ * - foto: solo imágenes (5 MB). Bitácora y certificaciones (el navegador
+ *   las achica antes de subirlas).
+ * - plano: PDF e imágenes hasta 25 MB. Documentación para metrar, planos y
+ *   detalles: un plano exportado en alta resolución pasa fácil de 10 MB.
+ * - relevamiento: solo imágenes, hasta 25 MB. Fotos de relevamiento de la
+ *   documentación para metrar (se suben sin achicar).
+ * DWG y Word no se aceptan en ningún lado (decisión nov-2026: no se usan).
  */
-export type PerfilArchivo = "documento" | "foto" | "plano";
+export type PerfilArchivo = "documento" | "foto" | "plano" | "relevamiento";
 
 const IMAGENES: TipoDetectado[] = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 const LIMITES: Record<PerfilArchivo, Partial<Record<TipoDetectado, number>>> = {
   documento: { "application/pdf": 10 * MB, ...Object.fromEntries(IMAGENES.map((t) => [t, 5 * MB])) },
   foto: Object.fromEntries(IMAGENES.map((t) => [t, 5 * MB])),
-  plano: {
-    "application/pdf": 200 * MB,
-    ...Object.fromEntries(IMAGENES.map((t) => [t, 200 * MB])),
-    "image/vnd.dwg": 200 * MB,
-    "application/msword": 200 * MB,
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": 200 * MB,
-  },
+  plano: { "application/pdf": 25 * MB, ...Object.fromEntries(IMAGENES.map((t) => [t, 25 * MB])) },
+  relevamiento: Object.fromEntries(IMAGENES.map((t) => [t, 25 * MB])),
 };
 
 const DESCRIPCION_PERFIL: Record<PerfilArchivo, string> = {
   documento: "PDF, JPG, PNG, WebP o GIF",
   foto: "JPG, PNG, WebP o GIF",
-  plano: "PDF, imagen, DWG o Word",
+  plano: "PDF, JPG, PNG, WebP o GIF",
+  relevamiento: "JPG, PNG, WebP o GIF",
 };
 
 export class ArchivoInvalidoError extends Error {}

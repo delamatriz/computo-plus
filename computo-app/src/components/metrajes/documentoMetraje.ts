@@ -18,17 +18,17 @@
 // depender de un CDN externo.
 export const PDF_OPTIONS = { standardFontDataUrl: "/standard_fonts/", cMapUrl: "/cmaps/", cMapPacked: true };
 
-// Límite de tamaño — el archivo se sube a Vercel Blob, así que el techo
-// real es alto. Se deja un límite razonable como sanity check, no porque
-// Blob lo requiera.
-export const MAX_ARCHIVO_MB = 200;
+// Límite de tamaño — el mismo que exige el servidor (perfiles "plano" y
+// "relevamiento" en lib/archivosSubidos.ts). El archivo viaja en base64
+// dentro de un JSON y el servidor lo tiene entero en memoria: un tope alto
+// (antes 200 MB) podía dejar sin memoria al servicio.
+export const MAX_ARCHIVO_MB = 25;
 export const MAX_ARCHIVO_BYTES = MAX_ARCHIVO_MB * 1024 * 1024;
 
 // Las 3 categorías de "Documentación para metrar" (UI_UX_REDESIGN.md
 // 2quinquies) — cada una con su propio listado + subida, comparten el
-// mismo modelo (DocumentoMetraje.categoria). DWG se acepta solo como
-// metadata/tipo de archivo, sin parseo de capas — soporte real fuera de
-// alcance (ver sección 6 "Fuera de alcance — fase futura").
+// mismo modelo (DocumentoMetraje.categoria). DWG y WORD quedan en el tipo
+// solo para mostrar documentos viejos: ya no se pueden subir.
 export type CategoriaDocumento = "PLANO" | "FOTO" | "DETALLE";
 export type TipoArchivoDocumento = "PDF" | "IMAGEN" | "DWG" | "WORD";
 
@@ -48,9 +48,10 @@ export const CATEGORIAS: {
   {
     value: "PLANO",
     label: "Planos y documentos",
-    accept: "application/pdf,image/*,.dwg,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    tiposPermitidos: ["PDF", "IMAGEN", "DWG", "WORD"],
-    ayuda: "PDF, imagen, DWG o Word (sin vista previa para DWG ni Word).",
+    // DWG y Word ya no se aceptan (nov-2026): no se usan y no tienen vista previa.
+    accept: "application/pdf,image/*",
+    tiposPermitidos: ["PDF", "IMAGEN"],
+    ayuda: "PDF o imagen.",
   },
   {
     value: "FOTO",

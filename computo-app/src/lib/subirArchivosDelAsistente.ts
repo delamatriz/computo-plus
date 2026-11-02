@@ -1,6 +1,6 @@
 // Sube a "Documentación para metrar" (DocumentoMetraje) los archivos que se
 // cargaron en el paso 1 del asistente de Nuevo proyecto: las fotos de
-// relevamiento (categoría FOTO) y los PDF/Word (categoría PLANO). Antes se
+// relevamiento (categoría FOTO) y los PDF (categoría PLANO). Antes se
 // capturaban pero se perdían al crear el proyecto.
 //
 // Usa EXACTAMENTE el mismo mecanismo que el cargador de la pantalla de
@@ -8,9 +8,9 @@
 // como data URL base64 y se manda como JSON a
 // POST /api/proyectos/[id]/documentos-metraje (con progreso real vía XHR),
 // que lo sube a Vercel Blob (privado) y crea la fila. Mismo límite de tamaño
-// (MAX_ARCHIVO_MB, 200 MB por archivo — el techo real es el de la memoria del
-// servidor, porque el base64 pesa ~33% más; por eso se suben de a UNO, en
-// secuencia, nunca en paralelo).
+// (MAX_ARCHIVO_MB, 25 MB por archivo, el mismo que exige el servidor — el
+// base64 pesa ~33% más y el servidor lo tiene entero en memoria; por eso se
+// suben de a UNO, en secuencia, nunca en paralelo).
 //
 // Crear el proyecto NO puede fallar por un problema de subida: acá nunca se
 // lanza una excepción por un archivo — cada falla se devuelve en `fallidos`
@@ -96,8 +96,9 @@ export function armarArchivosDelAsistente(
 
   documentos.forEach((d) => {
     const tipo = detectarTipoArchivo(d);
-    if (tipo !== "PDF" && tipo !== "WORD") {
-      descartados.push({ nombre: d.name, motivo: "formato no admitido (PDF o Word)" });
+    // Word ya no se acepta (nov-2026): solo PDF.
+    if (tipo !== "PDF") {
+      descartados.push({ nombre: d.name, motivo: "formato no admitido (solo PDF)" });
       return;
     }
     if (d.size > MAX_ARCHIVO_BYTES) {

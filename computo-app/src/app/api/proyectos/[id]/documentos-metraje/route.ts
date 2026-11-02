@@ -5,17 +5,16 @@ import { ArchivoInvalidoError, type PerfilArchivo } from "@/lib/archivosSubidos"
 
 // Qué acepta cada categoría (mismo criterio que CATEGORIAS en
 // components/metrajes/documentoMetraje.ts) y cómo se rotula el tipo real.
-const PERFIL_POR_CATEGORIA: Record<string, PerfilArchivo> = { PLANO: "plano", FOTO: "foto", DETALLE: "documento" };
+// Planos y detalles: PDF o imagen hasta 25 MB; fotos de relevamiento: imagen
+// hasta 25 MB. DWG y Word ya no se aceptan.
+const PERFIL_POR_CATEGORIA: Record<string, PerfilArchivo> = { PLANO: "plano", FOTO: "relevamiento", DETALLE: "plano" };
 function tipoArchivoDe(contentType: string): string {
-  if (contentType === "application/pdf") return "PDF";
-  if (contentType === "image/vnd.dwg") return "DWG";
-  if (contentType.startsWith("image/")) return "IMAGEN";
-  return "WORD";
+  return contentType === "application/pdf" ? "PDF" : "IMAGEN";
 }
 import { requerirProyecto } from "@/lib/sesion";
 
 const CATEGORIAS_VALIDAS = ["PLANO", "FOTO", "DETALLE"];
-const TIPOS_VALIDOS = ["PDF", "IMAGEN", "DWG", "WORD"];
+const TIPOS_VALIDOS = ["PDF", "IMAGEN"];
 
 // Documentación para metrar — Etapa 1 (UI_UX_REDESIGN.md 2quinquies). El
 // listado NO trae el campo `archivo` (URL de Vercel Blob) para que la
@@ -79,7 +78,7 @@ export async function POST(
       return NextResponse.json({ error: "categoria debe ser PLANO, FOTO o DETALLE" }, { status: 400 });
     }
     if (!TIPOS_VALIDOS.includes(body.tipoArchivo)) {
-      return NextResponse.json({ error: "tipoArchivo debe ser PDF, IMAGEN, DWG o WORD" }, { status: 400 });
+      return NextResponse.json({ error: "tipoArchivo debe ser PDF o IMAGEN" }, { status: 400 });
     }
 
     // Tipo real por sus primeros bytes y tope de tamaño (lib/archivosSubidos.ts);
