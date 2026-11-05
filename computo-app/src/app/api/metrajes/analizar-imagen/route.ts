@@ -3,6 +3,7 @@ import { crearMensaje } from "@/lib/anthropic-client";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
 import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
+import { descargarImagenExterna } from "@/lib/urlExternaSegura";
 
 
 const PROMPT = `Sos un arquitecto experto en cómputo métrico. Analizá esta imagen (puede ser un plano, un croquis a mano, o una foto de obra) e identificá todos los elementos medibles que puedas: muros, aberturas, superficies, longitudes, alturas, etc.
@@ -34,36 +35,30 @@ interface ImageBlock {
   source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string };
 }
 
-// Las imágenes de Planos/Fotos complementarias vienen como URL de la ruta
-// proxy .../archivo (ver PlanoProyecto/FotoComplementaria — el archivo real
-// vive en un store privado de Vercel Blob, esa ruta lo baja autenticado y
-// lo reenvía). No son necesariamente alcanzables desde afuera de nuestro
-// servidor, así que en vez de mandarle la URL a Claude, se bajan los bytes
-// acá mismo y se mandan en base64 — mismo criterio para las data URLs que
-// pueda mandar el cliente directamente.
-async function imageBlockDesdeFoto(foto: string, origin: string): Promise<ImageBlock> {
+// Fotos por pedido: se procesan las primeras y el resto se descarta.
+const MAX_FOTOS_POR_PEDIDO = 10;
+const TIPOS_IMAGEN = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
+type TipoImagen = (typeof TIPOS_IMAGEN)[number];
+const esTipoImagen = (t: string): t is TipoImagen => (TIPOS_IMAGEN as readonly string[]).includes(t);
+
+// Cada foto llega como data URL (base64) o como URL https externa. La URL se
+// baja acá y se manda en base64, pero solo si es https a un host público
+// (lib/urlExternaSegura.ts: sin IPs internas ni redirecciones). Lo que no
+// pasa se ignora (null) y el resto del pedido sigue. Antes también se
+// aceptaban rutas relativas pegadas al origen: se podían torcer a otro host
+// ("@otro-host/x") y además nunca funcionaban, porque el pedido salía sin la
+// sesión del usuario.
+async function imageBlockDesdeFoto(foto: unknown): Promise<ImageBlock | null> {
+  if (typeof foto !== "string") return null;
   const dataUrlMatch = foto.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
   if (dataUrlMatch) {
-    return {
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: dataUrlMatch[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
-        data: dataUrlMatch[2],
-      },
-    };
+    if (!esTipoImagen(dataUrlMatch[1])) return null;
+    return { type: "image", source: { type: "base64", media_type: dataUrlMatch[1], data: dataUrlMatch[2] } };
   }
 
-  const url = foto.startsWith("http") ? foto : `${origin}${foto}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`No se pudo descargar la imagen (${res.status}): ${url}`);
-  const buffer = Buffer.from(await res.arrayBuffer());
-  const mediaType = (res.headers.get("content-type") || "image/jpeg") as
-    | "image/jpeg"
-    | "image/png"
-    | "image/gif"
-    | "image/webp";
-  return { type: "image", source: { type: "base64", media_type: mediaType, data: buffer.toString("base64") } };
+  const imagen = await descargarImagenExterna(foto);
+  if (!imagen || !esTipoImagen(imagen.contentType)) return null;
+  return { type: "image", source: { type: "base64", media_type: imagen.contentType, data: imagen.buffer.toString("base64") } };
 }
 
 export async function POST(request: NextRequest) {
@@ -80,8 +75,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "sin_fotos" }, { status: 400 });
     }
 
-    const origin = new URL(request.url).origin;
-    const imageBlocks = await Promise.all(fotos.map((foto: string) => imageBlockDesdeFoto(foto, origin)));
+    const imageBlocks = (await Promise.all(fotos.slice(0, MAX_FOTOS_POR_PEDIDO).map(imageBlockDesdeFoto))).filter(
+      (b): b is ImageBlock => b !== null
+    );
+    if (imageBlocks.length === 0) {
+      return NextResponse.json({ error: "sin_fotos_validas" }, { status: 400 });
+    }
 
     const textoPrompt = contexto?.trim()
       ? `${PROMPT}\n\nContexto del espacio: ${contexto.trim()}`
