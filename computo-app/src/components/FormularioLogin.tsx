@@ -10,6 +10,8 @@ import { whatsappContacto } from "@/lib/config-prueba";
 const MENSAJES_ERROR: Record<string, string> = {
   EMPRESA_DESACTIVADA: "Tu cuenta está desactivada. Escribinos para reactivarla.",
   EMAIL_NO_VERIFICADO: "Tenés que verificar tu email antes de entrar.",
+  // lib/limiteLogin.ts: 5 intentos fallidos por email (20 por conexión) en 15 minutos.
+  DEMASIADOS_INTENTOS: "Demasiados intentos fallidos. Esperá 15 minutos y probá de nuevo.",
 };
 
 // Formulario de login por credenciales (NextAuth). Lo usan el modal de la

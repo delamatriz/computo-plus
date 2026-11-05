@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { estadoAccesoUsuario } from "@/lib/acceso";
 import { hashear } from "@/lib/registro";
 import { esRol, type Rol } from "@/lib/roles";
+import { ipDeHeaders, loginBloqueado, registrarLoginCorrecto, registrarLoginFallido } from "@/lib/limiteLogin";
 
 declare module "next-auth" {
   interface User {
@@ -68,16 +69,23 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Contraseña", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         const email = credentials?.email?.trim().toLowerCase();
         const password = credentials?.password;
         if (!email || !password) return null;
 
-        const user = await db.user.findUnique({ where: { email } });
-        if (!user) return null;
+        // Límite de intentos fallidos por email y por IP (lib/limiteLogin.ts).
+        // Se corta antes de mirar la contraseña.
+        const ip = ipDeHeaders(req?.headers);
+        if (loginBloqueado(email, ip)) throw new Error("DEMASIADOS_INTENTOS");
 
-        const ok = await bcrypt.compare(password, user.passwordHash);
-        if (!ok) return null;
+        const user = await db.user.findUnique({ where: { email } });
+        const ok = user ? await bcrypt.compare(password, user.passwordHash) : false;
+        if (!user || !ok) {
+          registrarLoginFallido(email, ip);
+          return null;
+        }
+        registrarLoginCorrecto(email);
 
         await exigirAcceso(user.id);
         return usuarioDeSesion(user);
