@@ -3,6 +3,56 @@ import { db } from "@/lib/db";
 import { eliminarArchivosDeBlob } from "@/lib/blob";
 import { requerirProyecto } from "@/lib/sesion";
 import { emailValido } from "@/lib/registro";
+import {
+  booleano,
+  categoriasGastosGenerales,
+  enumeracion,
+  fecha,
+  itemsGastosGenerales,
+  numero,
+  texto,
+  validarCampos,
+} from "@/lib/validacionDatos";
+import { TIPOS_OBRA } from "@/lib/tiposObra";
+
+// Valores que la app conoce (ver ESTADOS en proyectos/[id]/page.tsx,
+// MODALIDADES_EJECUCION en /editar y ModoGastosGenerales).
+const REGLAS_PATCH_PROYECTO = {
+  nombre: texto({ max: 200, nulo: false, vacio: false }),
+  subtitulo: texto({ max: 300 }),
+  cliente: texto({ max: 300 }),
+  clienteRut: texto({ max: 30 }),
+  clienteRazonSocial: texto({ max: 300 }),
+  clienteTelefono: texto({ max: 50 }),
+  clienteEmail: texto({ max: 254 }),
+  direccion: texto({ max: 500 }),
+  descripcion: texto({ max: 20_000 }),
+  notas: texto({ max: 20_000 }),
+  trabajos: texto({ max: 20_000 }),
+  garantiaFielCumplimiento: texto({ max: 5_000 }),
+  garantiaViciosOcultos: texto({ max: 5_000 }),
+  garantiaResponsabilidad: texto({ max: 5_000 }),
+  estado: enumeracion(["ANTEPROYECTO", "EN_CURSO", "FINALIZADO", "PAUSADO"]),
+  tipo: enumeracion(TIPOS_OBRA.map((t) => t.id)),
+  tipoContratacion: enumeracion(["PRIVADA", "PUBLICA"]),
+  moneda: enumeracion(["UYU", "USD"]),
+  modalidadEjecucion: enumeracion(["POR_CONTRATO", "POR_ADMINISTRACION", "PARTE_Y_PARTE"], { nulo: true }),
+  modoGastosGenerales: enumeracion(["PORCENTAJE", "DETALLADO"]),
+  area: numero({ min: 0, max: 10_000_000, nulo: true }),
+  plazoObra: numero({ min: 0, max: 100_000, entero: true, nulo: true }),
+  diasLaborales: numero({ min: 0, max: 100_000, entero: true, nulo: true }),
+  gastosGeneralesPctDefault: numero({ min: 0, max: 100, nulo: true }),
+  utilidadPctDefault: numero({ min: 0, max: 100, nulo: true }),
+  fechaInicio: fecha,
+  fechaPresupuesto: fecha,
+  fechaValorUR: fecha,
+  garantiaFielCumplimientoVence: fecha,
+  garantiaViciosOcultosVence: fecha,
+  garantiaResponsabilidadVence: fecha,
+  generandoRubros: booleano,
+  gastosGeneralesItems: itemsGastosGenerales,
+  gastosGeneralesDetallado: categoriasGastosGenerales,
+};
 
 // Incluye todas las relaciones necesarias para la página del proyecto
 const PROYECTO_INCLUDE = {
@@ -148,6 +198,11 @@ export async function PATCH(
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
     const body = await req.json();
+
+    // Tipos y rangos de cada campo que se puede editar (lib/validacionDatos.ts).
+    // Los porcentajes del proyecto van de 0 a 100 (ej. 10 = 10%).
+    const errorCampos = validarCampos(body, REGLAS_PATCH_PROYECTO);
+    if (errorCampos) return NextResponse.json({ error: errorCampos }, { status: 400 });
 
     // Imprevistos %: null (= 0%) o un número finito entre 0 y 100. Cualquier
     // otra cosa se rechaza en vez de guardarse — un valor corrupto acá

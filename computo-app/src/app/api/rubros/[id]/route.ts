@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requerirRubro } from "@/lib/sesion";
 import { redondearPrecio } from "@/lib/apu-calc";
+import { booleano, fecha, numero, texto, validarCampos } from "@/lib/validacionDatos";
+
+const REGLAS_PATCH_RUBRO = {
+  descripcion: texto({ max: 2_000, nulo: false }),
+  unidad: texto({ max: 30, nulo: false }),
+  cantidad: numero({ min: 0, max: 1e9, nulo: true }),
+  precioUnit: numero({ min: 0, max: 1e12, nulo: true }),
+  trabajoEnAltura: booleano,
+  fechaInicio: fecha,
+  fechaFin: fecha,
+};
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -31,6 +42,11 @@ export async function PATCH(
     }
 
     const body = await req.json();
+
+    // Tipos y rangos (lib/validacionDatos.ts): sin cantidades ni precios
+    // negativos. null = vacío (el editor manda null al borrar el campo).
+    const errorCampos = validarCampos(body, REGLAS_PATCH_RUBRO);
+    if (errorCampos) return NextResponse.json({ error: errorCampos }, { status: 400 });
 
     const anterior = body.unidad !== undefined ? await db.rubro.findUnique({ where: { id }, select: { unidad: true } }) : null;
 

@@ -4,6 +4,22 @@ import { calcularMOTotal } from "@/lib/calculos";
 import { LEYES_SOCIALES_DEFAULTS_FRACCION } from "@/lib/aportesPatronales";
 import { normalizarTipoCaja } from "@/lib/cajaProfesionales";
 import { requerirProyecto } from "@/lib/sesion";
+import { enumeracion, numero, validarCampos } from "@/lib/validacionDatos";
+
+const fraccion = numero({ min: 0, max: 1 });
+const REGLAS_LEYES_SOCIALES = {
+  tipoContratante: enumeracion(["empresa", "propietario_directo"]),
+  montoImponibleMO: numero({ min: 0, max: 1e12 }),
+  aucPct: fraccion,
+  focerPatronalPct: fraccion,
+  fscFocapPct: fraccion,
+  fosvocPct: fraccion,
+  frlPct: fraccion,
+  fondoGarantiaPct: fraccion,
+  snisAdicionalPct: fraccion,
+  focerPersonalPct: fraccion,
+  coeficienteBpsPublica: fraccion,
+};
 
 // Los cinco fondos patronales (y los dos personales informativos) se pasan explícitos al crear (en vez de depender
 // del @default de schema.prisma): así un proyecto nuevo nace siempre con los
@@ -70,6 +86,11 @@ export async function PUT(
     const acceso = await requerirProyecto(proyectoId);
     if (acceso instanceof NextResponse) return acceso;
     const body = await req.json();
+
+    // Tipos y rangos (lib/validacionDatos.ts). Acá los porcentajes van como
+    // fracción (0,718 = 71,8%).
+    const errorCampos = validarCampos(body, REGLAS_LEYES_SOCIALES);
+    if (errorCampos) return NextResponse.json({ error: errorCampos }, { status: 400 });
 
     const campos = {
       ...(body.tipoContratante   !== undefined && { tipoContratante:   body.tipoContratante }),
