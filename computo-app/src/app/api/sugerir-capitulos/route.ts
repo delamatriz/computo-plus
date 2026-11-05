@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
 import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
+import { consumirLimiteDiarioIA } from "@/lib/limiteDiarioIA";
 import { rubrosPorCapituloEstandar } from "@/lib/rubrosPorCapitulo";
 
 // Sugiere, desde el paso 3 del asistente de Nuevo proyecto, qué capítulos de la
@@ -45,6 +46,9 @@ export async function POST(request: NextRequest) {
   // No disponible en la prueba gratis (no descuenta cupo: directamente no se ofrece).
   const bloqueo = await bloquearSiEsPrueba(sesion);
   if (bloqueo) return bloqueo;
+  // Tope diario por empresa para esta ruta (lib/limiteDiarioIA.ts): 429 al pasarlo.
+  const tope = consumirLimiteDiarioIA("sugerir-capitulos", sesion);
+  if (tope) return tope;
 
   try {
     const { tipo, area, trabajos, otrosDatos, fotos } = await request.json();

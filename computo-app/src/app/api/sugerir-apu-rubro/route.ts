@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sugerirApuRubro } from "@/lib/sugerirApuRubro";
 import { requerirSesion } from "@/lib/sesion";
 import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
+import { consumirLimiteDiarioIA } from "@/lib/limiteDiarioIA";
 
 // "Sugerir APU" en los formularios de alta de rubros (/rubros y Mis rubros):
 // devuelve las líneas del APU para llenar el editor, sin guardar nada (ver
@@ -13,6 +14,9 @@ export async function POST(req: NextRequest) {
   if (sesion instanceof NextResponse) return sesion;
   const bloqueo = await bloquearSiEsPrueba(sesion);
   if (bloqueo) return bloqueo;
+  // Tope diario por empresa para esta ruta (lib/limiteDiarioIA.ts): 429 al pasarlo.
+  const tope = consumirLimiteDiarioIA("sugerir-apu-rubro", sesion);
+  if (tope) return tope;
 
   try {
     const body = await req.json().catch(() => null);

@@ -3,6 +3,7 @@ import { crearMensaje } from "@/lib/anthropic-client";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
 import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
+import { consumirLimiteDiarioIA } from "@/lib/limiteDiarioIA";
 
 
 // POST — estima con IA el precio unitario (UYU) de un material de obra
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
   // No disponible en la prueba gratis (no descuenta cupo: directamente no se ofrece).
   const bloqueo = await bloquearSiEsPrueba(sesion);
   if (bloqueo) return bloqueo;
+  // Tope diario por empresa para esta ruta (lib/limiteDiarioIA.ts): 429 al pasarlo.
+  const tope = consumirLimiteDiarioIA("materiales/estimar-precio", sesion);
+  if (tope) return tope;
 
   try {
     const { descripcion, unidad } = await req.json();

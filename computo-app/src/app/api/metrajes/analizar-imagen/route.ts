@@ -3,6 +3,7 @@ import { crearMensaje } from "@/lib/anthropic-client";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { requerirSesion } from "@/lib/sesion";
 import { bloquearSiEsPrueba, respuestaFuncionNoDisponible } from "@/lib/acceso";
+import { consumirLimiteDiarioIA } from "@/lib/limiteDiarioIA";
 import { descargarImagenExterna } from "@/lib/urlExternaSegura";
 
 
@@ -67,6 +68,9 @@ export async function POST(request: NextRequest) {
   // No disponible en la prueba gratis (no descuenta cupo: directamente no se ofrece).
   const bloqueo = await bloquearSiEsPrueba(sesion);
   if (bloqueo) return bloqueo;
+  // Tope diario por empresa para esta ruta (lib/limiteDiarioIA.ts): 429 al pasarlo.
+  const tope = consumirLimiteDiarioIA("metrajes/analizar-imagen", sesion);
+  if (tope) return tope;
 
   try {
     const { fotos, contexto } = await request.json();

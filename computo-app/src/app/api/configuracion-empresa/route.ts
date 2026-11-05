@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requerirSesion } from "@/lib/sesion";
+import { requerirAdminOSuperadmin, requerirSesion } from "@/lib/sesion";
 import { obtenerConfigEmpresa } from "@/lib/configuracionEmpresa";
 
 export async function GET() {
@@ -19,8 +19,10 @@ export async function GET() {
   }
 }
 
+// Cambiar los márgenes es de toda la empresa: solo ADMIN o SUPERADMIN, igual
+// que el perfil de empresa (el rol se lee de la base). Un USUARIO → 403.
 export async function PATCH(request: Request) {
-  const sesion = await requerirSesion();
+  const sesion = await requerirAdminOSuperadmin("Solo el administrador puede cambiar la configuración de la empresa");
   if (sesion instanceof NextResponse) return sesion;
 
   let body: unknown;
