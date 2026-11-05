@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { redondearPrecio, sumarAportesPatronalesPct } from "@/lib/apu-calc";
 import { requerirRubro } from "@/lib/sesion";
+import { precioVisibleParaEmpresa } from "@/lib/catalogoPrecios";
 
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
@@ -103,6 +104,21 @@ export async function PUT(
     const manoObra: ManoObraEntrada[] = Array.isArray(body.manoObra) ? body.manoObra : [];
     const equipos: EquipoEntrada[] = Array.isArray(body.equipos) ? body.equipos : [];
 
+    // Vínculo con el catálogo (precioMTOPId): solo a precios que la empresa
+    // puede ver — los globales y los que importó ella misma
+    // (precioVisibleParaEmpresa). Uno de otra empresa → 403: si no, al
+    // recalcular se copiaba su precio privado al rubro. Un id que ya no
+    // existe (fila borrada del catálogo) se guarda sin vínculo, como haría
+    // el onDelete: SetNull.
+    const idsPedidos = [...new Set(materiales.map((m) => m.precioMTOPId).filter((x): x is string => typeof x === "string" && !!x))];
+    const preciosVinculados = idsPedidos.length
+      ? await db.precioMTOP.findMany({ where: { id: { in: idsPedidos } }, select: { id: true, empresaId: true } })
+      : [];
+    if (preciosVinculados.some((p) => !precioVisibleParaEmpresa(p, acceso.empresaId))) {
+      return NextResponse.json({ error: "precio_no_accesible", mensaje: "No tenés acceso a ese precio" }, { status: 403 });
+    }
+    const idsVinculables = new Set(preciosVinculados.map((p) => p.id));
+
     const apuCompleto = await db.$transaction(async (tx) => {
       // Lock explícito — ver comentario de la función. Se ignora el
       // resultado, es puramente para tomar el lock; si el rubro no existe
@@ -188,7 +204,7 @@ export async function PUT(
         // proyectos/[id]/page.tsx) — antes de este campo, ni codigoMTOP
         // ni precioMTOPOrig llegaban a persistirse acá, así que el
         // vínculo con el catálogo se perdía apenas se recreaba el APU.
-        precioMTOPId: m.precioMTOPId ?? null,
+        precioMTOPId: m.precioMTOPId && idsVinculables.has(m.precioMTOPId) ? m.precioMTOPId : null,
       }));
       const componentesData = materiales.flatMap((m, i) =>
         Array.isArray(m.componentes)

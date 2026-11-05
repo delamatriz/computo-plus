@@ -17,6 +17,7 @@
 
 import { db } from "@/lib/db";
 import { coincidenciasPrecioMaterial } from "@/lib/resolverPrecioInsumo";
+import { precioVisibleParaEmpresa } from "@/lib/catalogoPrecios";
 import { sumEquipos, sumManoObra, calcularPrecioUnitario, montoAportesPatronales } from "@/lib/apu-calc";
 import type { MaterialAPU, ManoObraAPU, EquipoAPU, APU, PrecioMTOP } from "@/generated/prisma/client";
 
@@ -36,6 +37,9 @@ export async function buscarCoincidenciasPorTexto(descripcion: string): Promise<
 type RubroConAPU = {
   id: string;
   precioUnit: number;
+  // Empresa dueña del rubro: un precio vinculado solo se usa si es visible
+  // para ella (ver resolverPreciosVigentes).
+  capitulo: { proyecto: { empresaId: string | null } };
   apu:
     | (APU & { materiales: MaterialAPU[]; manoObra: ManoObraAPU[]; equipos: EquipoAPU[] })
     | null;
@@ -101,8 +105,14 @@ async function resolverPreciosVigentes(rubro: RubroConAPU): Promise<ResolucionRu
       // reintroducir la misma ambigüedad que este vínculo vino a resolver.
       // Solo un material sin vínculo (agregado a mano, o de los 4 sin
       // match del backfill) sigue matcheando por texto como respaldo.
+      const vinculado = m.precioMTOPId ? await db.precioMTOP.findUnique({ where: { id: m.precioMTOPId } }) : null;
+      // Un vínculo a un precio privado de otra empresa (guardado antes de que
+      // el APU lo validara) se ignora: la línea queda como está, sin copiar
+      // ese precio. Ver precioVisibleParaEmpresa.
       const precioMTOP = m.precioMTOPId
-        ? await db.precioMTOP.findUnique({ where: { id: m.precioMTOPId } })
+        ? vinculado && precioVisibleParaEmpresa(vinculado, rubro.capitulo.proyecto.empresaId)
+          ? vinculado
+          : null
         : (await buscarCoincidenciasPorTexto(m.descripcion))[0] ?? null;
       if (!precioMTOP || precioMTOP.precioUnitario === m.precioUnit) {
         return { rendimiento: m.rendimiento, precioUnit: m.precioUnit };
@@ -141,7 +151,10 @@ async function resolverPreciosVigentes(rubro: RubroConAPU): Promise<ResolucionRu
 async function fetchRubroConAPU(rubroId: string): Promise<RubroConAPU | null> {
   return db.rubro.findUnique({
     where: { id: rubroId },
-    include: { apu: { include: { materiales: true, manoObra: true, equipos: true } } },
+    include: {
+      capitulo: { select: { proyecto: { select: { empresaId: true } } } },
+      apu: { include: { materiales: true, manoObra: true, equipos: true } },
+    },
   });
 }
 

@@ -17,6 +17,11 @@ export function visibleParaEmpresa(empresaId: string | null | undefined) {
   return empresaId ? { OR: [{ empresaId: null }, { empresaId }] } : SOLO_CATALOGO_GLOBAL;
 }
 
+/** La misma regla que visibleParaEmpresa, para una fila ya leída. */
+export function precioVisibleParaEmpresa(precio: { empresaId: string | null }, empresaId: string | null | undefined): boolean {
+  return precio.empresaId === null || precio.empresaId === empresaId;
+}
+
 /**
  * Código de un material importado por un ADMIN. El único de la base sigue siendo
  * (codigo, proveedor), así que el código del archivo se prefija con la empresa: dos empresas
