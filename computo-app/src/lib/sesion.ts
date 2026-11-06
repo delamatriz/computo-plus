@@ -155,6 +155,17 @@ export async function esSuperadmin(sesion: SesionUsuario): Promise<boolean> {
 }
 
 /**
+ * 403 si el usuario no es ADMIN ni SUPERADMIN (rol leído de la base, no del
+ * JWT); null si puede. Para acciones sobre un recurso que ya pasó por
+ * requerirProyecto (borrar o entregar un proyecto).
+ */
+export async function soloAdministrador(sesion: SesionUsuario, mensaje: string): Promise<NextResponse | null> {
+  const user = await db.user.findUnique({ where: { id: sesion.id }, select: { rol: true } });
+  if (user?.rol === "ADMIN" || user?.rol === "SUPERADMIN") return null;
+  return NextResponse.json({ error: "solo_administrador", mensaje }, { status: 403 });
+}
+
+/**
  * Sesión + rol ADMIN o SUPERADMIN (importar listas de precios). El rol se lee de la base, no del
  * JWT. Devuelve la sesión con `rol` ya resuelto; con otro rol (USUARIO) → 403.
  */

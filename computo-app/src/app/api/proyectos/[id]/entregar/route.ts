@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requerirProyecto } from "@/lib/sesion";
+import { requerirProyecto, soloAdministrador } from "@/lib/sesion";
 
 // "Entregar" — congela precioCongelado = precioUnit en TODOS los rubros del
 // proyecto y pasa estado a FINALIZADO (solo lectura hasta "Habilitar
@@ -15,6 +15,9 @@ export async function POST(
     const { id } = await params;
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
+    // Entregar congela los precios que ve el cliente: solo ADMIN o SUPERADMIN.
+    const sinPermiso = await soloAdministrador(acceso, "Solo el administrador de la empresa puede entregar un presupuesto.");
+    if (sinPermiso) return sinPermiso;
 
     const proyecto = await db.proyecto.findUnique({ where: { id }, select: { id: true } });
     if (!proyecto) {

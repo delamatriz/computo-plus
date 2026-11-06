@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { textoFuente, type DatosFuente } from "@/lib/fuentePrecio";
-import { useSuperadmin } from "@/hooks/useSuperadmin";
+import { useRolUsuario, useSuperadmin } from "@/hooks/useSuperadmin";
 import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario, montoAportesPatronales, sumarAportesPatronalesPct, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/apu-calc";
 import { computarMaterialesGlobales, computarMaterialesPorCapitulo } from "@/lib/materialesGlobales";
 import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
@@ -3518,6 +3518,11 @@ export default function ProyectoPage() {
   // `${destino}:${rubroId}`. null del hook (cargando) cuenta como "no": el
   // botón global no aparece hasta confirmar.
   const esSuperadmin = useSuperadmin() === true;
+  // Entregar y Eliminar son solo de ADMIN y SUPERADMIN (el servidor también
+  // lo exige). null (cargando) cuenta como "no": los botones no aparecen
+  // para después desaparecer.
+  const rolUsuario = useRolUsuario();
+  const puedeEntregarYEliminar = rolUsuario === "ADMIN" || rolUsuario === "SUPERADMIN";
   // "guardado" lleva la lista de insumos que quedaron sin vínculo al
   // catálogo — vacía = todo vinculado.
   const [estadoBiblioteca, setEstadoBiblioteca] = useState<Record<string, "guardando" | { sinVinculo: string[] }>>({});
@@ -6093,7 +6098,7 @@ export default function ProyectoPage() {
                 >
                   <Lock className="w-3.5 h-3.5" /> <span className="hidden md:inline">{habilitandoEdicion ? "Habilitando…" : "Habilitar edición"}</span>
                 </button>
-              ) : (
+              ) : puedeEntregarYEliminar && (
                 <button
                   onClick={() => setMostrarConfirmEntregar(true)}
                   disabled={capitulos.every((c) => c.rubros.length === 0)}
@@ -6103,12 +6108,14 @@ export default function ProyectoPage() {
                   <LockOpen className="w-3.5 h-3.5" /> <span className="hidden md:inline">Entregar</span>
                 </button>
               )}
-              <button
-                onClick={() => setMostrarConfirmEliminar(true)}
-                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> <span className="hidden md:inline">Eliminar</span>
-              </button>
+              {puedeEntregarYEliminar && (
+                <button
+                  onClick={() => setMostrarConfirmEliminar(true)}
+                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-[8px] border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> <span className="hidden md:inline">Eliminar</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

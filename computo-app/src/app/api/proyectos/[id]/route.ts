@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { eliminarArchivosDeBlob } from "@/lib/blob";
-import { requerirProyecto } from "@/lib/sesion";
+import { requerirProyecto, soloAdministrador } from "@/lib/sesion";
 import { emailValido } from "@/lib/registro";
 import {
   booleano,
@@ -179,6 +179,9 @@ export async function DELETE(
     const { id } = await params;
     const acceso = await requerirProyecto(id);
     if (acceso instanceof NextResponse) return acceso;
+    // Borrar no se puede deshacer (también borra los archivos): solo ADMIN o SUPERADMIN.
+    const sinPermiso = await soloAdministrador(acceso, "Solo el administrador de la empresa puede eliminar un proyecto.");
+    if (sinPermiso) return sinPermiso;
     const urls = await urlsBlobDelProyecto(id);
     await eliminarArchivosDeBlob(urls);
     await db.proyecto.delete({ where: { id } });
@@ -203,6 +206,13 @@ export async function PATCH(
     // Los porcentajes del proyecto van de 0 a 100 (ej. 10 = 10%).
     const errorCampos = validarCampos(body, REGLAS_PATCH_PROYECTO);
     if (errorCampos) return NextResponse.json({ error: errorCampos }, { status: 400 });
+
+    // Pasar a FINALIZADO es entregar (ver /entregar): solo ADMIN o SUPERADMIN.
+    // Volver a EN_CURSO ("Habilitar edición") sigue abierto para todos.
+    if (body.estado === "FINALIZADO") {
+      const sinPermiso = await soloAdministrador(acceso, "Solo el administrador de la empresa puede entregar un presupuesto.");
+      if (sinPermiso) return sinPermiso;
+    }
 
     // Imprevistos %: null (= 0%) o un número finito entre 0 y 100. Cualquier
     // otra cosa se rechaza en vez de guardarse — un valor corrupto acá
