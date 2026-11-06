@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Activity, AlertTriangle, Building2, Loader2, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import { PLANES, ROLES_ASIGNABLES, type Plan } from "@/lib/roles";
 import { cn } from "@/lib/utils";
+import { SeccionConsumoIA } from "@/components/admin/SeccionConsumoIA";
 
 // Panel /admin (solo SUPERADMIN): alta de empresas y de usuarios, estado de
 // cada empresa (prueba / activa / desactivada) y eventos del sistema (topes de
@@ -52,6 +53,8 @@ const ETIQUETA_EVENTO: Record<string, string> = {
   LIMPIEZA_AUTOMATICA: "Limpieza automática",
   SUSCRIPCION_MP: "Suscripción MercadoPago",
   MP_ERROR: "Error de MercadoPago",
+  CONSUMO_IA_ATENCION: "Consumo IA — atención",
+  CONSUMO_IA_ALERTA: "Consumo IA — alerta",
 };
 
 const fmtFecha = (iso: string) => new Date(iso).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
@@ -498,6 +501,9 @@ export function PanelAdmin() {
             </ul>
           </section>
         </div>
+
+        {/* ── Consumo IA ── */}
+        <SeccionConsumoIA />
 
         {/* ── Eventos del sistema ── */}
         <section className="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm">

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { WHERE_A_COTIZAR, WHERE_REQUIEREN_VERIFICACION } from "@/lib/pendientesMateriales";
 import { sesionActual, esSuperadmin } from "@/lib/sesion";
 import { avisosNoLeidosDeEmpresa } from "@/lib/avisos";
+import { mesActualUruguay, TIPO_EVENTO_CONSUMO } from "@/lib/consumoIA";
 
 // Datos del panel de la campanita del Header: eventos cargados a mano
 // (ver comentario en el modelo EventoSistema) + conteo de materiales
@@ -20,7 +21,18 @@ import { avisosNoLeidosDeEmpresa } from "@/lib/avisos";
 export async function GET() {
   try {
     const sesion = await sesionActual();
-    const avisos = sesion && !(await esSuperadmin(sesion)) ? await avisosNoLeidosDeEmpresa(sesion.empresaId) : [];
+    const superadmin = !!sesion && (await esSuperadmin(sesion));
+    const avisos = sesion && !superadmin ? await avisosNoLeidosDeEmpresa(sesion.empresaId) : [];
+    // Solo el SUPERADMIN: alertas de consumo IA del mes en curso (EventoAdmin
+    // que deja el job diario, ver lib/alertasConsumoIA.ts). Ningún cliente
+    // las recibe.
+    const alertasConsumoIA = superadmin
+      ? await db.eventoAdmin.findMany({
+          where: { tipo: { in: Object.values(TIPO_EVENTO_CONSUMO) }, createdAt: { gte: mesActualUruguay().desde } },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, tipo: true, detalle: true, createdAt: true },
+        })
+      : [];
 
     const [eventos, requierenVerificacion, aCotizar] = await Promise.all([
       db.eventoSistema.findMany({
@@ -33,11 +45,13 @@ export async function GET() {
       db.precioMTOP.count({ where: { ...WHERE_A_COTIZAR, empresaId: null } }),
     ]);
 
-    const hayNovedades = eventos.length > 0 || avisos.length > 0 || requierenVerificacion > 0 || aCotizar > 0;
+    const hayNovedades =
+      eventos.length > 0 || avisos.length > 0 || alertasConsumoIA.length > 0 || requierenVerificacion > 0 || aCotizar > 0;
 
     return NextResponse.json({
       eventos,
       avisos,
+      alertasConsumoIA,
       pendientes: { requierenVerificacion, aCotizar },
       hayNovedades,
     });

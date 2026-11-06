@@ -115,6 +115,9 @@ interface Notificaciones {
   eventos: EventoSistema[];
   // Avisos de plataforma no leídos por la empresa (vacío para el SUPERADMIN)
   avisos: AvisoEmpresa[];
+  // Solo para el SUPERADMIN: alertas de consumo IA del mes (EventoAdmin
+  // CONSUMO_IA_ATENCION / CONSUMO_IA_ALERTA). Llevan a /admin#consumo-ia.
+  alertasConsumoIA?: { id: string; tipo: string; detalle: string | null; createdAt: string }[];
   pendientes: { requierenVerificacion: number; aCotizar: number };
   hayNovedades: boolean;
 }
@@ -213,8 +216,12 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   // Badge de la campanita: materiales que requieren verificación + a cotizar
   // (los dos números del panel). Sin pendientes no se muestra; desde 100, "99+".
   const avisosNoLeidos = avisosVistos ? 0 : notificaciones?.avisos?.length ?? 0;
+  const alertasConsumoIA = notificaciones?.alertasConsumoIA ?? [];
   const totalPendientes =
-    (notificaciones?.pendientes.requierenVerificacion ?? 0) + (notificaciones?.pendientes.aCotizar ?? 0) + avisosNoLeidos;
+    (notificaciones?.pendientes.requierenVerificacion ?? 0) +
+    (notificaciones?.pendientes.aCotizar ?? 0) +
+    avisosNoLeidos +
+    alertasConsumoIA.length;
   const textoBadge = totalPendientes > 99 ? "99+" : String(totalPendientes);
   // A dónde lleva cada pendiente: la cola de revisión resuelve precios del
   // catálogo global y es solo para el SUPERADMIN (a los demás les muestra un
@@ -344,6 +351,35 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                 className="fixed left-3 right-3 top-[72px] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-80 bg-bg-card border border-border rounded-[12px] shadow-modal z-50 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
+                {/* Consumo IA (solo SUPERADMIN): empresas que pasaron el umbral de atención o
+                    de alerta este mes. Siguen visibles todo el mes; llevan al panel /admin. */}
+                {alertasConsumoIA.length > 0 && (
+                  <div className="px-4 py-3 border-b border-border">
+                    <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Consumo IA</p>
+                    <ul className="space-y-2 max-h-48 overflow-y-auto">
+                      {alertasConsumoIA.map((al) => (
+                        <li key={al.id}>
+                          <Link
+                            href="/admin#consumo-ia"
+                            onClick={() => {
+                              setNotifOpen(false);
+                              // Ya en /admin, el cambio de hash no recarga: se baja a mano.
+                              if (pathname === "/admin") document.getElementById("consumo-ia")?.scrollIntoView({ behavior: "smooth" });
+                            }}
+                            className={cn(
+                              "block text-sm font-medium hover:underline",
+                              al.tipo === "CONSUMO_IA_ALERTA" ? "text-red-600" : "text-amber-600"
+                            )}
+                          >
+                            {al.detalle}
+                          </Link>
+                          <p className="text-[11px] text-text-muted mt-0.5">{fmtFecha(al.createdAt)}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {/* Avisos de plataforma para la empresa (ver modelo Aviso): solo aparecen los no
                     leídos; se marcan leídos al abrir el panel. */}
                 {notificaciones && notificaciones.avisos?.length > 0 && (

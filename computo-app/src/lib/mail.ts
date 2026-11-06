@@ -312,3 +312,51 @@ export async function enviarAvisoInternoSuscripcion(datos: {
   }
 }
 
+
+/**
+ * Aviso interno (a MAIL_AVISO_REGISTROS, computo@delamatriz.com) cuando una
+ * empresa pasa el umbral de ALERTA de consumo de IA del mes (ver
+ * lib/alertasConsumoIA.ts). Respaldo del aviso en la campanita del SUPERADMIN.
+ */
+export async function enviarAlertaConsumoIA(datos: {
+  empresa: string;
+  plan: string;
+  gastoUSD: number;
+  llamadas: number;
+  mes: string;
+}): Promise<void> {
+  const link = `${mpUrlBase()}/admin#consumo-ia`;
+  const gasto = `USD ${datos.gastoUSD.toLocaleString("es-UY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const filas: [string, string][] = [
+    ["Empresa", datos.empresa],
+    ["Plan", datos.plan],
+    ["Gasto IA del mes", `${gasto} (${datos.mes})`],
+    ["Llamadas del mes", datos.llamadas.toLocaleString("es-UY")],
+  ];
+  const asunto = `Consumo IA en zona de pérdida — ${datos.empresa}`;
+  const texto = [
+    `La empresa ${datos.empresa} superó el umbral de alerta de consumo de IA este mes.`,
+    "",
+    ...filas.map(([k, v]) => `${k}: ${v}`),
+    "",
+    `Ver el detalle: ${link}`,
+  ].join("\n");
+  const html = `<!doctype html>
+<html lang="es"><body style="margin:0;background:#F8FAFC;font-family:'DM Sans',Arial,sans-serif;color:#1E293B">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #E2E8F0;border-radius:12px;padding:24px">
+        <tr><td style="font-size:18px;font-weight:700;color:#B91C1C;padding-bottom:12px">Consumo IA en zona de pérdida</td></tr>
+        ${filas
+          .map(
+            ([k, v]) =>
+              `<tr><td style="font-size:14px;line-height:1.6"><span style="color:#64748B">${k}:</span> <strong>${escaparHtml(v)}</strong></td></tr>`
+          )
+          .join("\n        ")}
+        <tr><td style="padding-top:16px"><a href="${link}" style="display:inline-block;background:#2563EB;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 16px;border-radius:8px">Ver Consumo IA</a></td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  await enviarMail({ para: MAIL_AVISO_REGISTROS, asunto, html, texto });
+}
