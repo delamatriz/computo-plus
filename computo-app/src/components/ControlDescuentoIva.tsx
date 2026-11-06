@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Info } from "lucide-react";
 
 // IVA de compras de materiales del proyecto (Proyecto.descuentaIvaCompras).
 // Los precios de materiales se cargan como los da la barraca, con IVA. Una
@@ -10,7 +11,9 @@ import { useState } from "react";
 //
 // Cambiarlo pasa por una vista previa (POST /descuento-iva con dryRun) que
 // muestra cuánto se mueve el Precio Final antes de escribir nada — mismo
-// flujo que "Aplicar aportes patronales a rubros existentes".
+// flujo que "Aplicar aportes patronales a rubros existentes". Los textos
+// están pensados para quien no conoce el mecanismo: qué significa, cuándo
+// corresponde y qué cambia en este proyecto.
 
 interface Vista {
   actualizarian: number;
@@ -80,92 +83,128 @@ export default function ControlDescuentoIva({
     }
   }
 
+  function cancelar() {
+    setVista(null);
+    setConfirmaContrato(false);
+  }
+
   const diferencia = vista ? vista.despues.precioFinal - vista.antes.precioFinal : 0;
   const pct = vista && vista.antes.precioFinal > 0 ? (diferencia / vista.antes.precioFinal) * 100 : 0;
 
   return (
-    <div className="px-5 -mt-1 text-xs text-slate-500">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span>
-          {descuentaIvaCompras
-            ? "Materiales: el IVA de compra se descuenta con la factura (al costo entra el precio ÷ 1,22)."
-            : "Materiales: el IVA de compra queda dentro del costo (no se descuenta)."}
-        </span>
+    <div className="mt-3 rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm text-slate-600">
+      {/* Estado actual, en una línea */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex items-start gap-2">
+          <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-400" />
+          <p>
+            <span className="font-semibold text-slate-700">IVA de los materiales: </span>
+            {descuentaIvaCompras
+              ? "se descuenta. Los materiales se cuentan sin IVA, porque lo recuperás con la factura de compra."
+              : "incluido en el costo. Los materiales se cuentan con el IVA que pagaste en la barraca."}
+          </p>
+        </div>
         {!soloLectura && !vista && (
           <button
             type="button"
             onClick={verCambio}
             disabled={consultando}
-            className="font-medium text-[#2563EB] hover:text-[#1D4ED8] disabled:opacity-50"
+            className="text-sm font-medium text-[#2563EB] hover:text-[#1D4ED8] disabled:opacity-50 whitespace-nowrap"
           >
-            {consultando ? "Calculando…" : descuentaIvaCompras ? "No descontar" : "Descontar IVA de compras"}
+            {consultando ? "Calculando…" : "Cambiar"}
           </button>
         )}
       </div>
 
+      {/* Panel de cambio: qué significa, cuándo corresponde y qué cambia acá */}
       {vista && (
-        <div className="mt-2 rounded-lg border border-slate-200 bg-white px-4 py-3 space-y-2 text-slate-600">
-          {vista.actualizarian === 0 ? (
-            <p>
-              {activar
-                ? "No hay rubros con desglose para recalcular. Los rubros nuevos ya van a descontar el IVA."
-                : "No hay rubros con desglose para recalcular. Los rubros nuevos van a dejar el IVA dentro del costo."}
-            </p>
-          ) : (
-            <p>
-              Precio Final: <span className="tabular-nums">{fmt(vista.antes.precioFinal, moneda)}</span> →{" "}
-              <span className="font-semibold text-slate-900 tabular-nums">{fmt(vista.despues.precioFinal, moneda)}</span>{" "}
-              <span className="tabular-nums">
-                ({pct >= 0 ? "+" : ""}
-                {pct.toLocaleString("es-UY", { maximumFractionDigits: 1 })}%)
-              </span>
-              . Se recalculan {vista.actualizarian} {vista.actualizarian === 1 ? "rubro" : "rubros"}.
-            </p>
-          )}
-          {vista.protegidos.length > 0 && (
-            <p>
-              {vista.protegidos.length} {vista.protegidos.length === 1 ? "rubro tiene" : "rubros tienen"} precio pactado
-              en la última entrega y no se {vista.protegidos.length === 1 ? "toca" : "tocan"}.
+        <div className="mt-3 border-t border-slate-100 pt-3 space-y-3">
+          <p className="font-semibold text-slate-800">
+            {activar ? "¿Descontar el IVA de los materiales?" : "¿Dejar el IVA de los materiales dentro del costo?"}
+          </p>
+
+          <p>
+            Los precios de los materiales son los de la barraca, que ya traen IVA.{" "}
+            {activar
+              ? "Si tu empresa es contribuyente de IVA, ese IVA lo recuperás con la factura de compra: no es un costo tuyo. Al descontarlo, cada material se cuenta sin IVA (precio ÷ 1,22) y el IVA aparece una sola vez, al final del presupuesto."
+              : "Si tu empresa es literal E o monotributista, ese IVA no lo recuperás: es parte de tu costo y el material se cuenta entero."}
+          </p>
+
+          {activar && (
+            <p className="text-slate-500">
+              No corresponde si tu empresa es literal E o monotributista: en ese caso dejalo como está.
             </p>
           )}
-          {vista.sinApu > 0 && (
-            <p>
-              {vista.sinApu} {vista.sinApu === 1 ? "rubro sin desglose queda" : "rubros sin desglose quedan"} con su
-              precio cargado a mano.
-            </p>
-          )}
+
+          {/* Qué cambia en este proyecto */}
+          <div className="rounded-md bg-slate-50 px-4 py-3 space-y-1.5">
+            {vista.actualizarian > 0 ? (
+              <p>
+                <span className="font-semibold text-slate-700">En este proyecto: </span>
+                el Precio Final pasa de <span className="tabular-nums">{fmt(vista.antes.precioFinal, moneda)}</span> a{" "}
+                <span className="font-semibold text-slate-900 tabular-nums">{fmt(vista.despues.precioFinal, moneda)}</span>{" "}
+                <span className="tabular-nums">
+                  ({pct >= 0 ? "+" : ""}
+                  {pct.toLocaleString("es-UY", { maximumFractionDigits: 1 })}%)
+                </span>
+                .
+              </p>
+            ) : (
+              <p>
+                <span className="font-semibold text-slate-700">En este proyecto: </span>
+                el Precio Final no cambia ahora, porque los rubros que tiene no tienen materiales cargados en su detalle
+                (su precio se cargó directo). Se aplica a los rubros que agregues de acá en adelante.
+              </p>
+            )}
+            {vista.actualizarian > 0 && vista.sinApu > 0 && (
+              <p className="text-slate-500">
+                {vista.sinApu} {vista.sinApu === 1 ? "rubro con el precio cargado directo no cambia" : "rubros con el precio cargado directo no cambian"}.
+              </p>
+            )}
+            {vista.protegidos.length > 0 && (
+              <p className="text-slate-500">
+                {vista.protegidos.length}{" "}
+                {vista.protegidos.length === 1
+                  ? "rubro con precio ya entregado al cliente no cambia"
+                  : "rubros con precio ya entregado al cliente no cambian"}
+                .
+              </p>
+            )}
+          </div>
+
           {vista.requiereConfirmacion && (
             <label className="flex items-start gap-2 text-amber-700">
               <input
                 type="checkbox"
                 checked={confirmaContrato}
                 onChange={(e) => setConfirmaContrato(e.target.checked)}
-                className="mt-0.5"
+                className="mt-1"
               />
               <span>Este proyecto ya tiene contrato, órdenes de compra o certificaciones. Entiendo que cambian los precios.</span>
             </label>
           )}
-          <div className="flex items-center gap-3 pt-1">
+
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={aplicar}
               disabled={aplicando || (vista.requiereConfirmacion && !confirmaContrato)}
-              className="rounded-md bg-[#2563EB] px-3 py-1.5 font-medium text-white hover:bg-[#1D4ED8] disabled:opacity-50"
+              className="rounded-md bg-[#2563EB] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1D4ED8] disabled:opacity-50"
             >
-              {aplicando ? "Aplicando…" : "Aplicar"}
+              {aplicando ? "Aplicando…" : activar ? "Sí, descontar el IVA" : "Sí, dejarlo en el costo"}
             </button>
             <button
               type="button"
-              onClick={() => { setVista(null); setConfirmaContrato(false); }}
+              onClick={cancelar}
               disabled={aplicando}
-              className="font-medium text-slate-500 hover:text-slate-700"
+              className="text-sm font-medium text-slate-500 hover:text-slate-700"
             >
               Cancelar
             </button>
           </div>
         </div>
       )}
-      {error && <p className="mt-1 text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-red-600">{error}</p>}
     </div>
   );
 }
