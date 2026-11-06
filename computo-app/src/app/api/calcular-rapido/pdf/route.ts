@@ -3,6 +3,7 @@ import React from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { db } from "@/lib/db";
 import { requerirSesion } from "@/lib/sesion";
+import { ivaDeProyectoNuevo } from "@/lib/regimenIva";
 import { EstimacionPDF, type CapituloEstimacionPDF, type EstimacionPDFProps } from "@/components/EstimacionPDF";
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
 
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const empresa = await db.empresa.findUnique({
       where: { id: sesion.empresaId },
-      select: { nombre: true, rut: true, direccion: true, telefono: true, email: true, web: true, logo: true },
+      select: { nombre: true, rut: true, direccion: true, telefono: true, email: true, web: true, logo: true, regimenIva: true },
     });
 
     const capitulos: CapituloEstimacionPDF[] = (body.capitulos as unknown[]).slice(0, MAX_CAPITULOS).map((c) => {
@@ -44,12 +45,16 @@ export async function POST(req: NextRequest) {
     const montoGG = costoDirecto * (pctGG / 100);
     const montoBeneficio = costoDirecto * (pctBeneficio / 100);
     const costoTotal = costoDirecto + montoGG + montoBeneficio;
-    const iva = costoTotal * IVA;
+    // Literal E / monotributo: no factura IVA (lib/regimenIva.ts).
+    const iva_ = ivaDeProyectoNuevo(empresa?.regimenIva);
+    const iva = iva_.facturaConIva ? costoTotal * IVA : 0;
     const tc = (body.tipoCambio ?? {}) as Record<string, unknown>;
     const rango = body.rango && typeof body.rango === "object" ? (body.rango as Record<string, unknown>) : null;
 
     const props: EstimacionPDFProps = {
-      empresa: empresa ?? null,
+      empresa: empresa ? { nombre: empresa.nombre, rut: empresa.rut, direccion: empresa.direccion, telefono: empresa.telefono, email: empresa.email, web: empresa.web, logo: empresa.logo } : null,
+      facturaConIva: iva_.facturaConIva,
+      descuentaIvaCompras: iva_.descuentaIvaCompras,
       tipoObra: texto(body.tipoObra) || "—",
       zona: texto(body.zona) || "—",
       nivel: texto(body.nivel) || "—",

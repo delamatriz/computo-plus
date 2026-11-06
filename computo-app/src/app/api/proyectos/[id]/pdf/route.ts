@@ -128,6 +128,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       utilidadAgregada,
       diasObra: diasObra.total,
       incluyeIVA: proyecto.incluyeIVA,
+      facturaConIva: proyecto.facturaConIva,
       montoImponibleMO: proyecto.leyesSociales?.montoImponibleMO ?? null,
       aucPct: proyecto.leyesSociales?.aucPct ?? null,
       cajaProfesionalesTipo: proyecto.leyesSociales?.cajaProfesionalesTipo ?? null,

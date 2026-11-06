@@ -5,6 +5,7 @@ import { AUC_PCT_DEFAULT, COEFICIENTE_BPS_OBRA_PUBLICA_DEFAULT } from "@/lib/auc
 import { fmtUR, montoEnUR } from "@/lib/monedaUR";
 import { CAJA_PROFESIONALES_ETIQUETA, CAJA_PROFESIONALES_PCT, montoCajaProfesionales, normalizarTipoCaja } from "@/lib/cajaProfesionales";
 import { fechaUruguay } from "@/lib/fechaUruguay";
+import { calcularMontoIva } from "@/lib/costoAgregado";
 
 // DM Sans — tipografía de marca de CÓMPUTO+ (ver CLAUDE.md), registrada acá
 // en vez de depender de las fuentes estándar de PDFKit (Helvetica), que no
@@ -107,6 +108,8 @@ export interface ProyectoConCapitulos {
   // cargados a mano) — este es calculado.
   diasObra: number;
   incluyeIVA: boolean;
+  // false = no suma IVA (empresa literal E o monotributo, ver Proyecto.facturaConIva).
+  facturaConIva: boolean;
   montoImponibleMO: number | null;
   // % de AUC del proyecto (LeyesSociales.aucPct, fracción). null → default legal.
   aucPct: number | null;
@@ -988,8 +991,7 @@ export function PresupuestoPDF({
   const costoDirecto = proyecto.costoDirectoAgregado;
   const montoGastosGeneralesYBeneficio = proyecto.costosIndirectosAgregados + proyecto.utilidadAgregada;
   const costoTotal = costoDirecto + montoGastosGeneralesYBeneficio;
-  const baseIVA = costoTotal - proyecto.costosIndirectosExento;
-  const montoIVA = baseIVA * 0.22;
+  const montoIVA = calcularMontoIva(costoTotal, proyecto.costosIndirectosExento, proyecto.facturaConIva);
   const precioFinal = costoTotal + montoIVA;
   const esObraPublica = proyecto.tipoContratacion === "PUBLICA";
   const leyesSocialesPropietario =
@@ -1146,8 +1148,8 @@ export function PresupuestoPDF({
           </View>
 
           <View style={styles.filaResumenLinea}>
-            <Text style={styles.labelResumenLinea}>IVA (22%)</Text>
-            <Text style={styles.montoResumenLinea}>{fmtMonTotal(montoIVA, simbolo)}</Text>
+            <Text style={styles.labelResumenLinea}>{proyecto.facturaConIva ? "IVA (22%)" : "IVA"}</Text>
+            <Text style={styles.montoResumenLinea}>{proyecto.facturaConIva ? fmtMonTotal(montoIVA, simbolo) : "No corresponde"}</Text>
           </View>
 
           <View style={styles.separadorTotal} />

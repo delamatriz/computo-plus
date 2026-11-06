@@ -13,7 +13,7 @@ export async function GET() {
   try {
     const empresa = await db.empresa.findUnique({
       where: { id: sesion.empresaId },
-      select: { estado: true, fechaVencimientoPrueba: true },
+      select: { estado: true, fechaVencimientoPrueba: true, regimenIva: true },
     });
     if (!empresa) return NextResponse.json({ error: "Empresa no encontrada" }, { status: 404 });
 
@@ -36,6 +36,9 @@ export async function GET() {
       cupos: { calculoRapido, proyectoAsistido },
       proyectosAsistidos: asistidos.map((a) => a.proyectoId),
       contacto: whatsappContacto(sesion.email),
+      // Régimen de IVA (lib/regimenIva.ts): Cálculo Rápido lo usa para saber
+      // si suma IVA al final.
+      regimenIva: empresa.regimenIva,
     });
   } catch (err) {
     console.error("[GET /api/cuenta/estado]", err);

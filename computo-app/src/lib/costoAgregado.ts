@@ -13,7 +13,7 @@
 // funciones puras sobre capitulos+apuData ya cargados en memoria en
 // proyectos/[id]/page.tsx, sin consulta nueva a la base.
 
-import { sumManoObra, sumEquipos, sumMateriales, montoAportesPatronales } from "./apu-calc";
+import { sumManoObra, sumEquipos, sumMateriales, montoAportesPatronales, IVA_TASA_BASICA } from "./apu-calc";
 import { sumarGastosGeneralesDetallado, sumarItemsExtraGastosGenerales, calcularImprevistos } from "./gastosGenerales";
 
 export interface RubroParaCosto {
@@ -157,6 +157,14 @@ export function calcularCostosIndirectosAgregados(
   }
   const pct = gastosGeneralesPctDefault ?? 15;
   return costoDirectoAgregado * (pct / 100) + itemsExtra + imprevistos;
+}
+
+// IVA del presupuesto: 22% sobre (Costo Total − porción exenta). 0 si el
+// proyecto no factura IVA (empresa literal E o monotributista, ver
+// Proyecto.facturaConIva y lib/regimenIva.ts). Única fórmula para pantalla,
+// PDF, contrato y las vistas previas de propagación.
+export function calcularMontoIva(costoTotal: number, exento: number, facturaConIva: boolean): number {
+  return facturaConIva ? (costoTotal - exento) * IVA_TASA_BASICA : 0;
 }
 
 // Porción de Costos Indirectos exenta de IVA (ítems con exentoIVA dentro

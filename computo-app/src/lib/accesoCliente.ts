@@ -22,6 +22,8 @@ export interface EstadoCuenta {
   cupos: { calculoRapido: Cupo; proyectoAsistido: Cupo };
   proyectosAsistidos: string[];
   contacto: string;
+  /** Empresa.regimenIva ("GENERAL" | "LITERAL_E" | "MONOTRIBUTO"). */
+  regimenIva?: string;
 }
 
 export interface ErrorAcceso {

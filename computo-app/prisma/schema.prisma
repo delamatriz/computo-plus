@@ -17,6 +17,12 @@ model Empresa {
   telefono  String?
   email     String?
   web       String?
+  // Régimen de IVA (nov-2026): "GENERAL" (contribuyente: descuenta el IVA
+  // de compras y factura con IVA), "LITERAL_E" (pequeña empresa) o
+  // "MONOTRIBUTO" — estos dos no descuentan el IVA de los materiales ni
+  // facturan IVA. Solo decide cómo nacen los proyectos nuevos
+  // (Proyecto.descuentaIvaCompras / facturaConIva); no toca los existentes.
+  regimenIva String @default("GENERAL")
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   proyectos Proyecto[]
@@ -211,6 +217,10 @@ model Proyecto {
   // estaban; POST /api/proyectos crea los nuevos en true. Una empresa
   // literal E (no descuenta IVA de compras) va a crearlos en false.
   descuentaIvaCompras Boolean @default(false)
+  // false = el presupuesto no suma IVA al final: la empresa es literal E o
+  // monotributista y no factura IVA al cliente (ver Empresa.regimenIva). Se
+  // fija al crear el proyecto según la empresa; true para los existentes.
+  facturaConIva Boolean @default(true)
   // "PORCENTAJE" (prorrateado por rubro, comportamiento histórico) |
   // "DETALLADO" (monto fijo por las 5 categorías de abajo, cobrado una sola
   // vez en el Resumen del Presupuesto — rubros nuevos arrancan en 0% GG).

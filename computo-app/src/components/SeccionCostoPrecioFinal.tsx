@@ -233,6 +233,7 @@ export function TarjetaCostoTotalPrecioFinal({
   costoDirecto,
   montoGastosGeneralesYBeneficio,
   montoIVA,
+  facturaConIva = true,
   precioFinal,
   equivalenteUR,
 }: {
@@ -245,6 +246,9 @@ export function TarjetaCostoTotalPrecioFinal({
   // acá con la fórmula vieja volvería a ignorar la exención, mismo bug
   // que ya pasó una vez con el PDF (ver gastosGenerales.ts).
   montoIVA: number;
+  // false = la empresa no factura IVA (literal E o monotributo): la fila
+  // lo dice en vez de mostrar un monto. Ver Proyecto.facturaConIva.
+  facturaConIva?: boolean;
   precioFinal: number;
   // Obra pública con contrato en UR (ver page.tsx): precio final ya pasado a
   // pesos y el valor de la UR cargado en /editar (null si falta). Sin esto
@@ -274,7 +278,11 @@ export function TarjetaCostoTotalPrecioFinal({
       <div className="bg-white border border-slate-200 rounded-lg px-5 py-3 flex justify-between items-center">
         <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">IVA (22%)</span>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-slate-900">+ {fmtMoneda(montoIVA, moneda)}</span>
+          {facturaConIva ? (
+            <span className="text-sm font-semibold text-slate-900">+ {fmtMoneda(montoIVA, moneda)}</span>
+          ) : (
+            <span className="text-sm text-slate-500">No se factura (literal E / monotributo)</span>
+          )}
           <EspaciadorChevron />
         </div>
       </div>

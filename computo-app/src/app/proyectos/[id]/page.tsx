@@ -38,7 +38,7 @@ import { calcularJornalesPorCategoria } from "@/lib/jornalesPorCategoria";
 import { fmtDecimalUY, fmtRendimiento } from "@/lib/formatoNumeros";
 import { LEYES_SOCIALES_DEFAULTS_FRACCION } from "@/lib/aportesPatronales";
 import { normalizarTipoCaja } from "@/lib/cajaProfesionales";
-import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada, costoDirectoUnitario } from "@/lib/costoAgregado";
+import { calcularCostoDirectoAgregado, calcularCostosIndirectosAgregados, calcularCostosIndirectosExento, calcularUtilidadAgregada, costoDirectoUnitario, calcularMontoIva } from "@/lib/costoAgregado";
 import { calcularImprevistos } from "@/lib/gastosGenerales";
 import { AUC_PCT_DEFAULT, COEFICIENTE_BPS_OBRA_PUBLICA_DEFAULT } from "@/lib/auc";
 import { fmtUR, montoEnUR } from "@/lib/monedaUR";
@@ -141,6 +141,8 @@ interface ProyectoData {
   // IVA de compras de materiales — valor inicial de los rubros nuevos (ver
   // Proyecto.descuentaIvaCompras en schema.prisma).
   descuentaIvaCompras?: boolean;
+  // false = no suma IVA al final (ver Proyecto.facturaConIva).
+  facturaConIva?: boolean;
   estado: keyof typeof ESTADOS;
   moneda: string;
   area: number;
@@ -892,7 +894,11 @@ function descargarExcelPresupuesto(
   }
 
   pushRow([]);
-  r = pushRow(["Valores con materiales a precio de lista (IVA incluido), sin aportes sociales (BPS)"]);
+  r = pushRow([
+    proyecto.descuentaIvaCompras
+      ? "Valores sin IVA: el IVA de compra de los materiales se descuenta con la factura. Sin aportes sociales (BPS)"
+      : "Valores con materiales a precio de lista (IVA incluido), sin aportes sociales (BPS)",
+  ]);
   styledCells.push({ addr: `A${r + 1}`, s: { font: { italic: true, color: { rgb: "64748B" } } } });
 
   // Obra pública: leyes sociales = monto imponible × coeficiente BPS, aparte
@@ -3987,8 +3993,9 @@ export default function ProyectoPage() {
   // sin reimplementar la fórmula ni duplicar la fuente de verdad.
   const montoGastosGeneralesYBeneficio = costosIndirectosAgregados + utilidadAgregada;
   const costoTotalAgregado = costoDirectoAgregado.total + montoGastosGeneralesYBeneficio;
-  const baseIVAAgregada = costoTotalAgregado - costosIndirectosExento;
-  const montoIVAAgregado = baseIVAAgregada * 0.22;
+  // 0 si el proyecto no factura IVA (empresa literal E o monotributo).
+  const facturaConIva = proyecto?.facturaConIva ?? true;
+  const montoIVAAgregado = calcularMontoIva(costoTotalAgregado, costosIndirectosExento, facturaConIva);
   const precioFinalAgregado = costoTotalAgregado + montoIVAAgregado;
   // Mismo cálculo que el header de SeccionLeyesSociales (montoAUC — Timbres
   // CJP se sacó de acá, ahora vive como ítem en Gastos Generales Detallado).
@@ -6657,6 +6664,7 @@ export default function ProyectoPage() {
           costoDirecto={costoDirectoAgregado.total}
           montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
           montoIVA={montoIVAAgregado}
+          facturaConIva={facturaConIva}
           precioFinal={precioFinalAgregado}
           equivalenteUR={equivalenteUR}
         />
@@ -6767,6 +6775,7 @@ export default function ProyectoPage() {
           montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
           costoTotal={costoTotalAgregado}
           montoIVA={montoIVAAgregado}
+          facturaConIva={facturaConIva}
           precioFinal={precioFinalAgregado}
           montoLeyesSociales={montoLeyesSociales}
           diasObra={diasObra.total}
@@ -6859,6 +6868,7 @@ export default function ProyectoPage() {
             montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
             costoTotal={costoTotalAgregado}
             montoIVA={montoIVAAgregado}
+            facturaConIva={facturaConIva}
             precioFinal={precioFinalAgregado}
             montoLeyesSociales={montoLeyesSociales}
             diasObra={diasObra.total}

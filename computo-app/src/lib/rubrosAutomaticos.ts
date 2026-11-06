@@ -5,6 +5,7 @@ import { clonarApuAlRubro } from "@/lib/clonarApu";
 import { tipoCambioVigente } from "@/lib/tipoCambio";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { clonarApuEmpresaAlRubro } from "@/lib/clonarApuEmpresa";
+import { IVA_TASA_BASICA, redondearPrecio } from "@/lib/apu-calc";
 
 
 interface RubroSugerido {
@@ -245,6 +246,11 @@ async function generarRubrosDesdeCalculoRapido(
         utilidadPct: 0,
         aportesPatronalesPct: 0,
         porcentajePiedra: 0.3,
+        // El monto de Cálculo Rápido ya es costo sin IVA. Si el proyecto
+        // descuenta el IVA de compras, el material se guarda a precio con
+        // IVA (× 1,22) y el APU lo descuenta: así el rubro suma lo mismo y
+        // queda coherente si después se cambia el descuento del proyecto.
+        descuentaIvaMateriales: proyecto.descuentaIvaCompras,
       },
     });
 
@@ -267,7 +273,9 @@ async function generarRubrosDesdeCalculoRapido(
           descripcion: item.nombre.trim(),
           unidad: "gl",
           rendimiento: 1,
-          precioUnit: montoMateriales,
+          precioUnit: proyecto.descuentaIvaCompras
+            ? redondearPrecio(montoMateriales * (1 + IVA_TASA_BASICA))
+            : montoMateriales,
           orden: 0,
           motivoVerificacion: "sin_precio_referencia",
         },

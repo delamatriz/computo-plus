@@ -6,6 +6,8 @@ import { clasificarCapitulosBiblioteca, buscarSubrubrosPorCapitulos, buscarSubru
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
 import { esSuperadmin, requerirSesion } from "@/lib/sesion";
+import { ivaDeProyectoNuevo } from "@/lib/regimenIva";
+import { precioMaterialSinIva } from "@/lib/apu-calc";
 import { tipoCambioVigente } from "@/lib/tipoCambio";
 import { nombreTipoObra } from "@/lib/tiposObra";
 import { consumirFuncionAsistida, devolverConsumo, respuestaFuncionNoDisponible } from "@/lib/acceso";
@@ -251,6 +253,21 @@ Reglas:
         const proporcionMateriales = desglose.materialesTotal / base;
         cap.materiales = Math.round(cap.monto * proporcionMateriales * 100) / 100;
         cap.manoObra = Math.round((cap.monto - cap.materiales) * 100) / 100;
+      }
+    }
+
+    // IVA de los materiales: los precios de la biblioteca y del catálogo son
+    // de barraca (con IVA). Una empresa de régimen general lo descuenta con
+    // la factura, así que al costo entra materiales ÷ 1,22 y el 22% va una
+    // sola vez, al final (en la pantalla). Literal E / monotributo: queda
+    // con IVA. Ver lib/regimenIva.ts y sumMateriales en apu-calc.ts.
+    const empresaIva = await db.empresa.findUnique({ where: { id: sesion.empresaId }, select: { regimenIva: true } });
+    if (ivaDeProyectoNuevo(empresaIva?.regimenIva).descuentaIvaCompras && Array.isArray(resultado.capitulos)) {
+      for (const cap of resultado.capitulos as { monto?: number; materiales?: number }[]) {
+        if (typeof cap.materiales !== "number" || cap.materiales <= 0) continue;
+        const sinIva = Math.round(precioMaterialSinIva(cap.materiales) * 100) / 100;
+        if (typeof cap.monto === "number") cap.monto = Math.round((cap.monto - (cap.materiales - sinIva)) * 100) / 100;
+        cap.materiales = sinIva;
       }
     }
 

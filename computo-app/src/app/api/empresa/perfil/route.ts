@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requerirAdminOSuperadmin, requerirSesion } from "@/lib/sesion";
 import { emailValido } from "@/lib/registro";
 import { MENSAJE_RUT_INVALIDO, normalizarRut, rutValido } from "@/lib/rut";
+import { esRegimenIva, type RegimenIva } from "@/lib/regimenIva";
 
 // La empresa es la del usuario logueado (tenant). Siempre existe: el
 // usuario no puede crearse sin empresa (User.empresaId es obligatorio).
@@ -34,6 +35,7 @@ export async function PATCH(request: Request) {
       email?: string | null;
       web?: string | null;
       logo?: string | null;
+      regimenIva?: RegimenIva;
     } = {};
 
     if (body.nombre !== undefined && String(body.nombre).trim()) {
@@ -57,6 +59,13 @@ export async function PATCH(request: Request) {
     if (body.email !== undefined) data.email = String(body.email ?? "").trim() || null;
     if (body.web !== undefined) data.web = body.web || null;
     if (body.logo !== undefined) data.logo = body.logo || null;
+    // Régimen de IVA: decide cómo nacen los proyectos nuevos (lib/regimenIva.ts).
+    if (body.regimenIva !== undefined) {
+      if (!esRegimenIva(body.regimenIva)) {
+        return NextResponse.json({ error: "regimen_invalido", mensaje: "Régimen de IVA inválido." }, { status: 400 });
+      }
+      data.regimenIva = body.regimenIva;
+    }
 
     const actualizada = await db.empresa.update({
       where: { id: sesion.empresaId },

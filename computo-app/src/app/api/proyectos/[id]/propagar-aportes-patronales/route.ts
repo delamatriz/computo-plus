@@ -7,6 +7,7 @@ import {
   calcularCostosIndirectosExento,
   calcularUtilidadAgregada,
   costoDirectoUnitario,
+  calcularMontoIva,
   type ApuParaCosto,
 } from "@/lib/costoAgregado";
 import { requerirProyecto } from "@/lib/sesion";
@@ -132,7 +133,7 @@ export async function POST(
       const exento = calcularCostosIndirectosExento(proyecto.modoGastosGenerales, proyecto.gastosGeneralesDetallado);
       const ut = calcularUtilidadAgregada(caps, d);
       const costoTotal = cd + ci + ut;
-      return { costoTotal, precioFinal: costoTotal + (costoTotal - exento) * 0.22 };
+      return { costoTotal, precioFinal: costoTotal + calcularMontoIva(costoTotal, exento, proyecto.facturaConIva) };
     };
     const antes = totales(rubrosAntes, apuAntes);
     const despues = totales(rubrosDespues, apuDespues);

@@ -46,6 +46,10 @@ export interface EstimacionPDFProps {
   montoBeneficio: number;
   costoTotal: number;
   iva: number;
+  // Régimen de IVA de la empresa (lib/regimenIva.ts): false = literal E o
+  // monotributo, no suma IVA y los materiales cuentan con IVA.
+  facturaConIva: boolean;
+  descuentaIvaCompras: boolean;
   precioFinal: number;
   /** Solo en el camino por m². */
   rango: { minimo: number; maximo: number } | null;
@@ -230,8 +234,8 @@ export function EstimacionPDF(props: EstimacionPDFProps) {
             <Text style={styles.montoTotal}>{fmt(props.costoTotal)}</Text>
           </View>
           <View style={styles.filaTotal}>
-            <Text style={styles.labelTotal}>IVA (22%)</Text>
-            <Text style={styles.montoTotal}>{fmt(props.iva)}</Text>
+            <Text style={styles.labelTotal}>{props.facturaConIva ? "IVA (22%)" : "IVA"}</Text>
+            <Text style={styles.montoTotal}>{props.facturaConIva ? fmt(props.iva) : "No corresponde"}</Text>
           </View>
           <View style={styles.separadorTotal} />
           <View style={styles.filaTotal}>
@@ -261,10 +265,11 @@ export function EstimacionPDF(props: EstimacionPDFProps) {
             </Text>
           ) : null}
           <Text style={styles.aviso}>
-            Estimación orientativa: no es una cotización. Materiales con IVA incluido, sin aportes sociales (BPS).
+            Estimación orientativa: no es una cotización.{" "}
+            {props.descuentaIvaCompras ? "Materiales sin IVA (el IVA de compra se descuenta con la factura)" : "Materiales con IVA incluido"}, sin aportes sociales (BPS).
           </Text>
           <Text style={styles.aviso}>
-            Gastos Generales, Beneficio e IVA se calculan de forma simple sobre el Costo Directo. Para mayor exactitud, desarrollá un
+            {props.facturaConIva ? "Gastos Generales, Beneficio e IVA" : "Gastos Generales y Beneficio"} se calculan de forma simple sobre el Costo Directo. Para mayor exactitud, desarrollá un
             proyecto completo.
           </Text>
           {props.advertencia ? <Text style={styles.aviso}>{props.advertencia}</Text> : null}

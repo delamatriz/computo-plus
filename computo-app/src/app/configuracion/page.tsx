@@ -5,6 +5,7 @@ import { BotonVolverAlProyecto } from "@/components/shared/BotonVolverAlProyecto
 import { AvisoSoloAdministrador } from "@/components/shared/AvisoSoloAdministrador";
 import { useRolUsuario } from "@/hooks/useSuperadmin";
 import { MENSAJE_RUT_INVALIDO, normalizarRut, rutValido } from "@/lib/rut";
+import { ETIQUETA_REGIMEN_IVA, REGIMENES_IVA, esRegimenIva, type RegimenIva } from "@/lib/regimenIva";
 
 interface EmpresaPerfil {
   id: string;
@@ -15,6 +16,7 @@ interface EmpresaPerfil {
   email: string | null;
   web: string | null;
   logo: string | null;
+  regimenIva: string;
 }
 
 // Límite del logo: se guarda en la base (data URL) y va a todos los PDF.
@@ -34,6 +36,7 @@ export default function ConfiguracionPage() {
     email: "",
     web: "",
     logo: "",
+    regimenIva: "GENERAL" as RegimenIva,
   });
   const [guardandoEmpresa, setGuardandoEmpresa] = useState(false);
   const [empresaGuardada, setEmpresaGuardada] = useState(false);
@@ -64,6 +67,7 @@ export default function ConfiguracionPage() {
         email: dataEmpresa.email || "",
         web: dataEmpresa.web || "",
         logo: dataEmpresa.logo || "",
+        regimenIva: esRegimenIva(dataEmpresa.regimenIva) ? dataEmpresa.regimenIva : "GENERAL",
       });
       setCargando(false);
     }
@@ -242,6 +246,27 @@ export default function ConfiguracionPage() {
               />
             </div>
           </div>
+        </div>
+
+        {/* Régimen de IVA — decide cómo nacen los proyectos nuevos
+            (lib/regimenIva.ts); los existentes no cambian. */}
+        <div className="mb-5">
+          <label className="block text-sm font-medium text-[#1E293B] mb-1.5">Régimen de IVA</label>
+          <select
+            value={empresaForm.regimenIva}
+            onChange={(e) => setEmpresaForm((prev) => ({ ...prev, regimenIva: e.target.value as RegimenIva }))}
+            className="w-full sm:w-auto border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+          >
+            {REGIMENES_IVA.map((r) => (
+              <option key={r} value={r}>{ETIQUETA_REGIMEN_IVA[r]}</option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500 mt-1.5">
+            {empresaForm.regimenIva === "GENERAL"
+              ? "Descontás el IVA de las compras con la factura: los materiales entran al costo sin IVA y el presupuesto suma 22% de IVA al final."
+              : "No descontás el IVA de las compras ni facturás IVA: los materiales cuentan con IVA y el presupuesto no suma IVA al final."}{" "}
+            Se aplica a los proyectos nuevos.
+          </p>
         </div>
 
         </fieldset>

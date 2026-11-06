@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 import { requerirSesion } from "@/lib/sesion";
+import { ivaDeProyectoNuevo } from "@/lib/regimenIva";
 
 export async function GET() {
   const sesion = await requerirSesion();
@@ -131,6 +132,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const empresaRegimen = await db.empresa.findUnique({ where: { id: sesion.empresaId }, select: { regimenIva: true } });
     const proyecto = await db.$transaction(async (tx) => {
       const creado = await tx.proyecto.create({
         data: {
@@ -143,10 +145,11 @@ export async function POST(req: NextRequest) {
           clienteEmail: clienteEmail || null,
           tipo: tipo || "VIVIENDA",
           tipoContratacion: tipoContratacion || "PRIVADA",
-          // Proyecto nuevo: los materiales se calculan sin IVA (la empresa lo
-          // descuenta con la factura). Los existentes quedan en false (ver
-          // Proyecto.descuentaIvaCompras); literal E, a futuro, en false.
-          descuentaIvaCompras: true,
+          // IVA según el régimen de la empresa (lib/regimenIva.ts): régimen
+          // general descuenta el IVA de compras y factura con IVA; literal E
+          // y monotributo, ninguna de las dos. Los proyectos que ya existían
+          // no cambian (defaults de schema.prisma).
+          ...ivaDeProyectoNuevo(empresaRegimen?.regimenIva),
           moneda: moneda || "UYU",
           area: area ? parseFloat(area) : null,
           // "Descripción / Trabajos" va a `trabajos` y "Otros datos" a `descripcion`

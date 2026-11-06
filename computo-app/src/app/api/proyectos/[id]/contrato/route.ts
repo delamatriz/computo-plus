@@ -6,6 +6,7 @@ import {
   calcularCostosIndirectosExento,
   calcularUtilidadAgregada,
   type ApuParaCosto,
+  calcularMontoIva,
 } from "@/lib/costoAgregado";
 import { requerirProyecto } from "@/lib/sesion";
 
@@ -65,8 +66,7 @@ async function calcularPrecioFinalSugerido(proyectoId: string): Promise<number |
     proyecto.gastosGeneralesDetallado
   );
   const costoTotalAgregado = costoDirectoAgregado.total + costosIndirectosAgregados + utilidadAgregada;
-  const baseIVA = costoTotalAgregado - costosIndirectosExento;
-  return costoTotalAgregado + baseIVA * 0.22;
+  return costoTotalAgregado + calcularMontoIva(costoTotalAgregado, costosIndirectosExento, proyecto.facturaConIva);
 }
 
 // Datos del comitente que viajan con el formulario del contrato. Se guardan

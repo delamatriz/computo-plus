@@ -29,6 +29,8 @@ import { TIPO_CAMBIO_REFERENCIA, type TipoCambioVigente } from "@/lib/tipoCambio
 import { hoyUruguayISO } from "@/lib/fechaUruguay";
 import { useDictado } from "@/hooks/useDictado";
 import { BotonDictado } from "@/components/shared/BotonDictado";
+import { ivaDeProyectoNuevo } from "@/lib/regimenIva";
+import { IVA_TASA_BASICA } from "@/lib/apu-calc";
 
 /* ─── Datos de referencia ─────────────────────────────────── */
 const CALIDADES = [
@@ -374,7 +376,12 @@ export default function CalcularPage() {
   const pctGGNum = parseFloat(pctGG) || 0;
   const pctBeneficioNum = parseFloat(pctBeneficio) || 0;
   const costoTotal = desglose ? desglose.total * (1 + pctGGNum / 100 + pctBeneficioNum / 100) : 0;
-  const precioFinalConIVA = costoTotal * 1.22;
+  // Literal E / monotributo: no factura IVA, el Precio Final es el Costo
+  // Total (ver lib/regimenIva.ts). Mientras carga el estado de la cuenta se
+  // asume régimen general, el caso de siempre.
+  const { descuentaIvaCompras, facturaConIva } = ivaDeProyectoNuevo(cuenta?.regimenIva);
+  const precioFinalConIVA = costoTotal * (facturaConIva ? 1 + IVA_TASA_BASICA : 1);
+  const etiquetaPrecioFinal = facturaConIva ? "Precio Final (con IVA 22%)" : "Precio Final (sin IVA: literal E / monotributo)";
 
   const agregarFotos = (files: FileList | null) => {
     if (!files) return;
@@ -532,7 +539,7 @@ export default function CalcularPage() {
         `Gastos Generales (${pctGGNum}%): ${fmt(resultadoIA.totalGeneral * (pctGGNum / 100))}`,
         `Beneficio (${pctBeneficioNum}%): ${fmt(resultadoIA.totalGeneral * (pctBeneficioNum / 100))}`,
         `Costo Total: ${fmt(costoTotal)}`,
-        `Precio Final (con IVA 22%): ${fmt(precioFinalConIVA)}`,
+        `${etiquetaPrecioFinal}: ${fmt(precioFinalConIVA)}`,
         "",
         resultadoIA.advertencia,
       ]
@@ -1044,9 +1051,9 @@ export default function CalcularPage() {
                         </p>
                       )}
                       <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
-                        * Costo Directo — materiales a precio de lista (IVA incluido), sin aportes BPS / Leyes Sociales
+                        * Costo Directo — precios de mercado por m² sin IVA, sin aportes BPS / Leyes Sociales
                         <br />
-                        * Gastos Generales, Beneficio e IVA se agregan más abajo
+                        * {facturaConIva ? "Gastos Generales, Beneficio e IVA se agregan más abajo" : "Gastos Generales y Beneficio se agregan más abajo"}
                       </p>
                     </motion.div>
                   ) : resultadoIA ? (
@@ -1279,7 +1286,7 @@ export default function CalcularPage() {
                           </span>
                         </div>
                         <p className="text-[11px] text-text-muted leading-relaxed pt-1">
-                          * Valores estimativos: materiales con IVA incluido, sin aportes sociales (BPS).
+                          * Valores estimativos: {descuentaIvaCompras ? "materiales sin IVA (el IVA de compra se descuenta con la factura)" : "materiales con IVA incluido"}, sin aportes sociales (BPS).
                           <br />
                           * Para mayor exactitud desarrollá un proyecto completo.
                         </p>
@@ -1354,7 +1361,7 @@ export default function CalcularPage() {
                     <span className="text-sm font-semibold text-text-primary tabular-nums">{fmt(costoTotal)}</span>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-border">
-                    <span className="text-sm font-bold text-text-primary">Precio Final (con IVA 22%)</span>
+                    <span className="text-sm font-bold text-text-primary">{etiquetaPrecioFinal}</span>
                     <span className="text-base font-bold text-[#2563EB] tabular-nums">{fmt(precioFinalConIVA)}</span>
                   </div>
                 </div>

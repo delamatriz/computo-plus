@@ -23,6 +23,8 @@ interface Props {
   montoGastosGeneralesYBeneficio: number;
   costoTotal: number;
   montoIVA: number;
+  // false = el proyecto no factura IVA (literal E / monotributo).
+  facturaConIva?: boolean;
   precioFinal: number;
   montoLeyesSociales: number | null;
   // "Días de Obra" — mismo valor ya calculado que la sección propia
@@ -61,6 +63,7 @@ export default function SeccionResumenPresupuesto({
   montoGastosGeneralesYBeneficio,
   costoTotal,
   montoIVA,
+  facturaConIva = true,
   precioFinal,
   montoLeyesSociales,
   diasObra,
@@ -75,7 +78,8 @@ export default function SeccionResumenPresupuesto({
     { label: "Costo Directo", monto: costoDirecto },
     { label: "Gastos Generales y Beneficio", monto: montoGastosGeneralesYBeneficio },
     { label: "Costo Total", monto: costoTotal },
-    { label: "IVA (22%)", monto: montoIVA },
+    // Literal E / monotributo: no factura IVA (ver Proyecto.facturaConIva).
+    { label: facturaConIva ? "IVA (22%)" : "IVA (no se factura)", monto: facturaConIva ? montoIVA : null },
     { label: "Precio Final", monto: precioFinal },
     { label: "Leyes Sociales / BPS", monto: montoLeyesSociales },
   ];
