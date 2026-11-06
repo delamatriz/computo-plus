@@ -120,7 +120,7 @@ export default function ControlDescuentoIva({
       {vista && (
         <div className="mt-3 border-t border-slate-100 pt-3 space-y-3">
           <p className="font-semibold text-slate-800">
-            {activar ? "¿Descontar el IVA de los materiales?" : "¿Dejar el IVA de los materiales dentro del costo?"}
+            {activar ? "¿Calcular los materiales sin IVA?" : "¿Calcular los materiales con IVA?"}
           </p>
 
           <p>
@@ -191,7 +191,7 @@ export default function ControlDescuentoIva({
               disabled={aplicando || (vista.requiereConfirmacion && !confirmaContrato)}
               className="rounded-md bg-[#2563EB] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1D4ED8] disabled:opacity-50"
             >
-              {aplicando ? "Aplicando…" : activar ? "Sí, descontar el IVA" : "Sí, dejarlo en el costo"}
+              {aplicando ? "Aplicando…" : activar ? "Sí, materiales sin IVA" : "Sí, materiales con IVA"}
             </button>
             <button
               type="button"
