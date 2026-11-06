@@ -37,6 +37,34 @@ export function manoObraIncluida(mo: ManoObraCalc, equipos: EquipoCalc[]): boole
   return eq.modoCosteo === "PROPIO_CON_COSTO" || eq.modoCosteo === "PROPIO_SIN_COSTO";
 }
 
+// ── IVA de los materiales ───────────────────────────────────────────────
+// El precio de un material (catálogo, desglose) es el de barraca, que ya
+// trae IVA (la barraca no puede vender sin IVA). Una empresa contribuyente
+// de IVA lo recupera con la factura de compra, así que su costo real es
+// precio ÷ 1,22; el 22% se suma una sola vez, al final del presupuesto.
+// Una empresa literal E o monotributista no lo descuenta: para ella el IVA
+// de compra es costo y el material cuenta entero (descuentaIva = false).
+// Solo materiales: los jornales no llevan IVA, y equipos y subcontratos
+// quedan como estaban (decisión nov-2026).
+export const IVA_TASA_BASICA = 0.22;
+
+export function precioMaterialSinIva(precioConIva: number): number {
+  return precioConIva / (1 + IVA_TASA_BASICA);
+}
+
+export interface MaterialCalc {
+  rendimiento: number;
+  precioUnit: number;
+}
+
+// Subtotal de materiales por unidad de rubro, tal como entra al Costo
+// Directo. ÚNICA fórmula: antes había una copia de este reduce en cada
+// lugar que calculaba un precio.
+export function sumMateriales(materiales: MaterialCalc[], descuentaIva: boolean): number {
+  const conIva = materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
+  return descuentaIva ? precioMaterialSinIva(conIva) : conIva;
+}
+
 export function sumEquipos(equipos: EquipoCalc[]): number {
   return equipos.reduce((s, e) => s + e.rendimiento * costoUnitEfectivo(e), 0);
 }

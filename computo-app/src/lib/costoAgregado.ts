@@ -13,7 +13,7 @@
 // funciones puras sobre capitulos+apuData ya cargados en memoria en
 // proyectos/[id]/page.tsx, sin consulta nueva a la base.
 
-import { sumManoObra, sumEquipos, montoAportesPatronales } from "./apu-calc";
+import { sumManoObra, sumEquipos, sumMateriales, montoAportesPatronales } from "./apu-calc";
 import { sumarGastosGeneralesDetallado, sumarItemsExtraGastosGenerales, calcularImprevistos } from "./gastosGenerales";
 
 export interface RubroParaCosto {
@@ -38,14 +38,18 @@ export interface ApuParaCosto {
   }[];
   aportesPatronalesPct: number;
   utilidadPct: number;
+  // APU.descuentaIvaMateriales. Obligatorio a propósito, mismo criterio que
+  // gastosGeneralesItems: ningún caller puede olvidarse de pasarlo.
+  descuentaIvaMateriales: boolean;
 }
 
-// Costo Directo por unidad de UN rubro — Materiales + Mano de Obra (ya
-// incluye Aportes Patronales) + Equipos. Mismo cálculo que calcAPU() en
-// page.tsx, sin la pirámide de Utilidad (esa se aplica después, o ya está
-// aplicada dentro de precioUnit — ver calcularUtilidadAgregada).
+// Costo Directo por unidad de UN rubro — Materiales (sin IVA si el APU lo
+// descuenta) + Mano de Obra (ya incluye Aportes Patronales) + Equipos.
+// Mismo cálculo que calcAPU() en page.tsx, sin la pirámide de Utilidad
+// (esa se aplica después, o ya está aplicada dentro de precioUnit — ver
+// calcularUtilidadAgregada).
 export function costoDirectoUnitario(apu: ApuParaCosto): number {
-  const sumMat = apu.materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
+  const sumMat = sumMateriales(apu.materiales, apu.descuentaIvaMateriales);
   const sumMO = sumManoObra(apu.manoObra, apu.equipos);
   const sumEq = sumEquipos(apu.equipos);
   return sumMat + sumMO + sumEq + montoAportesPatronales(sumMO, apu.aportesPatronalesPct);

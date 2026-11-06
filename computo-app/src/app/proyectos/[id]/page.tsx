@@ -30,7 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { textoFuente, type DatosFuente } from "@/lib/fuentePrecio";
 import { useRolUsuario, useSuperadmin } from "@/hooks/useSuperadmin";
-import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario, montoAportesPatronales, sumarAportesPatronalesPct, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/apu-calc";
+import { costoUnitEfectivo, manoObraIncluida, sumEquipos, sumManoObra, tieneMaterialPiedra, recalcularMaterialesPorPiedra, calcularPrecioUnitario, montoAportesPatronales, sumarAportesPatronalesPct, sumMateriales, precioMaterialSinIva, APORTES_PATRONALES_PCT_LEGAL_DEFAULT } from "@/lib/apu-calc";
 import { computarMaterialesGlobales, computarMaterialesPorCapitulo } from "@/lib/materialesGlobales";
 import { COL_ICONO, GRID_CAPITULO, GRID_RUBRO } from "@/lib/layoutTablaPresupuesto";
 import { calcularDiasObra } from "@/lib/diasObra";
@@ -52,6 +52,7 @@ import SeccionGastosGeneralesUtilidades, {
   ItemGastoGeneral,
 } from "@/components/SeccionGastosGeneralesUtilidades";
 import { TarjetaCostoDirecto, TarjetaCostoTotalPrecioFinal } from "@/components/SeccionCostoPrecioFinal";
+import ControlDescuentoIva from "@/components/ControlDescuentoIva";
 import SeccionGarantias from "@/components/SeccionGarantias";
 import SeccionNotas from "@/components/SeccionNotas";
 import SeccionEstimacionCalculoRapido from "@/components/SeccionEstimacionCalculoRapido";
@@ -137,6 +138,9 @@ interface ProyectoData {
   monedaContrato?: string;
   valorUR?: number | null;
   fechaValorUR?: string | null;
+  // IVA de compras de materiales — valor inicial de los rubros nuevos (ver
+  // Proyecto.descuentaIvaCompras en schema.prisma).
+  descuentaIvaCompras?: boolean;
   estado: keyof typeof ESTADOS;
   moneda: string;
   area: number;
@@ -513,6 +517,10 @@ interface APU {
   // Obra dentro de Costo Directo — congelado al crearse el APU, igual que
   // gastosGeneralesPct/utilidadPct (ver montoAportesPatronales en apu-calc.ts).
   aportesPatronalesPct: number;
+  // true = los materiales cuentan sin IVA (precio de barraca ÷ 1,22) —
+  // congelado por APU, igual que aportesPatronalesPct (ver
+  // APU.descuentaIvaMateriales en schema.prisma y sumMateriales).
+  descuentaIvaMateriales: boolean;
   // % de piedra bruta sobre 1 m3 en hormigón ciclópeo — solo relevante si
   // hay un material "Piedra bruta" en la lista (ver tieneMaterialPiedra).
   porcentajePiedra?: number;
@@ -948,6 +956,7 @@ function apuDesdeClonado(apuClonado: {
   gastosGeneralesPct: number;
   utilidadPct: number;
   aportesPatronalesPct: number | null;
+  descuentaIvaMateriales: boolean;
   porcentajePiedra: number | null;
   dosificacion?: APU["dosificacion"];
   materiales: InsumoAPU[];
@@ -958,6 +967,7 @@ function apuDesdeClonado(apuClonado: {
     gastosGeneralesPct: apuClonado.gastosGeneralesPct,
     utilidadPct: apuClonado.utilidadPct,
     aportesPatronalesPct: apuClonado.aportesPatronalesPct ?? APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
+    descuentaIvaMateriales: apuClonado.descuentaIvaMateriales,
     porcentajePiedra: apuClonado.porcentajePiedra ?? 0.30,
     // Dosificación es del APU, no del subrubro estándar (que
     // nunca la tuvo) — se preserva la que ya tuviera este rubro
@@ -1145,7 +1155,8 @@ const stickyIcono = (bg: string): React.CSSProperties => ({ position: "sticky", 
 const stickyDescripcion = (bg: string): React.CSSProperties => ({ position: "sticky", left: COL_ICONO, zIndex: 1, background: bg });
 
 function calcAPU(apu: APU): { costoDirecto: number; precioFinal: number } {
-  const sumMat = apu.materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
+  // Materiales sin IVA si el APU lo descuenta (ver sumMateriales).
+  const sumMat = sumMateriales(apu.materiales, apu.descuentaIvaMateriales);
   // Costo de MO por unidad de rubro = jornalRef (costo de la jornada completa) / rendimiento
   // (unidades de rubro producidas por jornada). jornadaHs no participa: el jornal ya
   // representa el costo de la jornada completa, sin importar su duración en horas.
@@ -2740,11 +2751,26 @@ function DrawerAPU({
                 {apu.materiales.length > 0 && (
                   <tfoot>
                     <tr style={{ background: "#F1F5F9", height: 28 }} className="border-t border-slate-200">
-                      <td colSpan={4} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">TOTAL MATERIALES</td>
+                      <td colSpan={4} className="text-right pr-3 font-bold text-slate-600 uppercase tracking-wide">
+                        {apu.descuentaIvaMateriales ? "TOTAL MATERIALES (CON IVA)" : "TOTAL MATERIALES"}
+                      </td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalMaterialesPUnit)}</td>
                       <td className="text-right pr-3 font-bold tabular-nums text-[#2563EB]">{fmtMon(totalMateriales)}</td>
                       <td />
                     </tr>
+                    {/* IVA de compra: los precios son de barraca (con IVA) y el
+                        proyecto lo descuenta con la factura — al Costo
+                        Directo entra el neto (ver sumMateriales). */}
+                    {apu.descuentaIvaMateriales && (
+                      <tr style={{ background: "#F1F5F9", height: 28 }}>
+                        <td colSpan={4} className="text-right pr-3 font-semibold text-slate-500" title="El IVA de las compras se descuenta con la factura: al costo entra el precio ÷ 1,22">
+                          Sin IVA (÷ 1,22), va al costo
+                        </td>
+                        <td className="text-right pr-3 font-semibold tabular-nums text-slate-700">{fmtMon(precioMaterialSinIva(totalMaterialesPUnit))}</td>
+                        <td className="text-right pr-3 font-semibold tabular-nums text-slate-700">{fmtMon(precioMaterialSinIva(totalMateriales))}</td>
+                        <td />
+                      </tr>
+                    )}
                   </tfoot>
                 )}
               </table>
@@ -3721,6 +3747,7 @@ export default function ProyectoPage() {
               utilidadPct:        rubro.apu.utilidadPct        ?? 10,
               utilidadFija:       rubro.apu.utilidadFija        ?? false,
               aportesPatronalesPct: rubro.apu.aportesPatronalesPct ?? APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
+              descuentaIvaMateriales: rubro.apu.descuentaIvaMateriales ?? false,
               porcentajePiedra:   rubro.apu.porcentajePiedra   ?? 0.30,
               dosificacion:       rubro.apu.dosificacion       ?? null,
             };
@@ -4081,6 +4108,7 @@ export default function ProyectoPage() {
     materiales: [], manoObra: [], equipos: [],
     gastosGeneralesPct: 0, utilidadPct: utilidadPctDefaultRubroNuevo,
     aportesPatronalesPct: aportesPatronalesPctDefaultRubroNuevo, porcentajePiedra: 0.30,
+    descuentaIvaMateriales: proyecto?.descuentaIvaCompras ?? false,
   }) : null;
 
   const toggleCapitulo = (id: string) => {
@@ -4354,6 +4382,7 @@ export default function ProyectoPage() {
               gastosGeneralesPct: 0,
               utilidadPct: 10,
               aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
+              descuentaIvaMateriales: proyecto?.descuentaIvaCompras ?? false,
               porcentajePiedra: 0.30,
               materiales: (data.materiales as MaterialSugerido[]).map(insumoDesdeSugerencia),
               manoObra: data.manoObra.map((mo: { categoria: string; rendimiento: number; jornal: number }, i: number) => ({
@@ -4647,6 +4676,7 @@ export default function ProyectoPage() {
               gastosGeneralesPct: 0,
               utilidadPct: 10,
               aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
+              descuentaIvaMateriales: proyecto?.descuentaIvaCompras ?? false,
               porcentajePiedra: 0.30,
               materiales: (data.materiales as MaterialSugerido[]).map(insumoDesdeSugerencia),
               manoObra: data.manoObra.map((mo: { categoria: string; rendimiento: number; jornal: number }, i: number) => ({
@@ -5131,6 +5161,7 @@ export default function ProyectoPage() {
         gastosGeneralesPct: 0,
         utilidadPct: 10,
         aportesPatronalesPct: APORTES_PATRONALES_PCT_LEGAL_DEFAULT,
+        descuentaIvaMateriales: proyecto?.descuentaIvaCompras ?? false,
         porcentajePiedra: 0.30,
         materiales: data.materiales.map(insumoDesdeSugerencia),
         manoObra: data.manoObra.map((mo, i) => ({
@@ -6629,6 +6660,14 @@ export default function ProyectoPage() {
           precioFinal={precioFinalAgregado}
           equivalenteUR={equivalenteUR}
         />
+        {proyecto && (
+          <ControlDescuentoIva
+            proyectoId={proyectoId}
+            descuentaIvaCompras={proyecto.descuentaIvaCompras ?? false}
+            moneda={moneda}
+            soloLectura={soloLectura}
+          />
+        )}
 
         {mostrarModalTitulo && (
           <ModalAgregarTitulo

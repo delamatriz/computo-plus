@@ -135,7 +135,7 @@ async function main() {
   const totalesDe = (p: (typeof proyectos)[number], caps: Cap[]): Totales => {
     const rubros = caps.flatMap((c) => c.rubros);
     const apuData: Record<string, ApuParaCosto> = {};
-    for (const r of rubros) if (r.apu) apuData[r.id] = { materiales: r.apu.materiales, manoObra: r.apu.manoObra, equipos: r.apu.equipos, aportesPatronalesPct: r.apu.aportesPatronalesPct, utilidadPct: r.apu.utilidadPct };
+    for (const r of rubros) if (r.apu) apuData[r.id] = { materiales: r.apu.materiales, manoObra: r.apu.manoObra, equipos: r.apu.equipos, aportesPatronalesPct: r.apu.aportesPatronalesPct, utilidadPct: r.apu.utilidadPct, descuentaIvaMateriales: false /* migración de oct-2026, anterior al descuento de IVA */ };
     const cs = [{ rubros: rubros.map((r) => ({ id: r.id, cantidad: r.cantidad, precioUnit: r.precioUnit })) }];
     const cd = calcularCostoDirectoAgregado(cs, apuData).total;
     const ci = calcularCostosIndirectosAgregados(p.modoGastosGenerales, p.gastosGeneralesDetallado, p.gastosGeneralesPctDefault, cd, p.gastosGeneralesItems, p.imprevistosPct);

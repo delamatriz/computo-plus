@@ -138,6 +138,9 @@ export async function crearRubroCatalogo(
     equipos: equiposConPrecio,
     aportesPatronalesPct: sumarAportesPatronalesPct(null),
     utilidadPct: UTILIDAD_PCT_CATALOGO,
+    // Precio de referencia del catálogo: materiales con IVA (precio de
+    // barraca), el IVA se descuenta recién en el proyecto.
+    descuentaIvaMateriales: false,
   });
   const precioUY = redondearPrecio(calcularPrecioUnitario(costoDirecto, UTILIDAD_PCT_CATALOGO));
 

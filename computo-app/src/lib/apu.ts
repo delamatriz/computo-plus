@@ -2,7 +2,7 @@ import { crearMensaje } from "@/lib/anthropic-client";
 import { db } from "@/lib/db";
 import { resolverCapituloCatalogoId } from "@/lib/capituloCatalogoResolver";
 import { buscarSubrubrosPorCapitulos, formatearSubrubrosParaPrompt, type SubrubroConApu } from "@/lib/bibliotecaApus";
-import { sumManoObra, calcularPrecioUnitario, redondearPrecio, sumarAportesPatronalesPct, montoAportesPatronales } from "@/lib/apu-calc";
+import { sumManoObra, sumMateriales, calcularPrecioUnitario, redondearPrecio, sumarAportesPatronalesPct, montoAportesPatronales } from "@/lib/apu-calc";
 import { registrarLogConsumoIA } from "@/lib/logConsumoIA";
 import { coincidenciasPrecioMaterial } from "@/lib/resolverPrecioInsumo";
 import { materialesParaPrompt } from "@/lib/materialesParaPrompt";
@@ -113,6 +113,7 @@ export async function generarApuParaRubro(
                 id: true,
                 empresaId: true,
                 utilidadPctDefault: true,
+                descuentaIvaCompras: true,
                 leyesSociales: {
                   select: {
                     focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
@@ -244,6 +245,10 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
   const aportesPatronalesPct = apuExistente
     ? apuExistente.aportesPatronalesPct
     : sumarAportesPatronalesPct(proyectoDefaults?.leyesSociales);
+  // IVA de materiales: mismo congelamiento por APU.
+  const descuentaIvaMateriales = apuExistente
+    ? apuExistente.descuentaIvaMateriales
+    : proyectoDefaults?.descuentaIvaCompras ?? false;
 
   // Antes de calcular el precio: los materiales que coinciden con el
   // catálogo toman su precio real y su vínculo (precioMTOPId).
@@ -257,7 +262,7 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
     []
   );
   const costoDirecto =
-    materiales.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0) +
+    sumMateriales(materiales, descuentaIvaMateriales) +
     sumMO +
     montoAportesPatronales(sumMO, aportesPatronalesPct);
   const precioUnitarioEstimado = redondearPrecio(calcularPrecioUnitario(costoDirecto, utilidadPct));
@@ -272,7 +277,7 @@ Tus APU son realistas, basados en rendimientos reales de obra uruguaya, usando p
 
   const apuRecord = apuExistente
     ? await db.aPU.update({ where: { rubroId }, data: { gastosGeneralesPct, utilidadPct, aportesPatronalesPct } })
-    : await db.aPU.create({ data: { rubroId, gastosGeneralesPct, utilidadPct, aportesPatronalesPct } });
+    : await db.aPU.create({ data: { rubroId, gastosGeneralesPct, utilidadPct, aportesPatronalesPct, descuentaIvaMateriales } });
 
   const apuId = apuRecord.id;
 

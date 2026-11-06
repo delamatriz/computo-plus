@@ -75,6 +75,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             manoObra: r.apu.manoObra,
             equipos: r.apu.equipos,
             aportesPatronalesPct: r.apu.aportesPatronalesPct,
+            descuentaIvaMateriales: r.apu.descuentaIvaMateriales,
             utilidadPct: r.apu.utilidadPct,
           };
         }

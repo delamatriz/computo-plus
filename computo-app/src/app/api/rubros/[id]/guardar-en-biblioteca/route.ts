@@ -142,7 +142,10 @@ export async function POST(
     const precioUY =
       Math.round(
         calcularPrecioUnitario(
-          costoDirectoUnitario({ materiales, manoObra, equipos, aportesPatronalesPct: apu.aportesPatronalesPct, utilidadPct: apu.utilidadPct }),
+          costoDirectoUnitario({ materiales, manoObra, equipos, aportesPatronalesPct: apu.aportesPatronalesPct, utilidadPct: apu.utilidadPct,
+            // La biblioteca guarda precios de barraca (con IVA), mismo criterio
+            // que el catálogo: el IVA se descuenta recién en el proyecto.
+            descuentaIvaMateriales: false }),
           apu.utilidadPct
         ) * 100
       ) / 100;

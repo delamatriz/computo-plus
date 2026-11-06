@@ -5,6 +5,19 @@ import { redondearPrecio, sumarAportesPatronalesPct } from "@/lib/apu-calc";
 import { requerirRubro } from "@/lib/sesion";
 import { precioVisibleParaEmpresa } from "@/lib/catalogoPrecios";
 
+// Proyecto.descuentaIvaCompras del proyecto dueño del rubro (false si no se
+// encuentra) — valor inicial de APU.descuentaIvaMateriales.
+async function descuentaIvaDelRubro(
+  cliente: Pick<typeof db, "rubro">,
+  rubroId: string
+): Promise<boolean> {
+  const r = await cliente.rubro.findUnique({
+    where: { id: rubroId },
+    select: { capitulo: { select: { proyecto: { select: { descuentaIvaCompras: true } } } } },
+  });
+  return r?.capitulo?.proyecto?.descuentaIvaCompras ?? false;
+}
+
 const MENSAJE_PROYECTO_FINALIZADO =
   "Este presupuesto fue entregado y los precios están congelados. Habilitá la edición desde el proyecto para poder modificarlo.";
 
@@ -173,7 +186,12 @@ export async function PUT(
             data: { gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra, dosificacion, utilidadFija },
           })
         : await tx.aPU.create({
-            data: { rubroId, gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra, dosificacion, utilidadFija },
+            data: {
+              rubroId, gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, porcentajePiedra, dosificacion, utilidadFija,
+              // IVA de materiales: lo decide el proyecto al crear el APU (no
+              // el body); después queda congelado en el APU.
+              descuentaIvaMateriales: await descuentaIvaDelRubro(tx, rubroId),
+            },
           });
 
       const apuId = apu.id;
@@ -359,7 +377,10 @@ export async function PATCH(
     const aportesPatronalesPct = sumarAportesPatronalesPct(proyectoDefaults?.leyesSociales);
 
     const apu = await db.aPU.create({
-      data: { rubroId, gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, utilidadFija },
+      data: {
+        rubroId, gastosGeneralesPct: 0, utilidadPct, aportesPatronalesPct, utilidadFija,
+        descuentaIvaMateriales: await descuentaIvaDelRubro(db, rubroId),
+      },
     });
     return NextResponse.json(apu);
   } catch (err) {

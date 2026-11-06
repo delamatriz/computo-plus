@@ -262,6 +262,7 @@ async function main() {
       const apuViejo: ApuParaCosto = {
         materiales: r.apu.materiales, manoObra: r.apu.manoObra, equipos: r.apu.equipos,
         aportesPatronalesPct: r.apu.aportesPatronalesPct, utilidadPct: r.apu.utilidadPct,
+        descuentaIvaMateriales: r.apu.descuentaIvaMateriales,
       };
       apuDataAntes[r.id] = apuViejo;
       if (idsCambiar.has(r.id)) {

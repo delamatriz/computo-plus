@@ -18,7 +18,7 @@
 import { db } from "@/lib/db";
 import { coincidenciasPrecioMaterial } from "@/lib/resolverPrecioInsumo";
 import { precioVisibleParaEmpresa } from "@/lib/catalogoPrecios";
-import { sumEquipos, sumManoObra, calcularPrecioUnitario, montoAportesPatronales } from "@/lib/apu-calc";
+import { sumEquipos, sumManoObra, sumMateriales, calcularPrecioUnitario, montoAportesPatronales } from "@/lib/apu-calc";
 import type { MaterialAPU, ManoObraAPU, EquipoAPU, APU, PrecioMTOP } from "@/generated/prisma/client";
 
 // Matching por texto simple (sin filtrar proveedor) contra PrecioMTOP —
@@ -134,7 +134,9 @@ async function resolverPreciosVigentes(rubro: RubroConAPU): Promise<ResolucionRu
     return { rendimiento: mo.rendimiento, jornalRef: resuelta.jornal, equipoRelacionadoId: mo.equipoRelacionadoId };
   });
 
-  const sumMat = materialesEfectivos.reduce((s, m) => s + m.rendimiento * m.precioUnit, 0);
+  // El precio de catálogo (con IVA) se guarda tal cual en la línea; el IVA
+  // se descuenta acá, según el APU (ver sumMateriales).
+  const sumMat = sumMateriales(materialesEfectivos, apu.descuentaIvaMateriales);
   const sumMO = sumManoObra(manoObraEfectiva, apu.equipos);
   const sumEq = sumEquipos(apu.equipos);
   // Aportes Patronales: apu.aportesPatronalesPct queda congelado — este flujo

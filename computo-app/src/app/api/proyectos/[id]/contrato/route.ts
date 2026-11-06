@@ -43,6 +43,7 @@ async function calcularPrecioFinalSugerido(proyectoId: string): Promise<number |
           manoObra: r.apu.manoObra,
           equipos: r.apu.equipos,
           aportesPatronalesPct: r.apu.aportesPatronalesPct,
+          descuentaIvaMateriales: r.apu.descuentaIvaMateriales,
           utilidadPct: r.apu.utilidadPct,
         };
       }

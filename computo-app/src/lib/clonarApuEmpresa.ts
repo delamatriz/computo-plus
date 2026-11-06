@@ -38,6 +38,7 @@ export async function clonarApuEmpresaAlRubro(subrubroEmpresaId: string, rubroId
             select: {
               estado: true,
               utilidadPctDefault: true,
+              descuentaIvaCompras: true,
               leyesSociales: {
                 select: {
                   focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
@@ -120,6 +121,7 @@ export async function clonarApuEmpresaAlRubro(subrubroEmpresaId: string, rubroId
               gastosGeneralesPct: 0,
               utilidadPct: utilidadDelProyecto,
               aportesPatronalesPct: aportesPatronalesDelProyecto,
+              descuentaIvaMateriales: proyecto?.descuentaIvaCompras ?? false,
             },
           });
 

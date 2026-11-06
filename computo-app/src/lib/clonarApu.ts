@@ -71,6 +71,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
           proyecto: {
             select: {
               utilidadPctDefault: true,
+              descuentaIvaCompras: true,
               leyesSociales: {
                 select: {
                   focerPatronalPct: true, fscFocapPct: true, fosvocPct: true,
@@ -169,6 +170,7 @@ export async function clonarApuAlRubro(subrubroId: string, rubroId: string) {
               gastosGeneralesPct: 0,
               utilidadPct: utilidadDelProyecto,
               aportesPatronalesPct: aportesPatronalesDelProyecto,
+              descuentaIvaMateriales: rubroConProyecto?.capitulo?.proyecto?.descuentaIvaCompras ?? false,
               porcentajePiedra: apuEstandar.porcentajePiedra,
             },
           });

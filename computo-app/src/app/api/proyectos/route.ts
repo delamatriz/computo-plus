@@ -143,6 +143,10 @@ export async function POST(req: NextRequest) {
           clienteEmail: clienteEmail || null,
           tipo: tipo || "VIVIENDA",
           tipoContratacion: tipoContratacion || "PRIVADA",
+          // Proyecto nuevo: los materiales se calculan sin IVA (la empresa lo
+          // descuenta con la factura). Los existentes quedan en false (ver
+          // Proyecto.descuentaIvaCompras); literal E, a futuro, en false.
+          descuentaIvaCompras: true,
           moneda: moneda || "UYU",
           area: area ? parseFloat(area) : null,
           // "Descripción / Trabajos" va a `trabajos` y "Otros datos" a `descripcion`

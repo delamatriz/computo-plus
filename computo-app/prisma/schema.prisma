@@ -201,6 +201,16 @@ model Proyecto {
   // No tiene relación con Configuracion.margenImprevistos (columna sin
   // uso, resto del andamiaje inicial).
   imprevistosPct            Float?
+  // IVA de los materiales (nov-2026). El catálogo y el desglose guardan el
+  // precio de barraca, que ya trae IVA; una empresa contribuyente de IVA lo
+  // descuenta con la factura, así que su costo real es precio ÷ 1,22 y el
+  // 22% va una sola vez, al final del presupuesto. true = los rubros nuevos
+  // de este proyecto calculan los materiales sin IVA (ver
+  // APU.descuentaIvaMateriales, que es lo que realmente usa el cálculo).
+  // @default(false) a propósito: los proyectos que ya existían quedan como
+  // estaban; POST /api/proyectos crea los nuevos en true. Una empresa
+  // literal E (no descuenta IVA de compras) va a crearlos en false.
+  descuentaIvaCompras Boolean @default(false)
   // "PORCENTAJE" (prorrateado por rubro, comportamiento histórico) |
   // "DETALLADO" (monto fijo por las 5 categorías de abajo, cobrado una sola
   // vez en el Resumen del Presupuesto — rubros nuevos arrancan en 0% GG).
@@ -441,6 +451,13 @@ model APU {
   // que gastosGeneralesPct/utilidadPct. El @default es la suma de los cinco
   // fondos patronales de aportesPatronales.ts (6,4191 con FOCER 5%; era 10,2).
   aportesPatronalesPct Float       @default(6.4191)
+  // true = los materiales de este rubro cuentan sin IVA (precio de barraca
+  // ÷ 1,22, ver sumMateriales en apu-calc.ts). Se copia de
+  // Proyecto.descuentaIvaCompras al crear el APU y queda congelado acá,
+  // mismo criterio que aportesPatronalesPct: así un rubro protegido (precio
+  // pactado) que no se recalcula sigue siendo coherente con su propio
+  // precioUnit. Se cambia con POST /api/proyectos/[id]/descuento-iva.
+  descuentaIvaMateriales Boolean   @default(false)
   // % de piedra bruta sobre 1 m3, para hormigón ciclópeo — desplaza volumen
   // de hormigón simple (cemento+arena+balasto) al recalcular en vivo.
   porcentajePiedra   Float         @default(0.30)
