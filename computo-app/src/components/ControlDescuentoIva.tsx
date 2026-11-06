@@ -98,10 +98,15 @@ export default function ControlDescuentoIva({
         <div className="flex items-start gap-2">
           <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-400" />
           <p>
-            <span className="font-semibold text-slate-700">IVA de los materiales: </span>
+            {/* Mismas palabras que el botón de la vista previa ("Sí, materiales
+                sin IVA / con IVA"), para que se lea de un vistazo cómo está
+                calculado el Precio Final de arriba. */}
+            <span className="font-semibold text-slate-700">
+              {descuentaIvaCompras ? "Materiales sin IVA." : "Materiales con IVA."}{" "}
+            </span>
             {descuentaIvaCompras
-              ? "se descuenta. Los materiales se cuentan sin IVA, porque lo recuperás con la factura de compra."
-              : "incluido en el costo. Los materiales se cuentan con el IVA que pagaste en la barraca."}
+              ? "El IVA que pagás en la barraca lo recuperás con la factura de compra: no está en el costo y se cobra una sola vez, en la línea de IVA de arriba."
+              : "El costo incluye el IVA que pagás en la barraca."}
           </p>
         </div>
         {!soloLectura && !vista && (
