@@ -1238,7 +1238,7 @@ export default function CalcularPage() {
                                 )}
                                 {c.origen === "biblioteca" && c.fuenteBiblioteca !== "empresa" && (
                                   <span
-                                    title="Precio real de la biblioteca de subrubros, no estimación libre"
+                                    title="Precio real de la biblioteca de rubros, no estimación libre"
                                     className="flex-shrink-0 text-[9px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-200 rounded px-1 leading-4"
                                   >
                                     real

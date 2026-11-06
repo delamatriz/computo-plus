@@ -1651,7 +1651,7 @@ function PanelSubrubrosEstandar({
           <div className="px-3 py-2 text-xs text-slate-400 italic">Cargando…</div>
         )}
         {!cargando && subrubros.length === 0 && (
-          <div className="px-3 py-2 text-xs text-slate-400 italic">No hay subrubros típicos para este capítulo</div>
+          <div className="px-3 py-2 text-xs text-slate-400 italic">No hay rubros del catálogo para este capítulo</div>
         )}
         {!cargando && gruposConNombre.map(([categoria, items]) => (
           <div key={categoria}>
@@ -5447,8 +5447,20 @@ export default function ProyectoPage() {
                         }
                       />
                     )}
+                    {/* Mismo pie que el capítulo con rubros (Rubros · Mis rubros
+                        · Agregar rubro): antes acá decía "Agregar rubro
+                        personalizado" y no estaba "Rubros", y confundía. */}
                     {!soloLectura && (
                       <div className="flex items-center gap-4 pl-6" style={{ height: 26, borderTop: "1px solid #F1F5F9" }}>
+                        {cap.capituloCatalogoId && (
+                          <button
+                            onClick={() => toggleSubrubrosPanel(cap)}
+                            title="Ver los rubros del catálogo para este capítulo"
+                            className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            Rubros
+                          </button>
+                        )}
                         <button
                           onClick={() => toggleMisRubrosPanel(cap)}
                           title="Elegir un rubro de Mis rubros"
@@ -5462,7 +5474,7 @@ export default function ProyectoPage() {
                           className="flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors disabled:opacity-60 disabled:cursor-wait"
                         >
                           {agregandoRubroEnCap === cap.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                          {agregandoRubroEnCap === cap.id ? "Agregando…" : "Agregar rubro personalizado"}
+                          {agregandoRubroEnCap === cap.id ? "Agregando…" : "Agregar rubro"}
                         </button>
                       </div>
                     )}
@@ -5939,10 +5951,10 @@ export default function ProyectoPage() {
                     {cap.capituloCatalogoId && (
                       <button
                         onClick={() => toggleSubrubrosPanel(cap)}
-                        title="Ver subrubros típicos de este capítulo"
+                        title="Ver los rubros del catálogo para este capítulo"
                         className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
                       >
-                        Subrubros
+                        Rubros
                       </button>
                     )}
                     <button
