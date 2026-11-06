@@ -3668,6 +3668,11 @@ export default function ProyectoPage() {
         ultimaActualizacionIndice: data.ultimaActualizacionIndice ?? null,
         generandoRubros: data.generandoRubros ?? false,
         incluyeIVA: data.incluyeIVA ?? false,
+        // IVA del proyecto (ver Proyecto.descuentaIvaCompras / facturaConIva):
+        // sin estas dos líneas la leyenda "Materiales con/sin IVA" y la fila
+        // de IVA quedaban siempre en su valor por defecto.
+        descuentaIvaCompras: data.descuentaIvaCompras ?? false,
+        facturaConIva: data.facturaConIva ?? true,
         gastosGeneralesItems: Array.isArray(data.gastosGeneralesItems) ? data.gastosGeneralesItems : [],
         gastosGeneralesPctDefault: data.gastosGeneralesPctDefault ?? null,
         utilidadPctDefault: data.utilidadPctDefault ?? null,
