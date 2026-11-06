@@ -7,11 +7,31 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 
+// Antigüedad máxima del ts de la firma (auditoría de seguridad nov-2026,
+// hallazgo #11): sin esto, una notificación firmada se podía reenviar para
+// siempre. La documentación de MercadoPago no da una tolerancia, y si el
+// servidor no responde reintenta cada 15 minutos y después con plazos más
+// largos, sin decir si el reintento trae un ts nuevo. Por eso la ventana es
+// amplia: corta reenvíos viejos sin rechazar reintentos legítimos de una
+// caída de unas horas. (El riesgo de fondo era bajo: el webhook vuelve a
+// consultar el estado real en MercadoPago.)
+const ANTIGUEDAD_MAXIMA_MS = 72 * 60 * 60 * 1000;
+// Margen para relojes un poco adelantados.
+const ADELANTO_MAXIMO_MS = 5 * 60 * 1000;
+
+/** ts de MercadoPago a milisegundos: viene en segundos (10 dígitos); se acepta también en ms. */
+function tsEnMs(ts: string): number | null {
+  if (!/^\d{9,14}$/.test(ts)) return null;
+  const n = Number(ts);
+  return n < 1e12 ? n * 1000 : n;
+}
+
 export function firmaMercadoPagoValida(datos: {
   xSignature: string | null;
   xRequestId: string | null;
   dataId: string | null;
   secreto: string;
+  ahora?: number;
 }): boolean {
   if (!datos.xSignature) return false;
   const partes = new Map<string, string>();
@@ -31,5 +51,11 @@ export function firmaMercadoPagoValida(datos: {
   const esperado = createHmac("sha256", datos.secreto).update(manifiesto).digest("hex");
   const a = Buffer.from(esperado);
   const b = Buffer.from(v1);
-  return a.length === b.length && timingSafeEqual(a, b);
+  if (!(a.length === b.length && timingSafeEqual(a, b))) return false;
+
+  // Firma correcta, pero además el ts tiene que ser reciente.
+  const ms = tsEnMs(ts);
+  if (ms === null) return false;
+  const ahora = datos.ahora ?? Date.now();
+  return ms <= ahora + ADELANTO_MAXIMO_MS && ahora - ms <= ANTIGUEDAD_MAXIMA_MS;
 }

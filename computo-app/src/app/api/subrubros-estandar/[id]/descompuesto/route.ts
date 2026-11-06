@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSesion } from "@/lib/sesion";
 import { NOTA_PRECIO_FIJO_BIBLIOTECA, precioConRespaldo, resolverPrecioMaterial, resolverPrecioEquipo } from "@/lib/resolverPrecioInsumo";
 import { sumEquipos, sumManoObra, calcularPrecioUnitario } from "@/lib/apu-calc";
 
@@ -15,6 +16,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Catálogo global, pero solo con sesión: segunda capa además de src/proxy.ts.
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const { id } = await params;
 

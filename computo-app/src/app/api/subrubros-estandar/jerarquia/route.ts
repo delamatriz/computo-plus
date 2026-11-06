@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSesion } from "@/lib/sesion";
 
 // GET — árbol completo Capítulo → Subcapítulo → Rubro del catálogo maestro,
 // para la navegación jerárquica de la Biblioteca (/rubros). Volumen chico
 // (~24 capítulos, ~450 subrubros) — se trae entero en una sola llamada en
 // vez de expandir por demanda.
 export async function GET() {
+  // Catálogo global, pero solo con sesión: segunda capa además de src/proxy.ts.
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const capitulos = await db.capituloCatalogo.findMany({
       where: { activo: true },

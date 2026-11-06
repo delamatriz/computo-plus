@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { obtenerStreamDeBlob } from "@/lib/blob";
 import { requerirProyecto } from "@/lib/sesion";
-import { headersSeguridadArchivo } from "@/lib/archivosSubidos";
+import { contentDispositionArchivo, headersSeguridadArchivo } from "@/lib/archivosSubidos";
 
 // Proxy del archivo del documento de contrato — mismo patrón exacto
 // que .../documentos-metraje/[docId]/archivo: el store de Vercel Blob
@@ -44,7 +44,7 @@ export async function GET(
       headers: {
         "Content-Type": documento.tipoArchivo || resultado.blob.contentType,
         ...headersSeguridadArchivo(documento.tipoArchivo || resultado.blob.contentType),
-        "Content-Disposition": `inline; filename="${documento.nombreArchivoOriginal}"`,
+        "Content-Disposition": contentDispositionArchivo(documento.nombreArchivoOriginal),
         "Cache-Control": "private, max-age=31536000, immutable",
         ETag: etag,
       },

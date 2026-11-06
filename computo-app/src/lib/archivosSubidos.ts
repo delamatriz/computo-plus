@@ -80,6 +80,23 @@ export function validarArchivoSubido(dataUrl: unknown, perfil: PerfilArchivo): A
 }
 
 /**
+ * Content-Disposition con el nombre que puso el usuario, sin romper el
+ * header (auditoría nov-2026, hallazgo #12): un nombre con comillas o saltos
+ * de línea, metido crudo en filename="…", rompía la respuesta (500). Va una
+ * versión ASCII sin comillas ni barras para navegadores viejos, y el nombre
+ * real codificado en filename* (mismo criterio que la Biblioteca).
+ */
+export function contentDispositionArchivo(nombre: string, modo: "inline" | "attachment" = "inline"): string {
+  const ascii =
+    nombre
+      .normalize("NFD")
+      .replace(/[^\x20-\x7e]/g, "")
+      .replace(/["\\]/g, "_")
+      .trim() || "archivo";
+  return `${modo}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(nombre)}`;
+}
+
+/**
  * Headers para servir un archivo subido. nosniff: el navegador respeta el
  * tipo detectado y no lo "adivina". CSP sandbox: aunque el archivo traiga
  * código, no se ejecuta con los permisos de la app. Va solo para imágenes:

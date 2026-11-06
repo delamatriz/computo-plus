@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSuperadmin } from "@/lib/sesion";
 
 // Lista liviana (sin IA) de los códigos elegibles para "Buscar precios
 // actualizados" — proveedor conocido, sin marcador de fuente derivada, sin
@@ -16,6 +17,10 @@ import { db } from "@/lib/db";
 // ya se habían auto-aplicado hace un rato, rompiendo la resumabilidad
 // (hallazgo de la verificación con datos simulados, ver reporte).
 export async function GET() {
+  // Herramienta de actualización de precios: solo SUPERADMIN, igual que
+  // procesar-tanda y evento-resumen.
+  const sesion = await requerirSuperadmin();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const haceUnDia = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const elegibles = await db.precioMTOP.findMany({

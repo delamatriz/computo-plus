@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSesion } from "@/lib/sesion";
 
 // Fase 2, Etapa 5 — filas de ParticionSubcapitulo, con el capituloCatalogoId
 // del subcapítulo ya resuelto (join), para que el cliente pueda decidir sin
@@ -7,6 +8,9 @@ import { db } from "@/lib/db";
 // capítulo real le corresponde cada una. Ver abrirSubrubrosPanel en
 // src/app/proyectos/[id]/page.tsx.
 export async function GET() {
+  // Catálogo global, pero solo con sesión: segunda capa además de src/proxy.ts.
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const particiones = await db.particionSubcapitulo.findMany({
       include: { subcapitulo: { select: { capituloCatalogoId: true } } },

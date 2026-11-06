@@ -31,8 +31,22 @@ export async function enviarMail({ para, asunto, html, texto }: Mail): Promise<v
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) {
-    throw new Error(`Resend respondió ${res.status}: ${await res.text().catch(() => "")}`);
+    // El texto de Resend puede repetir la dirección: se enmascara antes de que llegue a un log.
+    throw new Error(`Resend respondió ${res.status}: ${ocultarEmails(await res.text().catch(() => ""))}`);
   }
+}
+
+// Logs sin direcciones completas (auditoría de seguridad nov-2026, hallazgo
+// #13): "lucia@gmail.com" → "l***@gmail.com". Alcanza para saber a quién
+// falló un envío sin dejar el email en los logs de Render.
+export function enmascararEmail(email: string): string {
+  const [usuario, dominio] = email.split("@");
+  if (!dominio) return "***";
+  return `${usuario.slice(0, 1)}***@${dominio}`;
+}
+
+function ocultarEmails(texto: string): string {
+  return texto.replace(/[^\s@"'<>,;:]+@[^\s@"'<>,;:]+\.[^\s@"'<>,;:]+/g, enmascararEmail);
 }
 
 export async function enviarCodigoVerificacion(para: string, codigo: string): Promise<void> {
@@ -207,7 +221,7 @@ async function enviarAvisoEmpresa(datos: {
       salieron++;
     } catch (err) {
       ultimoError = err;
-      console.error(`[mail] ${datos.etiqueta} a ${para}`, err);
+      console.error(`[mail] ${datos.etiqueta} a ${enmascararEmail(para)}`, err);
     }
   }
   if (salieron === 0) throw ultimoError instanceof Error ? ultimoError : new Error("No salió ningún mail");
@@ -294,7 +308,7 @@ export async function enviarAvisoInternoSuscripcion(datos: {
   </table>
 </body></html>`;
   for (const para of MAILS_AVISO_SUSCRIPCIONES) {
-    await enviarMail({ para, asunto, html, texto }).catch((err) => console.error(`[mail] aviso interno de suscripción a ${para}`, err));
+    await enviarMail({ para, asunto, html, texto }).catch((err) => console.error(`[mail] aviso interno de suscripción a ${enmascararEmail(para)}`, err));
   }
 }
 

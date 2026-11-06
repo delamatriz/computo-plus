@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSesion } from "@/lib/sesion";
 
 /** Normaliza tildes para que "hormigonera" también encuentre "Hormigonera" */
 function normalizar(s: string): string {
@@ -14,6 +15,9 @@ function normalizar(s: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  // Catálogo global, pero solo con sesión: segunda capa además de src/proxy.ts.
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
 
   if (q.length < 2) {

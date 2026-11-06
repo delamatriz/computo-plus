@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requerirSesion } from "@/lib/sesion";
 
 // Fase 2 — catálogo canónico de capítulo/subcapítulo (CapituloCatalogo/
 // SubcapituloCatalogo). Lo consume el cliente para resolver nombre → id
@@ -7,6 +8,9 @@ import { db } from "@/lib/db";
 // subcapituloId en vez de por string. Ver
 // FASE2-DISENO-UNIFICACION-TAXONOMIAS.md, Etapa 3.
 export async function GET() {
+  // Catálogo global, pero solo con sesión: segunda capa además de src/proxy.ts.
+  const sesion = await requerirSesion();
+  if (sesion instanceof NextResponse) return sesion;
   try {
     const capitulos = await db.capituloCatalogo.findMany({
       where: { activo: true },
