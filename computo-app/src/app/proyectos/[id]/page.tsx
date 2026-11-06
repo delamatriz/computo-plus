@@ -266,6 +266,10 @@ interface SubrubroEstandar {
   // Fase 2, Etapa 6a — nombre del subcapítulo resuelto vía subcapituloId
   // (relación), en vez de leer el string subcapitulo directo.
   subcapituloNombre?: string | null;
+  // Precio con que entraría a ESTE proyecto si se agrega ahora (precios de
+  // hoy, IVA de materiales, aportes y Utilidad del proyecto), en pesos — ver
+  // GET /api/proyectos/[id]/precios-catalogo. null/ausente: se usa precioUY.
+  precioProyecto?: number | null;
 }
 
 // Fase 2 — catálogo canónico (CapituloCatalogo/SubcapituloCatalogo),
@@ -1008,7 +1012,9 @@ function apuDesdeClonado(apuClonado: {
 }
 
 function precioDesdeSubrubro(sub: SubrubroEstandar, moneda: string): number {
-  const precio = moneda === "USD" ? sub.precioUY / TCU : sub.precioUY;
+  // El precio para este proyecto si se pudo calcular; si no, el guardado.
+  const base = sub.precioProyecto ?? sub.precioUY;
+  const precio = moneda === "USD" ? base / TCU : base;
   return parseFloat(precio.toFixed(2));
 }
 
@@ -1673,7 +1679,7 @@ function PanelSubrubrosEstandar({
       </div>
       {!cargando && subrubros.length > 0 && (
         <p className="px-1 text-[10px] text-slate-400">
-          Precios de referencia — actualizar según ICCV.
+          Precio por unidad con que entra a este proyecto, a precios de hoy.
         </p>
       )}
       </>
@@ -4507,15 +4513,23 @@ export default function ProyectoPage() {
         return;
       }
 
-      const [subrubros] = await Promise.all([
+      const [subrubros, preciosProyecto] = await Promise.all([
         fetch(`/api/subrubros-estandar?capituloId=${cap.capituloCatalogoId}`).then((r) => (r.ok ? r.json() : [])),
+        // Precio de cada rubro tal como entraría a este proyecto (si falla,
+        // el panel muestra el precio guardado, como antes).
+        fetch(`/api/proyectos/${proyectoId}/precios-catalogo?capituloId=${cap.capituloCatalogoId}`)
+          .then((r) => (r.ok ? r.json() : {}))
+          .catch(() => ({})) as Promise<Record<string, number>>,
         cargarParticiones(),
         // Para poder resolver el id de "Implantación y Replanteo"
         // (esImplantacion en PanelSubrubrosEstandar). Cacheado, solo pega a
         // la red la primera vez que se abre cualquier panel.
         cargarCatalogoCapitulos(),
       ]);
-      let lista: SubrubroEstandar[] = subrubros;
+      let lista: SubrubroEstandar[] = (subrubros as SubrubroEstandar[]).map((s) => ({
+        ...s,
+        precioProyecto: preciosProyecto[s.id] ?? null,
+      }));
 
       const particiones = particionesRef.current ?? [];
       const particionesDeEsteCatalogo = particiones.filter((p) => p.capituloCatalogoId === cap.capituloCatalogoId);
@@ -4555,7 +4569,7 @@ export default function ProyectoPage() {
     } finally {
       setCargandoSubrubros(false);
     }
-  }, [subrubrosPorCapitulo, cargarCatalogoCapitulos, cargarParticiones, capitulos]);
+  }, [subrubrosPorCapitulo, cargarCatalogoCapitulos, cargarParticiones, capitulos, proyectoId]);
 
   const toggleSubrubrosPanel = useCallback((cap: Capitulo) => {
     if (panelSubrubrosCapId === cap.id) {
