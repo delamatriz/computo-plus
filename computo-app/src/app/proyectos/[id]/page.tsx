@@ -3677,7 +3677,7 @@ export default function ProyectoPage() {
         gastosGeneralesPctDefault: data.gastosGeneralesPctDefault ?? null,
         utilidadPctDefault: data.utilidadPctDefault ?? null,
         imprevistosPct: data.imprevistosPct ?? null,
-        modoGastosGenerales: data.modoGastosGenerales === "DETALLADO" ? "DETALLADO" : "PORCENTAJE",
+        modoGastosGenerales: (data.modoGastosGenerales === "DETALLADO" ? "DETALLADO" : "PORCENTAJE") as ModoGastosGenerales,
         gastosGeneralesDetallado: Array.isArray(data.gastosGeneralesDetallado) ? data.gastosGeneralesDetallado : null,
         fechaInicio: data.fechaInicio ?? null,
         plazoObra: data.plazoObra ?? null,
@@ -3690,7 +3690,11 @@ export default function ProyectoPage() {
         garantiaViciosOcultosVence: data.garantiaViciosOcultosVence ?? null,
         garantiaResponsabilidadVence: data.garantiaResponsabilidadVence ?? null,
         fechaUltimaEntrega: data.fechaUltimaEntrega ?? null,
-      });
+        // satisfies: obliga a copiar TODOS los campos de ProyectoData. Un campo
+        // nuevo declarado en ProyectoData y olvidado acá hace fallar
+        // `npm run typecheck` (pasó el 2026-11-06 con los dos del IVA: la
+        // pantalla nunca los veía).
+      } satisfies Record<keyof ProyectoData, unknown>);
 
       // Mapear capítulos y rubros
       const caps: Capitulo[] = (data.capitulos ?? []).map((cap: {
