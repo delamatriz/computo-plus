@@ -1,8 +1,8 @@
 // Protección de rutas (Multi-tenant Fase 2, oct-2026). En Next 16 la
 // convención `middleware` pasó a llamarse `proxy` (corre en Node.js).
 //
-// Toda la app pide sesión, salvo la landing ("/", que tiene el modal de
-// login), /login (fallback), /api/auth/* (NextAuth) y el registro público
+// Toda la app pide sesión, salvo la raíz ("/", que redirige a /login), la
+// landing pública (/landing), /login, /api/auth/* (NextAuth) y el registro público
 // (/registro → /verificar → /bienvenida, sus APIs /api/registro/* y las
 // páginas legales). Sin sesión:
 //   - páginas → redirige a /login?callbackUrl=<la página pedida>
@@ -21,7 +21,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { estadoAccesoUsuario, respuestaAcceso } from "@/lib/acceso";
 
-const PUBLICAS = ["/", "/login", "/registro", "/verificar", "/bienvenida", "/terminos", "/privacidad", "/planes", "/planes/confirmacion"];
+const PUBLICAS = ["/", "/landing", "/login", "/registro", "/verificar", "/bienvenida", "/terminos", "/privacidad", "/planes", "/planes/confirmacion"];
 const PREFIJOS_PUBLICOS = ["/api/auth/", "/api/registro"];
 // Rutas de API sin sesión que se autorizan solas (los jobs de GitHub Actions con
 // Authorization: Bearer CRON_SECRET; el webhook de MercadoPago con la firma x-signature; ver cada ruta).
