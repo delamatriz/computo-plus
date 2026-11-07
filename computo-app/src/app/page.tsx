@@ -1,5 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { sesionActual } from "@/lib/sesion";
 import {
   ArrowRight,
   BookMarked,
@@ -17,9 +19,12 @@ import {
 import { GuardarOrigen } from "@/components/landing/GuardarOrigen";
 import { DIAS_PRUEBA } from "@/lib/config-prueba";
 
-// Landing pública de la raíz. Página estática: el único pedacito de cliente es
-// GuardarOrigen (guarda el ?o= para el registro). "Probalo gratis" va al
-// registro público (/registro → /verificar → /bienvenida); "Iniciar sesión" a /login.
+// Landing pública de la raíz. Con sesión iniciada no se muestra: va directo a
+// /inicio, igual que después del login (mismo chequeo que las páginas
+// protegidas, sesionActual()). Sin
+// sesión, el único pedacito de cliente es GuardarOrigen (guarda el ?o= para el
+// registro). "Probalo gratis" va al registro público (/registro → /verificar →
+// /bienvenida); "Iniciar sesión" a /login.
 
 const FEATURES = [
   {
@@ -127,7 +132,9 @@ function Marca({ className = "" }: { className?: string }) {
   );
 }
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  if (await sesionActual()) redirect("/inicio");
+
   return (
     <div className="min-h-screen bg-[#F0F4F8] text-[#1E293B]">
       <GuardarOrigen />
