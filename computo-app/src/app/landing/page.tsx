@@ -230,7 +230,7 @@ export default function LandingPage() {
             {FEATURES.map(({ icono: Icono, titulo, texto }) => (
               <div
                 key={titulo}
-                className="rounded-xl border border-[#BFDBFE]/30 bg-white/[0.09] p-6 sm:p-7 shadow-lg shadow-black/10 transition-colors hover:bg-white/[0.13]"
+                className="rounded-xl border border-[#BFDBFE]/25 bg-[#1E4A8A] p-6 sm:p-7 shadow-lg shadow-black/20 transition-colors hover:bg-[#23549B]"
               >
                 <span className="w-11 h-11 rounded-lg bg-white/10 flex items-center justify-center">
                   <Icono className="w-6 h-6 text-[#BFDBFE]" />
