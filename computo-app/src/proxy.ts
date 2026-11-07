@@ -1,8 +1,8 @@
 // Protección de rutas (Multi-tenant Fase 2, oct-2026). En Next 16 la
 // convención `middleware` pasó a llamarse `proxy` (corre en Node.js).
 //
-// Toda la app pide sesión, salvo la raíz ("/", que redirige a /login), la
-// landing pública (/landing), /login, /api/auth/* (NextAuth) y el registro público
+// Toda la app pide sesión, salvo la portada ("/", que tiene el modal de
+// login), la landing pública (/landing), /login (fallback), /api/auth/* (NextAuth) y el registro público
 // (/registro → /verificar → /bienvenida, sus APIs /api/registro/* y las
 // páginas legales). Sin sesión:
 //   - páginas → redirige a /login?callbackUrl=<la página pedida>

@@ -19,7 +19,7 @@ import {
 import { GuardarOrigen } from "@/components/landing/GuardarOrigen";
 import { DIAS_PRUEBA } from "@/lib/config-prueba";
 
-// Landing pública (/landing; la raíz / es el portal y va al login). Link de
+// Landing pública (/landing; la raíz / es la portada con el login). Link de
 // campañas: /landing?o=instagram. Con sesión iniciada no se muestra: va directo a
 // /inicio, igual que después del login (mismo chequeo que las páginas
 // protegidas, sesionActual()). Sin

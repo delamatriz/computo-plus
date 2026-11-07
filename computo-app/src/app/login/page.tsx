@@ -4,8 +4,9 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { FormularioLogin } from "@/components/FormularioLogin";
 
-// Login de la app. La raíz ("/") redirige acá, y también el proxy cuando se
-// pide una página sin sesión, con ?callbackUrl=<página pedida>.
+// Fallback del login: el flujo principal es el modal de la landing ("/").
+// Acá llega el proxy cuando se pide una página sin sesión, con
+// ?callbackUrl=<página pedida>.
 
 // Solo rutas internas ("/proyectos/..."): nunca redirigir a otro dominio que
 // venga en ?callbackUrl= (ni "//otro.com", que el navegador toma como externo).
@@ -15,7 +16,7 @@ function destinoSeguro(callbackUrl: string | null): string {
     const url = new URL(callbackUrl, window.location.origin);
     if (url.origin !== window.location.origin) return "/inicio";
     const destino = url.pathname + url.search + url.hash;
-    // "/" es el portal (vuelve al login): después del login va a la app.
+    // "/" es la landing: después del login va a la app.
     return destino === "/" ? "/inicio" : destino;
   } catch {
     return "/inicio";
