@@ -95,15 +95,19 @@ const MODULOS = [
 const PASOS = [
   {
     titulo: "Ingresá los datos de la obra",
-    texto: "Tipo de obra, metros cuadrados y ubicación. Con eso ya tenés una primera estimación.",
+    texto: "En Cálculo rápido ingresá el tipo de obra, los metros cuadrados y la ubicación. Con eso ya tenés una primera estimación.",
   },
   {
     titulo: "Revisá y ajustá el presupuesto",
-    texto: "Editá cantidades y precios de cada rubro; los totales se recalculan al instante.",
+    texto: "En Nuevo proyecto creá, revisá y ajustá el presupuesto. Editá cantidades y precios de cada rubro; los totales se recalculan al instante, con mano de obra, materiales y leyes sociales.",
   },
   {
     titulo: "Exportá y entregá al cliente",
-    texto: "Un presupuesto prolijo, con tu membrete, listo para mandar.",
+    texto: "Un presupuesto prolijo, con tu membrete y la memoria descriptiva, listo para mandar.",
+  },
+  {
+    titulo: "Organizá y llevá todo el proceso de la obra",
+    texto: "En Gestión de obra: cronograma, certificaciones de avance y órdenes de compra, todo conectado al presupuesto.",
   },
 ];
 
@@ -273,7 +277,7 @@ export default function LandingPage() {
       <section className="px-4 sm:px-6 py-20 sm:py-24 bg-white">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-center text-3xl sm:text-4xl font-bold tracking-tight text-[#1A3A5C]">¿Cómo funciona?</h2>
-          <ol className="mt-10 grid gap-6 md:grid-cols-3 md:gap-8">
+          <ol className="mt-10 grid gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
             {PASOS.map(({ titulo, texto }, i) => (
               <li key={titulo} className="flex gap-4">
                 <span className="w-10 h-10 shrink-0 rounded-full bg-[#2563EB] text-white text-sm font-bold flex items-center justify-center">
