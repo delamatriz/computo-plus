@@ -227,7 +227,7 @@ export default function LandingPage() {
           <div className="text-center max-w-2xl mx-auto">
             <p className="text-sm font-semibold uppercase tracking-wider text-[#93C5FD]">Todo en un solo lugar</p>
             <h2 className="mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-white">
-              Hecho para presupuestar obra en Uruguay
+              Hecho para presupuestar obras en Uruguay
             </h2>
           </div>
           <div className="mt-12 grid gap-4 sm:gap-6 md:grid-cols-3">
