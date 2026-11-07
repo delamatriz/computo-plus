@@ -181,7 +181,6 @@ export default function LandingPage() {
                 Probalo gratis {DIAS_PRUEBA} días
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <span className="text-sm text-white/60">Sin tarjeta de crédito</span>
             </div>
           </div>
 
