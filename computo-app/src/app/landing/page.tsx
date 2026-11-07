@@ -160,26 +160,29 @@ export default function LandingPage() {
         />
         <div className="absolute inset-0 bg-[rgba(10,25,47,0.72)]" aria-hidden />
 
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-16 sm:pt-24 sm:pb-20 flex flex-col items-center text-center">
-          <h1
-            className="font-bold text-white leading-[1.05] max-w-3xl"
-            style={{ fontSize: "clamp(2.3rem, 6vw, 4.2rem)", letterSpacing: "-0.035em" }}
-          >
-            Del cómputo al presupuesto en minutos
-          </h1>
-          <p className="mt-5 text-lg sm:text-xl text-white/80 max-w-xl">
-            ¿Cuántas horas perdés calculando un presupuesto?
-          </p>
-          <div className="mt-9 flex flex-col items-center gap-3">
-            <Link href="/registro" className={ctaPrimario}>
-              Probalo gratis {DIAS_PRUEBA} días
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <span className="text-sm text-white/60">Sin tarjeta de crédito</span>
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pb-20 sm:pt-24 sm:pb-24 flex flex-col items-center text-center">
+          {/* En mobile el título, el subtítulo y el CTA llenan la primera pantalla (100svh menos el header). */}
+          <div className="min-h-[calc(100svh-4rem)] sm:min-h-0 py-12 sm:py-0 flex flex-col items-center justify-center">
+            <h1
+              className="font-bold text-white leading-[1.05] max-w-3xl"
+              style={{ fontSize: "clamp(2.3rem, 6vw, 4.2rem)", letterSpacing: "-0.035em" }}
+            >
+              Del cómputo al presupuesto en minutos
+            </h1>
+            <p className="mt-5 text-lg sm:text-xl text-white/80 max-w-xl">
+              ¿Cuántas horas perdés calculando un presupuesto?
+            </p>
+            <div className="mt-9 flex flex-col items-center gap-3">
+              <Link href="/registro" className={ctaPrimario}>
+                Probalo gratis {DIAS_PRUEBA} días
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <span className="text-sm text-white/60">Sin tarjeta de crédito</span>
+            </div>
           </div>
 
           {/* Ilustración: presupuesto de ejemplo, como una planilla real */}
-          <div className="mt-14 w-full max-w-2xl text-left" aria-hidden>
+          <div className="sm:mt-14 w-full max-w-2xl text-left" aria-hidden>
             <div className="rounded-xl bg-white shadow-2xl shadow-black/40 overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -215,10 +218,10 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section className="px-4 sm:px-6 py-16 sm:py-20 bg-[#1A3A5C]">
+      <section className="px-4 sm:px-6 py-20 sm:py-24 bg-[#1A3A5C]">
         <div className="max-w-6xl mx-auto">
           <div className="text-center max-w-2xl mx-auto">
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#3B82F6]">Todo en un solo lugar</p>
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#93C5FD]">Todo en un solo lugar</p>
             <h2 className="mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-white">
               Hecho para presupuestar obra en Uruguay
             </h2>
@@ -227,10 +230,10 @@ export default function LandingPage() {
             {FEATURES.map(({ icono: Icono, titulo, texto }) => (
               <div
                 key={titulo}
-                className="rounded-xl border border-[#3B82F6]/25 bg-[#3B82F6]/[0.14] p-6 sm:p-7 transition-colors hover:bg-[#3B82F6]/[0.2]"
+                className="rounded-xl border border-[#BFDBFE]/30 bg-white/[0.09] p-6 sm:p-7 shadow-lg shadow-black/10 transition-colors hover:bg-white/[0.13]"
               >
-                <span className="w-11 h-11 rounded-lg border border-[#3B82F6]/35 bg-[#3B82F6]/20 flex items-center justify-center">
-                  <Icono className="w-5 h-5 text-[#3B82F6]" />
+                <span className="w-11 h-11 rounded-lg bg-white/10 flex items-center justify-center">
+                  <Icono className="w-6 h-6 text-[#BFDBFE]" />
                 </span>
                 <h3 className="mt-5 text-lg font-semibold text-white">{titulo}</h3>
                 <p className="mt-2 text-[15px] leading-relaxed text-slate-300">{texto}</p>
@@ -241,7 +244,7 @@ export default function LandingPage() {
       </section>
 
       {/* Módulos */}
-      <section className="px-4 sm:px-6 py-16 sm:py-20 bg-white">
+      <section className="px-4 sm:px-6 py-20 sm:py-24 bg-[#F0F4F8]">
         <div className="max-w-6xl mx-auto">
           <div className="text-center max-w-2xl mx-auto">
             <p className="text-sm font-semibold uppercase tracking-wider text-[#2563EB]">Módulos</p>
@@ -251,15 +254,15 @@ export default function LandingPage() {
           </div>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {MODULOS.map(({ icono: Icono, grupo, titulo, texto }) => (
-              <div key={titulo} className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-5 transition-colors hover:border-[#2563EB]/40">
+              <div key={titulo} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-md hover:border-[#2563EB]/40">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="w-10 h-10 rounded-lg bg-[#1A3A5C] flex items-center justify-center">
-                    <Icono className="w-5 h-5 text-[#3B82F6]" />
+                  <span className="w-11 h-11 rounded-lg bg-[#DBEAFE] flex items-center justify-center">
+                    <Icono className="w-6 h-6 text-[#2563EB]" />
                   </span>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{grupo}</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#4A7FA8]">{grupo}</span>
                 </div>
-                <h3 className="mt-4 text-base font-semibold text-[#1A3A5C]">{titulo}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{texto}</p>
+                <h3 className="mt-4 text-lg sm:text-xl font-semibold leading-snug text-[#1A3A5C]">{titulo}</h3>
+                <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{texto}</p>
               </div>
             ))}
           </div>
@@ -267,7 +270,7 @@ export default function LandingPage() {
       </section>
 
       {/* ¿Cómo funciona? */}
-      <section className="px-4 sm:px-6 py-14 sm:py-16 bg-[#F0F4F8]">
+      <section className="px-4 sm:px-6 py-20 sm:py-24 bg-white">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-center text-3xl sm:text-4xl font-bold tracking-tight text-[#1A3A5C]">¿Cómo funciona?</h2>
           <ol className="mt-10 grid gap-6 md:grid-cols-3 md:gap-8">
