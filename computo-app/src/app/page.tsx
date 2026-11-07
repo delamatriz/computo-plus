@@ -1,6 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, FileDown, Layers, Timer } from "lucide-react";
+import {
+  ArrowRight,
+  BookMarked,
+  CalendarRange,
+  ClipboardCheck,
+  FileDown,
+  HardHat,
+  Landmark,
+  Layers,
+  Ruler,
+  ShoppingCart,
+  Tags,
+  Timer,
+} from "lucide-react";
 import { GuardarOrigen } from "@/components/landing/GuardarOrigen";
 import { DIAS_PRUEBA } from "@/lib/config-prueba";
 
@@ -23,6 +36,58 @@ const FEATURES = [
     icono: FileDown,
     titulo: "Listo para entregar",
     texto: "Exportá PDF y Excel con tu membrete, sin trabajo extra.",
+  },
+];
+
+// Módulos de la app que se destacan en la landing (todos existen hoy).
+const MODULOS = [
+  {
+    icono: Ruler,
+    grupo: "Presupuesto",
+    titulo: "Visor de metrajes",
+    texto: "Medí sobre los planos y pasá las cantidades directo a cada rubro.",
+  },
+  {
+    icono: BookMarked,
+    grupo: "Presupuesto",
+    titulo: "Biblioteca de rubros propios",
+    texto: "Guardá tus rubros con su descompuesto y reusalos en cada obra.",
+  },
+  {
+    icono: Tags,
+    grupo: "Presupuesto",
+    titulo: "Precios del mercado uruguayo",
+    texto: "Lista MTOP y precios de barracas y proveedores locales.",
+  },
+  {
+    icono: HardHat,
+    grupo: "Presupuesto",
+    titulo: "Mano de obra según convenio",
+    texto: "Jornales SUNCA por categoría, al día con cada ajuste del convenio.",
+  },
+  {
+    icono: Landmark,
+    grupo: "Presupuesto",
+    titulo: "Leyes sociales",
+    texto: "Aporte AUC al BPS y fondos de la empresa según la normativa vigente.",
+  },
+  {
+    icono: CalendarRange,
+    grupo: "Gestión de obra",
+    titulo: "Cronograma",
+    texto: "Planificá la obra por capítulos y seguí el avance en el tiempo.",
+  },
+  {
+    icono: ClipboardCheck,
+    grupo: "Gestión de obra",
+    titulo: "Certificación de avance",
+    texto: "Certificá el avance de cada rubro y llevá el saldo de la obra.",
+  },
+  {
+    icono: ShoppingCart,
+    grupo: "Gestión de obra",
+    titulo: "Órdenes de compra",
+    texto: "Pedí los materiales a tus proveedores desde el presupuesto.",
   },
 ];
 
@@ -161,13 +226,39 @@ export default function LandingPage() {
             {FEATURES.map(({ icono: Icono, titulo, texto }) => (
               <div
                 key={titulo}
-                className="rounded-xl border border-white/10 bg-white/[0.03] p-6 sm:p-7 transition-colors hover:border-white/20"
+                className="rounded-xl border border-[#3B82F6]/25 bg-[#3B82F6]/[0.14] p-6 sm:p-7 transition-colors hover:bg-[#3B82F6]/[0.2]"
               >
-                <span className="w-11 h-11 rounded-lg border border-[#3B82F6]/30 bg-[#3B82F6]/10 flex items-center justify-center">
+                <span className="w-11 h-11 rounded-lg border border-[#3B82F6]/35 bg-[#3B82F6]/20 flex items-center justify-center">
                   <Icono className="w-5 h-5 text-[#3B82F6]" />
                 </span>
                 <h3 className="mt-5 text-lg font-semibold text-white">{titulo}</h3>
                 <p className="mt-2 text-[15px] leading-relaxed text-slate-300">{texto}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Módulos */}
+      <section className="px-4 sm:px-6 py-16 sm:py-20 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center max-w-2xl mx-auto">
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#2563EB]">Módulos</p>
+            <h2 className="mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-[#1A3A5C]">
+              Del primer metraje a la última certificación
+            </h2>
+          </div>
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {MODULOS.map(({ icono: Icono, grupo, titulo, texto }) => (
+              <div key={titulo} className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-5 transition-colors hover:border-[#2563EB]/40">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="w-10 h-10 rounded-lg bg-[#1A3A5C] flex items-center justify-center">
+                    <Icono className="w-5 h-5 text-[#3B82F6]" />
+                  </span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{grupo}</span>
+                </div>
+                <h3 className="mt-4 text-base font-semibold text-[#1A3A5C]">{titulo}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{texto}</p>
               </div>
             ))}
           </div>
