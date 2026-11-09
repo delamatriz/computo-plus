@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Calculator,
   Download,
-  FolderPlus,
   ChevronDown,
   RotateCcw,
   Loader2,
@@ -266,8 +265,6 @@ export default function CalcularPage() {
 
   const [fotos, setFotos] = useState<FotoSeleccionada[]>([]);
   const fotosInputRef = useRef<HTMLInputElement>(null);
-  const [iniciandoProyecto, setIniciandoProyecto] = useState(false);
-  const [avisoFotos, setAvisoFotos] = useState<string | null>(null);
   const [guardandoAnteproyecto, setGuardandoAnteproyecto] = useState(false);
   const [exportandoPDF, setExportandoPDF] = useState(false);
   const [errorPDF, setErrorPDF] = useState<string | null>(null);
@@ -1426,94 +1423,21 @@ export default function CalcularPage() {
                   </label>
                 )}
 
-                <button
-                  type="button"
-                  disabled={iniciandoProyecto || (proporcionBibliotecaBaja && !confirmoEstimacionLibre)}
-                  onClick={async () => {
-                    if (iniciandoProyecto || (proporcionBibliotecaBaja && !confirmoEstimacionLibre)) return;
-                    setIniciandoProyecto(true);
-                    setAvisoFotos(null);
-                    const href = esDescriptivo
-                      ? `/proyectos/nuevo?tipo=${tipo}&descripcion=${encodeURIComponent(descripcion)}`
-                      : esPH
-                      ? `/proyectos/nuevo?tipo=${tipo}&area=${areaTotal}`
-                      : `/proyectos/nuevo?tipo=${tipo}&area=${areaNum}`;
-
-                    try {
-                      sessionStorage.setItem("calculoRapido_descripcion", descripcion);
-                      // Nombre sugerido para el asistente; vacío o tipo no descriptivo → se deriva de la descripción.
-                      const nombreSugerido = esDescriptivo ? nombreCalculo.trim() : "";
-                      if (nombreSugerido) sessionStorage.setItem("calculoRapido_nombre", nombreSugerido);
-                      else sessionStorage.removeItem("calculoRapido_nombre");
-                      // %GG y %Beneficio que el usuario dejó cargados: el asistente los manda al crear el
-                      // proyecto (mismo criterio que "Guardar como anteproyecto").
-                      sessionStorage.setItem(
-                        "calculoRapido_porcentajes",
-                        JSON.stringify({ gastosGeneralesPct: pctGGNum, utilidadPct: pctBeneficioNum })
-                      );
-
-                      if (resultadoIA?.capitulos) {
-                        sessionStorage.setItem(
-                          "calculoRapido_resultado",
-                          JSON.stringify(resultadoIA.capitulos)
-                        );
-                      }
-
-                      const fotosBase64 = await Promise.all(
-                        fotos.map(async (f) => ({
-                          mediaType: "image/jpeg",
-                          data: await comprimirImagen(f.file),
-                        }))
-                      );
-                      sessionStorage.setItem("calculoRapido_fotos", JSON.stringify(fotosBase64));
-                      router.push(href);
-                    } catch (err) {
-                      console.error("[calcular] guardar fotos en sessionStorage", err);
-                      sessionStorage.removeItem("calculoRapido_fotos");
-                      if (fotos.length > 0) {
-                        setAvisoFotos(
-                          "Las fotos no pudieron transferirse. Podés agregarlas manualmente en el nuevo proyecto."
-                        );
-                        setTimeout(() => router.push(href), 1800);
-                      } else {
-                        router.push(href);
-                      }
-                    }
-                  }}
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white font-semibold text-sm transition-colors"
-                  style={{ boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.3)" }}
-                >
-                  {iniciandoProyecto ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <FolderPlus className="w-4 h-4" />
-                  )}
-                  Iniciar proyecto completo
-                </button>
-
-                {avisoFotos && (
-                  <p className="text-xs text-amber-600 text-center -mt-1">{avisoFotos}</p>
-                )}
-
                 {resultadoIA && (
-                  <>
-                    <p className="text-[11px] text-text-muted leading-relaxed text-center">
-                      &quot;Iniciar proyecto completo&quot; crea el proyecto con capítulos y rubros ya estimados, listo para ajustar. &quot;Guardar como anteproyecto&quot; guarda esta estimación como referencia rápida (sin capítulos ni rubros) — podés convertirlo en proyecto completo más adelante, cargando los rubros a mano.
-                    </p>
-                    <button
-                      type="button"
-                      disabled={guardandoAnteproyecto}
-                      onClick={guardarComoAnteproyecto}
-                      className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] border border-[#2563EB] text-[#2563EB] hover:bg-blue-50 disabled:opacity-60 font-semibold text-sm transition-colors"
-                    >
-                      {guardandoAnteproyecto ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Save className="w-4 h-4" />
-                      )}
-                      Guardar como anteproyecto
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    disabled={guardandoAnteproyecto}
+                    onClick={guardarComoAnteproyecto}
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-[12px] bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white font-semibold text-sm transition-colors"
+                    style={{ boxShadow: "0 4px 12px 0 rgb(37 99 235 / 0.3)" }}
+                  >
+                    {guardandoAnteproyecto ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    Guardar como anteproyecto
+                  </button>
                 )}
 
                 {errorAnteproyecto && (
