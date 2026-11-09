@@ -22,14 +22,14 @@ export function BannerTrialDashboard({
   const proyectosRestantes = Math.max(0, proyectosIALimite - proyectosIAUsados);
 
   return (
-    <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+    <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900 text-center">
       {/* Renglón 1: estado del trial */}
-      <div className="flex items-center gap-1.5 font-semibold text-blue-700">
+      <div className="flex items-center justify-center gap-1.5 font-semibold text-blue-700">
         <Gift className="w-4 h-4 flex-shrink-0" />
         Prueba gratuita · {diasRestantes} {diasRestantes === 1 ? "día" : "días"} restantes
       </div>
       {/* Renglón 2: cupos disponibles */}
-      <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-1.5 text-blue-800">
+      <div className="flex items-center justify-center gap-x-4 gap-y-1 flex-wrap mt-1.5 text-blue-800">
         <span className="flex items-center gap-1.5">
           <Zap className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
           {crRestantes === 0
