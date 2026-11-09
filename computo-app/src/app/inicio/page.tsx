@@ -21,7 +21,7 @@ export default async function InicioPage() {
   const diasRestantes = esPrueba && empresa.fechaVencimientoPrueba
     ? Math.max(0, Math.ceil((empresa.fechaVencimientoPrueba.getTime() - Date.now()) / 86_400_000))
     : null;
-  const mostrarBanner = esPrueba && diasRestantes !== null && diasRestantes > 10;
+  const mostrarBanner = esPrueba && diasRestantes !== null && diasRestantes >= 0;
   const [crUsados, iaUsados] = mostrarBanner
     ? await Promise.all([
         db.consumoFuncionesAsistidas.count({ where: { empresaId: sesion.empresaId, tipo: "calculo_rapido" } }),
