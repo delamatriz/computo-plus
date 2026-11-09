@@ -3490,6 +3490,7 @@ export default function ProyectoPage() {
   const [entregando, setEntregando] = useState(false);
   const [habilitandoEdicion, setHabilitandoEdicion] = useState(false);
   const [convirtiendoAnteproyecto, setConvirtiendoAnteproyecto] = useState(false);
+  const [modalConvertirPrueba, setModalConvertirPrueba] = useState(false);
   // Selector estándar (Lista estándar + escritura manual) abierto desde el
   // "+ Agregar capítulo" del final de la lista en la vista plana (≤1
   // título, también con el presupuesto vacío). Con 2+ títulos cada uno
@@ -4201,7 +4202,29 @@ export default function ProyectoPage() {
   // anteproyectos creados antes de que el nombre saliera del texto) y hay
   // texto del usuario, pasa a llamarse como ese texto. Un nombre que el
   // usuario ya cambió a mano no se toca.
+  // Interceptor: si la empresa está en PRUEBA y tiene cupo disponible,
+  // muestra un modal de confirmación antes de convertir.
+  const handleConvertirClick = async () => {
+    try {
+      const res = await fetch("/api/cuenta/estado");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.estado === "PRUEBA") {
+          const cupoDisponible = (data.cupos?.proyectoAsistido ?? 0) - (data.proyectosAsistidos ?? 0);
+          if (cupoDisponible > 0) {
+            setModalConvertirPrueba(true);
+            return;
+          }
+        }
+      }
+    } catch {
+      // Si falla el chequeo, dejar pasar (no bloquear la conversión)
+    }
+    convertirEnProyectoCompleto();
+  };
+
   const convertirEnProyectoCompleto = async () => {
+    setModalConvertirPrueba(false);
     setConvirtiendoAnteproyecto(true);
     try {
       const nombreDelTexto = nombreDesdeTexto(proyecto?.textoOriginalCalculoRapido);
@@ -6291,6 +6314,40 @@ export default function ProyectoPage() {
       {/* ── Modal "actualizar vigente vs. mantener pactado" — primer toque
           de cantidad/precioUnit en un rubro con precio ya pactado (ver
           pendienteDecisionPrecio en el render de las filas). ── */}
+      {/* Modal de confirmación — conversión en prueba gratuita */}
+      {modalConvertirPrueba && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-violet-100 flex items-center justify-center">
+                <HardHat className="w-4 h-4 text-violet-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-[#1A3A5C]">¿Convertir en proyecto completo?</h2>
+                <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">
+                  Vas a usar tu único proyecto disponible en la prueba gratuita. Una vez convertido, no podés crear otro proyecto completo hasta suscribirte.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                onClick={() => setModalConvertirPrueba(false)}
+                className="px-4 py-2 rounded-[8px] text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={convertirEnProyectoCompleto}
+                disabled={convirtiendoAnteproyecto}
+                className="px-4 py-2 rounded-[8px] bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {convirtiendoAnteproyecto ? "Convirtiendo…" : "Convertir igual"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalPrecioCongelado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-4">
@@ -6360,7 +6417,7 @@ export default function ProyectoPage() {
               </p>
             </div>
             <button
-              onClick={convertirEnProyectoCompleto}
+              onClick={handleConvertirClick}
               disabled={convirtiendoAnteproyecto}
               className="flex-shrink-0 px-3.5 py-2 rounded-[8px] bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
             >
