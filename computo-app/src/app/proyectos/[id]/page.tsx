@@ -4211,7 +4211,7 @@ export default function ProyectoPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.estado === "PRUEBA") {
-          const cupoDisponible = (data.cupos?.proyectoAsistido ?? 0) - (data.proyectosAsistidos ?? 0);
+          const cupoDisponible = (data.cupos?.proyectoAsistido ?? 0) - (Array.isArray(data.proyectosAsistidos) ? data.proyectosAsistidos.length : (data.proyectosAsistidos ?? 0));
           if (cupoDisponible > 0) {
             setModalConvertirPrueba(true);
             return;
