@@ -52,7 +52,7 @@ export default function RegistroPage() {
   return (
     <MarcoRegistro
       titulo="Creá tu cuenta"
-      subtitulo={`${DIAS_PRUEBA} días gratis, sin tarjeta.`}
+      subtitulo={`${DIAS_PRUEBA} días gratis.`}
       pie={
         <>
           ¿Ya tenés cuenta?{" "}
