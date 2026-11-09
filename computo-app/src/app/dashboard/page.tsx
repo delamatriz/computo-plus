@@ -13,6 +13,9 @@ import {
 } from "@/lib/resumenProyecto";
 import { redirect } from "next/navigation";
 import { fechaUruguay, partesFechaUruguay } from "@/lib/fechaUruguay";
+import { estadoEfectivo } from "@/lib/acceso";
+import { CUPO_CALCULOS_RAPIDOS, CUPO_PROYECTOS_ASISTIDOS } from "@/lib/config-prueba";
+import { BannerTrialDashboard } from "@/components/acceso/BannerTrialDashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +84,25 @@ export default async function DashboardPage() {
   // SUPERADMIN (la página /configuracion/revision-precios lo exige), así que
   // al resto ni se le cuenta ni se le muestra la tarjeta.
   const superadmin = await esSuperadmin(sesion);
+
+  // Datos del trial — solo se consultan si la empresa está en PRUEBA.
+  const empresaTrial = await db.empresa.findUnique({
+    where: { id: sesion.empresaId },
+    select: { estado: true, fechaVencimientoPrueba: true },
+  });
+  const esPrueba = empresaTrial && estadoEfectivo(empresaTrial) === "PRUEBA";
+  const diasRestantesTrial = esPrueba && empresaTrial.fechaVencimientoPrueba
+    ? Math.max(0, Math.ceil((empresaTrial.fechaVencimientoPrueba.getTime() - Date.now()) / 86_400_000))
+    : null;
+  // Solo mostrar el banner de bienvenida cuando quedan más de 10 días (con ≤10 ya aparece AvisoPrueba en el header)
+  const mostrarBannerTrial = esPrueba && diasRestantesTrial !== null && diasRestantesTrial > 10;
+  const [cuposCR, cuposIA] = mostrarBannerTrial
+    ? await Promise.all([
+        db.consumoFuncionesAsistidas.count({ where: { empresaId: sesion.empresaId, tipo: "calculo_rapido" } }),
+        db.consumoFuncionesAsistidas.count({ where: { empresaId: sesion.empresaId, tipo: "proyecto_ia" } }),
+      ])
+    : [0, 0];
+
   const [proyectos, materialesPendientes, obrasEnCurso] = await Promise.all([
     db.proyecto.findMany({
       where: { empresaId: sesion.empresaId },
@@ -157,6 +179,17 @@ export default async function DashboardPage() {
           <Settings className="w-3.5 h-3.5" /> Configuración
         </Link>
       </div>
+
+      {/* Banner trial — solo empresas en PRUEBA con más de 10 días restantes */}
+      {mostrarBannerTrial && diasRestantesTrial !== null && (
+        <BannerTrialDashboard
+          diasRestantes={diasRestantesTrial}
+          crUsados={cuposCR}
+          crLimite={CUPO_CALCULOS_RAPIDOS}
+          proyectosIAUsados={cuposIA}
+          proyectosIALimite={CUPO_PROYECTOS_ASISTIDOS}
+        />
+      )}
 
       {/* Tarjetas KPI — 3 estados (PAUSADO afuera, inalcanzable) + total por moneda + cola de revisión (solo SUPERADMIN) */}
       <div className={`grid grid-cols-2 md:grid-cols-3 gap-4 mb-8 ${superadmin ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
