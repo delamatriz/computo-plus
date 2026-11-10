@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   BookMarked,
+  ChevronDown,
   CalendarRange,
   ClipboardCheck,
   FileDown,
@@ -181,6 +182,10 @@ export default function LandingPage() {
                 Probalo gratis {DIAS_PRUEBA} días
                 <ArrowRight className="w-4 h-4" />
               </Link>
+            </div>
+            {/* Indicador de scroll — solo visible en mobile donde la hero llena la pantalla */}
+            <div className="sm:hidden mt-6 flex flex-col items-center">
+              <ChevronDown className="w-7 h-7 text-white/50 animate-bounce" />
             </div>
           </div>
 
