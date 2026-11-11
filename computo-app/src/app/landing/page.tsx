@@ -103,6 +103,14 @@ const PASOS = [
     texto: "En Nuevo proyecto creá, revisá y ajustá el presupuesto. Editá cantidades y precios de cada rubro; los totales se recalculan al instante, con mano de obra, materiales y leyes sociales.",
   },
   {
+    titulo: "Visor de metrajes",
+    texto: "Subí los planos en PDF y medí directamente sobre ellos. Las cantidades pasan a cada rubro con un clic, sin planillas aparte ni copiar números a mano.",
+  },
+  {
+    titulo: "Descompuesto de cada rubro",
+    texto: "Cada rubro tiene su propio descompuesto: cantidad de materiales, dosificación y rendimientos, mano de obra por categoría SUNCA y leyes sociales incluidas. Ajustá cualquier valor y el total se recalcula al instante.",
+  },
+  {
     titulo: "Exportá y entregá al cliente",
     texto: "Un presupuesto prolijo, con tu membrete y la memoria descriptiva, listo para mandar.",
   },
