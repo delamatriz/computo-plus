@@ -167,7 +167,7 @@ export default function LandingPage() {
 
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pb-20 sm:pt-24 sm:pb-24 flex flex-col items-center text-center">
           {/* En mobile el título, el subtítulo y el CTA llenan la primera pantalla (100svh menos el header). */}
-          <div className="min-h-[calc(100svh-4rem)] sm:min-h-0 py-12 sm:py-0 flex flex-col items-center justify-center">
+          <div className="relative min-h-[calc(100svh-4rem)] sm:min-h-0 py-12 sm:py-0 flex flex-col items-center justify-center">
             <h1
               className="font-bold text-white leading-[1.05] max-w-3xl"
               style={{ fontSize: "clamp(2.3rem, 6vw, 4.2rem)", letterSpacing: "-0.035em" }}
@@ -183,9 +183,9 @@ export default function LandingPage() {
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
-            {/* Indicador de scroll — solo visible en mobile donde la hero llena la pantalla */}
-            <div className="sm:hidden mt-6 flex flex-col items-center">
-              <ChevronDown className="w-7 h-7 text-white/50 animate-bounce" />
+            {/* Indicador de scroll — pegado al fondo, solo en mobile */}
+            <div className="sm:hidden absolute bottom-6 left-0 right-0 flex justify-center">
+              <ChevronDown className="w-8 h-8 text-white/60 animate-bounce" />
             </div>
           </div>
 
