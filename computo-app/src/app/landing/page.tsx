@@ -183,10 +183,10 @@ export default function LandingPage() {
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
-            {/* Indicador de scroll — pegado al fondo, solo en mobile */}
-            <div className="sm:hidden absolute bottom-6 left-0 right-0 flex justify-center">
-              <ChevronDown className="w-8 h-8 text-white/60 animate-bounce" />
-            </div>
+          </div>
+          {/* Indicador de scroll — fijo al fondo de la pantalla, solo en mobile */}
+          <div className="sm:hidden fixed bottom-8 left-0 right-0 z-10 flex justify-center pointer-events-none">
+            <ChevronDown className="w-9 h-9 text-white/70 animate-bounce drop-shadow-lg" />
           </div>
 
           {/* Ilustración: presupuesto de ejemplo, como una planilla real */}
