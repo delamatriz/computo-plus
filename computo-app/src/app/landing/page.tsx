@@ -65,7 +65,7 @@ const MODULOS = [
     icono: HardHat,
     grupo: "Presupuesto",
     titulo: "Mano de obra según convenio",
-    texto: "Jornales SUNCA por categoría, al día con cada ajuste del convenio.",
+    texto: "Jornales por categoría, al día con cada ajuste del convenio.",
   },
   {
     icono: Landmark,
