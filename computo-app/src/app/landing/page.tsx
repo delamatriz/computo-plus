@@ -108,7 +108,7 @@ const PASOS = [
   },
   {
     titulo: "Descompuesto de cada rubro",
-    texto: "Cada rubro tiene su propio descompuesto: cantidad de materiales, dosificación y rendimientos, mano de obra por categoría SUNCA y leyes sociales incluidas. Ajustá cualquier valor y el total se recalcula al instante.",
+    texto: "Cada rubro tiene su propio descompuesto: cantidad de materiales, dosificación y rendimientos, mano de obra por categoría y leyes sociales incluidas. Ajustá cualquier valor y el total se recalcula al instante.",
   },
   {
     titulo: "Exportá y entregá al cliente",
