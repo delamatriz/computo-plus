@@ -161,14 +161,6 @@ function FilaAporte({
         <span className={cn("text-sm", destacado ? "font-bold text-[#1A3A5C] uppercase tracking-wide text-xs" : "text-slate-700")}>
           {concepto}
         </span>
-        {base != null && (
-          <span
-            title={`${fmtMoneda(base, moneda)} × ${fmtPct(pct)}% = ${fmtMoneda(monto, moneda)}`}
-            className="inline-flex align-middle ml-1 flex-shrink-0 cursor-help"
-          >
-            <Info className="w-3 h-3 text-slate-300 hover:text-slate-500 transition-colors" />
-          </span>
-        )}
         {nota && <NotaInfoIcono texto={nota} />}
       </div>
       <div className="text-[11px] text-slate-400 tabular-nums mr-auto sm:mr-0 flex items-center gap-0.5" style={{ width: 64 }}>
