@@ -51,9 +51,21 @@ interface Props {
   desgloseMOPorCapitulo?: { capituloId: string; nombre: string; codigo?: string; monto: number }[];
 }
 
-// Tooltip del FOCER patronal (junto a su input).
+// Tooltips de los fondos patronales de la empresa (Cód. = código de partida BPS).
 const NOTA_FOCER =
-  "FOCER patronal: 5% por defecto. Corresponde 0,5% si el trabajador tiene derecho a indemnización por despido y la empresa lo declara (declaración jurada). Al cambiarlo, los rubros ya creados no se modifican: usá 'Aplicar aportes patronales a rubros existentes'.";
+  "FOCER (Fondo de Cesantía y Retiro): aporte patronal de la empresa al BPS. 5% por defecto; corresponde 0,5% si el trabajador tiene derecho a indemnización por despido y la empresa lo declara (declaración jurada). Cód. 145 es el código de partida BPS con el que se liquida. Al cambiarlo, los rubros ya creados no se modifican: usá 'Aplicar aportes patronales a rubros existentes'.";
+
+const NOTA_FSC_FOCAP =
+  "FSC/FOCAP (Fondo de Subsidio por Enfermedad Común + Fondo de Capacitación): aportes patronales al BPS que financian el subsidio por enfermedad y la capacitación de los trabajadores de la construcción. Se liquidan juntos bajo el Cód. 34.";
+
+const NOTA_FOSVOC =
+  "FOSVOC (Fondo Social de Vivienda Obrera de la Construcción): aporte patronal destinado al financiamiento de viviendas para trabajadores de la construcción. Cód. 43 es el código de partida BPS.";
+
+const NOTA_FRL =
+  "FRL (Fondo de Reconversión Laboral): aporte patronal al INEFOP para financiar la recapacitación de trabajadores de la construcción. Cód. 47 es el código de partida BPS.";
+
+const NOTA_FDO_GARANTIA =
+  "Fondo de Garantía de Créditos Laborales: aporte patronal que garantiza el cobro de créditos laborales (salarios, licencias, aguinaldo) ante la insolvencia del empleador. Cód. 49 es el código de partida BPS.";
 
 // Vista previa de POST /api/proyectos/[id]/propagar-aportes-patronales (dryRun).
 interface PreviewAportes {
@@ -160,7 +172,11 @@ function FilaAporte({
         {nota && <NotaInfoIcono texto={nota} />}
       </div>
       <div className="text-[11px] text-slate-400 tabular-nums mr-auto sm:mr-0" style={{ width: 56 }}>
-        Cód. {codigo}
+        {codigo ? (
+          <span title="Código de partida BPS: número con el que se identifica este aporte en la planilla de aportes al BPS (formulario de liquidación mensual)." className="cursor-help border-b border-dotted border-slate-300">
+            Cód. {codigo}
+          </span>
+        ) : null}
       </div>
       <div className="text-right" style={{ width: 80 }}>
         {onPctChange ? (
@@ -595,10 +611,10 @@ export default function SeccionLeyesSociales({
                     <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Empresa paga</span>
                   </div>
                   <FilaAporte concepto="FOCER patronal"           codigo="145" pct={data.focerPatronalPct} onPctChange={(v) => set("focerPatronalPct", v)} monto={montoFocerPatronal} moneda={moneda} base={base} nota={NOTA_FOCER} />
-                  <FilaAporte concepto="FSC/FOCAP"                codigo="34"  pct={data.fscFocapPct}      onPctChange={(v) => set("fscFocapPct", v)}      monto={montoFscFocap}      moneda={moneda} base={base} />
-                  <FilaAporte concepto="FOSVOC"                   codigo="43"  pct={data.fosvocPct}        onPctChange={(v) => set("fosvocPct", v)}        monto={montoFosvoc}        moneda={moneda} base={base} />
-                  <FilaAporte concepto="FRL"                      codigo="47"  pct={data.frlPct}           onPctChange={(v) => set("frlPct", v)}           monto={montoFrl}           moneda={moneda} base={base} />
-                  <FilaAporte concepto="Fdo. Garantía Créd. Lab." codigo="49"  pct={data.fondoGarantiaPct} onPctChange={(v) => set("fondoGarantiaPct", v)} monto={montoFondoGarantia} moneda={moneda} base={base} />
+                  <FilaAporte concepto="FSC/FOCAP"                codigo="34"  pct={data.fscFocapPct}      onPctChange={(v) => set("fscFocapPct", v)}      monto={montoFscFocap}      moneda={moneda} base={base} nota={NOTA_FSC_FOCAP} />
+                  <FilaAporte concepto="FOSVOC"                   codigo="43"  pct={data.fosvocPct}        onPctChange={(v) => set("fosvocPct", v)}        monto={montoFosvoc}        moneda={moneda} base={base} nota={NOTA_FOSVOC} />
+                  <FilaAporte concepto="FRL"                      codigo="47"  pct={data.frlPct}           onPctChange={(v) => set("frlPct", v)}           monto={montoFrl}           moneda={moneda} base={base} nota={NOTA_FRL} />
+                  <FilaAporte concepto="Fdo. Garantía Créd. Lab." codigo="49"  pct={data.fondoGarantiaPct} onPctChange={(v) => set("fondoGarantiaPct", v)} monto={montoFondoGarantia} moneda={moneda} base={base} nota={NOTA_FDO_GARANTIA} />
                   <FilaAporte concepto="TOTAL Empresa" codigo="" pct={pctTotalEmpresa} monto={totalEmpresa} moneda={moneda} destacado />
                   <div className="px-4 py-3 border-t border-slate-100">
                     <button
