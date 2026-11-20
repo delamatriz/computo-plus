@@ -171,11 +171,15 @@ function FilaAporte({
         )}
         {nota && <NotaInfoIcono texto={nota} />}
       </div>
-      <div className="text-[11px] text-slate-400 tabular-nums mr-auto sm:mr-0" style={{ width: 56 }}>
+      <div className="text-[11px] text-slate-400 tabular-nums mr-auto sm:mr-0 flex items-center gap-0.5" style={{ width: 64 }}>
         {codigo ? (
-          <span title="Código de partida BPS: número con el que se identifica este aporte en la planilla de aportes al BPS (formulario de liquidación mensual)." className="cursor-help border-b border-dotted border-slate-300">
-            Cód. {codigo}
-          </span>
+          <>
+            <span>Cód. {codigo}</span>
+            <NotaInfoIcono
+              texto={`Código de partida BPS ${codigo}: número con el que se identifica este aporte en la planilla de liquidación mensual de aportes al BPS.`}
+              ancho={240}
+            />
+          </>
         ) : null}
       </div>
       <div className="text-right" style={{ width: 80 }}>
