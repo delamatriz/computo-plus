@@ -18,6 +18,7 @@ export interface LeyesSocialesData {
   fosvocPct: number;
   frlPct: number;
   fondoGarantiaPct: number;
+  horasLluviaPct: number;
   snisAdicionalPct: number;
   focerPersonalPct: number;
   // Caja de Profesionales (Ley 17.738) — informativa, sin efecto en ningún
@@ -66,6 +67,9 @@ const NOTA_FRL =
 
 const NOTA_FDO_GARANTIA =
   "Fondo de Garantía de Créditos Laborales: aporte patronal que garantiza el cobro de créditos laborales (salarios, licencias, aguinaldo) ante la insolvencia del empleador. Cód. 49 es el código de partida BPS.";
+
+const NOTA_HORAS_LLUVIA =
+  "Horas de lluvia y barro (Convenio SUNCA, art. 9 del convenio 2023): cuando llueve, el capataz puede suspender las tareas. El obrero cobra igual hasta 6 horas por jornada, descontadas de una bolsa cuatrimestral (36 h nov–feb / 48 h mar–jun / 60 h jul–oct). Más horas adicionales por barro (6/8/10 h por cuatrimestre). Es un costo real de mano de obra, no un aporte BPS.\n\nReferencia orientativa: obra de verano ~5%, obra de otoño/invierno ~10%, obra anual ~8%. Ajustá según la época de la obra.";
 
 // Vista previa de POST /api/proyectos/[id]/propagar-aportes-patronales (dryRun).
 interface PreviewAportes {
@@ -321,14 +325,15 @@ export default function SeccionLeyesSociales({
   const montoFosvoc        = base * data.fosvocPct;
   const montoFrl           = base * data.frlPct;
   const montoFondoGarantia = base * data.fondoGarantiaPct;
+  const montoHorasLluvia   = base * data.horasLluviaPct;
   // SNIS adicional ya NO es patronal: es un aporte personal variable del
   // trabajador (ver aportesPatronales.ts) — vive en "Retención personal".
   const pctTotalEmpresa =
     data.focerPatronalPct + data.fscFocapPct + data.fosvocPct +
-    data.frlPct + data.fondoGarantiaPct;
+    data.frlPct + data.fondoGarantiaPct + data.horasLluviaPct;
   const totalEmpresa =
     montoFocerPatronal + montoFscFocap + montoFosvoc +
-    montoFrl + montoFondoGarantia;
+    montoFrl + montoFondoGarantia + montoHorasLluvia;
 
   // Retención personal (informativa, no entra al precio)
   const montoFocerPersonal = base * data.focerPersonalPct;
@@ -611,6 +616,12 @@ export default function SeccionLeyesSociales({
                   <FilaAporte concepto="FOSVOC"                   codigo="43"  pct={data.fosvocPct}        onPctChange={(v) => set("fosvocPct", v)}        monto={montoFosvoc}        moneda={moneda} base={base} nota={NOTA_FOSVOC} />
                   <FilaAporte concepto="FRL"                      codigo="47"  pct={data.frlPct}           onPctChange={(v) => set("frlPct", v)}           monto={montoFrl}           moneda={moneda} base={base} nota={NOTA_FRL} />
                   <FilaAporte concepto="Fdo. Garantía Créd. Lab." codigo="49"  pct={data.fondoGarantiaPct} onPctChange={(v) => set("fondoGarantiaPct", v)} monto={montoFondoGarantia} moneda={moneda} base={base} nota={NOTA_FDO_GARANTIA} />
+                  {/* Horas de lluvia y barro — costo laboral real del convenio,
+                      separado de los aportes BPS con subtítulo y divisor visual. */}
+                  <div className="px-4 pt-3 pb-0.5 border-t border-slate-100 mt-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Otros costos laborales</span>
+                  </div>
+                  <FilaAporte concepto="Horas de lluvia y barro" codigo="" pct={data.horasLluviaPct} onPctChange={(v) => set("horasLluviaPct", v)} monto={montoHorasLluvia} moneda={moneda} base={base} nota={NOTA_HORAS_LLUVIA} />
                   <FilaAporte concepto="TOTAL Empresa" codigo="" pct={pctTotalEmpresa} monto={totalEmpresa} moneda={moneda} destacado />
                   <div className="px-4 py-3 border-t border-slate-100">
                     <button

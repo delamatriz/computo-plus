@@ -3849,6 +3849,7 @@ export default function ProyectoPage() {
           fosvocPct:        data.fosvocPct        ?? LEYES_SOCIALES_DEFAULTS_FRACCION.fosvocPct,
           frlPct:           data.frlPct           ?? LEYES_SOCIALES_DEFAULTS_FRACCION.frlPct,
           fondoGarantiaPct: data.fondoGarantiaPct ?? LEYES_SOCIALES_DEFAULTS_FRACCION.fondoGarantiaPct,
+          horasLluviaPct:   data.horasLluviaPct   ?? LEYES_SOCIALES_DEFAULTS_FRACCION.horasLluviaPct,
           snisAdicionalPct: data.snisAdicionalPct ?? LEYES_SOCIALES_DEFAULTS_FRACCION.snisAdicionalPct,
           focerPersonalPct: data.focerPersonalPct ?? LEYES_SOCIALES_DEFAULTS_FRACCION.focerPersonalPct,
           cajaProfesionalesTipo: normalizarTipoCaja(data.cajaProfesionalesTipo),
