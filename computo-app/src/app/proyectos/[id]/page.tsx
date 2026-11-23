@@ -45,7 +45,6 @@ import { fmtUR, montoEnUR } from "@/lib/monedaUR";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionLeyesSocialesPublica from "@/components/SeccionLeyesSocialesPublica";
-import SeccionComplementosSalariales from "@/components/SeccionComplementosSalariales";
 import SeccionResumenPresupuesto from "@/components/SeccionResumenPresupuesto";
 import SeccionGastosGeneralesUtilidades, {
   CategoriaGastoGeneral,
@@ -6775,29 +6774,24 @@ export default function ProyectoPage() {
         <TarjetaCostoDirecto
           moneda={moneda}
           costoDirecto={costoDirectoConComplementos}
+          costoDirectoBase={costoDirectoAgregado.total}
           metodoCostoDirecto={costoDirectoAgregado.metodo}
           rubrosSinApu={costoDirectoAgregado.rubrosSinApu}
           rubrosSinApuDetalle={rubrosSinApuDetalle}
+          complementos={leyesSociales && !esObraPublica ? {
+            montoImponibleMO:         leyesSociales.montoImponibleMO,
+            horasLluviaPct:           leyesSociales.horasLluviaPct,
+            desgasteRopaPct:          leyesSociales.desgasteRopaPct,
+            desgasteHerramientasPct:  leyesSociales.desgasteHerramientasPct,
+            complementoTransportePct: leyesSociales.complementoTransportePct,
+            onChangeHorasLluvia:      (v) => setLeyesSociales({ ...leyesSociales, horasLluviaPct: v }),
+            onChangeDesgasteRopa:     (v) => setLeyesSociales({ ...leyesSociales, desgasteRopaPct: v }),
+            onChangeDesgasteHerramientas: (v) => setLeyesSociales({ ...leyesSociales, desgasteHerramientasPct: v }),
+            onChangeTransporte:       (v) => setLeyesSociales({ ...leyesSociales, complementoTransportePct: v }),
+            onGuardar:                guardarLeyesSociales,
+            guardando:                guardandoLeyes,
+          } : undefined}
         />
-
-        {/* Complementos salariales — Convenio SUNCA, pagos al obrero en recibo.
-            Son costo directo del empleador, se muestran aquí (antes de Gastos
-            Generales) y suman al Costo Directo. */}
-        {leyesSociales && !esObraPublica && (
-          <SeccionComplementosSalariales
-            moneda={moneda}
-            data={{
-              montoImponibleMO:        leyesSociales.montoImponibleMO,
-              horasLluviaPct:          leyesSociales.horasLluviaPct,
-              desgasteRopaPct:         leyesSociales.desgasteRopaPct,
-              desgasteHerramientasPct: leyesSociales.desgasteHerramientasPct,
-              complementoTransportePct:leyesSociales.complementoTransportePct,
-            }}
-            onChange={(d) => setLeyesSociales({ ...leyesSociales, ...d })}
-            onGuardar={guardarLeyesSociales}
-            guardando={guardandoLeyes}
-          />
-        )}
 
         <SeccionGastosGeneralesUtilidades
           proyectoId={proyectoId}

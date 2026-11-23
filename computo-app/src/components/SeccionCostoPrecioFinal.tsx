@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, ChevronDown, Layers } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Layers, Users } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { RESERVA_COLA_TABLA } from "@/lib/layoutTablaPresupuesto";
 import { PALETA } from "@/lib/paletaPresupuesto";
+import { NotaInfoIcono } from "@/components/NotaInfoIcono";
 
 function fmtMoneda(v: number, moneda: string): string {
   if (!v) return "—";
@@ -75,6 +77,54 @@ function TarjetaSuelta({
   );
 }
 
+// ── Tooltips complementos (mismo texto que SeccionComplementosSalariales) ─────
+const NOTA_HORAS_LLUVIA =
+  "Horas de lluvia y barro (Convenio SUNCA, art. 9 conv. 2023): cuando llueve, el capataz puede suspender las tareas. El obrero cobra igual hasta 6 horas por jornada, descontadas de una bolsa cuatrimestral (36 h nov–feb / 48 h mar–jun / 60 h jul–oct). Más horas adicionales por barro (6/8/10 h por cuatrimestre). Se paga en el recibo del obrero, no al BPS.\n\nReferencia orientativa: obra de verano ~5%, obra de otoño/invierno ~10%, obra anual ~8%. Ajustá según la época de la obra.";
+const NOTA_DESGASTE_ROPA =
+  "Desgaste de ropa de trabajo (Convenio SUNCA, art. 7): la empresa paga al obrero un complemento por el desgaste de la ropa que usa en obra. Se liquida en el recibo junto al jornal, no al BPS. Default 5% sobre el monto imponible (aproximación práctica); el valor exacto depende del jornal de referencia × jornadas trabajadas.";
+const NOTA_DESGASTE_HERRAMIENTAS =
+  "Desgaste de herramientas manuales (Convenio SUNCA, art. 8): la empresa paga al obrero un complemento por el uso y desgaste de sus herramientas personales (cuchara, llana, mazo, etc.). Se liquida en el recibo, no al BPS. Default 2% sobre el monto imponible.";
+const NOTA_TRANSPORTE =
+  "Complemento de transporte (Convenio SUNCA, art. 10): pago al obrero por el costo del transporte hasta la obra. 4,37% del jornal de referencia por jornada trabajada. Se liquida en el recibo, no al BPS. Default 4,37% sobre el monto imponible (aproximación práctica).";
+
+function fmtPct(v: number): string {
+  return (v * 100).toLocaleString("es-UY", { minimumFractionDigits: 1, maximumFractionDigits: 4 });
+}
+
+function PctInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <input
+        type="number"
+        step="any"
+        value={value === 0 ? "" : String(Number((value * 100).toFixed(4)))}
+        onChange={(e) => {
+          const n = parseFloat(e.target.value);
+          onChange(isNaN(n) ? 0 : n / 100);
+        }}
+        className="w-14 text-right text-sm font-semibold text-slate-600 bg-transparent border-b border-dashed border-slate-300 focus:outline-none focus:border-[#2563EB] focus:text-[#2563EB] tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      <span className="text-xs text-slate-400">%</span>
+    </span>
+  );
+}
+
+// Props de complementos salariales opcionales — solo se muestran cuando
+// la obra no es pública y hay leyes sociales cargadas.
+export interface ComplementosSalarialesProps {
+  montoImponibleMO: number;
+  horasLluviaPct: number;
+  desgasteRopaPct: number;
+  desgasteHerramientasPct: number;
+  complementoTransportePct: number;
+  onChangeHorasLluvia: (v: number) => void;
+  onChangeDesgasteRopa: (v: number) => void;
+  onChangeDesgasteHerramientas: (v: number) => void;
+  onChangeTransporte: (v: number) => void;
+  onGuardar: () => Promise<void>;
+  guardando: boolean;
+}
+
 // 1ra tarjeta de la cascada — Costo Directo agregado del proyecto (Σ
 // Materiales + Mano de Obra con Aportes Patronales + Equipos de cada
 // rubro). "Gastos Generales y Beneficio" (componente aparte, con su propio
@@ -90,12 +140,19 @@ export interface RubroSinApuDetalle {
 export function TarjetaCostoDirecto({
   moneda,
   costoDirecto,
+  costoDirectoBase,
+  complementos,
   metodoCostoDirecto,
   rubrosSinApu,
   rubrosSinApuDetalle,
 }: {
   moneda: string;
+  /** Total con complementos incluidos (lo que muestra el header). */
   costoDirecto: number;
+  /** Solo los rubros de obra, sin complementos (para la fila de desglose). */
+  costoDirectoBase: number;
+  /** Props de complementos — undefined en obra pública o sin leyes cargadas. */
+  complementos?: ComplementosSalarialesProps;
   // "estimado" si al menos un rubro no tiene APU propio (ver
   // calcularCostoDirectoAgregado en costoAgregado.ts) — ese rubro entra
   // completo como Costo Directo, sin poder separar cuánto sería Utilidad.
@@ -104,6 +161,8 @@ export function TarjetaCostoDirecto({
   /** Los mismos rubros que cuenta rubrosSinApu, con su ubicación. */
   rubrosSinApuDetalle: RubroSinApuDetalle[];
 }) {
+  const hayComplementos = !!complementos;
+  const [desglosAbierto, setDesglosAbierto] = useState(false);
   // Panel del aviso ámbar: se abre al pasar el mouse o al tocarlo, y se cierra al tocar afuera,
   // con Esc o tocando el aviso otra vez. Si se abrió solo por el hover, se vuelve a cerrar al sacar
   // el mouse (con una pequeña demora para poder cruzar del aviso a la lista); un clic mientras está
@@ -150,6 +209,16 @@ export function TarjetaCostoDirecto({
     };
   }, [panelAbierto]);
 
+  // Cálculo de complementos para el desglose interno
+  const totalComplementos = complementos
+    ? complementos.montoImponibleMO * (
+        complementos.horasLluviaPct +
+        complementos.desgasteRopaPct +
+        complementos.desgasteHerramientasPct +
+        complementos.complementoTransportePct
+      )
+    : 0;
+
   return (
     <div className="flex flex-col gap-2 mt-2">
       {metodoCostoDirecto === "estimado" && (
@@ -157,7 +226,6 @@ export function TarjetaCostoDirecto({
           <button
             type="button"
             onClick={() => {
-              // Abierto solo por el hover: el clic lo deja fijo en vez de cerrarlo.
               if (abiertoPorHover.current) {
                 abiertoPorHover.current = false;
                 return;
@@ -176,13 +244,6 @@ export function TarjetaCostoDirecto({
               className={`w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5 transition-transform ${panelAbierto ? "rotate-180" : ""}`}
             />
           </button>
-          {/* Panel: la explicación (cada afirmación verificada en el código —
-              entra en Costo Directo y totales, calcularCostoDirectoAgregado;
-              no lo toca "Actualizar por fórmula paramétrica", queda como
-              sinDesglose en aplicar-precios-vigentes; ni "Aplicar X% a
-              rubros existentes", propagar-utilidad saltea los rubros sin APU;
-              SÍ lo ajusta "Actualizar por ICCV", que aplica el factor a todos
-              los precioUnit) y después la lista de rubros con su ubicación. */}
           {panelAbierto && (
             <div className="absolute left-0 top-full mt-2 z-20 w-[26rem] max-w-full rounded-[10px] border border-slate-200 bg-white shadow-lg">
               <p className="px-4 pt-3 pb-3 text-xs leading-relaxed text-slate-600 border-b border-slate-100">
@@ -205,20 +266,142 @@ export function TarjetaCostoDirecto({
           )}
         </div>
       )}
-      {/* Mismo peso tipográfico que el header de "Gastos Generales y
-          Beneficio" (icono + título bold azul oscuro uppercase) — el
-          monto va en negro, no azul: el azul acento (#2563EB) queda
-          reservado solo para Precio Final y Leyes Sociales/BPS, las
-          únicas 2 tarjetas de la cascada que lo llevan. */}
-      <div className="bg-white border border-slate-200 rounded-lg px-5 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <Layers className="w-4 h-4 text-[#2563EB]" />
-          <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Costo Directo</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold text-slate-900 tabular-nums">{fmtMoneda(costoDirecto, moneda)}</span>
-          <EspaciadorChevron />
-        </div>
+
+      {/* Tarjeta Costo Directo — colapsable si hay complementos */}
+      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        {/* Header — siempre visible */}
+        <button
+          type="button"
+          onClick={() => hayComplementos && setDesglosAbierto((v) => !v)}
+          className={`w-full flex items-center justify-between px-5 py-3.5 text-left ${hayComplementos ? "hover:bg-slate-50 transition-colors cursor-pointer group" : "cursor-default"}`}
+          disabled={!hayComplementos}
+        >
+          <div className="flex items-center gap-2.5">
+            <Layers className="w-4 h-4 text-[#2563EB]" />
+            <span className="text-sm font-bold text-[#1A3A5C] uppercase tracking-wide">Costo Directo</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-slate-900 tabular-nums">{fmtMoneda(costoDirecto, moneda)}</span>
+            {hayComplementos && (
+              <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
+                {desglosAbierto
+                  ? <ChevronDown className="w-4 h-4" />
+                  : <ChevronRight className="w-4 h-4" />
+                }
+              </span>
+            )}
+            <EspaciadorChevron />
+          </div>
+        </button>
+
+        {/* Panel desplegable — desglose: Rubros de obra + Complementos salariales */}
+        {hayComplementos && (
+          <AnimatePresence initial={false}>
+            {desglosAbierto && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden border-t border-slate-100"
+              >
+                <div style={{ background: "#F8FAFC" }}>
+                  {/* Fila: Rubros de obra */}
+                  <div className="flex items-center justify-between px-5 py-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="text-sm text-slate-600">Rubros de obra</span>
+                    </div>
+                    <span className="text-sm font-semibold text-slate-700 tabular-nums">{fmtMoneda(costoDirectoBase, moneda)}</span>
+                  </div>
+
+                  {/* Fila expandible: Complementos salariales */}
+                  <div>
+                    {/* Sub-header de complementos */}
+                    <div className="flex items-center justify-between px-5 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="text-sm text-slate-600">Complementos salariales</span>
+                        <span className="text-[11px] text-slate-400">Convenio SUNCA</span>
+                      </div>
+                      <span className="text-sm font-semibold text-slate-700 tabular-nums">{fmtMoneda(totalComplementos, moneda)}</span>
+                    </div>
+
+                    {/* Filas de cada complemento con sus inputs editables */}
+                    <div className="mx-5 mb-3 rounded-[10px] border border-slate-200 bg-white overflow-hidden">
+                      {/* Horas lluvia */}
+                      <div className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-50">
+                        <span className="flex-1 text-sm text-slate-600">
+                          Horas de lluvia y barro
+                          <NotaInfoIcono texto={NOTA_HORAS_LLUVIA} />
+                        </span>
+                        <PctInput value={complementos!.horasLluviaPct} onChange={complementos!.onChangeHorasLluvia} />
+                        <span className="text-sm font-semibold text-[#2563EB] tabular-nums w-24 text-right">
+                          {fmtMoneda(complementos!.montoImponibleMO * complementos!.horasLluviaPct, moneda)}
+                        </span>
+                      </div>
+                      {/* Desgaste ropa */}
+                      <div className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-50">
+                        <span className="flex-1 text-sm text-slate-600">
+                          Desgaste de ropa
+                          <NotaInfoIcono texto={NOTA_DESGASTE_ROPA} />
+                        </span>
+                        <PctInput value={complementos!.desgasteRopaPct} onChange={complementos!.onChangeDesgasteRopa} />
+                        <span className="text-sm font-semibold text-[#2563EB] tabular-nums w-24 text-right">
+                          {fmtMoneda(complementos!.montoImponibleMO * complementos!.desgasteRopaPct, moneda)}
+                        </span>
+                      </div>
+                      {/* Desgaste herramientas */}
+                      <div className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-50">
+                        <span className="flex-1 text-sm text-slate-600">
+                          Desgaste de herramientas
+                          <NotaInfoIcono texto={NOTA_DESGASTE_HERRAMIENTAS} />
+                        </span>
+                        <PctInput value={complementos!.desgasteHerramientasPct} onChange={complementos!.onChangeDesgasteHerramientas} />
+                        <span className="text-sm font-semibold text-[#2563EB] tabular-nums w-24 text-right">
+                          {fmtMoneda(complementos!.montoImponibleMO * complementos!.desgasteHerramientasPct, moneda)}
+                        </span>
+                      </div>
+                      {/* Transporte */}
+                      <div className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-100">
+                        <span className="flex-1 text-sm text-slate-600">
+                          Complemento transporte
+                          <NotaInfoIcono texto={NOTA_TRANSPORTE} />
+                        </span>
+                        <PctInput value={complementos!.complementoTransportePct} onChange={complementos!.onChangeTransporte} />
+                        <span className="text-sm font-semibold text-[#2563EB] tabular-nums w-24 text-right">
+                          {fmtMoneda(complementos!.montoImponibleMO * complementos!.complementoTransportePct, moneda)}
+                        </span>
+                      </div>
+                      {/* Total complementos */}
+                      <div className="flex items-center gap-2 px-4 py-2 bg-slate-50">
+                        <span className="flex-1 text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Total complementos</span>
+                        <span className="text-xs text-slate-400 tabular-nums">
+                          {fmtPct(complementos!.horasLluviaPct + complementos!.desgasteRopaPct + complementos!.desgasteHerramientasPct + complementos!.complementoTransportePct)}%
+                        </span>
+                        <span className="text-sm font-bold text-[#1A3A5C] tabular-nums w-24 text-right">
+                          {fmtMoneda(totalComplementos, moneda)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Botón guardar */}
+                    <div className="flex justify-end px-5 pb-4">
+                      <button
+                        type="button"
+                        onClick={complementos!.onGuardar}
+                        disabled={complementos!.guardando}
+                        className="px-4 py-2 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold transition-colors disabled:opacity-50"
+                      >
+                        {complementos!.guardando ? "Guardando…" : "Guardar"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );
