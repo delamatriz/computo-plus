@@ -18,10 +18,6 @@ export interface LeyesSocialesData {
   fosvocPct: number;
   frlPct: number;
   fondoGarantiaPct: number;
-  horasLluviaPct: number;
-  desgasteRopaPct: number;
-  desgasteHerramientasPct: number;
-  complementoTransportePct: number;
   snisAdicionalPct: number;
   focerPersonalPct: number;
   // Caja de Profesionales (Ley 17.738) — informativa, sin efecto en ningún
@@ -30,6 +26,13 @@ export interface LeyesSocialesData {
   // Obra pública — coeficiente BPS que usa SeccionLeyesSocialesPublica (no
   // esta tarjeta). Viaja en el mismo objeto para guardarse con el mismo PUT.
   coeficienteBpsPublica: number;
+  // Complementos salariales (Convenio SUNCA) — pagos al obrero en recibo,
+  // NO son aportes BPS. Se muestran en SeccionComplementosSalariales (tarjeta
+  // separada), pero viajan aquí para guardarse con el mismo PUT.
+  horasLluviaPct: number;
+  desgasteRopaPct: number;
+  desgasteHerramientasPct: number;
+  complementoTransportePct: number;
 }
 
 interface Props {
@@ -71,17 +74,6 @@ const NOTA_FRL =
 const NOTA_FDO_GARANTIA =
   "Fondo de Garantía de Créditos Laborales: aporte patronal que garantiza el cobro de créditos laborales (salarios, licencias, aguinaldo) ante la insolvencia del empleador. Cód. 49 es el código de partida BPS.";
 
-const NOTA_HORAS_LLUVIA =
-  "Horas de lluvia y barro (Convenio SUNCA, art. 9 del convenio 2023): cuando llueve, el capataz puede suspender las tareas. El obrero cobra igual hasta 6 horas por jornada, descontadas de una bolsa cuatrimestral (36 h nov–feb / 48 h mar–jun / 60 h jul–oct). Más horas adicionales por barro (6/8/10 h por cuatrimestre). Se paga en el recibo del obrero, no al BPS.\n\nReferencia orientativa: obra de verano ~5%, obra de otoño/invierno ~10%, obra anual ~8%. Ajustá según la época de la obra.";
-
-const NOTA_DESGASTE_ROPA =
-  "Desgaste de ropa de trabajo (Convenio SUNCA, art. 7): la empresa paga al obrero un complemento por el desgaste de la ropa que usa en obra. Se liquida en el recibo junto al jornal, no al BPS. Default 5% sobre el monto imponible (aproximación práctica); el valor exacto depende del jornal de referencia × jornadas trabajadas.";
-
-const NOTA_DESGASTE_HERRAMIENTAS =
-  "Desgaste de herramientas manuales (Convenio SUNCA, art. 8): la empresa paga al obrero un complemento por el uso y desgaste de sus herramientas personales (cuchara, llana, mazo, etc.). Se liquida en el recibo, no al BPS. Default 2% sobre el monto imponible.";
-
-const NOTA_TRANSPORTE =
-  "Complemento de transporte (Convenio SUNCA, art. 10): pago al obrero por el costo del transporte hasta la obra. 4,37% del jornal de referencia por jornada trabajada. Se liquida en el recibo, no al BPS. Default 4,37% sobre el monto imponible (aproximación práctica).";
 
 // Vista previa de POST /api/proyectos/[id]/propagar-aportes-patronales (dryRun).
 interface PreviewAportes {
@@ -344,21 +336,9 @@ export default function SeccionLeyesSociales({
     montoFocerPatronal + montoFscFocap + montoFosvoc +
     montoFrl + montoFondoGarantia;
 
-  // Costos directos al obrero (Convenio SUNCA) — recibo del obrero, NO BPS
-  const montoHorasLluvia          = base * data.horasLluviaPct;
-  const montoDesgasteRopa         = base * data.desgasteRopaPct;
-  const montoDesgasteHerramientas = base * data.desgasteHerramientasPct;
-  const montoTransporte           = base * data.complementoTransportePct;
-  const pctTotalObrero =
-    data.horasLluviaPct + data.desgasteRopaPct +
-    data.desgasteHerramientasPct + data.complementoTransportePct;
-  const totalObrero =
-    montoHorasLluvia + montoDesgasteRopa +
-    montoDesgasteHerramientas + montoTransporte;
-
-  // Total empresa = patronal BPS + costos al obrero
-  const pctTotalEmpresa = pctTotalPatronal + pctTotalObrero;
-  const totalEmpresa    = totalPatronal    + totalObrero;
+  // Total empresa = solo patronal BPS (complementos salariales van en tarjeta propia)
+  const pctTotalEmpresa = pctTotalPatronal;
+  const totalEmpresa    = totalPatronal;
 
   // Retención personal (informativa, no entra al precio)
   const montoFocerPersonal = base * data.focerPersonalPct;
@@ -636,24 +616,12 @@ export default function SeccionLeyesSociales({
                   <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
                     <span className="text-xs font-bold text-[#1A3A5C] uppercase tracking-wide">Empresa paga</span>
                   </div>
-                  {/* Aportes patronales al BPS */}
-                  <div className="px-4 pt-2.5 pb-0.5">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Aportes BPS</span>
-                  </div>
                   <FilaAporte concepto="FOCER patronal"           codigo="145" pct={data.focerPatronalPct} onPctChange={(v) => set("focerPatronalPct", v)} monto={montoFocerPatronal} moneda={moneda} base={base} nota={NOTA_FOCER} />
                   <FilaAporte concepto="FSC/FOCAP"                codigo="34"  pct={data.fscFocapPct}      onPctChange={(v) => set("fscFocapPct", v)}      monto={montoFscFocap}      moneda={moneda} base={base} nota={NOTA_FSC_FOCAP} />
                   <FilaAporte concepto="FOSVOC"                   codigo="43"  pct={data.fosvocPct}        onPctChange={(v) => set("fosvocPct", v)}        monto={montoFosvoc}        moneda={moneda} base={base} nota={NOTA_FOSVOC} />
                   <FilaAporte concepto="FRL"                      codigo="47"  pct={data.frlPct}           onPctChange={(v) => set("frlPct", v)}           monto={montoFrl}           moneda={moneda} base={base} nota={NOTA_FRL} />
                   <FilaAporte concepto="Fdo. Garantía Créd. Lab." codigo="49"  pct={data.fondoGarantiaPct} onPctChange={(v) => set("fondoGarantiaPct", v)} monto={montoFondoGarantia} moneda={moneda} base={base} nota={NOTA_FDO_GARANTIA} />
-                  {/* Costos directos al obrero (recibo del obrero, no BPS) */}
-                  <div className="px-4 pt-3 pb-0.5 border-t border-slate-100 mt-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costos directos al obrero</span>
-                  </div>
-                  <FilaAporte concepto="Horas de lluvia y barro"  codigo="" pct={data.horasLluviaPct}          onPctChange={(v) => set("horasLluviaPct", v)}          monto={montoHorasLluvia}          moneda={moneda} base={base} nota={NOTA_HORAS_LLUVIA} />
-                  <FilaAporte concepto="Desgaste de ropa"         codigo="" pct={data.desgasteRopaPct}         onPctChange={(v) => set("desgasteRopaPct", v)}         monto={montoDesgasteRopa}         moneda={moneda} base={base} nota={NOTA_DESGASTE_ROPA} />
-                  <FilaAporte concepto="Desgaste de herramientas" codigo="" pct={data.desgasteHerramientasPct} onPctChange={(v) => set("desgasteHerramientasPct", v)} monto={montoDesgasteHerramientas} moneda={moneda} base={base} nota={NOTA_DESGASTE_HERRAMIENTAS} />
-                  <FilaAporte concepto="Complemento transporte"   codigo="" pct={data.complementoTransportePct} onPctChange={(v) => set("complementoTransportePct", v)} monto={montoTransporte}          moneda={moneda} base={base} nota={NOTA_TRANSPORTE} />
-                  <FilaAporte concepto="TOTAL Empresa" codigo="" pct={pctTotalEmpresa} monto={totalEmpresa} moneda={moneda} destacado />
+                  <FilaAporte concepto="TOTAL Empresa (BPS)" codigo="" pct={pctTotalEmpresa} monto={totalEmpresa} moneda={moneda} destacado />
                   <div className="px-4 py-3 border-t border-slate-100">
                     <button
                       onClick={consultarAportes}
@@ -706,10 +674,9 @@ export default function SeccionLeyesSociales({
 
               {/* Bloque inferior — resumen */}
               <div className="flex flex-col sm:flex-row gap-3">
-                <CardResumen titulo="Aportes propietario"      monto={totalPropietarioConCaja}  moneda={moneda} />
-                <CardResumen titulo="Aportes empresa BPS"      monto={totalPatronal}            moneda={moneda} />
-                <CardResumen titulo="Costos al obrero"          monto={totalObrero}              moneda={moneda} />
-                <CardResumen titulo="Retención personal"        monto={totalRetencionPersonal}   moneda={moneda} />
+                <CardResumen titulo="Aportes propietario"   monto={totalPropietarioConCaja} moneda={moneda} />
+                <CardResumen titulo="Aportes empresa BPS"  monto={totalEmpresa}            moneda={moneda} />
+                <CardResumen titulo="Retención personal"   monto={totalRetencionPersonal}  moneda={moneda} />
               </div>
 
               <div className="flex justify-end">

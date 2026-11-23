@@ -45,6 +45,7 @@ import { fmtUR, montoEnUR } from "@/lib/monedaUR";
 import { convenioPosiblementeDesactualizado, mensajeAvisoConvenio } from "@/lib/convenioSunca";
 import SeccionLeyesSociales, { LeyesSocialesData } from "@/components/SeccionLeyesSociales";
 import SeccionLeyesSocialesPublica from "@/components/SeccionLeyesSocialesPublica";
+import SeccionComplementosSalariales from "@/components/SeccionComplementosSalariales";
 import SeccionResumenPresupuesto from "@/components/SeccionResumenPresupuesto";
 import SeccionGastosGeneralesUtilidades, {
   CategoriaGastoGeneral,
@@ -6848,19 +6849,34 @@ export default function ProyectoPage() {
           />
         )}
         {leyesSociales && !esObraPublica && (
-          <SeccionLeyesSociales
-            proyectoId={proyectoActivo.id}
-            moneda={moneda}
-            data={leyesSociales}
-            onChange={setLeyesSociales}
-            onRecalcular={recalcularMontoImponible}
-            onGuardar={guardarLeyesSociales}
-            recalculando={recalculandoMO}
-            guardando={guardandoLeyes}
-            metodoMontoImponible={metodoMontoImponible}
-            jornalMedioOficial={jornalMedioOficial}
-            desgloseMOPorCapitulo={desgloseMOPorCapitulo}
-          />
+          <>
+            <SeccionLeyesSociales
+              proyectoId={proyectoActivo.id}
+              moneda={moneda}
+              data={leyesSociales}
+              onChange={setLeyesSociales}
+              onRecalcular={recalcularMontoImponible}
+              onGuardar={guardarLeyesSociales}
+              recalculando={recalculandoMO}
+              guardando={guardandoLeyes}
+              metodoMontoImponible={metodoMontoImponible}
+              jornalMedioOficial={jornalMedioOficial}
+              desgloseMOPorCapitulo={desgloseMOPorCapitulo}
+            />
+            <SeccionComplementosSalariales
+              moneda={moneda}
+              data={{
+                montoImponibleMO:        leyesSociales.montoImponibleMO,
+                horasLluviaPct:          leyesSociales.horasLluviaPct,
+                desgasteRopaPct:         leyesSociales.desgasteRopaPct,
+                desgasteHerramientasPct: leyesSociales.desgasteHerramientasPct,
+                complementoTransportePct:leyesSociales.complementoTransportePct,
+              }}
+              onChange={(d) => setLeyesSociales({ ...leyesSociales, ...d })}
+              onGuardar={guardarLeyesSociales}
+              guardando={guardandoLeyes}
+            />
+          </>
         )}
 
         {/* ── Materiales y Mano de Obra (solo lectura) ─────────── */}
