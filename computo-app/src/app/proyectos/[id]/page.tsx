@@ -3989,11 +3989,22 @@ export default function ProyectoPage() {
   // costoAgregado.ts). Sobre datos ya cargados en memoria, sin consulta
   // nueva — mismo patrón que computarMOTotalPorCapitulo.
   const costoDirectoAgregado = calcularCostoDirectoAgregado(capitulos, apuData);
+  // Complementos salariales (Convenio SUNCA) — costo directo del empleador,
+  // se suma al Costo Directo antes de Gastos Generales (no es Leyes Sociales).
+  const totalComplementosSalariales = leyesSociales && proyectoActivo.tipoContratacion !== "PUBLICA"
+    ? leyesSociales.montoImponibleMO * (
+        (leyesSociales.horasLluviaPct ?? 0) +
+        (leyesSociales.desgasteRopaPct ?? 0) +
+        (leyesSociales.desgasteHerramientasPct ?? 0) +
+        (leyesSociales.complementoTransportePct ?? 0)
+      )
+    : 0;
+  const costoDirectoConComplementos = costoDirectoAgregado.total + totalComplementosSalariales;
   const costosIndirectosAgregados = calcularCostosIndirectosAgregados(
     proyecto?.modoGastosGenerales,
     proyecto?.gastosGeneralesDetallado,
     proyecto?.gastosGeneralesPctDefault,
-    costoDirectoAgregado.total,
+    costoDirectoConComplementos,
     proyecto?.gastosGeneralesItems,
     proyecto?.imprevistosPct
   );
@@ -4006,15 +4017,14 @@ export default function ProyectoPage() {
   );
   // Monto de Imprevistos solo para mostrarlo en la tarjeta — ya viene
   // sumado dentro de costosIndirectosAgregados (misma función pura).
-  const montoImprevistos = calcularImprevistos(costoDirectoAgregado.total, proyecto?.imprevistosPct);
+  const montoImprevistos = calcularImprevistos(costoDirectoConComplementos, proyecto?.imprevistosPct);
   const utilidadAgregada = calcularUtilidadAgregada(capitulos, apuData);
   // Mismos términos derivados que ya calcula TarjetaCostoTotalPrecioFinal
   // internamente a partir de costoDirecto+montoGastosGeneralesYBeneficio —
   // nombrados acá (en vez de solo inline en esa tarjeta) para que
   // SeccionResumenPresupuesto pueda mostrarlos como filas de solo lectura,
-  // sin reimplementar la fórmula ni duplicar la fuente de verdad.
   const montoGastosGeneralesYBeneficio = costosIndirectosAgregados + utilidadAgregada;
-  const costoTotalAgregado = costoDirectoAgregado.total + montoGastosGeneralesYBeneficio;
+  const costoTotalAgregado = costoDirectoConComplementos + montoGastosGeneralesYBeneficio;
   // 0 si el proyecto no factura IVA (empresa literal E o monotributo).
   const facturaConIva = proyecto?.facturaConIva ?? true;
   const montoIVAAgregado = calcularMontoIva(costoTotalAgregado, costosIndirectosExento, facturaConIva);
@@ -6764,11 +6774,30 @@ export default function ProyectoPage() {
             ignorado como antes). ── */}
         <TarjetaCostoDirecto
           moneda={moneda}
-          costoDirecto={costoDirectoAgregado.total}
+          costoDirecto={costoDirectoConComplementos}
           metodoCostoDirecto={costoDirectoAgregado.metodo}
           rubrosSinApu={costoDirectoAgregado.rubrosSinApu}
           rubrosSinApuDetalle={rubrosSinApuDetalle}
         />
+
+        {/* Complementos salariales — Convenio SUNCA, pagos al obrero en recibo.
+            Son costo directo del empleador, se muestran aquí (antes de Gastos
+            Generales) y suman al Costo Directo. */}
+        {leyesSociales && !esObraPublica && (
+          <SeccionComplementosSalariales
+            moneda={moneda}
+            data={{
+              montoImponibleMO:        leyesSociales.montoImponibleMO,
+              horasLluviaPct:          leyesSociales.horasLluviaPct,
+              desgasteRopaPct:         leyesSociales.desgasteRopaPct,
+              desgasteHerramientasPct: leyesSociales.desgasteHerramientasPct,
+              complementoTransportePct:leyesSociales.complementoTransportePct,
+            }}
+            onChange={(d) => setLeyesSociales({ ...leyesSociales, ...d })}
+            onGuardar={guardarLeyesSociales}
+            guardando={guardandoLeyes}
+          />
+        )}
 
         <SeccionGastosGeneralesUtilidades
           proyectoId={proyectoId}
@@ -6792,7 +6821,7 @@ export default function ProyectoPage() {
 
         <TarjetaCostoTotalPrecioFinal
           moneda={moneda}
-          costoDirecto={costoDirectoAgregado.total}
+          costoDirecto={costoDirectoConComplementos}
           montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
           montoIVA={montoIVAAgregado}
           facturaConIva={facturaConIva}
@@ -6849,34 +6878,19 @@ export default function ProyectoPage() {
           />
         )}
         {leyesSociales && !esObraPublica && (
-          <>
-            <SeccionLeyesSociales
-              proyectoId={proyectoActivo.id}
-              moneda={moneda}
-              data={leyesSociales}
-              onChange={setLeyesSociales}
-              onRecalcular={recalcularMontoImponible}
-              onGuardar={guardarLeyesSociales}
-              recalculando={recalculandoMO}
-              guardando={guardandoLeyes}
-              metodoMontoImponible={metodoMontoImponible}
-              jornalMedioOficial={jornalMedioOficial}
-              desgloseMOPorCapitulo={desgloseMOPorCapitulo}
-            />
-            <SeccionComplementosSalariales
-              moneda={moneda}
-              data={{
-                montoImponibleMO:        leyesSociales.montoImponibleMO,
-                horasLluviaPct:          leyesSociales.horasLluviaPct,
-                desgasteRopaPct:         leyesSociales.desgasteRopaPct,
-                desgasteHerramientasPct: leyesSociales.desgasteHerramientasPct,
-                complementoTransportePct:leyesSociales.complementoTransportePct,
-              }}
-              onChange={(d) => setLeyesSociales({ ...leyesSociales, ...d })}
-              onGuardar={guardarLeyesSociales}
-              guardando={guardandoLeyes}
-            />
-          </>
+          <SeccionLeyesSociales
+            proyectoId={proyectoActivo.id}
+            moneda={moneda}
+            data={leyesSociales}
+            onChange={setLeyesSociales}
+            onRecalcular={recalcularMontoImponible}
+            onGuardar={guardarLeyesSociales}
+            recalculando={recalculandoMO}
+            guardando={guardandoLeyes}
+            metodoMontoImponible={metodoMontoImponible}
+            jornalMedioOficial={jornalMedioOficial}
+            desgloseMOPorCapitulo={desgloseMOPorCapitulo}
+          />
         )}
 
         {/* ── Materiales y Mano de Obra (solo lectura) ─────────── */}
@@ -6917,7 +6931,7 @@ export default function ProyectoPage() {
         <SeccionResumenPresupuesto
           moneda={moneda}
           capitulos={capitulosConSubtotal}
-          costoDirecto={costoDirectoAgregado.total}
+          costoDirecto={costoDirectoConComplementos}
           montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
           costoTotal={costoTotalAgregado}
           montoIVA={montoIVAAgregado}
@@ -7010,7 +7024,7 @@ export default function ProyectoPage() {
             variante="gestion"
             moneda={moneda}
             capitulos={capitulosConSubtotal}
-            costoDirecto={costoDirectoAgregado.total}
+            costoDirecto={costoDirectoConComplementos}
             montoGastosGeneralesYBeneficio={montoGastosGeneralesYBeneficio}
             costoTotal={costoTotalAgregado}
             montoIVA={montoIVAAgregado}
