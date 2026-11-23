@@ -17,6 +17,9 @@ const REGLAS_LEYES_SOCIALES = {
   frlPct: fraccion,
   fondoGarantiaPct: fraccion,
   horasLluviaPct: fraccion,
+  desgasteRopaPct: fraccion,
+  desgasteHerramientasPct: fraccion,
+  complementoTransportePct: fraccion,
   snisAdicionalPct: fraccion,
   focerPersonalPct: fraccion,
   coeficienteBpsPublica: fraccion,
@@ -102,8 +105,11 @@ export async function PUT(
       ...(body.fosvocPct         !== undefined && { fosvocPct:         body.fosvocPct }),
       ...(body.frlPct            !== undefined && { frlPct:            body.frlPct }),
       ...(body.fondoGarantiaPct  !== undefined && { fondoGarantiaPct:  body.fondoGarantiaPct }),
-      ...(body.horasLluviaPct    !== undefined && { horasLluviaPct:    body.horasLluviaPct }),
-      ...(body.snisAdicionalPct  !== undefined && { snisAdicionalPct:  body.snisAdicionalPct }),
+      ...(body.horasLluviaPct           !== undefined && { horasLluviaPct:           body.horasLluviaPct }),
+      ...(body.desgasteRopaPct          !== undefined && { desgasteRopaPct:          body.desgasteRopaPct }),
+      ...(body.desgasteHerramientasPct  !== undefined && { desgasteHerramientasPct:  body.desgasteHerramientasPct }),
+      ...(body.complementoTransportePct !== undefined && { complementoTransportePct: body.complementoTransportePct }),
+      ...(body.snisAdicionalPct         !== undefined && { snisAdicionalPct:         body.snisAdicionalPct }),
       ...(body.focerPersonalPct  !== undefined && { focerPersonalPct:  body.focerPersonalPct }),
       // Caja de Profesionales (informativa) — se valida contra los 3 tipos
       // conocidos; un valor raro cae al default en vez de guardarse.

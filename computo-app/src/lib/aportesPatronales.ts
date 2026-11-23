@@ -116,14 +116,22 @@ export const APORTES_PATRONALES_FRACCION = Object.fromEntries(
  * los cinco patronales + los dos personales informativos. Se pasa explícito
  * al crear la fila (no se depende del @default de la base).
  */
-/** Horas de lluvia y barro (Convenio SUNCA, art. 9 conv. 2023) — costo
- *  laboral real, no aporte BPS. Default 8%: valor orientativo para obra
- *  anual; ajustar según época (nov-feb ~5%, jul-oct ~10%). */
-export const HORAS_LLUVIA_PCT_DEFAULT = 8;
+// Costos directos al obrero (Convenio SUNCA) — se pagan en el recibo,
+// NO son aportes BPS. Expresados como % sobre el monto imponible de MO.
+// Fuente: Convenio SUNCA vigente, verificado nov-2026.
+export const HORAS_LLUVIA_PCT_DEFAULT          = 8;     // art. 9 — lluvia y barro
+export const DESGASTE_ROPA_PCT_DEFAULT          = 5;     // art. 7 — ropa de trabajo
+export const DESGASTE_HERRAMIENTAS_PCT_DEFAULT  = 2;     // art. 8 — herramientas manuales
+export const COMPLEMENTO_TRANSPORTE_PCT_DEFAULT = 4.37;  // art. 10 — complemento transporte
 
 export const LEYES_SOCIALES_DEFAULTS_FRACCION = {
   ...APORTES_PATRONALES_FRACCION,
-  horasLluviaPct: redondear(HORAS_LLUVIA_PCT_DEFAULT / 100, 8),
+  // Costos directos al obrero
+  horasLluviaPct:          redondear(HORAS_LLUVIA_PCT_DEFAULT          / 100, 8),
+  desgasteRopaPct:         redondear(DESGASTE_ROPA_PCT_DEFAULT         / 100, 8),
+  desgasteHerramientasPct: redondear(DESGASTE_HERRAMIENTAS_PCT_DEFAULT / 100, 8),
+  complementoTransportePct:redondear(COMPLEMENTO_TRANSPORTE_PCT_DEFAULT / 100, 8),
+  // Aportes personales informativos
   snisAdicionalPct: redondear(SNIS_ADICIONAL_PERSONAL_PCT / 100, 8),
   focerPersonalPct: redondear(FOCER_PERSONAL_PCT / 100, 8),
 };

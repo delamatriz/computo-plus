@@ -287,13 +287,14 @@ model LeyesSociales {
   frlPct           Float @default(0.001)    // 0,10% — Código 47
   fondoGarantiaPct Float @default(0.00025)  // 0,025% — Código 49
 
-  // Horas de lluvia y barro (Convenio SUNCA, art. 9 conv. 2023) — costo
-  // laboral real (el obrero cobra aunque no trabaje). Se expresa como
-  // porcentaje sobre el monto imponible de MO. Default 8% (valor típico
-  // para obra de duración anual; ajustar según época: nov-feb ~5%, jul-oct ~10%).
-  // No es un aporte BPS: se muestra aparte en "Empresa paga" solo como costo
-  // adicional de mano de obra; no tiene código de partida.
-  horasLluviaPct Float @default(0.08)     // 8% — costo laboral días de lluvia
+  // Costos directos al obrero (Convenio SUNCA) — se pagan en el recibo del
+  // obrero, NO son aportes BPS. Se expresan como % sobre el monto imponible
+  // de MO (Opción A: aproximación práctica; para cálculo exacto se necesitan
+  // jornadas estimadas). Ninguno tiene código BPS. Verificado nov-2026.
+  horasLluviaPct         Float @default(0.08)    // 8%    — Horas de lluvia y barro (Convenio SUNCA, art. 9 conv. 2023)
+  desgasteRopaPct        Float @default(0.05)    // 5%    — Desgaste de ropa de trabajo (Convenio SUNCA, art. 7)
+  desgasteHerramientasPct Float @default(0.02)   // 2%    — Desgaste de herramientas manuales (Convenio SUNCA, art. 8)
+  complementoTransportePct Float @default(0.0437) // 4,37% — Complemento de transporte (Convenio SUNCA, art. 10)
 
   // Trabajador — aportes PERSONALES informativos (no entran a ningún precio).
   // SNIS adicional es un aporte personal variable, NO patronal: ya no integra
