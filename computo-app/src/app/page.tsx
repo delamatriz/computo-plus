@@ -4,28 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
-import { FileText, Play, Ruler, Scale, X } from "lucide-react";
+import { X } from "lucide-react";
 import { FormularioLogin } from "@/components/FormularioLogin";
 import { CLAVE_ORIGEN } from "@/lib/config-prueba";
-
-// Beneficios de la portada — texto provisorio, Luis lo redacta.
-const BENEFICIOS = [
-  {
-    icono: Ruler,
-    titulo: "Del plano al presupuesto",
-    texto: "Computá metrajes y armá capítulos y rubros con su descompuesto y precios de la Lista MTOP.",
-  },
-  {
-    icono: Scale,
-    titulo: "Leyes sociales al día",
-    texto: "Aporte AUC, jornales SUNCA y fondos de la empresa calculados según la normativa vigente.",
-  },
-  {
-    icono: FileText,
-    titulo: "Listo para entregar",
-    texto: "Presupuesto para el cliente, certificaciones de avance y órdenes de compra en PDF.",
-  },
-];
 
 // ?o= (instagram, mail, demo…): se guarda para asociarlo al registro en
 // /bienvenida. Mismo criterio que sanitizarOrigen() del servidor.
@@ -66,7 +47,7 @@ export default function SplashPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div>
       {/* Portada */}
       <section className="relative min-h-[100svh] overflow-hidden flex flex-col items-center justify-center">
         <div
@@ -137,44 +118,6 @@ export default function SplashPage() {
           v1.0 · Uruguay
         </div>
       </section>
-
-      {/* Video + beneficios */}
-      <section className="px-4 py-16 sm:py-20">
-        <div className="max-w-4xl mx-auto">
-          {/* Lugar reservado para el video (Luis lo agrega después). */}
-          <div className="aspect-video w-full rounded-2xl bg-slate-200 border border-slate-300/60 flex flex-col items-center justify-center gap-3 text-slate-500">
-            <span className="w-14 h-14 rounded-full bg-white/70 flex items-center justify-center">
-              <Play className="w-6 h-6 text-[#1A3A5C] translate-x-0.5" />
-            </span>
-            <span className="text-sm font-medium">Video próximamente</span>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3 mt-10">
-            {BENEFICIOS.map(({ icono: Icono, titulo, texto }) => (
-              <div key={titulo} className="bg-white rounded-xl border border-slate-200 p-5">
-                <span className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <Icono className="w-5 h-5 text-[#2563EB]" />
-                </span>
-                <h2 className="text-sm font-semibold text-[#1A3A5C] mt-4">{titulo}</h2>
-                <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">{texto}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Pie */}
-      <footer className="border-t border-slate-200 px-4 py-6">
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
-          <span>
-            CÓMPUTO<span className="text-[#2563EB]">+</span> · Presupuestación de Obra Premium · Uruguay
-          </span>
-          <nav className="flex gap-4">
-            <Link href="/terminos" className="hover:text-slate-600">Términos y condiciones</Link>
-            <Link href="/privacidad" className="hover:text-slate-600">Política de privacidad</Link>
-          </nav>
-        </div>
-      </footer>
 
       {loginAbierto && (
         <div
